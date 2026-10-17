@@ -2,7 +2,7 @@
 
 `dsh-widget-board` 是 DeepSeek Harness 的组件看板插件：侧栏一个入口、中栏一页可拖拽缩放的卡片看板，卡片是小组件。组件由用户或会话里的 agent 编写，也可以由其他插件提供；同一个组件能放在看板上、内联在会话里、固定到右侧栏。插件只画在宿主交给它的表面上，不覆盖宿主的 DOM（D1）。
 
-全局结构与跨模块不变量在 [ARCHITECTURE.md](ARCHITECTURE.md)。方向记在 [docs/adr/](docs/adr/README.md)，每页写背景、决定、后果与重审条件；改动触及哪条就先读哪条，代码注释引用的编号就是这些文件名。宿主接入面的核实记录在 [docs/host-surfaces.md](docs/host-surfaces.md)。实施次序与完成判据在 [docs/PLAN.md](docs/PLAN.md)，全部完成后删除该文件。
+全局结构与跨模块不变量在 [ARCHITECTURE.md](ARCHITECTURE.md)。方向记在 [docs/adr/](docs/adr/README.md)，每页写背景、决定、后果与重审条件；改动触及哪条就先读哪条，代码注释引用的编号就是这些文件名。宿主接入面的核实记录在 [docs/host-surfaces.md](docs/host-surfaces.md)。实施次序与完成判据在 [docs/PLAN.md](docs/PLAN.md)，全部完成后删除该文件；动效组件那条支线的方案在 [docs/PLAN-motion.md](docs/PLAN-motion.md)，同为一次性文档。
 
 ## 写作规则
 

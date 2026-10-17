@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 2,
-  "at": "2026-10-16",
-  "external": false,
-  "zh": "组件热重载：宿主监视 `lib/`，组件或运行时一改就重读，在线页面按新哈希把卡片重挂，不用刷新。",
-  "en": "Widget hot reload: the host watches `lib/`, re-reads the library when a widget or the runtime changes, and open pages remount their cards on the new hash without a refresh."
-}

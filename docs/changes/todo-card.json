@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 4,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "待办卡片：一张卡片上的清单，回车加一条、勾掉做完的，进度条跟着走；条目存在宿主上，切走再切回、页面重载之后都还在。",
-  "en": "To-do card: a list on a card — press Enter to add, tick what is done, and the progress bar follows; items live on the host, so they survive a panel switch or a page reload."
-}

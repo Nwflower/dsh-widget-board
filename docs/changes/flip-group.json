@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 7,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "翻面组原型：正反各一张普通卡片，共用一个卡片盒子，鼠标移上去翻面；固定为数字与图表，从组件库加入，整组移除。",
-  "en": "Flip group prototype: two ordinary cards, one per side, sharing one card box and flipping on hover; fixed to stat and chart, added from the library and removed as a group."
-}

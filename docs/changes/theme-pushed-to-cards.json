@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 23,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "切换浅色深色、换皮肤或改系统动画偏好时，卡片里的组件当场跟着变，不再等重新加载；组件的文案与文档的 `lang` 也跟着宿主的界面语言走。",
-  "en": "Switching light and dark, changing skin or the system motion preference updates the components in place instead of waiting for a reload, and the widget document's `lang` follows the host's interface language."
-}

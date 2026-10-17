@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 3,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "番茄钟卡片：选一段专注时长开始倒计时，剩余分钟、进度刻度与按钮文字跟着走。",
-  "en": "Pomodoro card: pick a focus length and start; the remaining minutes, the progress ticks and the button label follow the session."
-}

@@ -1,8 +1,0 @@
-{
-  "group": "fixes",
-  "order": 4,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "卡片外圈那道一像素的浅色描边去掉了：卡片的边由它自己的画面收口，外壳只留投影。",
-  "en": "The one-pixel light outline around each card is gone: a card's edge is its own artwork now, and the page only draws the shadow."
-}

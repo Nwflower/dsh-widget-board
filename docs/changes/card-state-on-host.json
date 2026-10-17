@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 4,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "卡片的界面状态存在宿主上：番茄钟切走再切回、页面重载之后接着计时，天气卡记得选中的是哪一个预报日。组件的 `setState` 现在有地方落，重挂之后经 `init` 拿回来。",
-  "en": "A card's interface state lives on the host now: the pomodoro keeps counting across a panel switch or a page reload, and the weather card remembers which forecast day was open. Widget `setState` has somewhere to land and comes back through `init` after a remount."
-}

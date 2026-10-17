@@ -6,9 +6,11 @@
 
 ## [Unreleased]
 
-[中文](#cn-unreleased) | [English](#en-unreleased)
+## [0.1.0] - 2026-10-17
 
-<h3 id="cn-unreleased">新增功能</h3>
+[中文](#cn-0.1.0) | [English](#en-0.1.0)
+
+<h3 id="cn-0.1.0">新增功能</h3>
 
 - 侧栏多一个「看板」入口，中栏打开一页空看板。
 - 第一张卡片：天气卡。天空、图标、温度与天气文字随预报日一起过渡，尺寸族在窄窗口里降级，系统要求减弱动效时天空静置。
@@ -50,7 +52,7 @@
 - 新组件不用重启宿主也能出现在看板上：热重载读到组件库里的新组件时，看板给它补一张卡。之前只在启动时补，改组件看得见、加组件得重启一次。
 - 翻面与磁吸卡片的 iframe 不再露白：画布先铺一层宿主底色和点阵，翻面时卡片两侧与组件留白都跟着主题走。
 
-<h3 id="en-unreleased">New Features</h3>
+<h3 id="en-0.1.0">New Features</h3>
 
 - A Board entry in the sidebar, opening an empty board page in the centre column.
 - The first card: weather. Sky, icon, temperature and condition transition together as the forecast day changes; the size family degrades in a narrow window, and the sky stands still when the system asks for reduced motion.

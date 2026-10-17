@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 22,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "看板题头多了一个添加组件的按钮：从组件库按来源分组挑一个，卡片出现在最矮的一列底部；卡片的右上角可以把它移除。",
-  "en": "The board header has an add-widget button: pick from the library, grouped by source, and the card lands at the bottom of the shortest column. A card's top-right corner removes it."
-}

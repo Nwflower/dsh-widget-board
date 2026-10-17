@@ -10,6 +10,8 @@
  * 用法：node packages/testing/smoke.cjs
  */
 'use strict'
+const { readFile, writeFile } = require('node:fs/promises')
+const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
@@ -106,6 +108,15 @@ async function mainPass(page, problems) {
   check('数字走逐位动画', after.digits === 2)
   check('图标换到闪电', after.icon === true)
 
+  const live = await page.evaluate(async () => {
+    const response = await fetch('api/widget-board/events', { headers: { accept: 'text/event-stream' } })
+    const reader = response.body.getReader()
+    const { value } = await reader.read()
+    await reader.cancel()
+    return { status: response.status, first: new TextDecoder().decode(value ?? new Uint8Array()).trim() }
+  })
+  check('变更通知接得上，先补一个修订号', live.status === 200 && /^data: \{"revision":\d+\}$/.test(live.first), live.first)
+
   const errors = problems.filter((problem) => problem.startsWith('error:') || problem.startsWith('pageerror:'))
   check('控制台没有错误', errors.length === 0, errors.join(' / '))
   const warnings = problems.filter((problem) => problem.startsWith('warning:'))
@@ -156,12 +167,48 @@ async function narrowPass(page) {
   check('卡片铺满窄窗口的宽度', inside.width > 200, `${inside.width}px`)
 }
 
+/**
+ * 热重载：改一个组件文件，宿主重读组件库，在线页面按新哈希把卡片重挂（D7）。
+ *
+ * 写的是构建产物 `lib/widgets/`，跑完按原字节写回去；即使中途失败也不会把产物改坏，下一次
+ * `npm run build` 也会重写它。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function reloadPass(page) {
+  const target = join(__dirname, '..', '..', 'lib', 'widgets', 'weather', 'style.css')
+  const original = await readFile(target)
+  const before = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame')?.src ?? '')
+  try {
+    await writeFile(target, Buffer.concat([original, Buffer.from('\n/* smoke: 热重载探针 */\n')]))
+    const swapped = await page.waitForFunction(
+      (previous) => {
+        const frame = document.querySelector('iframe.dsh-widget-board__frame')
+        return frame !== null && frame.src !== previous
+      },
+      before,
+      { timeout: 20000 },
+    ).then(() => true, () => false)
+    check('改了组件文件后卡片按新哈希重挂', swapped)
+    const after = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame')?.src ?? '')
+    check('新地址与原地址不同', after !== before && after !== '', after.split('/widget/')[1]?.slice(0, 12))
+    const handle = await page.$('iframe.dsh-widget-board__frame')
+    const frame = await handle.contentFrame()
+    await frame.waitForSelector('.wx', { timeout: 20000 })
+    check('重挂之后天气卡仍然画出来', true)
+  } finally {
+    await writeFile(target, original)
+  }
+  await sleep(1500)
+}
+
 start().then(async (host) => {
   let opened
   try {
     opened = await openPage(host.url)
     await mainPass(opened.page, opened.problems)
     await narrowPass(opened.page)
+    await reloadPass(opened.page)
   } finally {
     if (opened !== undefined) await opened.close()
   }

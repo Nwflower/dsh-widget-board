@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { BoardInstance, ParentMessage, WidgetFamily, WidgetSummary } from '@dsh-widget-board/contracts'
-import { PLUGIN_ROUTE, widgetDocumentPath } from '@dsh-widget-board/contracts'
+import { widgetDocumentPath } from '@dsh-widget-board/contracts'
 import type { FamilyBox, GridMetrics } from '@dsh-widget-board/model'
 import { familyBox, resolveFamily } from '@dsh-widget-board/model'
 import { resolveTokens } from './tokens'
@@ -60,7 +60,7 @@ export function WidgetCard({ instance, widget, metrics, controls }: WidgetCardPr
     : null
   const sizeRef = useRef(size)
   sizeRef.current = size
-  const src = `${PLUGIN_ROUTE}${widgetDocumentPath(widget.hash)}`
+  const src = widgetDocumentPath(widget.hash)
 
   useEffect(() => {
     const frame = frameRef.current

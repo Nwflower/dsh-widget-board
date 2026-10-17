@@ -1,20 +1,21 @@
 /**
- * 插件的私有路由（D1、D3）：看板快照与组件文档。
+ * 插件的私有路由（D1、D3）：看板快照、组件文档与变更通知。
  *
  * 每条请求先过宿主的请求栅栏；宿主没有这项服务时只放行本机回环来的请求，判定以对端地址为准。
- * 组件文档按内容哈希寻址，响应头带 CSP，一次请求一个 nonce。
+ * 组件文档按内容哈希寻址，响应头带 CSP，一次请求一个 nonce，且不带缓存——文档里还内联着运行时
+ * 与套件，组件哈希并不覆盖它们。
  */
 import type { Board, BoardSnapshot, HostConnection, HostRequest, HostResponse } from '@dsh-widget-board/contracts'
-import { BOARD_PATH, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
-import type { DocumentAssets } from './document'
+import { BOARD_PATH, EVENTS_PATH, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
+import type { Live } from './live'
 import type { WidgetRecord } from './library'
 
-/** 路由处理器读到的一切。 */
+/** 路由处理器读到的一切；组件库与资产随热重载替换，所以这里持有一个可变的对象。 */
 export interface RouteContext {
   library: Map<string, WidgetRecord>
   board: Board
-  assets: DocumentAssets
+  live: Live
   connection: HostConnection | undefined
 }
 
@@ -64,7 +65,7 @@ function snapshot(context: RouteContext): BoardSnapshot {
 /**
  * 生成前缀路由的处理器。
  *
- * @param context - 组件库、看板、资产与栅栏。
+ * @param context - 组件库、看板、通知器与栅栏；`library` 会在热重载时被替换。
  * @returns 交给宿主 web 服务的处理器。
  */
 export function createHandler(context: RouteContext): (req: HostRequest, res: HostResponse) => Promise<void> {
@@ -86,6 +87,10 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
       json(response, 200, snapshot(context))
       return
     }
+    if (path === EVENTS_PATH) {
+      context.live.subscribe(response)
+      return
+    }
     const document = /^\/widget\/([0-9a-f]{64})\/document$/.exec(path)
     const hash = document?.[1]
     const record = hash === undefined ? undefined : [...context.library.values()].find((candidate) => candidate.hash === hash)
@@ -95,11 +100,10 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
       return
     }
     const nonce = freshNonce()
-    const html = buildDocument(record, context.assets, nonce)
+    const html = buildDocument(record, context.live.assets, nonce)
     response.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': contentSecurityPolicy(nonce),
-      // 文档里还内联着运行时与套件，组件哈希并不覆盖它们，所以不能按哈希长期缓存。
       'cache-control': 'no-store',
       'referrer-policy': 'no-referrer',
     })

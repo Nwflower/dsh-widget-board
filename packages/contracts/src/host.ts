@@ -18,6 +18,10 @@ export interface HostRequest {
 export interface HostResponse {
   writeHead(status: number, headers?: Record<string, string>): unknown
   end(body?: string | Uint8Array): unknown
+  /** 一条已经开始的响应用它继续写（SSE）；一次性响应不必用。 */
+  write?(chunk: string): unknown
+  /** 订阅响应自身的关闭，用来把长连接的观众摘掉。 */
+  on?(event: 'close', listener: () => void): unknown
 }
 
 /** 一条路由：`exact` 逐字匹配，`prefix` 匹配它本身与它下面的一切。 */

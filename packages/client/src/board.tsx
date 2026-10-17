@@ -6,6 +6,7 @@ import type { GridMetrics } from '@dsh-widget-board/model'
 import { metricsOf } from '@dsh-widget-board/model'
 import type { CardControls } from './card'
 import { WidgetCard } from './card'
+import { subscribeLive } from './live'
 import { fetchSnapshot } from './snapshot'
 
 /** 根字号的像素值：行高与间距按它换算（D4）。 */
@@ -17,12 +18,14 @@ function rootFontSize(): number {
  * 中栏的看板页。
  *
  * 断点按这块容器的宽度判定，整页只有一个 ResizeObserver；离开视口的卡片由整页唯一的一个
- * IntersectionObserver 暂停（D4）。看板的内容来自宿主的一次快照（D5）。
+ * IntersectionObserver 暂停（D4）。看板的内容来自宿主的一次快照，之后随宿主的变更通知重取：
+ * 组件或运行时换了，卡片按新的哈希重挂（D5、D7）。
  */
 export function BoardPage(): ReactNode {
   const [snapshot, setSnapshot] = useState<BoardSnapshot | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<GridMetrics | null>(null)
+  const [revision, setRevision] = useState(0)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
   const cards = useRef(new Map<string, { pause: () => void, resume: () => void }>())
@@ -34,11 +37,17 @@ export function BoardPage(): ReactNode {
     },
   }), [])
 
+  useEffect(() => subscribeLive(setRevision), [])
+
   useEffect(() => {
     let live = true
-    fetchSnapshot().then((next) => { if (live) setSnapshot(next) }, (error: Error) => { if (live) setFailure(error.message) })
+    fetchSnapshot().then((next) => {
+      if (!live) return
+      setSnapshot(next)
+      setFailure(null)
+    }, (error: Error) => { if (live) setFailure(error.message) })
     return () => { live = false }
-  }, [])
+  }, [revision])
 
   useEffect(() => {
     const node = containerRef.current
@@ -96,7 +105,7 @@ export function BoardPage(): ReactNode {
               </div>
             )
           }
-          return <WidgetCard key={instance.id} instance={instance} widget={widget} metrics={metrics} controls={controls} />
+          return <WidgetCard key={`${instance.id}@${revision}`} instance={instance} widget={widget} metrics={metrics} controls={controls} />
         })}
       </div>
     )

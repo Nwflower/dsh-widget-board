@@ -39,11 +39,14 @@ function seed(library: Map<string, WidgetRecord>): Board {
 /**
  * 给组件库里新出现的组件补卡。
  *
+ * 启动时读看板要补，热重载读到新组件时也要补：组件已经落到 `lib/widgets/` 里，看板上还没有它的
+ * 卡，补一张比让人重启一次更接近“改了就看见”。加入卡片的面板做出来之后，这一条可以退成默认行为。
+ *
  * @param board - 读出来的看板。
  * @param library - 已校验的组件库。
  * @returns 补过卡的看板；不需要补时是 null。
  */
-function complete(board: Board, library: Map<string, WidgetRecord>): Board | null {
+export function withNewWidgets(board: Board, library: Map<string, WidgetRecord>): Board | null {
   const placed = new Set(board.instances.map((instance) => instance.widget))
   const missing = [...library.keys()].sort().filter((id) => !placed.has(id))
   if (missing.length === 0) return null
@@ -75,7 +78,7 @@ export async function loadBoard(file: string, library: Map<string, WidgetRecord>
   for (const instance of board.instances) {
     if (!library.has(instance.widget)) throw new Error(`${file} 里的卡片 ${instance.id} 引用了组件库里没有的组件 ${instance.widget}；原文件保留`)
   }
-  const filled = complete(board, library)
+  const filled = withNewWidgets(board, library)
   if (filled === null) return board
   await writeBoard(file, filled)
   return filled

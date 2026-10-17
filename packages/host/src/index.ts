@@ -14,7 +14,7 @@ import type { WidgetRecord } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
-import { loadBoard, writeBoard } from './state'
+import { loadBoard, withNewWidgets, writeBoard } from './state'
 import { watchTree } from './watch'
 import { dshHome } from './home'
 
@@ -72,6 +72,9 @@ export async function apply(ctx: Context): Promise<void> {
       const next = await loadLibrary(widgets)
       remember(next)
       context.library = next
+      // 库里有、看板上还没有的组件补一张卡：新组件不重启也能出现在已有的看板上。
+      const filled = withNewWidgets(context.board, next)
+      if (filled !== null) await save(() => filled)
       live.publish(await loadAssets(runtime))
     } catch (error) {
       console.error(`widget-board: 重读 ${lib} 失败，继续用上一份：${(error as Error).message}`)

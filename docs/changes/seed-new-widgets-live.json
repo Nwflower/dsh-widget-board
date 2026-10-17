@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 5,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "新组件不用重启宿主也能出现在看板上：热重载读到组件库里的新组件时，看板给它补一张卡。之前只在启动时补，改组件看得见、加组件得重启一次。",
+  "en": "A new widget reaches the board without restarting the host: when a hot reload finds a widget the board has no card for, one is added. Before, that only happened at startup, so editing a widget showed up but adding one needed a restart."
+}

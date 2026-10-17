@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { Board } from '@dsh-widget-board/contracts'
-import { withInstanceState } from '../src/state'
+import type { WidgetRecord } from '../src/library'
+import { withInstanceState, withNewWidgets } from '../src/state'
 
 /** 一块带两张卡的看板。 */
 function board(): Board {
@@ -46,5 +47,43 @@ describe('卡片状态', () => {
 
   it('看板上没有这张卡时报错', () => {
     expect(() => withInstanceState(board(), 'missing', {})).toThrow(/看板上没有这张卡/)
+  })
+})
+
+describe('新组件的补卡', () => {
+  /** 一个已经在校验过的组件记录，只填补卡用得上的字段。 */
+  function record(id: string): WidgetRecord {
+    return { hash: id.padEnd(64, '0'), dir: `/widgets/${id}`, manifest: { id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'] } } as WidgetRecord
+  }
+
+  it('组件库里有、看板上没有的组件补一张卡', () => {
+    const library = new Map([['pomodoro', record('pomodoro')], ['weather', record('weather')], ['third', record('third')]])
+    const next = withNewWidgets(board(), library)
+    expect(next?.instances.map((instance) => instance.widget)).toEqual(['pomodoro', 'weather', 'third'])
+  })
+
+  it('补进来的卡按组件 id 排序', () => {
+    const library = new Map([
+      ['pomodoro', record('pomodoro')],
+      ['weather', record('weather')],
+      ['zeta', record('zeta')],
+      ['alpha', record('alpha')],
+    ])
+    const next = withNewWidgets(board(), library)
+    expect(next?.instances.map((instance) => instance.widget)).toEqual(['pomodoro', 'weather', 'alpha', 'zeta'])
+  })
+
+  it('没有新组件时什么都不做', () => {
+    const library = new Map([['pomodoro', record('pomodoro')], ['weather', record('weather')]])
+    expect(withNewWidgets(board(), library)).toBeNull()
+  })
+
+  it('补进来的卡带自己的 id 与组件库里的哈希', () => {
+    const library = new Map([['pomodoro', record('pomodoro')], ['weather', record('weather')], ['third', record('third')]])
+    const instance = withNewWidgets(board(), library)?.instances[2]
+    expect(instance?.id).not.toBe('')
+    expect(instance?.widget).toBe('third')
+    expect(instance?.hash).toBe('third'.padEnd(64, '0'))
+    expect(instance?.state).toBeNull()
   })
 })

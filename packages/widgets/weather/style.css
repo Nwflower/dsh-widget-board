@@ -25,6 +25,8 @@
   width: 100%;
   aspect-ratio: 3 / 4;
   max-height: 30rem;
+  /* 卡片高度由上报的内容高度取整而来，撑满视口把取整剩下的那一点也盖上（圆角之外的画布是白的）。 */
+  min-height: 100vh;
   overflow: hidden;
   isolation: isolate;
   border-radius: var(--wx-radius);
@@ -32,9 +34,6 @@
   color: var(--wx-ink);
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   -webkit-font-smoothing: antialiased;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--w-color-border, #2a3138) 100%, transparent),
-    0 8px 32px -4px color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
 }
 
 /* 天空：四个天气各自一层，切换时交叉淡入。 */

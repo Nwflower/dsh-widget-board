@@ -3,6 +3,6 @@
   "order": 1,
   "at": "2026-10-17",
   "external": false,
-  "zh": "深色下卡片四角露出白色：iframe 的文档画布在圆角之外是白的，父页面现在按同一份圆角令牌裁剪卡片。",
-  "en": "Card corners showed white in dark mode: the iframe document canvas is white outside the rounded card, so the page now clips each card to the shared corner-radius token."
+  "zh": "深色下卡片四角露出白色：iframe 的文档画布在卡片圆角之外是白的，而 `border-radius` 裁不动 iframe 的内容。外壳改用 `clip-path` 按圆角令牌裁剪，卡片的边框与投影也由外壳画，组件只管自己的画面。",
+  "en": "Card corners showed white in dark mode: the iframe document canvas is white outside the card's rounded corner, and border-radius does not clip iframe content. The page clips each card with clip-path to the shared corner-radius token, and draws the card border and shadow itself."
 }

@@ -25,8 +25,13 @@
   width: 100%;
 }
 
+/* 卡片的边框与投影是外壳的事：组件只管画画面，圆角由 cards 内联的令牌给（D10、D15）。
+ * 投影用黑色低透明度：深色配色下明亮的前景当作投影会变成一圈光晕。 */
 .dsh-widget-board__cell {
   position: absolute;
+  box-shadow:
+    0 0 0 1px var(--dsw-alias-border-l1),
+    0 8px 32px -4px rgb(0 0 0 / 24%);
 }
 
 .dsh-widget-board__frame {

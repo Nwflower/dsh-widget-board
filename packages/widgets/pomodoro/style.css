@@ -17,15 +17,14 @@
   gap: 24px;
   box-sizing: border-box;
   width: 100%;
+  /* 卡片高度由上报的内容高度取整而来，撑满视口把取整剩下的那一点也盖上（圆角之外的画布是白的）。 */
+  min-height: 100vh;
   padding: 24px;
   border-radius: var(--w-radius-card, 24px);
   background: radial-gradient(circle at 50% 38%, #2a0319 0%, #7a0a48 22%, #c3157a 52%, #6b1148 100%);
   color: var(--pomo-ink);
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   -webkit-font-smoothing: antialiased;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--w-color-border, #2a3138) 100%, transparent),
-    0 8px 32px -4px color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
 }
 
 .pomo *, .pomo *::before, .pomo *::after { box-sizing: border-box; }

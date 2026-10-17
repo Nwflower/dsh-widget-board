@@ -8,13 +8,19 @@ import { clampCardHeight } from '@dsh-widget-board/model'
 import { resolveTokens } from './tokens'
 
 /**
- * 卡片的圆角来自令牌，外壳与组件读同一个值：iframe 的文档画布在圆角之外是白的，父页面按这个
- * 圆角裁剪，四角才不会露出白边。
+ * 卡片的圆角来自令牌。iframe 的文档画布在卡片自己的圆角之外是白的，外壳要把它裁掉：
+ * `border-radius` 裁不动 iframe 的内容，只有 `clip-path` 才裁得动。裁剪的圆角比卡片自己的
+ * 大一点，组件画出来的边因此完整落在裁剪之内，两个圆角的接缝不会露出画布。
  */
 const CARD_RADIUS = (tokens as { radius: { card: string } }).radius.card
+/** 裁剪用的圆角：比卡片自己的圆角大一点，接缝因此被组件自己的画面盖住。 */
+const CARD_CLIP = `inset(0 round calc(${CARD_RADIUS} + 2px))`
 
-/** 卡片这么久没有收到组件的任何一条消息，就在卡片上说明它没接上（D11）。 */
+/** 卡片这么久没有收到组件的任何一条消息，就重新连一次（D11）。 */
 const ANSWER_TIMEOUT_MS = 6000
+
+/** 重连次数上限：用完还在失败就把原因写在卡片上，等人来处理。 */
+const RETRY_LIMIT = 3
 
 /** 卡片向页面登记的暂停与恢复，由页面唯一的一个 IntersectionObserver 调用（D15）。 */
 export interface CardControls {
@@ -57,6 +63,8 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
   const readyRef = useRef(false)
   const answeredRef = useRef(false)
   const [failure, setFailure] = useState<string | null>(null)
+  /** 组件没应答时的重连次数：每次重来都换一条通道并重新导入文档。 */
+  const [attempt, setAttempt] = useState(0)
   const height = clampCardHeight(placement.height, metrics)
   const size = { w: Math.round(placement.width), h: Math.round(height), family: 'inline' as const, cols: 1, rows: 0 }
   const sizeRef = useRef(size)
@@ -81,7 +89,13 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
       if (live) port.postMessage(message)
     }
     const watchdog = window.setTimeout(() => {
-      if (live && !answeredRef.current) setFailure('组件没有应答，切回看板重新加载这一张')
+      if (!live || answeredRef.current) return
+      // 通道是新建的，旧文档里握着的端口已经关了：重新导入一次再握手（D11 里可见的失败）。
+      if (attempt < RETRY_LIMIT) {
+        setAttempt(attempt + 1)
+        return
+      }
+      setFailure('组件没有应答，切回看板重新加载这一张')
     }, ANSWER_TIMEOUT_MS)
     port.onmessage = (event: MessageEvent) => {
       const message = event.data as WidgetMessage | undefined
@@ -124,8 +138,8 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
     }
     window.addEventListener('message', onReady)
     frame.addEventListener('load', connect)
-    // 监听器装好之后再开始加载；地址没变时不重新赋值，免得把已经加载好的文档再导一次。
-    if (frame.getAttribute('src') !== src) frame.src = src
+    // 监听器装好之后再导入文档。每次都重新导入：端口是新建的，已经加载好的文档握着的还是关掉的端口。
+    frame.src = src
     const dispose = controls.register(instance.id, {
       pause: () => { if (readyRef.current) send({ type: 'pause' }) },
       resume: () => { if (readyRef.current) send({ type: 'resume' }) },
@@ -140,7 +154,7 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
       portRef.current = null
       readyRef.current = false
     }
-  }, [src, instance.id, controls])
+  }, [src, instance.id, controls, attempt])
 
   // 连接之后的更新走各自的通道：连接不重建，组件文档也就不会错过 init。
   useEffect(() => {
@@ -171,14 +185,14 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
     <div
       className="dsh-widget-board__cell"
       data-instance={instance.id}
-      style={{ left: placement.x, top: placement.y, width: placement.width, height }}
+      style={{ left: placement.x, top: placement.y, width: placement.width, height, borderRadius: CARD_RADIUS }}
     >
       <iframe
         ref={frameRef}
         className="dsh-widget-board__frame"
         sandbox="allow-scripts"
         title={widget.title.zh}
-        style={{ borderRadius: CARD_RADIUS }}
+        style={{ clipPath: CARD_CLIP }}
       />
       {failure === null ? null : <p className="dsh-widget-board__failure-strip" role="status">{failure}</p>}
     </div>

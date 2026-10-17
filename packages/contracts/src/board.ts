@@ -98,13 +98,27 @@ export interface WidgetSummary {
   minBox?: { w: number, h: number }
 }
 
-/** `GET /board` 的响应。 */
-export interface BoardSnapshot {
-  board: Board
+/** `GET /boards` 的响应：整个工作区。 */
+export interface WorkspaceSnapshot {
+  /** 当前选中的看板 id（D21）。 */
+  active: string
+  /** 全部看板，按索引里的次序；每一块的卡片同时挂载（D21）。 */
+  boards: Board[]
   /** 卡片要用的组件元信息，按组件 id 索引；不可用的类型不在其中。 */
   widgets: Record<string, WidgetSummary>
   /** 组件库的全部类型，含读不出来的那些（D17）。 */
   library: WidgetLibraryEntry[]
+}
+
+/** `POST /boards` 的请求体：新建一块看板（D21）。 */
+export interface BoardCreateRequest {
+  /** 标题；省略时宿主起一个「未命名看板」加序号。 */
+  title?: string
+}
+
+/** `POST /boards/<id>/rename` 的请求体（D21）。 */
+export interface BoardRenameRequest {
+  title: string
 }
 
 /**

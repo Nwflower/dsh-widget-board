@@ -1,10 +1,11 @@
 /**
- * 看板的存储：`$DSH_HOME/widget-board/board.json`，宿主是唯一写入者（D5）。
+ * 一块看板的内容与形状（D5、D21）：卡片、它们的盒子与修订号。
  *
- * 第一次启动时给组件库里的每个组件放一张卡；此后的组件增删都来自添加面板与工具，不再自动补卡。
- * 每张卡片带着自己的盒子（D16）。旧看板没有盒子时按最矮的一列补上默认位置；版本 1 的看板升级时
- * 把原来的固定题头补成一张 `board-hero` 卡。格式版本对不上时启动直接报错并保留原文件（D11）。卡片
- * 引用的组件不在组件库里不算错误：卡片保留，界面把它画成不可用的占位（D17）。
+ * 文件放在哪里、有几块看板由 `workspace.ts` 决定，这里只管一块看板的读写与纯函数式的改动。第一次
+ * 启动时给组件库里的每个组件放一张卡；此后的组件增删都来自添加面板与工具，不再自动补卡。每张卡片
+ * 带着自己的盒子（D16）。旧看板没有盒子时按最矮的一列补上默认位置；版本 1 的看板升级时把原来的
+ * 固定题头补成一张 `board-hero` 卡。格式版本对不上时启动直接报错并保留原文件（D11）。卡片引用的
+ * 组件不在组件库里不算错误：卡片保留，界面把它画成不可用的占位（D17）。
  */
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
@@ -87,27 +88,39 @@ export function instanceOf(
 }
 
 /**
+ * 一块空看板。
+ *
+ * @param title - 标题。
+ * @returns 没有卡片的新看板。
+ */
+export function emptyBoard(title: string): Board {
+  return {
+    version: BOARD_FORMAT,
+    id: randomUUID(),
+    title,
+    revision: INITIAL_REVISION,
+    layoutRevision: INITIAL_LAYOUT_REVISION,
+    instances: [],
+  }
+}
+
+/**
  * 第一次启动时的看板：内置组件每个一张卡，按组件 id 排好，依次放进最矮的列。
  *
  * 用户与插件来源的组件不铺卡：它们从添加面板加入，装了插件不该顺带改变别人的看板（D17）。
  *
  * @param records - 已校验的组件。
+ * @param title - 标题。
  * @returns 新的看板。
  */
-function seed(records: Map<string, WidgetRecord>): Board {
+export function seedBoard(records: Map<string, WidgetRecord>, title: string): Board {
+  const board = emptyBoard(title)
   const instances: BoardInstance[] = []
   const builtin = [...records.values()].filter((record) => record.source === 'builtin')
   for (const record of builtin.sort((left, right) => left.manifest.id.localeCompare(right.manifest.id))) {
     instances.push(instanceOf(record, instances))
   }
-  return {
-    version: BOARD_FORMAT,
-    id: randomUUID(),
-    title: '看板',
-    revision: INITIAL_REVISION,
-    layoutRevision: INITIAL_LAYOUT_REVISION,
-    instances,
-  }
+  return { ...board, instances }
 }
 
 /**
@@ -172,24 +185,18 @@ function upgradeV1(board: Board, records: Map<string, WidgetRecord>): Board {
 }
 
 /**
- * 读看板；文件不存在时写出一块新的。
+ * 读一块看板；旧格式在这一步补齐。
  *
- * @param file - `board.json` 的路径。
- * @param records - 已校验的组件，只在第一次启动时用来铺初始的卡片。
+ * 版本 1 的看板升级时把原来的固定题头补成一张 `board-hero` 卡；盒子缺失或形状不对的卡片按最矮的
+ * 一列补上默认位置，并把盒子抬到组件的最小盒子。补过的那一份写回磁盘。
+ *
+ * @param file - 这一块看板的文件。
+ * @param records - 已校验的组件。
  * @returns 看板。
- * @throws {Error} 格式版本不认识。
+ * @throws {Error} 文件不存在，或格式版本不认识。
  */
-export async function loadBoard(file: string, records: Map<string, WidgetRecord>): Promise<Board> {
-  let raw: string
-  try {
-    raw = await readFile(file, 'utf8')
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    const board = seed(records)
-    await writeBoard(file, board)
-    return board
-  }
-  const parsed = JSON.parse(raw) as Board
+export async function readBoard(file: string, records: Map<string, WidgetRecord>): Promise<Board> {
+  const parsed = JSON.parse(await readFile(file, 'utf8')) as Board
   if (parsed.version !== 1 && parsed.version !== BOARD_FORMAT) {
     throw new Error(`${file} 的格式版本是 ${String(parsed.version)}，这个宿主只认 1 或 ${BOARD_FORMAT}；原文件保留`)
   }

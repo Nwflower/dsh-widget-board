@@ -1,17 +1,25 @@
 /**
- * 路由表（D1、D3、D17）：方法、状态码、请求体上限与每条路由做的事。
+ * 路由表（D1、D3、D17、D21）：方法、状态码、请求体上限与每条路由做的事。
  *
  * 请求与响应用最小的替身：宿主的 `HostRequest` 只被读方法、地址、请求头与请求体，`HostResponse`
- * 只被写状态、头与体。这一层判定的是本插件的行为，不是宿主的实现。
+ * 只被写状态、头与体。工作区用真的那一份，落在 `.debug/` 下的临时目录里：索引与看板文件的读写
+ * 因此一起被测到。这一层判定的是本插件的行为，不是宿主的实现。
  */
-import { describe, expect, it } from 'vitest'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { Board, BoardEvent, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
 import { PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
 import type { WidgetRecord } from '../src/library'
 import { createRegistries } from '../src/sources'
-import { StaleRevisionError } from '../src/state'
+import { writeBoard } from '../src/state'
+import { openWorkspace } from '../src/workspace'
+
+const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
 /** 一个版本固定的组件。 */
 const HASH = 'a'.repeat(64)
@@ -35,16 +43,16 @@ const ENTRIES: WidgetLibraryEntry[] = [
 ]
 
 /** 一块两张卡的看板。 */
-function board(): Board {
+function board(id = 'board', title = '看板'): Board {
   return {
-    version: 1,
-    id: 'board',
-    title: '看板',
+    version: 2,
+    id,
+    title,
     revision: 2,
     layoutRevision: 5,
     instances: [
-      { id: 'first', widget: 'weather', hash: HASH, props: {}, data: null, state: null, layout: { x: 0, y: 0, w: 1, h: 22 } },
-      { id: 'second', widget: 'weather', hash: HASH, props: {}, data: null, state: null, layout: { x: 1, y: 0, w: 1, h: 22 } },
+      { id: `${id}-first`, widget: 'weather', hash: HASH, props: {}, data: null, state: null, layout: { x: 0, y: 0, w: 1, h: 22 } },
+      { id: `${id}-second`, widget: 'weather', hash: HASH, props: {}, data: null, state: null, layout: { x: 1, y: 0, w: 1, h: 22 } },
     ],
   }
 }
@@ -101,18 +109,40 @@ function request(method: string, path: string, body?: string, remote = '127.0.0.
 interface Harness {
   context: RouteContext
   events: BoardEvent[]
+  home: string
   send(method: string, path: string, body?: string, remote?: string): Promise<Capture>
 }
 
+/** 这一轮起的临时目录，测试结束一并删掉。 */
+const homes: string[] = []
+
+afterEach(async () => {
+  for (const home of homes.splice(0)) await rm(home, { recursive: true, force: true })
+})
+
 /**
- * 起一套替身。
+ * 起一套替身：`.debug/` 下写一份索引与一块看板，再打开工作区。
  *
  * @param record - 组件库里的那一个组件，默认是天气卡。
+ * @param extra - 是否再多放一块看板（`second`）。
  * @returns 上下文、推出去的事件与发请求的函数。
  */
-function harness(record: WidgetRecord = RECORD): Harness {
+async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Harness> {
   const events: BoardEvent[] = []
+  await mkdir(join(ROOT, '.debug'), { recursive: true })
+  const home = await mkdtemp(join(ROOT, '.debug', 'routes-test-'))
+  homes.push(home)
+  await mkdir(join(home, 'boards'), { recursive: true })
+  const first = board()
+  await writeBoard(join(home, 'boards', 'board.json'), first)
+  const ids = ['board']
+  if (extra) {
+    await writeBoard(join(home, 'boards', 'second.json'), board('second', '第二块'))
+    ids.push('second')
+  }
+  await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'board', boards: ids })}\n`, 'utf8')
   const sources = createRegistries()
+  const workspace = await openWorkspace(home, new Map([[record.manifest.id, record]]), (event) => { events.push(event) })
   const context: RouteContext = {
     records: new Map([[record.manifest.id, record]]),
     entries: ENTRIES,
@@ -120,21 +150,7 @@ function harness(record: WidgetRecord = RECORD): Harness {
       remember: async () => undefined,
       get: async (hash: string) => (hash === HASH ? record : undefined),
     },
-    board: board(),
-    save: async (change, options) => {
-      const current = context.board
-      if (options.expectedLayoutRevision !== undefined && options.expectedLayoutRevision !== current.layoutRevision) {
-        throw new StaleRevisionError(options.expectedLayoutRevision, current.layoutRevision)
-      }
-      const next = {
-        ...change(current),
-        revision: current.revision + 1,
-        layoutRevision: current.layoutRevision + (options.layoutChanged === true ? 1 : 0),
-      }
-      context.board = next
-      events.push(options.event(next))
-      return next
-    },
+    workspace,
     live: {
       assets: { tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} },
       revision: 0,
@@ -151,6 +167,7 @@ function harness(record: WidgetRecord = RECORD): Harness {
   return {
     context,
     events,
+    home,
     async send(method, path, body, remote) {
       const response = new Capture()
       await handler(request(method, path, body, remote), response)
@@ -159,190 +176,260 @@ function harness(record: WidgetRecord = RECORD): Harness {
   }
 }
 
-describe('看板快照', () => {
-  it('GET /board 回看板、组件元信息与整个组件库', async () => {
-    const test = harness()
-    const response = await test.send('GET', '/board')
+describe('工作区快照', () => {
+  it('GET /boards 回全部看板、当前选中、组件元信息与整个组件库', async () => {
+    const test = await harness()
+    const response = await test.send('GET', '/boards')
     expect(response.status).toBe(200)
-    const body = JSON.parse(response.body) as { board: Board, widgets: Record<string, { source: string }>, library: WidgetLibraryEntry[] }
-    expect(body.board.instances).toHaveLength(2)
+    const body = JSON.parse(response.body) as { active: string, boards: Board[], widgets: Record<string, { source: string }>, library: WidgetLibraryEntry[] }
+    expect(body.active).toBe('board')
+    expect(body.boards).toHaveLength(1)
+    expect(body.boards[0]?.instances).toHaveLength(2)
     expect(body.widgets.weather?.source).toBe('builtin')
     expect(body.library).toHaveLength(1)
   })
 
   it('方法不对时回 405 并给出允许的方法', async () => {
-    const test = harness()
-    const response = await test.send('POST', '/board')
+    const test = await harness()
+    const response = await test.send('PUT', '/boards')
     expect(response.status).toBe(405)
-    expect(response.headers.allow).toBe('GET')
+    expect(response.headers.allow).toBe('GET, POST')
   })
 
   it('没有这条路径时回 404', async () => {
-    const response = await harness().send('GET', '/nope')
+    const response = await (await harness()).send('GET', '/nope')
     expect(response.status).toBe(404)
   })
 
   it('不是本机来的请求被拒绝', async () => {
-    const response = await harness().send('GET', '/board', undefined, '10.0.0.5')
+    const response = await (await harness()).send('GET', '/boards', undefined, '10.0.0.5')
     expect(response.status).toBe(403)
+  })
+})
+
+describe('看板的增删改与选中', () => {
+  it('新建一块看板：回 201、新 id 与两块看板的快照', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/boards', JSON.stringify({}))
+    expect(response.status).toBe(201)
+    const body = JSON.parse(response.body) as { id: string, snapshot: { active: string, boards: Board[] } }
+    expect(body.snapshot.boards).toHaveLength(2)
+    expect(body.snapshot.active).toBe(body.id)
+    expect(body.snapshot.boards[1]?.title).toBe('未命名看板')
+    expect(body.snapshot.boards[1]?.instances).toHaveLength(0)
+    expect(test.events.at(-1)).toEqual({ type: 'board' })
+  })
+
+  it('改标题写进那一块看板', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/boards/board/rename', JSON.stringify({ title: '工作' }))
+    expect(response.status).toBe(200)
+    expect(test.context.workspace.board('board').title).toBe('工作')
+  })
+
+  it('空标题被拒绝', async () => {
+    const response = await (await harness()).send('POST', '/boards/board/rename', JSON.stringify({ title: '   ' }))
+    expect(response.status).toBe(400)
+  })
+
+  it('移除一块看板：文件与索引都不再提它', async () => {
+    const test = await harness(RECORD, true)
+    const response = await test.send('POST', '/boards/second/remove')
+    expect(response.status).toBe(200)
+    expect(test.context.workspace.list().map((entry) => entry.id)).toEqual(['board'])
+    expect((JSON.parse(response.body) as { boards: Board[] }).boards).toHaveLength(1)
+  })
+
+  it('只剩一块时不移除', async () => {
+    const response = await (await harness()).send('POST', '/boards/board/remove')
+    expect(response.status).toBe(404)
+  })
+
+  it('选中另一块看板推出 active 事件，不重取快照', async () => {
+    const test = await harness(RECORD, true)
+    const response = await test.send('POST', '/boards/second/activate')
+    expect(response.status).toBe(200)
+    expect(test.context.workspace.activeId()).toBe('second')
+    expect(test.events.at(-1)).toEqual({ type: 'active', board: 'second' })
+  })
+
+  it('没有这块看板时回 404', async () => {
+    const response = await (await harness()).send('POST', '/boards/nope/activate')
+    expect(response.status).toBe(404)
   })
 })
 
 describe('布局提交', () => {
   it('修订号过期时回 409 与当前快照', async () => {
-    const test = harness()
-    const response = await test.send('POST', '/board/layout', JSON.stringify({ layoutRevision: 4, layouts: { first: { x: 0, y: 30, w: 1, h: 10 } } }))
+    const test = await harness()
+    const response = await test.send('POST', '/boards/board/layout', JSON.stringify({ layoutRevision: 4, layouts: { 'board-first': { x: 0, y: 30, w: 1, h: 10 } } }))
     expect(response.status).toBe(409)
-    const body = JSON.parse(response.body) as { board: Board }
-    expect(body.board.layoutRevision).toBe(5)
+    const body = JSON.parse(response.body) as { boards: Board[] }
+    expect(body.boards[0]?.layoutRevision).toBe(5)
   })
 
-  it('提交成功时布局修订号加一，并推出布局事件', async () => {
-    const test = harness()
-    const layouts = { first: { x: 0, y: 30, w: 2, h: 10 } }
-    const response = await test.send('POST', '/board/layout', JSON.stringify({ layoutRevision: 5, layouts }))
+  it('提交成功时布局修订号加一，并推出带看板 id 的布局事件', async () => {
+    const test = await harness()
+    const layouts = { 'board-first': { x: 0, y: 30, w: 2, h: 10 } }
+    const response = await test.send('POST', '/boards/board/layout', JSON.stringify({ layoutRevision: 5, layouts }))
     expect(response.status).toBe(200)
-    expect(test.context.board.layoutRevision).toBe(6)
-    expect(test.context.board.instances[0]?.layout).toEqual(layouts.first)
-    expect(test.events.at(-1)).toEqual({ type: 'layout', layoutRevision: 6, layouts })
+    expect(test.context.workspace.board('board').layoutRevision).toBe(6)
+    expect(test.context.workspace.board('board').instances[0]?.layout).toEqual(layouts['board-first'])
+    expect(test.events.at(-1)).toEqual({ type: 'layout', board: 'board', layoutRevision: 6, layouts })
   })
 
   it('提交低于组件最小盒子的布局时抬到下限', async () => {
     const sized: WidgetRecord = { ...RECORD, manifest: { ...RECORD.manifest, minBox: { w: 2, h: 14 } } }
-    const test = harness(sized)
-    const response = await test.send('POST', '/board/layout', JSON.stringify({ layoutRevision: 5, layouts: { first: { x: 0, y: 0, w: 1, h: 6 } } }))
+    const test = await harness(sized)
+    const response = await test.send('POST', '/boards/board/layout', JSON.stringify({ layoutRevision: 5, layouts: { 'board-first': { x: 0, y: 0, w: 1, h: 6 } } }))
     expect(response.status).toBe(200)
-    expect(test.context.board.instances[0]?.layout).toEqual({ x: 0, y: 0, w: 2, h: 14 })
-    expect(test.events.at(-1)).toEqual({ type: 'layout', layoutRevision: 6, layouts: { first: { x: 0, y: 0, w: 2, h: 14 } } })
+    expect(test.context.workspace.board('board').instances[0]?.layout).toEqual({ x: 0, y: 0, w: 2, h: 14 })
+    expect(test.events.at(-1)).toEqual({ type: 'layout', board: 'board', layoutRevision: 6, layouts: { 'board-first': { x: 0, y: 0, w: 2, h: 14 } } })
   })
 
   it('形状不对时回 400', async () => {
-    const response = await harness().send('POST', '/board/layout', JSON.stringify({ layouts: {} }))
+    const response = await (await harness()).send('POST', '/boards/board/layout', JSON.stringify({ layouts: {} }))
     expect(response.status).toBe(400)
   })
 })
 
 describe('卡片状态与数据', () => {
   it('状态写入推出这条卡的事件，不改布局修订号', async () => {
-    const test = harness()
-    const response = await test.send('POST', '/instance/first/state', JSON.stringify({ patch: { n: 1 } }))
+    const test = await harness()
+    const response = await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { n: 1 } }))
     expect(response.status).toBe(200)
-    expect(test.context.board.layoutRevision).toBe(5)
-    expect(test.context.board.instances[0]?.state).toEqual({ n: 1 })
-    expect(test.events.at(-1)).toEqual({ type: 'instance', id: 'first', state: { n: 1 } })
+    expect(test.context.workspace.board('board').layoutRevision).toBe(5)
+    expect(test.context.workspace.board('board').instances[0]?.state).toEqual({ n: 1 })
+    expect(test.events.at(-1)).toEqual({ type: 'instance', id: 'board-first', state: { n: 1 } })
+  })
+
+  it('卡片在哪块看板上就写哪一块：另一块看板上的卡也找得到', async () => {
+    const test = await harness(RECORD, true)
+    const response = await test.send('POST', '/instance/second-first/state', JSON.stringify({ patch: { n: 2 } }))
+    expect(response.status).toBe(200)
+    expect(test.context.workspace.board('second').instances[0]?.state).toEqual({ n: 2 })
+    expect(test.context.workspace.board('board').instances[0]?.state).toBeNull()
   })
 
   it('看板上没有这张卡时回 404', async () => {
-    const response = await harness().send('POST', '/instance/missing/state', JSON.stringify({ patch: {} }))
+    const response = await (await harness()).send('POST', '/instance/missing/state', JSON.stringify({ patch: {} }))
     expect(response.status).toBe(404)
   })
 
   it('没有 patch 字段时回 400', async () => {
-    const response = await harness().send('POST', '/instance/first/state', JSON.stringify({ value: 1 }))
+    const response = await (await harness()).send('POST', '/instance/board-first/state', JSON.stringify({ value: 1 }))
     expect(response.status).toBe(400)
   })
 
   it('请求体超过上限时回 413', async () => {
     const big = JSON.stringify({ patch: { text: 'x'.repeat(20 * 1024) } })
-    const response = await harness().send('POST', '/instance/first/state', big)
+    const response = await (await harness()).send('POST', '/instance/board-first/state', big)
     expect(response.status).toBe(413)
   })
 
   it('数据按组件的 data schema 校验', async () => {
-    const bad = await harness().send('POST', '/instance/first/data', JSON.stringify({ data: { n: 'x' } }))
+    const test = await harness()
+    const bad = await test.send('POST', '/instance/board-first/data', JSON.stringify({ data: { n: 'x' } }))
     expect(bad.status).toBe(400)
-    const good = harness()
-    const ok = await good.send('POST', '/instance/first/data', JSON.stringify({ data: { n: 1 } }))
+    const good = await harness()
+    const ok = await good.send('POST', '/instance/board-first/data', JSON.stringify({ data: { n: 1 } }))
     expect(ok.status).toBe(200)
-    expect(good.events.at(-1)).toEqual({ type: 'instance', id: 'first', data: { n: 1 } })
+    expect(good.events.at(-1)).toEqual({ type: 'instance', id: 'board-first', data: { n: 1 } })
   })
 })
 
 describe('加卡片与移除卡片', () => {
-  it('加卡片回 201，快照里多一张，布局修订号加一', async () => {
-    const test = harness()
-    const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather' }))
+  it('加卡片回 201，那一块看板多一张，布局修订号加一', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
     expect(response.status).toBe(201)
-    const body = JSON.parse(response.body) as { id: string, snapshot: { board: Board } }
-    expect(body.snapshot.board.instances).toHaveLength(3)
-    expect(body.snapshot.board.instances.at(-1)?.id).toBe(body.id)
-    expect(test.context.board.layoutRevision).toBe(6)
+    const body = JSON.parse(response.body) as { id: string, snapshot: { boards: Board[] } }
+    expect(body.snapshot.boards[0]?.instances).toHaveLength(3)
+    expect(body.snapshot.boards[0]?.instances.at(-1)?.id).toBe(body.id)
+    expect(test.context.workspace.board('board').layoutRevision).toBe(6)
     expect(test.events[0]).toEqual({ type: 'board' })
   })
 
+  it('加卡片只加在点名的那一块看板上', async () => {
+    const test = await harness(RECORD, true)
+    await test.send('POST', '/boards/second/instance', JSON.stringify({ widget: 'weather' }))
+    expect(test.context.workspace.board('second').instances).toHaveLength(3)
+    expect(test.context.workspace.board('board').instances).toHaveLength(2)
+  })
+
   it('请求带着拖放落点时，新卡片按它摆放', async () => {
-    const test = harness()
-    const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 1, y: 4.5, w: 1, h: 10 } }))
+    const test = await harness()
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 1, y: 4.5, w: 1, h: 10 } }))
     expect(response.status).toBe(201)
-    expect(test.context.board.instances.at(-1)?.layout).toEqual({ x: 1, y: 4, w: 1, h: 10 })
+    expect(test.context.workspace.board('board').instances.at(-1)?.layout).toEqual({ x: 1, y: 4, w: 1, h: 10 })
   })
 
   it('拖放落点不合法时回 400', async () => {
-    const response = await harness().send('POST', '/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 3, y: 0, w: 2, h: 10 } }))
+    const response = await (await harness()).send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 3, y: 0, w: 2, h: 10 } }))
     expect(response.status).toBe(400)
   })
 
   it('组件库没有这个组件时回 400', async () => {
-    const response = await harness().send('POST', '/board/instance', JSON.stringify({ widget: 'nope' }))
+    const response = await (await harness()).send('POST', '/boards/board/instance', JSON.stringify({ widget: 'nope' }))
     expect(response.status).toBe(400)
   })
 
   it('数据源不存在时回 400', async () => {
-    const response = await harness().send('POST', '/board/instance', JSON.stringify({ widget: 'weather', source: 'ghost' }))
+    const response = await (await harness()).send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather', source: 'ghost' }))
     expect(response.status).toBe(400)
   })
 
   it('绑定数据源时读一次并把数据写进卡片', async () => {
-    const test = harness()
+    const test = await harness()
     test.context.sources.registerDataSource({ apiVersion: 1, id: 'weather.now', read: () => ({ n: 7 }) })
-    const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather', source: 'weather.now' }))
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather', source: 'weather.now' }))
     expect(response.status).toBe(201)
-    const created = test.context.board.instances.at(-1)
+    const created = test.context.workspace.board('board').instances.at(-1)
     expect(created?.source).toBe('weather.now')
     expect(created?.data).toEqual({ n: 7 })
   })
 
   it('请求没指定数据源时用组件声明的那个', async () => {
-    const test = harness()
+    const test = await harness()
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, source: 'weather.now' } })
     test.context.sources.registerDataSource({ apiVersion: 1, id: 'weather.now', read: () => ({ n: 9 }) })
-    const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather' }))
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
     expect(response.status).toBe(201)
-    expect(test.context.board.instances.at(-1)?.data).toEqual({ n: 9 })
+    expect(test.context.workspace.board('board').instances.at(-1)?.data).toEqual({ n: 9 })
   })
 
   it('组件声明的数据源不在时卡片照样加得进来，数据留空', async () => {
-    const test = harness()
+    const test = await harness()
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, source: 'gone.source' } })
-    const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather' }))
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
     expect(response.status).toBe(201)
-    expect(test.context.board.instances.at(-1)?.source).toBe('gone.source')
-    expect(test.context.board.instances.at(-1)?.data).toBeNull()
+    expect(test.context.workspace.board('board').instances.at(-1)?.source).toBe('gone.source')
+    expect(test.context.workspace.board('board').instances.at(-1)?.data).toBeNull()
   })
 
   it('刷新路由触发一次重读并回快照', async () => {
-    const test = harness()
+    const test = await harness()
     let calls = 0
     test.context.refresh = async () => { calls += 1 }
     const response = await test.send('POST', '/refresh')
     expect(response.status).toBe(200)
     expect(calls).toBe(1)
-    expect(JSON.parse(response.body).board.instances).toHaveLength(2)
+    expect(JSON.parse(response.body).boards[0].instances).toHaveLength(2)
   })
 
   it('移除卡片回快照，布局修订号加一', async () => {
-    const test = harness()
-    const response = await test.send('POST', '/instance/first/remove')
+    const test = await harness()
+    const response = await test.send('POST', '/instance/board-first/remove')
     expect(response.status).toBe(200)
-    expect(test.context.board.instances.map((instance) => instance.id)).toEqual(['second'])
-    expect(test.context.board.layoutRevision).toBe(6)
+    expect(test.context.workspace.board('board').instances.map((instance) => instance.id)).toEqual(['board-second'])
+    expect(test.context.workspace.board('board').layoutRevision).toBe(6)
   })
 })
 
 describe('翻面组', () => {
   /** 一套装好 stat 与 chart 的替身：加组卡时宿主按固定 id 找它们。 */
-  function groupHarness(): Harness {
-    const test = harness()
+  async function groupHarness(): Promise<Harness> {
+    const test = await harness()
     for (const id of ['stat', 'chart']) {
       test.context.records.set(id, { ...RECORD, manifest: { ...RECORD.manifest, id, title: { zh: id, en: id } } })
     }
@@ -350,78 +437,78 @@ describe('翻面组', () => {
   }
 
   it('一次加出正面与背面两张卡，回组 id 与快照', async () => {
-    const test = groupHarness()
-    const response = await test.send('POST', '/board/group', JSON.stringify({ layout: { x: 1, y: 0, w: 1, h: 22 } }))
+    const test = await groupHarness()
+    const response = await test.send('POST', '/boards/board/group', JSON.stringify({ layout: { x: 1, y: 0, w: 1, h: 22 } }))
     expect(response.status).toBe(201)
-    const body = JSON.parse(response.body) as { id: string, snapshot: { board: Board } }
-    expect(body.snapshot.board.instances).toHaveLength(4)
-    const [front, back] = body.snapshot.board.instances.slice(2)
+    const body = JSON.parse(response.body) as { id: string, snapshot: { boards: Board[] } }
+    expect(body.snapshot.boards[0]?.instances).toHaveLength(4)
+    const [front, back] = (body.snapshot.boards[0]?.instances ?? []).slice(2)
     expect(front?.group).toMatchObject({ id: body.id, side: 'front', template: 'flip' })
     expect(back?.group).toMatchObject({ id: body.id, side: 'back', template: 'flip' })
     expect(front?.layout).toEqual({ x: 1, y: 0, w: 1, h: 22 })
     expect(back?.layout).toEqual(front?.layout)
-    expect(test.context.board.layoutRevision).toBe(6)
+    expect(test.context.workspace.board('board').layoutRevision).toBe(6)
     expect(test.events).toEqual([{ type: 'board' }])
   })
 
   it('没有 stat 或 chart 时回 400', async () => {
-    const response = await harness().send('POST', '/board/group', JSON.stringify({}))
+    const response = await (await harness()).send('POST', '/boards/board/group', JSON.stringify({}))
     expect(response.status).toBe(400)
   })
 
   it('落点不合法时回 400', async () => {
-    const response = await groupHarness().send('POST', '/board/group', JSON.stringify({ layout: { x: 3, y: 0, w: 2, h: 10 } }))
+    const response = await (await groupHarness()).send('POST', '/boards/board/group', JSON.stringify({ layout: { x: 3, y: 0, w: 2, h: 10 } }))
     expect(response.status).toBe(400)
   })
 
-  it('按组 id 移除时两张卡一起离开', async () => {
-    const test = groupHarness()
-    const added = JSON.parse((await test.send('POST', '/board/group', JSON.stringify({}))).body) as { id: string }
-    const response = await test.send('POST', '/board/group/remove', JSON.stringify({ group: added.id }))
+  it('按组 id 移除时两张卡一起离开，组在哪块看板上就改哪一块', async () => {
+    const test = await groupHarness()
+    const added = JSON.parse((await test.send('POST', '/boards/board/group', JSON.stringify({}))).body) as { id: string }
+    const response = await test.send('POST', '/group/remove', JSON.stringify({ group: added.id }))
     expect(response.status).toBe(200)
-    expect(test.context.board.instances.map((instance) => instance.id)).toEqual(['first', 'second'])
-    expect(test.context.board.layoutRevision).toBe(7)
+    expect(test.context.workspace.board('board').instances.map((instance) => instance.id)).toEqual(['board-first', 'board-second'])
+    expect(test.context.workspace.board('board').layoutRevision).toBe(7)
   })
 
   it('移除没有的组时回 404', async () => {
-    const response = await groupHarness().send('POST', '/board/group/remove', JSON.stringify({ group: 'missing' }))
+    const response = await (await groupHarness()).send('POST', '/group/remove', JSON.stringify({ group: 'missing' }))
     expect(response.status).toBe(404)
   })
 })
 
 describe('动作', () => {
   it('manifest 声明过的动作交给注册的动作执行', async () => {
-    const test = harness()
+    const test = await harness()
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'refresh' }] } })
     let seen: unknown
     test.context.sources.registerAction({ apiVersion: 1, id: 'refresh', run: (_instance, payload) => { seen = payload; return { ok: 1 } } })
-    const response = await test.send('POST', '/instance/first/action', JSON.stringify({ id: 'refresh', payload: { now: 1 } }))
+    const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'refresh', payload: { now: 1 } }))
     expect(response.status).toBe(200)
     expect(JSON.parse(response.body)).toEqual({ ok: true, result: { ok: 1 } })
     expect(seen).toEqual({ now: 1 })
   })
 
   it('manifest 没声明的动作被拒绝', async () => {
-    const response = await harness().send('POST', '/instance/first/action', JSON.stringify({ id: 'refresh' }))
+    const response = await (await harness()).send('POST', '/instance/board-first/action', JSON.stringify({ id: 'refresh' }))
     expect(response.status).toBe(400)
   })
 
   it('没有声明 id 的请求被拒绝', async () => {
-    const response = await harness().send('POST', '/instance/first/action', JSON.stringify({ payload: null }))
+    const response = await (await harness()).send('POST', '/instance/board-first/action', JSON.stringify({ payload: null }))
     expect(response.status).toBe(400)
   })
 })
 
 describe('组件文档', () => {
   it('按哈希取到文档，响应头带 CSP', async () => {
-    const response = await harness().send('GET', `/widget/${HASH}/document?lang=en-US`)
+    const response = await (await harness()).send('GET', `/widget/${HASH}/document?lang=en-US`)
     expect(response.status).toBe(200)
     expect(response.headers['content-security-policy']).toContain("script-src 'nonce-")
     expect(response.body).toContain('<html lang="en-US">')
   })
 
   it('没有这个版本时回 404', async () => {
-    const response = await harness().send('GET', `/widget/${'b'.repeat(64)}/document`)
+    const response = await (await harness()).send('GET', `/widget/${'b'.repeat(64)}/document`)
     expect(response.status).toBe(404)
   })
 })

@@ -16,20 +16,28 @@ export const PLUGIN_ROUTE = '/api/widget-board'
 /** 浏览器半边用的地址前缀：去掉开头的斜杠，相对于当前文档。 */
 export const CLIENT_ROUTE = PLUGIN_ROUTE.slice(1)
 
-/** 看板快照：客户端从这里读看板、组件元信息与组件库（D5）。 */
-export const BOARD_PATH = '/board'
+/**
+ * 工作区：`GET /boards` 读全部看板与当前选中，`POST /boards` 新建一块（D21）。
+ *
+ * 动作的对象是一块看板时，看板 id 写在路径里；对象是一张卡片或一组卡片时按它们自己的 id 找，
+ * 卡片与组的 id 是全工作区唯一的，路由因此不必再带看板。
+ */
+export const BOARDS_PATH = '/boards'
 
-/** 卡片布局：`POST /board/layout`，一次提交整块看板的卡片盒子（D16）。 */
-export const BOARD_LAYOUT_PATH = '/board/layout'
+/** 一块看板：改标题、移除、选中，以及它自己的卡片操作都挂在这下面（D21）。 */
+export const BOARD_ROUTE = '/boards'
 
-/** 加一张卡：`POST /board/instance`（D17）。 */
-export const BOARD_INSTANCE_PATH = '/board/instance'
+/** 加一张卡：`POST /boards/<id>/instance`（D17）。 */
+export const INSTANCE_ADD_ROUTE = 'instance'
 
-/** 加一张固定的翻面组：`POST /board/group`（D19）。 */
-export const BOARD_GROUP_PATH = '/board/group'
+/** 加一张固定的翻面组：`POST /boards/<id>/group`（D19）。 */
+export const GROUP_ADD_ROUTE = 'group'
 
-/** 按组 id 移除整组：`POST /board/group/remove`（D19）。 */
-export const BOARD_GROUP_REMOVE_PATH = '/board/group/remove'
+/** 卡片布局：`POST /boards/<id>/layout`，一次提交整块看板的卡片盒子（D16）。 */
+export const LAYOUT_ROUTE = 'layout'
+
+/** 按组 id 移除整组：`POST /group/remove`（D19）。 */
+export const GROUP_REMOVE_PATH = '/group/remove'
 
 /** 主动热刷新：`POST /refresh`，宿主重读组件库与运行时（D17）。 */
 export const REFRESH_PATH = '/refresh'
@@ -78,17 +86,39 @@ export const instanceActionPath = (id: string): string => `${CLIENT_ROUTE}${INST
  */
 export const instanceRemovePath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/remove`
 
+/** 工作区快照与新建看板的地址，文档相对。 */
+export const boardsPath = (): string => `${CLIENT_ROUTE}${BOARDS_PATH}`
+
+/**
+ * 一块看板下面某一项的地址，文档相对。
+ *
+ * @param id - 看板 id。
+ * @param tail - 这一项的路径；空串表示看板本身。
+ * @returns 路径。
+ */
+const boardPath = (id: string, tail: string): string =>
+  `${CLIENT_ROUTE}${BOARD_ROUTE}/${encodeURIComponent(id)}${tail === '' ? '' : `/${tail}`}`
+
 /** 提交卡片布局的地址，文档相对。 */
-export const boardLayoutPath = (): string => `${CLIENT_ROUTE}${BOARD_LAYOUT_PATH}`
+export const boardLayoutPath = (id: string): string => boardPath(id, LAYOUT_ROUTE)
 
 /** 往看板上加一张卡的地址，文档相对。 */
-export const boardInstancePath = (): string => `${CLIENT_ROUTE}${BOARD_INSTANCE_PATH}`
+export const boardInstancePath = (id: string): string => boardPath(id, INSTANCE_ADD_ROUTE)
 
 /** 往看板上加一张固定翻面组的地址，文档相对。 */
-export const boardGroupPath = (): string => `${CLIENT_ROUTE}${BOARD_GROUP_PATH}`
+export const boardGroupPath = (id: string): string => boardPath(id, GROUP_ADD_ROUTE)
+
+/** 改一块看板标题的地址，文档相对。 */
+export const boardRenamePath = (id: string): string => boardPath(id, 'rename')
+
+/** 移除一块看板的地址，文档相对。 */
+export const boardRemovePath = (id: string): string => boardPath(id, 'remove')
+
+/** 选中一块看板的地址，文档相对。 */
+export const boardActivatePath = (id: string): string => boardPath(id, 'activate')
 
 /** 按组 id 移除整组的地址，文档相对。 */
-export const boardGroupRemovePath = (): string => `${CLIENT_ROUTE}${BOARD_GROUP_REMOVE_PATH}`
+export const groupRemovePath = (): string => `${CLIENT_ROUTE}${GROUP_REMOVE_PATH}`
 
 /** 主动热刷新的地址，文档相对。 */
 export const refreshPath = (): string => `${CLIENT_ROUTE}${REFRESH_PATH}`

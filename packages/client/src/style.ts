@@ -3,9 +3,10 @@ import badge from './badge.css'
 import board from './board.css'
 import dock from './dock.css'
 import library from './library.css'
+import tabs from './tabs.css'
 
-/** 看板外壳、下方浮层、组件库浮窗与入口徽标各一份样式，挂进文档头时拼成一张。 */
-const sheet = `${board}\n${dock}\n${library}\n${badge}`
+/** 看板外壳、标签条、下方浮层、组件库浮窗与入口徽标各一份样式，挂进文档头时拼成一张。 */
+const sheet = `${board}\n${tabs}\n${dock}\n${library}\n${badge}`
 
 /**
  * 把本插件的样式表挂进文档头。

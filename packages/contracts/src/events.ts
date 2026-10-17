@@ -9,12 +9,14 @@ import type { CardLayout } from './board'
 
 /** 一条变更通知。 */
 export type BoardEvent =
-  /** 卡片增删或组件库变化：页面重取快照。 */
+  /** 卡片或看板增删、组件库变化：页面重取整个工作区的快照（D21）。 */
   | { type: 'board' }
-  /** 一次布局提交落定：页面换掉这份卡片盒子（D16）。 */
-  | { type: 'layout', layoutRevision: number, layouts: Record<string, CardLayout> }
-  /** 一张卡的状态或数据变了：页面就地合并（D5）。 */
+  /** 一次布局提交落定：页面换掉这块看板的卡片盒子（D16、D21）。 */
+  | { type: 'layout', board: string, layoutRevision: number, layouts: Record<string, CardLayout> }
+  /** 一张卡的状态或数据变了：页面就地合并（D5）；卡片 id 全工作区唯一，所以不带看板。 */
   | { type: 'instance', id: string, state?: unknown, data?: unknown }
+  /** 换了一块看板：页面把选中的标签换过去，不必重取快照（D21）。 */
+  | { type: 'active', board: string }
 
 /** 一条通知的线上形状：全局修订号与它携带的改动。 */
 export interface BoardEventFrame {
@@ -36,12 +38,17 @@ export function isBoardEventFrame(value: unknown): value is BoardEventFrame {
   const kind = (event as { type?: unknown }).type
   if (kind === 'board') return true
   if (kind === 'layout') {
-    const { layoutRevision, layouts } = event as Record<string, unknown>
-    return Number.isSafeInteger(layoutRevision) && typeof layouts === 'object' && layouts !== null && !Array.isArray(layouts)
+    const { board, layoutRevision, layouts } = event as Record<string, unknown>
+    return typeof board === 'string' && board !== ''
+      && Number.isSafeInteger(layoutRevision) && typeof layouts === 'object' && layouts !== null && !Array.isArray(layouts)
   }
   if (kind === 'instance') {
     const { id } = event as Record<string, unknown>
     return typeof id === 'string' && id !== ''
+  }
+  if (kind === 'active') {
+    const { board } = event as Record<string, unknown>
+    return typeof board === 'string' && board !== ''
   }
   return false
 }

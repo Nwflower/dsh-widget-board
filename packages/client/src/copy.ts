@@ -40,6 +40,8 @@ const COPY = {
   saveFailed: { zh: '存不下这张卡的状态', en: 'Could not save this card' },
   layoutFailed: { zh: '存不下卡片布局', en: 'Could not save the card layout' },
   unread: { zh: '条未读通知', en: 'unread notifications' },
+  boardTabs: { zh: '看板标签', en: 'Board tabs' },
+  newBoard: { zh: '新建看板', en: 'New board' },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

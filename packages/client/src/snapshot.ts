@@ -1,11 +1,36 @@
 /**
- * 快照与提交：从宿主读看板、把用户的动作交给宿主（D5）。
+ * 快照与提交：从宿主读工作区、把用户的动作交给宿主（D5、D21）。
  *
- * 宿主是唯一权威；看板页打开时取一次，之后靠变更通知就地合并，只有卡片增删与组件库变化才重取
- * （D18）。
+ * 宿主是唯一权威；看板页打开时取一次工作区，之后靠变更通知就地合并，只有卡片与看板增删、组件库
+ * 变化才重取（D18）。看板级的动作把看板 id 写在路径里；卡片级的动作按卡片自己的 id 找——卡片与组
+ * 的 id 是全工作区唯一的，路由因此不必再带看板（D21）。
  */
-import type { BoardLayoutRequest, BoardSnapshot, CardLayout, GroupAddRequest, GroupRemoveRequest, InstanceAddRequest, InstanceStateRequest } from '@dsh-widget-board/contracts'
-import { BOARD_PATH, CLIENT_ROUTE, boardGroupPath, boardGroupRemovePath, boardInstancePath, boardLayoutPath, instanceActionPath, instanceDataPath, instanceRemovePath, instanceStatePath, refreshPath } from '@dsh-widget-board/contracts'
+import type {
+  BoardCreateRequest,
+  BoardLayoutRequest,
+  BoardRenameRequest,
+  CardLayout,
+  GroupAddRequest,
+  GroupRemoveRequest,
+  InstanceAddRequest,
+  InstanceStateRequest,
+  WorkspaceSnapshot,
+} from '@dsh-widget-board/contracts'
+import {
+  boardActivatePath,
+  boardGroupPath,
+  boardInstancePath,
+  boardLayoutPath,
+  boardRemovePath,
+  boardRenamePath,
+  boardsPath,
+  groupRemovePath,
+  instanceActionPath,
+  instanceDataPath,
+  instanceRemovePath,
+  instanceStatePath,
+  refreshPath,
+} from '@dsh-widget-board/contracts'
 
 /** 读一份响应体里的原因。 */
 async function errorOf(response: Response, subject: string): Promise<string> {
@@ -17,23 +42,104 @@ async function errorOf(response: Response, subject: string): Promise<string> {
   }
 }
 
-/** 读一份快照；形状不对时抛出来。 */
-async function snapshotOf(response: Response, subject: string): Promise<BoardSnapshot> {
+/** 一份响应体是不是工作区快照。 */
+function isWorkspace(value: unknown): value is WorkspaceSnapshot {
+  return Array.isArray((value as WorkspaceSnapshot | undefined)?.boards)
+}
+
+/** 读一份工作区快照；形状不对时抛出来。 */
+async function snapshotOf(response: Response, subject: string): Promise<WorkspaceSnapshot> {
   if (!response.ok) throw new Error(await errorOf(response, subject))
-  const snapshot = await response.json() as BoardSnapshot
-  if (!Array.isArray(snapshot?.board?.instances)) throw new Error(`${subject}：响应不是看板快照`)
+  const snapshot: unknown = await response.json()
+  if (!isWorkspace(snapshot)) throw new Error(`${subject}：响应不是工作区快照`)
   return snapshot
 }
 
 /**
- * 读一次看板快照。
+ * 读一份「快照装在信封里」的响应体：新建看板、加卡片、加组卡都是这个形状。
  *
- * @returns 宿主上的看板、组件元信息与组件库。
+ * @param response - 宿主的答复。
+ * @param subject - 出错时用来说明的名字。
+ * @returns 信封里的 id（有的话）与快照。
+ * @throws {Error} 请求失败或响应不是工作区快照。
+ */
+async function wrappedOf(response: Response, subject: string): Promise<{ id?: string, snapshot: WorkspaceSnapshot }> {
+  if (!response.ok) throw new Error(await errorOf(response, subject))
+  const payload = await response.json() as { id?: unknown, snapshot?: unknown }
+  if (!isWorkspace(payload.snapshot)) throw new Error(`${subject}：响应不是工作区快照`)
+  return { ...(typeof payload.id === 'string' ? { id: payload.id } : {}), snapshot: payload.snapshot }
+}
+
+/**
+ * 读一次工作区快照（D21）。
+ *
+ * @returns 宿主上的全部看板、当前选中、组件元信息与组件库。
  * @throws {Error} 请求失败或响应不是快照。
  */
-export async function fetchSnapshot(): Promise<BoardSnapshot> {
-  const response = await fetch(`${CLIENT_ROUTE}${BOARD_PATH}`, { headers: { accept: 'application/json' } })
-  return await snapshotOf(response, '看板快照读不出来')
+export async function fetchWorkspace(): Promise<WorkspaceSnapshot> {
+  const response = await fetch(boardsPath(), { headers: { accept: 'application/json' } })
+  return await snapshotOf(response, '工作区读不出来')
+}
+
+/**
+ * 新建一块看板（D21）。
+ *
+ * @param title - 标题；省略时宿主起一个「未命名看板」加序号。
+ * @returns 新看板的 id 与建完之后的工作区。
+ * @throws {Error} 请求失败；宿主给出的原因会带在消息里。
+ */
+export async function createBoard(title?: string): Promise<{ id: string, snapshot: WorkspaceSnapshot }> {
+  const body: BoardCreateRequest = title === undefined ? {} : { title }
+  const response = await fetch(boardsPath(), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const { id, snapshot } = await wrappedOf(response, '新建不了看板')
+  if (id === undefined) throw new Error('新建不了看板：响应里没有看板 id')
+  return { id, snapshot }
+}
+
+/**
+ * 改一块看板的标题（D21）。
+ *
+ * @param id - 看板 id。
+ * @param title - 新标题。
+ * @returns 改完之后的工作区。
+ * @throws {Error} 请求失败；宿主给出的原因会带在消息里。
+ */
+export async function renameBoard(id: string, title: string): Promise<WorkspaceSnapshot> {
+  const body: BoardRenameRequest = { title }
+  const response = await fetch(boardRenamePath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return await snapshotOf(response, '改不了看板的名字')
+}
+
+/**
+ * 移除一块看板（D21）。
+ *
+ * @param id - 看板 id。
+ * @returns 移除之后的工作区。
+ * @throws {Error} 请求失败；只剩一块看板时宿主会拒绝并说明原因。
+ */
+export async function removeBoard(id: string): Promise<WorkspaceSnapshot> {
+  const response = await fetch(boardRemovePath(id), { method: 'POST' })
+  return await snapshotOf(response, '移除不了这块看板')
+}
+
+/**
+ * 选中一块看板（D21）。
+ *
+ * @param id - 看板 id。
+ * @returns 换过选中之后的工作区。
+ * @throws {Error} 请求失败。
+ */
+export async function activateBoard(id: string): Promise<WorkspaceSnapshot> {
+  const response = await fetch(boardActivatePath(id), { method: 'POST' })
+  return await snapshotOf(response, '换不了选中的看板')
 }
 
 /**
@@ -87,19 +193,20 @@ export async function sendInstanceAction(id: string, action: string, payload?: u
 }
 
 /**
- * 把整块看板的卡片盒子交给宿主（D16）。
+ * 把一块看板的卡片盒子交给宿主（D16、D21）。
  *
- * 拖动与缩放只在本地预览，松手时提交一次；修订号过期时宿主返回当前快照，这里把它交回去让页面
+ * 拖动与缩放只在本地预览，松手时提交一次；修订号过期时宿主返回当前工作区，这里把它交回去让页面
  * 按宿主的那一份重画（D5）。
  *
- * @param layoutRevision - 页面读到的那一份的布局修订号。
+ * @param boardId - 看板 id。
+ * @param layoutRevision - 页面读到的那一块的布局修订号。
  * @param layouts - 整理过的卡片布局。
- * @returns 宿主上的快照。
+ * @returns 宿主上的工作区。
  * @throws {Error} 请求失败，或响应不是快照。
  */
-export async function saveBoardLayouts(layoutRevision: number, layouts: Record<string, CardLayout>): Promise<BoardSnapshot> {
+export async function saveBoardLayouts(boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>): Promise<WorkspaceSnapshot> {
   const body: BoardLayoutRequest = { layoutRevision, layouts }
-  const response = await fetch(boardLayoutPath(), {
+  const response = await fetch(boardLayoutPath(boardId), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -109,56 +216,52 @@ export async function saveBoardLayouts(layoutRevision: number, layouts: Record<s
 }
 
 /**
- * 往看板上加一张卡（D17）。
+ * 往一块看板上加一张卡（D17、D21）。
  *
+ * @param boardId - 看板 id。
  * @param widget - 组件的 id。
  * @param layout - 拖到看板上的落点；省略时宿主放进最矮的一列。
- * @returns 加完之后宿主上的快照。
+ * @returns 加完之后宿主上的工作区。
  * @throws {Error} 请求失败；宿主给出的原因会带在消息里。
  */
-export async function addInstance(widget: string, layout?: CardLayout): Promise<BoardSnapshot> {
+export async function addInstance(boardId: string, widget: string, layout?: CardLayout): Promise<WorkspaceSnapshot> {
   const body: InstanceAddRequest = { widget, ...(layout === undefined ? {} : { layout }) }
-  const response = await fetch(boardInstancePath(), {
+  const response = await fetch(boardInstancePath(boardId), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok) throw new Error(await errorOf(response, '加不了这张卡片'))
-  const payload = await response.json() as { snapshot?: BoardSnapshot }
-  if (payload.snapshot === undefined || !Array.isArray(payload.snapshot.board?.instances)) throw new Error('加不了这张卡片：响应不是看板快照')
-  return payload.snapshot
+  return (await wrappedOf(response, '加不了这张卡片')).snapshot
 }
 
 /**
- * 往看板上加一张固定的翻面组（D19）：宿主建出正面与背面两张普通卡片。
+ * 往一块看板上加一张固定的翻面组（D19、D21）：宿主建出正面与背面两张普通卡片。
  *
+ * @param boardId - 看板 id。
  * @param layout - 拖到看板上的落点；省略时宿主放进最矮的一列。
- * @returns 加完之后宿主上的快照。
+ * @returns 加完之后宿主上的工作区。
  * @throws {Error} 请求失败；宿主给出的原因会带在消息里。
  */
-export async function addGroup(layout?: CardLayout): Promise<BoardSnapshot> {
+export async function addGroup(boardId: string, layout?: CardLayout): Promise<WorkspaceSnapshot> {
   const body: GroupAddRequest = layout === undefined ? {} : { layout }
-  const response = await fetch(boardGroupPath(), {
+  const response = await fetch(boardGroupPath(boardId), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok) throw new Error(await errorOf(response, '加不了翻面组'))
-  const payload = await response.json() as { snapshot?: BoardSnapshot }
-  if (payload.snapshot === undefined || !Array.isArray(payload.snapshot.board?.instances)) throw new Error('加不了翻面组：响应不是看板快照')
-  return payload.snapshot
+  return (await wrappedOf(response, '加不了翻面组')).snapshot
 }
 
 /**
  * 把一整组翻面卡从看板上移除（D19）。
  *
  * @param group - 组 id。
- * @returns 移除之后宿主上的快照。
+ * @returns 移除之后宿主上的工作区。
  * @throws {Error} 请求失败。
  */
-export async function removeGroup(group: string): Promise<BoardSnapshot> {
+export async function removeGroup(group: string): Promise<WorkspaceSnapshot> {
   const body: GroupRemoveRequest = { group }
-  const response = await fetch(boardGroupRemovePath(), {
+  const response = await fetch(groupRemovePath(), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -169,22 +272,22 @@ export async function removeGroup(group: string): Promise<BoardSnapshot> {
 /**
  * 让宿主主动重读组件库与运行时（D17）：菜单上的刷新按钮用它。
  *
- * @returns 重读之后宿主上的快照。
+ * @returns 重读之后宿主上的工作区。
  * @throws {Error} 请求失败。
  */
-export async function refreshBoard(): Promise<BoardSnapshot> {
+export async function refreshBoard(): Promise<WorkspaceSnapshot> {
   const response = await fetch(refreshPath(), { method: 'POST' })
   return await snapshotOf(response, '刷新失败')
 }
 
 /**
- * 从看板上移除一张卡。
+ * 从看板上移除一张卡（D21）：卡片 id 全工作区唯一，这条路由不带看板。
  *
  * @param id - 卡片实例的 id。
- * @returns 移除之后宿主上的快照。
+ * @returns 移除之后宿主上的工作区。
  * @throws {Error} 请求失败。
  */
-export async function removeInstance(id: string): Promise<BoardSnapshot> {
+export async function removeInstance(id: string): Promise<WorkspaceSnapshot> {
   const response = await fetch(instanceRemovePath(id), { method: 'POST' })
   return await snapshotOf(response, '移除不了这张卡片')
 }

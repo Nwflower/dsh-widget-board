@@ -1,0 +1,106 @@
+/*
+ * 顶部的看板标签条（D21）。
+ *
+ * 颜色与排版读宿主的 --dsw-* 令牌；药丸的时长与曲线由 tabs.tsx 写在根节点上的 --w-motion-* 给出
+ * （D10）。标签条粘在页面顶端：卡片滚过去时切换入口一直看得见。
+ */
+
+.dsh-widget-board__tabs {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: -8px -8px 14px;
+  padding: 8px;
+  overflow-x: auto;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 88%, transparent);
+  backdrop-filter: blur(8px);
+  scrollbar-width: none;
+}
+
+.dsh-widget-board__tabs::-webkit-scrollbar { display: none; }
+
+/* 活动标签底下那枚药丸：位置与宽度由脚本量出来，过渡走令牌。 */
+.dsh-widget-board__tabs-pill {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  z-index: 0;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 8%),
+    0 0 0 1px color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  transition:
+    transform var(--w-motion-base) var(--w-motion-ease-smooth),
+    width var(--w-motion-base) var(--w-motion-ease-smooth);
+  pointer-events: none;
+}
+
+.dsh-widget-board__tab {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  max-width: 220px;
+  height: 32px;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 32px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--w-motion-fast) var(--w-motion-ease-smooth);
+}
+
+.dsh-widget-board__tab[aria-selected="true"] { color: var(--dsw-alias-label-primary); }
+
+@media (hover: hover) and (pointer: fine) {
+  .dsh-widget-board__tab:not([aria-selected="true"]):hover { color: var(--dsw-alias-label-primary); }
+}
+
+.dsh-widget-board__tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
+
+.dsh-widget-board__tab-new {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 18px;
+  line-height: 30px;
+  cursor: pointer;
+  transition:
+    background-color var(--w-motion-fast) var(--w-motion-ease-smooth),
+    color var(--w-motion-fast) var(--w-motion-ease-smooth);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dsh-widget-board__tab-new:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.dsh-widget-board__tab-new:disabled { opacity: 0.45; cursor: not-allowed; }
+.dsh-widget-board__tab-new:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
+
+/* 减弱动效：药丸直接换位置（D10）。 */
+@media (prefers-reduced-motion: reduce) {
+  .dsh-widget-board__tabs-pill { transition: none; }
+}

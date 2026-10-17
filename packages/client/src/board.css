@@ -39,6 +39,21 @@
   width: 100%;
 }
 
+/* 多块看板同时挂载（D21）：每块看板一层，只有选中的那一层参与排版与滚动；其余保持布局与画面、
+ * 只是看不见，切回来不必重挂，里面的组件也一直在跑。 */
+.dsh-widget-board__boards {
+  position: relative;
+  flex: none;
+  width: 100%;
+}
+
+.dsh-widget-board__flow[data-active="false"] {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* 卡片的投影是外壳的事：组件只管画画面，圆角由 cards 内联的令牌给（D10、D16）。
  * 不描边：卡片的边由它自己的画面收口。投影用黑色低透明度，深色配色下明亮的前景当投影会变成光晕。 */
 .dsh-widget-board__cell {
@@ -125,7 +140,7 @@
 }
 
 /* 拖动时指针归外壳：iframe 不接收悬停与按下，否则拖动到卡片上方会断掉。 */
-.dsh-widget-board[data-dragging="true"] .dsh-widget-board__frame {
+.dsh-widget-board__flow[data-dragging="true"] .dsh-widget-board__frame {
   pointer-events: none;
 }
 

@@ -1,5 +1,5 @@
 /**
- * 宿主半边（D5）：组件库、看板存储、组件文档路由、数据源注册表与热重载。
+ * 宿主半边（D5、D21）：组件库、多块看板的存储、组件文档路由、数据源注册表与热重载。
  *
  * 组件库有三个来源（D17）：包内的内置组件、`$DSH_HOME/widget-board/widgets/` 里的用户组件、
  * 插件经 `widgetBoard` 服务注册的目录。看板与实例只在这里写；浏览器半边是它的视图，事件把改动
@@ -27,7 +27,7 @@ import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
 import { createRegistries } from './sources'
-import { StaleRevisionError, loadBoard, withLayouts, writeBoard } from './state'
+import { openWorkspace } from './workspace'
 import { watchTree } from './watch'
 import { dshHome } from './home'
 
@@ -79,7 +79,6 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const builtin = join(lib, 'widgets')
   const runtime = join(lib, 'runtime')
   const home = join(dshHome(), 'widget-board')
-  const boardFile = join(home, 'board.json')
   const versions = createVersionStore(join(home, 'blobs'))
   // 用户组件目录先建出来：拖进来的组件有地方放，监视也挂得上（D17）。
   await mkdir(join(home, 'widgets'), { recursive: true })
@@ -92,43 +91,17 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   for (const record of library.records.values()) await versions.remember(record)
   const live = createLive(await loadAssets(runtime))
   const sources = createRegistries()
+  // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
+  const workspace = await openWorkspace(home, library.records, (event) => live.notify(event))
 
-  /**
-   * 改一次看板：写到磁盘、换掉内存里的那份、推一条通知。
-   *
-   * 写入串行，后一次看得到前一次的结果，磁盘上不会出现两份互相覆盖的看板。布局提交带的是布局
-   * 修订号，轮到它写入时再核对一次：两个页面同时松手时后到的那一份不会盖掉前一份，而组件状态的
-   * 写入不会让一次正在进行的拖动变成过期（D5、D16）。
-   */
-  let writing: Promise<void> = Promise.resolve()
   /** 刷新路由要调的重读：重读函数在下面定义，闭包先接住这个变量。 */
   let refreshLibrary: () => Promise<void> = async () => {}
-  const save: RouteContext['save'] = (change, options) => {
-    const run = writing.then(async () => {
-      const current = context.board
-      if (options.expectedLayoutRevision !== undefined && options.expectedLayoutRevision !== current.layoutRevision) {
-        throw new StaleRevisionError(options.expectedLayoutRevision, current.layoutRevision)
-      }
-      const next = {
-        ...change(current),
-        revision: current.revision + 1,
-        layoutRevision: current.layoutRevision + (options.layoutChanged === true ? 1 : 0),
-      }
-      await writeBoard(boardFile, next)
-      context.board = next
-      live.notify(options.event(next))
-      return next
-    })
-    writing = run.then(() => undefined, () => undefined)
-    return run
-  }
 
   const context: RouteContext = {
     records: library.records,
     entries: library.entries,
     versions,
-    board: await loadBoard(boardFile, library.records),
-    save,
+    workspace,
     live,
     connection: connectionOf(ctx),
     refresh: () => refreshLibrary(),
@@ -145,11 +118,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       library = next
       context.records = next.records
       context.entries = next.entries
-      // 组件的 minBox 可能在这一版里变了：低于新下限的卡片抬上来，页面按新的盒子重取一次。
+      // 组件的 minBox 可能在这一版里变了：每块看板里低于新下限的卡片抬上来，页面按新的盒子重取一次。
       const minBoxOf = (widget: string): WidgetMinBox | undefined => next.records.get(widget)?.manifest.minBox
-      if (withLayouts(context.board, minBoxOf).changed) {
-        await save((current) => withLayouts(current, minBoxOf).board, { layoutChanged: true, event: () => ({ type: 'board' }) })
-      }
+      await workspace.relayout(minBoxOf)
       live.publish(await loadAssets(runtime))
     })
     reloading = run.catch(() => undefined)

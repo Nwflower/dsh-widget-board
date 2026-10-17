@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { WidgetRoot } from '@dsh-widget-board/contracts'
+import type { WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
 import {
   PACKAGE_NAME,
   PLUGIN_ROUTE,
@@ -27,7 +27,7 @@ import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
 import { createRegistries } from './sources'
-import { StaleRevisionError, loadBoard, writeBoard } from './state'
+import { StaleRevisionError, loadBoard, withLayouts, writeBoard } from './state'
 import { watchTree } from './watch'
 import { dshHome } from './home'
 
@@ -145,6 +145,11 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       library = next
       context.records = next.records
       context.entries = next.entries
+      // 组件的 minBox 可能在这一版里变了：低于新下限的卡片抬上来，页面按新的盒子重取一次。
+      const minBoxOf = (widget: string): WidgetMinBox | undefined => next.records.get(widget)?.manifest.minBox
+      if (withLayouts(context.board, minBoxOf).changed) {
+        await save((current) => withLayouts(current, minBoxOf).board, { layoutChanged: true, event: () => ({ type: 'board' }) })
+      }
       live.publish(await loadAssets(runtime))
     })
     reloading = run.catch(() => undefined)

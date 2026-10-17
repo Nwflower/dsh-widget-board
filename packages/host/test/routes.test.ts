@@ -107,17 +107,18 @@ interface Harness {
 /**
  * 起一套替身。
  *
+ * @param record - 组件库里的那一个组件，默认是天气卡。
  * @returns 上下文、推出去的事件与发请求的函数。
  */
-function harness(): Harness {
+function harness(record: WidgetRecord = RECORD): Harness {
   const events: BoardEvent[] = []
   const sources = createRegistries()
   const context: RouteContext = {
-    records: new Map([['weather', RECORD]]),
+    records: new Map([[record.manifest.id, record]]),
     entries: ENTRIES,
     versions: {
       remember: async () => undefined,
-      get: async (hash: string) => (hash === HASH ? RECORD : undefined),
+      get: async (hash: string) => (hash === HASH ? record : undefined),
     },
     board: board(),
     save: async (change, options) => {
@@ -206,6 +207,15 @@ describe('布局提交', () => {
     expect(test.events.at(-1)).toEqual({ type: 'layout', layoutRevision: 6, layouts })
   })
 
+  it('提交低于组件最小盒子的布局时抬到下限', async () => {
+    const sized: WidgetRecord = { ...RECORD, manifest: { ...RECORD.manifest, minBox: { w: 2, h: 14 } } }
+    const test = harness(sized)
+    const response = await test.send('POST', '/board/layout', JSON.stringify({ layoutRevision: 5, layouts: { first: { x: 0, y: 0, w: 1, h: 6 } } }))
+    expect(response.status).toBe(200)
+    expect(test.context.board.instances[0]?.layout).toEqual({ x: 0, y: 0, w: 2, h: 14 })
+    expect(test.events.at(-1)).toEqual({ type: 'layout', layoutRevision: 6, layouts: { first: { x: 0, y: 0, w: 2, h: 14 } } })
+  })
+
   it('形状不对时回 400', async () => {
     const response = await harness().send('POST', '/board/layout', JSON.stringify({ layouts: {} }))
     expect(response.status).toBe(400)
@@ -264,7 +274,7 @@ describe('加卡片与移除卡片', () => {
     const test = harness()
     const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 1, y: 4.5, w: 1, h: 10 } }))
     expect(response.status).toBe(201)
-    expect(test.context.board.instances.at(-1)?.layout).toEqual({ x: 1, y: 4.5, w: 1, h: 10 })
+    expect(test.context.board.instances.at(-1)?.layout).toEqual({ x: 1, y: 4, w: 1, h: 10 })
   })
 
   it('拖放落点不合法时回 400', async () => {

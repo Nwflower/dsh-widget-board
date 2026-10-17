@@ -9,9 +9,9 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Board, BoardInstance, CardLayout, InstanceGroup } from '@dsh-widget-board/contracts'
+import type { Board, BoardInstance, CardLayout, InstanceGroup, WidgetMinBox } from '@dsh-widget-board/contracts'
 import { BOARD_HERO_ID } from '@dsh-widget-board/contracts'
-import { isCardLayout, nextCardLayout } from '@dsh-widget-board/model'
+import { DEFAULT_HEIGHT_REM, clampCardBox, clampCardLayout, isCardLayout, nextCardLayout } from '@dsh-widget-board/model'
 import type { WidgetRecord } from './library'
 
 /** 存储格式的版本：2 把固定的题头换成了 `board-hero` 卡片。 */
@@ -37,6 +37,29 @@ export class StaleRevisionError extends Error {
 }
 
 /**
+ * 一个组件的新卡片默认盒子：manifest 的 `defaultBox` 抬到 `minBox` 之上。
+ *
+ * @param record - 组件记录。
+ * @returns 可以交给 `nextCardLayout` 的宽高。
+ */
+function defaultBoxOf(record: WidgetRecord): { w: number, h: number } {
+  return clampCardBox(record.manifest.defaultBox ?? { w: 1, h: DEFAULT_HEIGHT_REM }, record.manifest.minBox)
+}
+
+/**
+ * 两组最小盒子取并集：组卡正反两面共用一个盒子，两边的最小值都要满足。
+ *
+ * @param left - 一侧的最小盒子。
+ * @param right - 另一侧的最小盒子。
+ * @returns 合并后的最小盒子；两边都没有时是 `undefined`。
+ */
+function mergeMinBox(left: WidgetMinBox | undefined, right: WidgetMinBox | undefined): WidgetMinBox | undefined {
+  if (left === undefined) return right
+  if (right === undefined) return left
+  return { w: Math.max(left.w, right.w), h: Math.max(left.h, right.h) }
+}
+
+/**
  * 一个组件的一张新卡。
  *
  * @param record - 组件记录。
@@ -57,7 +80,9 @@ export function instanceOf(
     props: options.props ?? {},
     data: null,
     state: null,
-    layout: options.layout ?? nextCardLayout(existing, record.manifest.defaultBox),
+    layout: options.layout === undefined
+      ? nextCardLayout(existing, defaultBoxOf(record))
+      : clampCardLayout(options.layout, record.manifest.minBox),
   }
 }
 
@@ -86,21 +111,34 @@ function seed(records: Map<string, WidgetRecord>): Board {
 }
 
 /**
- * 旧看板补上修订号与卡片盒子。盒子缺失或形状不对时按最矮的一列放一张默认大小的卡。
+ * 旧看板补上修订号与卡片盒子，并把盒子抬到组件的最小盒子。
+ *
+ * 盒子缺失或形状不对时按最矮的一列放一张默认大小的卡。
  *
  * @param board - 从磁盘读出来的看板。
+ * @param minBoxOf - 按组件 id 取最小盒子；省略时不执行下限。
  * @returns 补齐后的看板，以及有没有改动。
  */
-export function withLayouts(board: Board): { board: Board, changed: boolean } {
+export function withLayouts(
+  board: Board,
+  minBoxOf?: (widget: string) => WidgetMinBox | undefined,
+): { board: Board, changed: boolean } {
   let changed = false
   const instances: BoardInstance[] = []
   for (const instance of board.instances) {
+    const minBox = minBoxOf?.(instance.widget)
     if (isCardLayout(instance.layout)) {
-      instances.push(instance)
+      const layout = minBoxOf === undefined ? instance.layout : clampCardLayout(instance.layout, minBox)
+      if (layout.x !== instance.layout.x || layout.y !== instance.layout.y || layout.w !== instance.layout.w || layout.h !== instance.layout.h) {
+        changed = true
+        instances.push({ ...instance, layout })
+      } else {
+        instances.push(instance)
+      }
       continue
     }
     changed = true
-    instances.push({ ...instance, layout: nextCardLayout(instances) })
+    instances.push({ ...instance, layout: nextCardLayout(instances, minBox === undefined ? undefined : clampCardBox({ w: 1, h: DEFAULT_HEIGHT_REM }, minBox)) })
   }
   const revision = Number.isSafeInteger(board.revision) ? board.revision : INITIAL_REVISION
   const layoutRevision = Number.isSafeInteger(board.layoutRevision) ? board.layoutRevision : INITIAL_LAYOUT_REVISION
@@ -156,7 +194,7 @@ export async function loadBoard(file: string, records: Map<string, WidgetRecord>
     throw new Error(`${file} 的格式版本是 ${String(parsed.version)}，这个宿主只认 1 或 ${BOARD_FORMAT}；原文件保留`)
   }
   const upgraded = parsed.version === 1 ? upgradeV1(parsed, records) : parsed
-  const filled = withLayouts(upgraded)
+  const filled = withLayouts(upgraded, (widget) => records.get(widget)?.manifest.minBox)
   const changed = parsed.version === 1 || filled.changed
   if (changed) await writeBoard(file, filled.board)
   return filled.board
@@ -285,7 +323,10 @@ export function withGroupAdded(
   options: { layout?: CardLayout } = {},
 ): { board: Board, id: string } {
   const id = randomUUID()
-  const layout = options.layout ?? nextCardLayout(board.instances)
+  const minBox = mergeMinBox(front.manifest.minBox, back.manifest.minBox)
+  const layout = options.layout === undefined
+    ? nextCardLayout(board.instances, clampCardBox({ w: 1, h: DEFAULT_HEIGHT_REM }, minBox))
+    : clampCardLayout(options.layout, minBox)
   const base = { template: 'flip' as const }
   const frontInstance: BoardInstance = {
     ...instanceOf(front, board.instances, { layout }),
@@ -316,25 +357,42 @@ export function withGroupRemoved(board: Board, id: string): Board {
  * 把一次提交的布局写进对应的卡片。
  *
  * 提交里出现的每一张卡都必须在看板上，布局的四个数都要在合法范围内；不合法的提交整体拒绝，
- * 不留下半份新布局（D11）。
+ * 不留下半份新布局（D11）。给了 `minBoxOf` 时，每份布局先抬到组件的最小盒子。
  *
  * @param board - 当前看板。
  * @param layouts - 卡片 id 到布局的映射。
+ * @param minBoxOf - 按组件 id 取最小盒子；省略时不执行下限。
  * @returns 换过布局的看板。
  * @throws {Error} 看板上没有某张卡，或某份布局不合法。
  */
-export function withBoardLayouts(board: Board, layouts: Record<string, CardLayout>): Board {
+export function withBoardLayouts(
+  board: Board,
+  layouts: Record<string, CardLayout>,
+  minBoxOf?: (widget: string) => WidgetMinBox | undefined,
+): Board {
   const known = new Map(board.instances.map((instance) => [instance.id, instance]))
   /** 组卡的两张卡共用同一个盒子：提交里出现任意一侧，整组都换到这一份（D19）。 */
+  const groupMin = new Map<string, WidgetMinBox>()
+  for (const instance of board.instances) {
+    if (instance.group === undefined) continue
+    const minBox = minBoxOf?.(instance.widget)
+    if (minBox === undefined) continue
+    const previous = groupMin.get(instance.group.id)
+    groupMin.set(instance.group.id, previous === undefined ? minBox : { w: Math.max(previous.w, minBox.w), h: Math.max(previous.h, minBox.h) })
+  }
+  const direct = new Map<string, CardLayout>()
   const groupLayouts = new Map<string, CardLayout>()
   for (const [id, layout] of Object.entries(layouts)) {
     const instance = known.get(id)
     if (instance === undefined) throw new Error(`看板上没有这张卡：${id}`)
     if (!isCardLayout(layout)) throw new Error(`卡片 ${id} 的布局不合法`)
-    if (instance.group !== undefined) groupLayouts.set(instance.group.id, layout)
+    const minBox = instance.group === undefined ? minBoxOf?.(instance.widget) : groupMin.get(instance.group.id)
+    const next = clampCardLayout(layout, minBox)
+    if (instance.group === undefined) direct.set(id, next)
+    else groupLayouts.set(instance.group.id, next)
   }
   const instances = board.instances.map((instance) => {
-    const layout = layouts[instance.id] ?? (instance.group === undefined ? undefined : groupLayouts.get(instance.group.id))
+    const layout = direct.get(instance.id) ?? (instance.group === undefined ? undefined : groupLayouts.get(instance.group.id))
     return layout === undefined ? instance : { ...instance, layout }
   })
   return { ...board, instances }

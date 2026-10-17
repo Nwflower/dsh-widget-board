@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { BoardEventFrame, BoardSnapshot, CardLayout } from '@dsh-widget-board/contracts'
+import type { BoardEventFrame, BoardSnapshot, CardLayout, WidgetMinBox, WidgetSummary } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_ID, WIDGET_BOARD_PANEL_ID } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
 import {
   DEFAULT_HEIGHT_REM,
+  clampCardLayout,
   gridMetrics,
   normalizeCardLayout,
   resolveLayout,
@@ -19,6 +20,7 @@ import { t } from './copy'
 import { BoardDock } from './dock'
 import { FlipGroupCard } from './flip-group'
 import { createFrameHost } from './frame-host'
+import type { BoardCard } from './group'
 import { FLIP_GROUP_ENTRY, cardId, cardLayout, groupCards, layoutItemsOf } from './group'
 import { subscribeLive } from './live'
 import { mergeEvent, needsSnapshot } from './merge'
@@ -34,6 +36,24 @@ function rootFontSize(): number {
 /** 把数字收进区间。 */
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value))
+}
+
+/**
+ * 一格卡片的最小盒子：组卡取正反两面的并集，普通卡取自己组件的那一份。
+ *
+ * @param card - 看板上的格子。
+ * @param widgets - 快照里的组件元信息。
+ * @returns 最小盒子；没有声明时是 `undefined`。
+ */
+function minBoxOfCard(card: BoardCard, widgets: Readonly<Record<string, WidgetSummary>>): WidgetMinBox | undefined {
+  const instances = card.kind === 'group' ? [card.front, card.back] : [card.instance]
+  let merged: WidgetMinBox | undefined
+  for (const instance of instances) {
+    const box = widgets[instance.widget]?.minBox
+    if (box === undefined) continue
+    merged = merged === undefined ? box : { w: Math.max(merged.w, box.w), h: Math.max(merged.h, box.h) }
+  }
+  return merged
 }
 
 /** 卡片移动的过渡读令牌（D10）；外壳没有 `--w-*`，这里把令牌的字面值写在这一页的根上。 */
@@ -75,6 +95,8 @@ interface DragState {
   free: { x: number, y: number, width: number, height: number }
   /** 页面读到的那一份的布局修订号；提交时带它，别的窗口已经改过就整份退回（D5）。 */
   layoutRevision: number
+  /** 组件声明的最小盒子：缩放时不能把卡片压到它下面。 */
+  minBox?: WidgetMinBox
   moved: boolean
 }
 
@@ -366,6 +388,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     const placement = resolved.placements[index]
     if (placement === undefined) return
     const flow = flowRef.current?.getBoundingClientRect()
+    const minBox = minBoxOfCard(dragCards[index] as BoardCard, snapshot.widgets)
     const started: DragState = {
       id,
       kind,
@@ -378,6 +401,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       startPlacement: placement,
       free: { x: placement.x, y: placement.y, width: placement.width, height: placement.height },
       layoutRevision: snapshot.board.layoutRevision,
+      ...(minBox === undefined ? {} : { minBox }),
       moved: false,
     }
     dragRef.current = started
@@ -410,11 +434,15 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       const targetY = snapCardY(current.layout.y + dy / metrics.rootFontSize)
       next = { ...current.layout, x: targetX, y: targetY }
     } else {
-      const minimumWidth = Math.min(MIN_FREE_WIDTH, flowWidth - current.startPlacement.x)
+      const minW = current.minBox?.w ?? 1
+      const minWidthPx = minW * metrics.columnWidth + (minW - 1) * metrics.gap
+      const minimumWidth = Math.min(Math.max(MIN_FREE_WIDTH, minWidthPx), flowWidth - current.startPlacement.x)
       const width = clamp(current.startPlacement.width + dx, minimumWidth, Math.max(minimumWidth, flowWidth - current.startPlacement.x))
-      const targetW = clamp(Math.round(current.layout.w + dx / columnStep), 1, metrics.columns - current.layout.x)
-      const targetH = snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize)
-      next = { ...current.layout, w: targetW, h: targetH }
+      next = clampCardLayout({
+        ...current.layout,
+        w: clamp(Math.round(current.layout.w + dx / columnStep), 1, metrics.columns - current.layout.x),
+        h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize),
+      }, current.minBox, metrics.columns)
       free = { ...current.free, width, height: next.h * metrics.rootFontSize }
     }
     const nextDraft = { ...currentDraft, [current.id]: next }

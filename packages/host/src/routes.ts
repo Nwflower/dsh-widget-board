@@ -12,6 +12,7 @@ import type {
   BoardEvent,
   BoardLayoutRequest,
   BoardSnapshot,
+  CardLayout,
   GroupAddRequest,
   GroupRemoveRequest,
   HostConnection,
@@ -164,6 +165,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * 从写好的看板里取回这次提交的卡片盒子：宿主抬过下限之后，推给其他页面的是真正存下的那一份。
+ *
+ * @param board - 写入后的看板。
+ * @param ids - 这次提交涉及的卡片 id。
+ * @returns 按 id 索引的盒子。
+ */
+function storedLayouts(board: Board, ids: readonly string[]): Record<string, CardLayout> {
+  const byId = new Map(board.instances.map((instance) => [instance.id, instance]))
+  const layouts: Record<string, CardLayout> = {}
+  for (const id of ids) {
+    const instance = byId.get(id)
+    if (instance !== undefined) layouts[id] = instance.layout
+  }
+  return layouts
+}
+
+/**
  * 一份布局提交的外形：布局修订号是非负整数，布局表是普通的 JSON 对象；每份布局由状态层逐张校验。
  *
  * @param value - 解出来的请求体。
@@ -234,11 +252,11 @@ const ROUTES: Route[] = [
       const layouts = body.layouts
       try {
         await context.save(
-          (current) => withBoardLayouts(current, layouts),
+          (current) => withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox),
           {
             expectedLayoutRevision: body.layoutRevision,
             layoutChanged: true,
-            event: (next) => ({ type: 'layout', layoutRevision: next.layoutRevision, layouts }),
+            event: (next) => ({ type: 'layout', layoutRevision: next.layoutRevision, layouts: storedLayouts(next, Object.keys(layouts)) }),
           },
         )
       } catch (error) {

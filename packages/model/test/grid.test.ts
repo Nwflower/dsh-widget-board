@@ -10,10 +10,13 @@ import {
   MAX_HEIGHT_REM,
   MIN_COLUMN_REM,
   MIN_HEIGHT_REM,
-  ceilCardY,
   gridMetrics,
   isCardLayout,
   nextCardLayout,
+  ceilCardY,
+  clampCardBox,
+  clampCardLayout,
+  minCardHeight,
   normalizeCardLayout,
   resolveLayout,
   snapCardHeight,
@@ -255,5 +258,28 @@ describe('新卡片的默认位置', () => {
     const hero = nextCardLayout([], { w: 2, h: 14 })
     expect(hero).toEqual({ x: 0, y: 0, w: 2, h: 14 })
     expect(nextCardLayout([{ layout: hero }], { w: 1, h: 10 })).toEqual({ x: 2, y: 0, w: 1, h: 10 })
+  })
+})
+
+describe('组件的最小盒子', () => {
+  it('高度取不小于最小值的档位', () => {
+    expect(minCardHeight(6)).toBe(6)
+    expect(minCardHeight(7)).toBe(10)
+    expect(minCardHeight(26.5)).toBe(30)
+    expect(minCardHeight(100)).toBe(MAX_HEIGHT_REM)
+  })
+
+  it('布局的宽度与高度都抬到最小盒子', () => {
+    expect(clampCardLayout(layout(0, 0, 1, 6), { w: 2, h: 14 })).toEqual({ x: 0, y: 0, w: 2, h: 14 })
+    expect(clampCardLayout(layout(2, 0, 1, 6), { w: 2, h: 10 }, 3)).toEqual({ x: 1, y: 0, w: 2, h: 10 })
+  })
+
+  it('当前列数少于最小宽度时按当前列数截断', () => {
+    expect(clampCardLayout(layout(0, 0, 1, 6), { w: 3, h: 10 }, 1)).toEqual({ x: 0, y: 0, w: 1, h: 10 })
+  })
+
+  it('默认盒子不小于最小盒子', () => {
+    expect(clampCardBox({ w: 1, h: 10 }, { w: 2, h: 14 })).toEqual({ w: 2, h: 14 })
+    expect(clampCardBox({ w: 2, h: 22 }, { w: 1, h: 10 })).toEqual({ w: 2, h: 22 })
   })
 })

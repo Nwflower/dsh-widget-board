@@ -4,7 +4,7 @@
  * 状态存在宿主上，卡片重挂之后靠它把会话接回来；合并规则只有一条，所以由单元测试盯着。
  */
 import { describe, expect, it } from 'vitest'
-import type { Board, BoardInstance } from '@dsh-widget-board/contracts'
+import type { Board, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
 import { withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
 
@@ -20,6 +20,17 @@ function board(): Board {
       { id: 'first', widget: 'pomodoro', hash: 'a'.repeat(64), props: {}, data: null, state: { minutes: 25, endsAt: 0 }, layout: { x: 0, y: 0, w: 1, h: 22 } },
       { id: 'second', widget: 'weather', hash: 'b'.repeat(64), props: {}, data: null, state: null, layout: { x: 1, y: 0, w: 1, h: 22 } },
     ],
+  }
+}
+
+/** 一个已经在校验过的组件记录。 */
+function record(id: string, minBox?: WidgetMinBox): WidgetRecord {
+  return {
+    hash: id.padEnd(64, '0'),
+    dir: `/widgets/${id}`,
+    source: 'builtin',
+    manifest: { id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'], ...(minBox === undefined ? {} : { minBox }) },
+    files: new Map(),
   }
 }
 
@@ -57,7 +68,7 @@ describe('卡片布局', () => {
     const current = board()
     const next = withBoardLayouts(current, { second: { x: 0, y: 30, w: 2, h: 12 } })
     expect(next.instances[0]).toBe(current.instances[0])
-    expect(next.instances[1]?.layout).toEqual({ x: 0, y: 30, w: 2, h: 12 })
+    expect(next.instances[1]?.layout).toEqual({ x: 0, y: 30, w: 2, h: 14 })
     expect(current.instances[1]?.layout).toEqual({ x: 1, y: 0, w: 1, h: 22 })
   })
 
@@ -68,6 +79,17 @@ describe('卡片布局', () => {
   it('布局不合法时整份提交都拒绝', () => {
     expect(() => withBoardLayouts(board(), { first: { x: 3, y: 0, w: 2, h: 10 } })).toThrow(/布局不合法/)
     expect(() => withBoardLayouts(board(), { first: { x: 0, y: 0, w: 1, h: 1 } })).toThrow(/布局不合法/)
+  })
+
+  it('提交的布局低于最小盒子时抬到最小盒子', () => {
+    const next = withBoardLayouts(board(), { first: { x: 0, y: 0, w: 1, h: 6 } }, () => ({ w: 2, h: 14 }))
+    expect(next.instances[0]?.layout).toEqual({ x: 0, y: 0, w: 2, h: 14 })
+  })
+
+  it('载入看板时把低于最小盒子的盒子抬上来', () => {
+    const result = withLayouts(board(), (widget) => widget === 'weather' ? { w: 2, h: 26 } : undefined)
+    expect(result.changed).toBe(true)
+    expect(result.board.instances[1]?.layout).toEqual({ x: 1, y: 0, w: 2, h: 26 })
   })
 
   it('旧看板补上修订号与缺失的卡片盒子', () => {
@@ -102,17 +124,6 @@ describe('卡片的数据', () => {
 })
 
 describe('加卡片与移除卡片', () => {
-  /** 一个已经在校验过的组件记录，只添加卡片用得上的字段。 */
-  function record(id: string): WidgetRecord {
-    return {
-      hash: id.padEnd(64, '0'),
-      dir: `/widgets/${id}`,
-      source: 'builtin',
-      manifest: { id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'] },
-      files: new Map(),
-    }
-  }
-
   it('新卡片放在最矮的一列底部，带组件当前的哈希', () => {
     const added = withInstanceAdded(board(), record('todo'))
     const instance = added.board.instances[2]
@@ -129,6 +140,14 @@ describe('加卡片与移除卡片', () => {
     hero.manifest.defaultBox = { w: 2, h: 14 }
     const instance = withInstanceAdded(board(), hero).board.instances[2]
     expect(instance?.layout).toEqual({ x: 2, y: 0, w: 2, h: 14 })
+  })
+
+  it('默认盒子与拖放落点都不低于最小盒子', () => {
+    const sized = record('sized', { w: 2, h: 14 })
+    sized.manifest.defaultBox = { w: 1, h: 6 }
+    expect(withInstanceAdded(board(), sized).board.instances[2]?.layout).toEqual({ x: 2, y: 0, w: 2, h: 14 })
+    expect(withInstanceAdded(board(), sized, { layout: { x: 0, y: 0, w: 1, h: 6 } }).board.instances[2]?.layout)
+      .toEqual({ x: 0, y: 0, w: 2, h: 14 })
   })
 
   it('新卡片能带上数据源的名字与 props', () => {
@@ -148,17 +167,6 @@ describe('加卡片与移除卡片', () => {
 })
 
 describe('翻面组', () => {
-  /** 一个已经在校验过的组件记录。 */
-  function record(id: string): WidgetRecord {
-    return {
-      hash: id.padEnd(64, '0'),
-      dir: `/widgets/${id}`,
-      source: 'builtin',
-      manifest: { id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'] },
-      files: new Map(),
-    }
-  }
-
   it('一次加出正面与背面两张普通卡片，共用一个组 id 与盒子', () => {
     const added = withGroupAdded(board(), record('stat'), record('chart'))
     const [front, back] = added.board.instances.slice(2)
@@ -177,8 +185,16 @@ describe('翻面组', () => {
   it('拖动落点给两张卡用同一份', () => {
     const added = withGroupAdded(board(), record('stat'), record('chart'), { layout: { x: 1, y: 4.5, w: 2, h: 26 } })
     expect(added.board.instances.slice(2).map((instance) => instance.layout)).toEqual([
-      { x: 1, y: 4.5, w: 2, h: 26 },
-      { x: 1, y: 4.5, w: 2, h: 26 },
+      { x: 1, y: 4, w: 2, h: 26 },
+      { x: 1, y: 4, w: 2, h: 26 },
+    ])
+  })
+
+  it('组卡的最小盒子取正反两面的并集', () => {
+    const added = withGroupAdded(board(), record('stat', { w: 1, h: 10 }), record('chart', { w: 2, h: 14 }), { layout: { x: 0, y: 0, w: 1, h: 6 } })
+    expect(added.board.instances.slice(2).map((instance) => instance.layout)).toEqual([
+      { x: 0, y: 0, w: 2, h: 14 },
+      { x: 0, y: 0, w: 2, h: 14 },
     ])
   })
 
@@ -193,8 +209,8 @@ describe('翻面组', () => {
     const front = added.board.instances[2] as BoardInstance
     const next = withBoardLayouts(added.board, { [front.id]: { x: 0, y: 30, w: 2, h: 12 } })
     expect(next.instances.slice(2).map((instance) => instance.layout)).toEqual([
-      { x: 0, y: 30, w: 2, h: 12 },
-      { x: 0, y: 30, w: 2, h: 12 },
+      { x: 0, y: 30, w: 2, h: 14 },
+      { x: 0, y: 30, w: 2, h: 14 },
     ])
   })
 

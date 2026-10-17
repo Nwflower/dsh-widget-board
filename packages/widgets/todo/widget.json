@@ -11,6 +11,7 @@
   "author": "dsh-widget-board",
   "version": "0.1.0",
   "sizes": ["s", "l"],
+  "minBox": { "w": 1, "h": 10 },
   "text": {
     "title": {
       "zh": "待办",

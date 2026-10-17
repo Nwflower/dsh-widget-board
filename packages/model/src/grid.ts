@@ -6,7 +6,7 @@
  *
  * 纯逻辑：不碰 DOM，同样的输入总是同样的位置。
  */
-import type { CardLayout } from '@dsh-widget-board/contracts'
+import type { CardLayout, WidgetMinBox } from '@dsh-widget-board/contracts'
 
 /** 一列的最小宽度，按根字号的倍数。 */
 export const MIN_COLUMN_REM = 18
@@ -69,6 +69,20 @@ export function snapCardHeight(value: number): number {
     }
   }
   return best
+}
+
+/**
+ * 取不小于给定值的最低高度档位；超过最高档时取最高档。
+ *
+ * @param minimum - 以根字号为单位的最小高度。
+ * @returns 档位里的高度。
+ */
+export function minCardHeight(minimum: number): number {
+  if (!Number.isFinite(minimum)) return MIN_HEIGHT_REM
+  for (const tier of CARD_HEIGHT_TIERS_REM) {
+    if (tier >= minimum) return tier
+  }
+  return MAX_HEIGHT_REM
 }
 
 /** 这一帧的栅格：列数、列宽、间距与根字号。 */
@@ -139,6 +153,46 @@ export function normalizeCardLayout(layout: CardLayout, columns = MAX_COLUMNS): 
   const y = snapCardY(Number.isFinite(layout.y) ? layout.y : 0)
   const h = snapCardHeight(Number.isFinite(layout.h) ? layout.h : DEFAULT_HEIGHT_REM)
   return { x, y, w, h }
+}
+
+/**
+ * 把一份布局收进组件的 `minBox`：宽度至少占声明的列数，高度至少到声明的档位。
+ *
+ * 当前列数少于最小宽度时，宽度按当前列数截断；换到更宽的看板后仍按存下的布局显示。
+ *
+ * @param layout - 原始布局。
+ * @param minBox - 组件声明的最小盒子；省略时只做常规归一化。
+ * @param columns - 当前列数，默认最大列数。
+ * @returns 可以摆放的布局。
+ */
+export function clampCardLayout(layout: CardLayout, minBox?: WidgetMinBox, columns = MAX_COLUMNS): CardLayout {
+  const normalized = normalizeCardLayout(layout, columns)
+  if (minBox === undefined) return normalized
+  const usable = clamp(Math.round(columns), 1, MAX_COLUMNS)
+  const w = clamp(Math.max(normalized.w, Math.round(minBox.w)), 1, usable)
+  return {
+    x: clamp(normalized.x, 0, usable - w),
+    y: normalized.y,
+    w,
+    h: Math.max(normalized.h, minCardHeight(minBox.h)),
+  }
+}
+
+/**
+ * 把新卡片的默认盒子收进组件的 `minBox`。
+ *
+ * @param box - manifest 的 `defaultBox` 或调用方给的落点尺寸。
+ * @param minBox - 组件声明的最小盒子。
+ * @returns 不小于最小盒子的默认尺寸。
+ */
+export function clampCardBox(box: { w: number, h: number }, minBox?: WidgetMinBox): { w: number, h: number } {
+  const w = clamp(Math.round(box.w), 1, MAX_COLUMNS)
+  const h = snapCardHeight(box.h)
+  if (minBox === undefined) return { w, h }
+  return {
+    w: clamp(Math.max(w, Math.round(minBox.w)), 1, MAX_COLUMNS),
+    h: Math.max(h, minCardHeight(minBox.h)),
+  }
 }
 
 /**

@@ -77,6 +77,10 @@
 
 注释只写读者保持代码正确所需要的东西：为什么写成这样、依赖的宿主契约、要紧的顺序、改了会坏什么。一到三行为常。不复述代码，不叙述改动过程，不记测量值与发布历史。有理由的方向写进 `docs/adr/`，注释引用编号（`D16`）。
 
+### 临时工作树
+
+- `.debug/` 下借主树 `node_modules`（目录链接）的临时工作树，用 `node scripts/worktree.mjs remove .debug/<名字>` 收掉：`git worktree remove` 在 Windows 上会跟着链接走，把链接指向的目录递归删掉，`node_modules` 那一跳删下去是主树自己的，再下一跳是 npm 工作区链接指向的 `packages/*`。删除工作树的命令只允许出现在这个脚本里，`scripts/lint.mjs` 盯着。
+
 ## 参考来源
 
 - 宿主源码：全局安装的 `@deepseek-ai/dsh`，包在其 `node_modules/@deepseek-ai/` 下，类型声明在各包的 `lib/types/`。方案核实时的宿主版本是 0.2.1-rc.1。

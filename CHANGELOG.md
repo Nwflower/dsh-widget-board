@@ -31,6 +31,7 @@
 ### 其他变更
 
 - 新增尺寸矩阵检查（npm run matrix，并接入 npm run verify）：每个内置组件在代表性的看板盒子与缩略画面里检查横向溢出、空画面、被裁的可见控件与控制台错误。
+- 新增 `node scripts/worktree.mjs remove <路径>`：`.debug/` 下借主树 `node_modules` 的临时工作树先摘掉顶层链接再交给 git，Windows 上不再顺着链接删掉主树的目录；`scripts/lint.mjs` 只允许这一处发出删除工作树的命令，`packages/testing/` 补一条回归测试。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -55,6 +56,7 @@
 ### Chores
 
 - Adds a size-matrix check (npm run matrix, wired into npm run verify): every built-in widget is checked in representative board boxes and the thumbnail view for horizontal overflow, an empty surface, clipped visible controls and console errors.
+- Adds `node scripts/worktree.mjs remove <path>`: a scratch worktree under `.debug/` that borrows the main tree's `node_modules` has its top-level links unlinked before git is handed the directory, so Windows no longer deletes the directories those links name; `scripts/lint.mjs` allows the worktree removal command in that one place only, with a regression test in `packages/testing/`.
 
 ## [0.1.0] - 2026-10-17
 

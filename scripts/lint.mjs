@@ -195,7 +195,18 @@ for (const file of sources) {
   })
 }
 
-// 8. 抄来的代码（jscpd，扫描范围见 .jscpd.json）：同一段逻辑出现第二处，就是它该进共享层的时候。
+// 8. 删除工作树只从 scripts/worktree.mjs 里发出（AGENTS.md）：工作树顶层的目录链接会让 git 递归
+// 删掉链接指向的目录，也就是主树的 node_modules，再下一跳是工作区链接指向的 packages/*。
+let worktreeRemovals = 0
+for (const file of sources) {
+  const text = fs.readFileSync(file, 'utf8')
+  const calls = [...text.matchAll(/['"]worktree['"]\s*,\s*['"]remove['"]/g), ...text.matchAll(/git\s+worktree\s+remove/g)]
+  if (calls.length === 0) continue
+  if (relative(file) === 'scripts/worktree.mjs') worktreeRemovals += calls.length
+  else problems.push(`${relative(file)}: 直接删除工作树；用 node scripts/worktree.mjs remove <路径>，它先摘掉链接再交给 git（AGENTS.md）`)
+}
+
+// 9. 抄来的代码（jscpd，扫描范围见 .jscpd.json）：同一段逻辑出现第二处，就是它该进共享层的时候。
 const copies = spawnSync(process.execPath, [
   path.join(ROOT, 'node_modules', 'jscpd', 'run-jscpd.js'),
   '--threshold', '0',
@@ -211,6 +222,7 @@ if (copies.status !== 0) {
 if (links === 0) problems.push('lint: 没有检查到任何文档链接，链接的模式匹配不上')
 if (citations === 0) problems.push('lint: 没有检查到任何决策编号，编号的模式匹配不上')
 if (directions === 0) problems.push('lint: 没有检查到任何包的导入方向')
+if (worktreeRemovals === 0) problems.push('lint: 没有检查到 scripts/worktree.mjs 里的工作树删除，模式匹配不上')
 
 if (problems.length > 0) {
   for (const problem of problems) console.error(`lint: ${problem}`)

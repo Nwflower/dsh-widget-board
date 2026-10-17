@@ -13,6 +13,23 @@ export const SIDEBAR_PANELLIST_SLOT = 'sidebar.panellist'
 /** 中栏页面：只在该面板被选中时挂载。 */
 export const MAIN_SLOT = 'main'
 
+/**
+ * 设置页里的一节（D21）。
+ *
+ * 这一节由设置外壳声明，只在侧栏的「设置」那一行挂载期间存在，所以注册要经 `inject` 等它出现。
+ * 一次只挂载导航选中的那一节，组件收到的 `close` 用来关掉设置面板。
+ */
+export const SETTINGS_SECTION_SLOT = 'settings.section'
+
+/** 设置页里一节的注册选项。 */
+export interface SettingsSectionRegistration {
+  name: typeof SETTINGS_SECTION_SLOT
+  /** 这一节的 id，同时是导航里选中的那一项。 */
+  id: string
+  order?: number
+  label?: SlotLabel
+}
+
 /** 标签可以是函数：外壳每次读它都重新调用，语言切换因此不需要重新注册。 */
 export type SlotLabel = string | (() => string)
 
@@ -30,6 +47,11 @@ export interface PanelPageRegistration {
   key: string
 }
 
+/** 设置页里一节收到的宿主能力：关掉设置面板。 */
+export interface SettingsSectionProps {
+  close: () => void
+}
+
 /**
  * 插槽服务（`ctx.slots`）。
  *
@@ -40,6 +62,7 @@ export interface SlotsService {
   inject(slot: string, callback: () => () => void): () => void
   register(options: PanelRowRegistration, component: unknown): () => void
   register(options: PanelPageRegistration, component: unknown): () => void
+  register(options: SettingsSectionRegistration, component: unknown): () => void
 }
 
 /**

@@ -42,6 +42,16 @@ const COPY = {
   unread: { zh: '条未读通知', en: 'unread notifications' },
   boardTabs: { zh: '看板标签', en: 'Board tabs' },
   newBoard: { zh: '新建看板', en: 'New board' },
+  boards: { zh: '看板列表', en: 'Board list' },
+  boardListLoading: { zh: '正在读看板列表…', en: 'Reading the boards…' },
+  boardCards: { zh: '张卡片', en: 'cards' },
+  boardName: { zh: '看板名称', en: 'Board name' },
+  selectBoard: { zh: '选中这块看板', en: 'Select this board' },
+  rename: { zh: '改名', en: 'Rename' },
+  renameConfirm: { zh: '确定', en: 'Save' },
+  renameCancel: { zh: '取消', en: 'Cancel' },
+  removeBoard: { zh: '移除看板', en: 'Remove board' },
+  lastBoard: { zh: '只剩一块看板，不能移除', en: 'The last board cannot be removed' },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

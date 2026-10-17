@@ -17,7 +17,7 @@ const COPY = {
   empty: { zh: '看板还没有卡片，从下方菜单添加一个组件', en: 'No cards yet — add a widget from the menu below' },
   move: { zh: '拖动卡片', en: 'Move card' },
   resize: { zh: '调整卡片大小', en: 'Resize card' },
-  resizeHint: { zh: '拖右下角 · 数字跟着变', en: 'Drag corner · live size' },
+  resizeHint: { zh: '拖右下角 · 高度按档', en: 'Drag corner · height steps' },
   moveHint: { zh: '拖动卡片', en: 'Move card' },
   remove: { zh: '移除卡片', en: 'Remove card' },
   add: { zh: '添加组件', en: 'Add widget' },

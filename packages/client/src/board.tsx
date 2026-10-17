@@ -6,12 +6,11 @@ import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
 import {
   DEFAULT_HEIGHT_REM,
-  HEIGHT_STEP_REM,
-  MAX_HEIGHT_REM,
-  MIN_HEIGHT_REM,
   gridMetrics,
   normalizeCardLayout,
   resolveLayout,
+  snapCardHeight,
+  snapCardY,
   tidyLayout,
 } from '@dsh-widget-board/model'
 import type { CardControls } from './card'
@@ -35,11 +34,6 @@ function rootFontSize(): number {
 /** 把数字收进区间。 */
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value))
-}
-
-/** 按步长取整。 */
-function roundTo(value: number, step: number): number {
-  return Math.round(value / step) * step
 }
 
 /** 卡片移动的过渡读令牌（D10）；外壳没有 `--w-*`，这里把令牌的字面值写在这一页的根上。 */
@@ -217,7 +211,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return false
     const step = metrics.columnWidth + metrics.gap
     const column = clamp(Math.floor((clientX - rect.left) / step), 0, metrics.columns - 1)
-    const y = Math.max(0, roundTo((clientY - rect.top) / metrics.rootFontSize, HEIGHT_STEP_REM))
+    const y = snapCardY((clientY - rect.top) / metrics.rootFontSize)
     if (widget === FLIP_GROUP_ID) return await addGroupCard({ x: column, y, w: 1, h: DEFAULT_HEIGHT_REM })
     busyRef.current = true
     setBusy(true)
@@ -406,7 +400,6 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     const columnStep = metrics.columnWidth + metrics.gap
     const flowWidth = flow?.clientWidth
       ?? metrics.columns * metrics.columnWidth + (metrics.columns - 1) * metrics.gap
-    const minimumHeight = MIN_HEIGHT_REM * metrics.rootFontSize
     let free = current.free
     let next: CardLayout
     if (current.kind === 'move') {
@@ -414,16 +407,15 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       const y = Math.max(0, current.startPlacement.y + dy)
       free = { ...current.free, x, y }
       const targetX = clamp(Math.round(current.layout.x + dx / columnStep), 0, metrics.columns - current.layout.w)
-      const targetY = Math.max(0, roundTo(current.layout.y + dy / metrics.rootFontSize, HEIGHT_STEP_REM))
+      const targetY = snapCardY(current.layout.y + dy / metrics.rootFontSize)
       next = { ...current.layout, x: targetX, y: targetY }
     } else {
       const minimumWidth = Math.min(MIN_FREE_WIDTH, flowWidth - current.startPlacement.x)
       const width = clamp(current.startPlacement.width + dx, minimumWidth, Math.max(minimumWidth, flowWidth - current.startPlacement.x))
-      const height = Math.max(minimumHeight, current.startPlacement.height + dy)
-      free = { ...current.free, width, height }
       const targetW = clamp(Math.round(current.layout.w + dx / columnStep), 1, metrics.columns - current.layout.x)
-      const targetH = clamp(roundTo(current.layout.h + dy / metrics.rootFontSize, HEIGHT_STEP_REM), MIN_HEIGHT_REM, MAX_HEIGHT_REM)
+      const targetH = snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize)
       next = { ...current.layout, w: targetW, h: targetH }
+      free = { ...current.free, width, height: next.h * metrics.rootFontSize }
     }
     const nextDraft = { ...currentDraft, [current.id]: next }
     const nextDrag = { ...current, free, moved: true }

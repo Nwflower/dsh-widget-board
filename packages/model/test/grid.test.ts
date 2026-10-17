@@ -10,11 +10,14 @@ import {
   MAX_HEIGHT_REM,
   MIN_COLUMN_REM,
   MIN_HEIGHT_REM,
+  ceilCardY,
   gridMetrics,
   isCardLayout,
   nextCardLayout,
   normalizeCardLayout,
   resolveLayout,
+  snapCardHeight,
+  snapCardY,
   tidyLayout,
 } from '../src/grid'
 
@@ -48,6 +51,40 @@ describe('列数', () => {
 
   it('根字号放大时一列的最小宽度跟着放大', () => {
     expect(gridMetrics(920, 20).columns).toBe(2)
+  })
+})
+
+describe('位置档位', () => {
+  it('纵向位置取最近的 2rem，自动堆叠向上取', () => {
+    expect(snapCardY(0)).toBe(0)
+    expect(snapCardY(1.2)).toBe(2)
+    expect(snapCardY(4.5)).toBe(4)
+    expect(snapCardY(5)).toBe(6)
+    expect(snapCardY(-3)).toBe(0)
+    expect(ceilCardY(4.5)).toBe(6)
+    expect(ceilCardY(4)).toBe(4)
+    expect(ceilCardY(0)).toBe(0)
+  })
+
+  it('归一化布局时把纵向位置收进 2rem', () => {
+    expect(normalizeCardLayout(layout(0, 4.5, 1, 22))).toEqual({ x: 0, y: 4, w: 1, h: 22 })
+  })
+})
+
+describe('高度档位', () => {
+  it('取最接近的档位，中间值取高一档', () => {
+    expect(snapCardHeight(1)).toBe(6)
+    expect(snapCardHeight(9)).toBe(10)
+    expect(snapCardHeight(11)).toBe(10)
+    expect(snapCardHeight(12)).toBe(14)
+    expect(snapCardHeight(20)).toBe(22)
+    expect(snapCardHeight(24)).toBe(26)
+    expect(snapCardHeight(99)).toBe(30)
+  })
+
+  it('归一化布局时把高度收进档位', () => {
+    expect(normalizeCardLayout(layout(0, 0, 1, 23))).toEqual({ x: 0, y: 0, w: 1, h: 22 })
+    expect(normalizeCardLayout(layout(0, 0, 1, 27))).toEqual({ x: 0, y: 0, w: 1, h: 26 })
   })
 })
 
@@ -90,10 +127,10 @@ describe('摆放', () => {
       { id: 'moved', layout: layout(0, 0, 1, 10) },
     ], metrics, 'moved')
     expect(result.placements.map((placement) => [placement.id, placement.y])).toEqual([
-      ['top', 170],
+      ['top', 192],
       ['moved', 0],
     ])
-    expect(result.layouts.top?.y).toBe(170 / 16)
+    expect(result.layouts.top?.y).toBe(12)
   })
 
   it('跨列的卡片占住所覆盖的每一列', () => {
@@ -104,7 +141,7 @@ describe('摆放', () => {
     ], metrics)
     expect(result.placements.map((placement) => [placement.id, placement.x, placement.y])).toEqual([
       ['wide', 0, 0],
-      ['next', 0, 170],
+      ['next', 0, 192],
     ])
     expect(result.placements[0]?.width).toBe(210)
   })
@@ -159,19 +196,19 @@ describe('紧凑排布', () => {
       { id: 'next', layout: layout(0, 0, 1, 6) },
     ], metrics)
     expect(result.wide).toEqual({ x: 0, y: 0, w: 2, h: 10 })
-    expect(result.next).toEqual({ x: 0, y: 10.625, w: 1, h: 6 })
+    expect(result.next).toEqual({ x: 0, y: 12, w: 1, h: 6 })
   })
 
   it('高矮不同的卡片各自落在当前最矮的列，不留下大洞', () => {
     const metrics = { columns: 2, columnWidth: 100, gap: 10, rootFontSize: 16 }
     const result = tidyLayout([
-      { id: 'tall', layout: layout(0, 0, 1, 20) },
+      { id: 'tall', layout: layout(0, 0, 1, 22) },
       { id: 'short', layout: layout(1, 0, 1, 6) },
       { id: 'next', layout: layout(1, 8, 1, 6) },
     ], metrics)
-    expect(result.tall).toEqual({ x: 0, y: 0, w: 1, h: 20 })
+    expect(result.tall).toEqual({ x: 0, y: 0, w: 1, h: 22 })
     expect(result.short).toEqual({ x: 1, y: 0, w: 1, h: 6 })
-    expect(result.next).toEqual({ x: 1, y: 6.625, w: 1, h: 6 })
+    expect(result.next).toEqual({ x: 1, y: 8, w: 1, h: 6 })
   })
 
   it('同样的输入给出同样的排布', () => {
@@ -211,7 +248,7 @@ describe('新卡片的默认位置', () => {
 
   it('四列都被占到之后，新卡片落在最矮的一列底部并隔一个间距', () => {
     const next = nextCardLayout([{ layout: layout(0, 0, 4, DEFAULT_HEIGHT_REM) }])
-    expect(next).toEqual({ x: 0, y: DEFAULT_HEIGHT_REM + GAP_REM, w: 1, h: DEFAULT_HEIGHT_REM })
+    expect(next).toEqual({ x: 0, y: 24, w: 1, h: DEFAULT_HEIGHT_REM })
   })
 
   it('组件声明的默认盒子决定新卡片的宽高', () => {

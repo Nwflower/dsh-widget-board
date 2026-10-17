@@ -20,14 +20,56 @@ export const MAX_COLUMNS = 4
 /** 新卡片的高度，按根字号的倍数。 */
 export const DEFAULT_HEIGHT_REM = 22
 
-/** 卡片的最小高度，按根字号的倍数。 */
-export const MIN_HEIGHT_REM = 6
+/** 卡片的高度档位，按根字号的倍数；缩放只在档位之间跳（D16）。 */
+export const CARD_HEIGHT_TIERS_REM = [6, 10, 14, 18, 22, 26, 30] as const
 
-/** 卡片的最大高度，按根字号的倍数；比这更高的提交按上限算。 */
-export const MAX_HEIGHT_REM = 200
+/** 卡片的最小高度档位，按根字号的倍数。 */
+export const MIN_HEIGHT_REM = CARD_HEIGHT_TIERS_REM[0]
 
-/** 拖动与缩放时高度的吸附步长，按根字号的倍数。 */
-export const HEIGHT_STEP_REM = 0.5
+/** 卡片的最大高度档位，按根字号的倍数。 */
+export const MAX_HEIGHT_REM = CARD_HEIGHT_TIERS_REM[CARD_HEIGHT_TIERS_REM.length - 1] as number
+
+/** 卡片顶部的纵向档位，按根字号的倍数；拖动、落点与自动堆叠都落在这张网格上（D16）。 */
+export const POSITION_STEP_REM = 2
+
+/**
+ * 把纵向位置吸到最近的 2rem 档位。
+ *
+ * @param value - 以根字号为单位的位置。
+ * @returns 档位里的位置，最小为 0。
+ */
+export function snapCardY(value: number): number {
+  return Math.max(0, Math.round(value / POSITION_STEP_REM) * POSITION_STEP_REM)
+}
+
+/**
+ * 把纵向位置向上吸到 2rem 档位，自动堆叠时不会压住上一张卡。
+ *
+ * @param value - 以根字号为单位的位置。
+ * @returns 不小于输入值的档位。
+ */
+export function ceilCardY(value: number): number {
+  return Math.max(0, Math.ceil(value / POSITION_STEP_REM) * POSITION_STEP_REM)
+}
+
+/**
+ * 取最接近的高度档位；正好落在两档中间时取高的那一档。
+ *
+ * @param value - 以根字号为单位的高度。
+ * @returns 档位里的高度。
+ */
+export function snapCardHeight(value: number): number {
+  let best: number = CARD_HEIGHT_TIERS_REM[0]
+  let distance = Math.abs(value - best)
+  for (const tier of CARD_HEIGHT_TIERS_REM) {
+    const next = Math.abs(value - tier)
+    if (next < distance || (next === distance && tier > best)) {
+      best = tier
+      distance = next
+    }
+  }
+  return best
+}
 
 /** 这一帧的栅格：列数、列宽、间距与根字号。 */
 export interface GridMetrics {
@@ -94,8 +136,8 @@ export function normalizeCardLayout(layout: CardLayout, columns = MAX_COLUMNS): 
   const usable = clamp(Math.round(columns), 1, MAX_COLUMNS)
   const w = clamp(Math.round(layout.w), 1, usable)
   const x = clamp(Math.round(layout.x), 0, usable - w)
-  const y = Math.max(0, Number.isFinite(layout.y) ? layout.y : 0)
-  const h = clamp(Number.isFinite(layout.h) ? layout.h : DEFAULT_HEIGHT_REM, MIN_HEIGHT_REM, MAX_HEIGHT_REM)
+  const y = snapCardY(Number.isFinite(layout.y) ? layout.y : 0)
+  const h = snapCardHeight(Number.isFinite(layout.h) ? layout.h : DEFAULT_HEIGHT_REM)
   return { x, y, w, h }
 }
 
@@ -153,7 +195,8 @@ export function resolveLayout(items: readonly GridItem[], metrics: GridMetrics, 
         }
       }
       if (below < 0) break
-      y = below
+      // 推开后的位置也落在 2rem 档位上，卡片顶部与拖动时的虚影一致。
+      y = ceilCardY(below / metrics.rootFontSize) * metrics.rootFontSize
     }
     const placement: GridPlacement = { id: item.id, x, y, width, height, columns: layout.w }
     placed.push(placement)
@@ -207,9 +250,10 @@ export function tidyLayout(items: readonly GridItem[], metrics: GridMetrics): Re
         column = candidate
       }
     }
-    layouts[item.id] = { x: column, y: top / metrics.rootFontSize, w: layout.w, h: layout.h }
+    const y = ceilCardY(top / metrics.rootFontSize) * metrics.rootFontSize
+    layouts[item.id] = { x: column, y: y / metrics.rootFontSize, w: layout.w, h: layout.h }
     for (let index = column; index < column + layout.w; index += 1) {
-      levels[index] = top + height + metrics.gap
+      levels[index] = y + height + metrics.gap
     }
   }
   return layouts
@@ -228,7 +272,7 @@ export function nextCardLayout(
   box: { w: number, h: number } = { w: 1, h: DEFAULT_HEIGHT_REM },
 ): CardLayout {
   const width = Math.max(1, Math.min(MAX_COLUMNS, Math.round(box.w)))
-  const height = Math.max(MIN_HEIGHT_REM, box.h)
+  const height = snapCardHeight(box.h)
   const bottoms = Array.from({ length: MAX_COLUMNS }, () => 0)
   for (const instance of instances) {
     const layout = normalizeCardLayout(instance.layout)
@@ -247,5 +291,5 @@ export function nextCardLayout(
       column = candidate
     }
   }
-  return { x: column, y: lowest === 0 ? 0 : lowest + GAP_REM, w: width, h: height }
+  return { x: column, y: lowest === 0 ? 0 : ceilCardY(lowest + GAP_REM), w: width, h: height }
 }

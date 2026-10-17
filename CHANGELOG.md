@@ -13,6 +13,12 @@
 - 侧栏多一个「看板」入口，中栏打开一页空看板。
 - 第一张卡片：天气卡。天空、图标、温度与天气文字随预报日一起过渡，尺寸族在窄窗口里降级，系统要求减弱动效时天空静置。
 - 组件热重载：宿主监视 `lib/`，组件或运行时一改就重读，在线页面按新哈希把卡片重挂，不用刷新。
+- 番茄钟卡片：选一段专注时长开始倒计时，剩余分钟、进度刻度与按钮文字跟着走。
+
+### 体验优化
+
+- 看板改成信息流布局：列数跟着容器宽度在一到四列之间连续变化，卡片高度由组件自己上报，位置按最矮列装箱。
+- 新增的内置组件自动出现在已有的看板上：加入卡片的面板做出来之前，这是看到新组件的唯一路径。
 
 ### 问题修复
 
@@ -23,6 +29,12 @@
 - A Board entry in the sidebar, opening an empty board page in the centre column.
 - The first card: weather. Sky, icon, temperature and condition transition together as the forecast day changes; the size family degrades in a narrow window, and the sky stands still when the system asks for reduced motion.
 - Widget hot reload: the host watches `lib/`, re-reads the library when a widget or the runtime changes, and open pages remount their cards on the new hash without a refresh.
+- Pomodoro card: pick a focus length and start; the remaining minutes, the progress ticks and the button label follow the session.
+
+### Improvements
+
+- The board is an information flow now: one to four columns follow the container width, each card's height comes from the widget itself, and cards pack into the shortest column.
+- New built-in widgets appear on an existing board by themselves until the add-card panel exists.
 
 ### Bug Fixes
 

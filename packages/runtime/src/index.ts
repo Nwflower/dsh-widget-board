@@ -91,6 +91,21 @@ function applyTokens(tokens: Record<string, string> | undefined): void {
 }
 
 /**
+ * 量一次内容高度交给父页面：信息流看板按它决定卡片多高（D15）。
+ *
+ * 量的是文档正文的内容盒——组件按自己的宽度定高，视口的高低不影响这个数。
+ */
+function reportHeight(): void {
+  const height = Math.ceil(document.body.getBoundingClientRect().height)
+  if (height > 0) send({ type: 'height', height })
+}
+
+/** 布局落定之后再量，免得量到一半的排版。 */
+function reportHeightSoon(): void {
+  requestAnimationFrame(reportHeight)
+}
+
+/**
  * 系统是否要求减弱动效；组件自己的媒体查询是这一帧里最准的答案。
  *
  * @param fromHost - 宿主送来的档位。
@@ -101,7 +116,8 @@ function motionLevel(fromHost: MotionLevel): MotionLevel {
   return reduced ? 'reduced' : fromHost
 }
 
-/** 一条父页面消息落到状态上并通知订阅者。 */function receive(message: ParentMessage): void {
+/** 一条父页面消息落到状态上并通知订阅者。 */
+function receive(message: ParentMessage): void {
   switch (message.type) {
     case 'init':
       lang = message.lang
@@ -116,9 +132,11 @@ function motionLevel(fromHost: MotionLevel): MotionLevel {
       for (const handler of listeners.props) handler(props)
       for (const handler of listeners.data) handler(data)
       for (const handler of listeners.state) handler(state)
+      reportHeightSoon()
       return
     case 'size':
       applySize(message.size)
+      reportHeightSoon()
       return
     case 'props':
       props = (message.props ?? {}) as Record<string, unknown>
@@ -221,6 +239,8 @@ function installPress(): void {
 
 install()
 installPress()
+// 内容高度一变就报一次：信息流看板的卡片高度只由组件的内容决定（D15）。
+new ResizeObserver(reportHeight).observe(document.body)
 
 window.addEventListener('message', (event: MessageEvent) => {
   const message = event.data as { type?: unknown, ports?: MessagePort[] } | undefined
@@ -236,6 +256,6 @@ if (window.parent !== window) {
   window.parent.postMessage({ type: 'ready' }, '*')
 } else {
   // 单独打开这份文档时没有宿主：按视口给一个尺寸，便于本地核对外观。
-  applySize({ w: window.innerWidth, h: window.innerHeight, family: 'l', cols: 4, rows: 4 })
+  applySize({ w: window.innerWidth, h: window.innerHeight, family: 'inline', cols: 1, rows: 0 })
   root.dataset.motion = motionLevel('full')
 }

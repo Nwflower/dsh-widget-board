@@ -4,6 +4,7 @@
  * 天空是这张卡自己的画面：渐变、光斑、雨与闪电的颜色属于天气，不随主题走，压在上面的文字因此
  * 固定用白色。主题令牌只管这张卡的边框、投影与底部那条预报切换栏（D10）。
  *
+ * 卡片的宽度等于看板给的一列，高度按 3:4 从宽度算出来——信息流看板按内容定高（D15）。
  * 动效原语（数字、文字、图标、切换栏）来自运行时套件；这里只有天气自己的排版与天空。
  */
 
@@ -20,7 +21,8 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 30rem;
   overflow: hidden;
   isolation: isolate;
   border-radius: var(--wx-radius);
@@ -222,21 +224,14 @@
 /* 切换栏：套件给滑动药丸与文字过渡，这里只定它在这张卡里的位置。 */
 .wx-tabs { margin: 16px 12px 12px; }
 
-/* 小尺寸：压缩字号与间距，让整张卡落在两行网格里（D4 的 s 族）。 */
-:root[data-size="s"] .wx { --wx-icon: 36px; }
-:root[data-size="s"] .wx-body { padding: 14px 14px 0; }
-:root[data-size="s"] .wx-place { font-size: 13px; line-height: 18px; }
-:root[data-size="s"] .wx-day { font-size: 11px; line-height: 14px; }
-:root[data-size="s"] .wx-hero { margin-top: 2px; gap: 8px; }
-:root[data-size="s"] .wx-temp { font-size: 38px; line-height: 44px; }
-:root[data-size="s"] .wx-big { width: 44px; height: 44px; }
-:root[data-size="s"] .wx-drops { top: 34px; }
-:root[data-size="s"] .wx-cond { margin-top: 0; font-size: 12px; line-height: 16px; }
-:root[data-size="s"] .wx-hl { font-size: 11px; line-height: 14px; }
-:root[data-size="s"] .wx-tabs { margin: 8px 8px 8px; padding: 2px; gap: 2px; }
-:root[data-size="s"] .t-tab { height: 34px; font-size: 10px; line-height: 12px; gap: 0; }
-:root[data-size="s"] .t-tab svg { width: 12px; height: 12px; }
-:root[data-size="s"] .t-tabs-pill { top: 2px; height: 34px; }
+/* 窄列：字号收一号，切换栏的图标缩小，内容仍然放得进一屏。 */
+@media (max-width: 340px) {
+  .wx-body { padding: 18px 18px 0; }
+  .wx-temp { font-size: 52px; line-height: 62px; }
+  .wx-tabs { margin: 12px 10px 10px; }
+  .wx-tabs .t-tab { height: 42px; }
+  .wx-tabs .t-tabs-pill { height: 42px; }
+}
 
 /* 减弱动效：天空静置，雨与闪电不画，水滴停在可见处（D10）。 */
 :root[data-motion="reduced"] .wx-blob,
@@ -248,7 +243,7 @@
 :root[data-motion="reduced"] .wx-flash { display: none; }
 :root[data-motion="reduced"] .wx-drops > span { opacity: 1; }
 
-/* 离开视口：天空与图标停在原地（D4）。 */
+/* 离开视口：天空与图标停在原地（D15）。 */
 :root[data-paused] .wx-blob,
 :root[data-paused] .wx-rain > span,
 :root[data-paused] .wx-flash,

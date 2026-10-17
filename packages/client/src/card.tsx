@@ -1,12 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { BoardInstance, ParentMessage, WidgetFamily, WidgetSummary } from '@dsh-widget-board/contracts'
-import { widgetDocumentPath } from '@dsh-widget-board/contracts'
-import type { FamilyBox, GridMetrics } from '@dsh-widget-board/model'
-import { familyBox, resolveFamily } from '@dsh-widget-board/model'
+import type { BoardInstance, ParentMessage, WidgetMessage, WidgetSummary } from '@dsh-widget-board/contracts'
+import { WIDGET_MESSAGE_TYPES, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
+import type { FlowMetrics, FlowPlacement } from '@dsh-widget-board/model'
+import { clampCardHeight } from '@dsh-widget-board/model'
 import { resolveTokens } from './tokens'
 
-/** 卡片向页面登记的暂停与恢复，由页面唯一的一个 IntersectionObserver 调用（D4）。 */
+/** 卡片向页面登记的暂停与恢复，由页面唯一的一个 IntersectionObserver 调用（D15）。 */
 export interface CardControls {
   register(id: string, handlers: { pause: () => void, resume: () => void }): () => void
 }
@@ -15,29 +15,11 @@ export interface CardControls {
 export interface WidgetCardProps {
   instance: BoardInstance
   widget: WidgetSummary
-  metrics: GridMetrics
+  metrics: FlowMetrics
+  placement: FlowPlacement
+  /** 组件报上来的内容高度，看板按它重新摆放（D15）。 */
+  onHeight: (id: string, height: number) => void
   controls: CardControls
-}
-
-/** 这一帧的摆放：族、像素盒，或者卡片自己声明得不对的原因。 */
-type CardLayout = { family: WidgetFamily, box: FamilyBox } | { failure: string }
-
-/**
- * 算出这张卡这一帧占的位置。
- *
- * 一个组件的声明有问题不该让整块看板倒下，失败只落在这一张卡上（D11）。
- *
- * @param widget - 组件元信息。
- * @param metrics - 这一帧的网格量。
- * @returns 摆放，或失败原因。
- */
-function layoutOf(widget: WidgetSummary, metrics: GridMetrics): CardLayout {
-  try {
-    const family = resolveFamily(widget.sizes, metrics)
-    return { family, box: familyBox(family, metrics) }
-  } catch (error) {
-    return { failure: (error as Error).message }
-  }
 }
 
 /** 系统是否要求减弱动效。 */
@@ -48,18 +30,19 @@ function reducedMotion(): boolean {
 /**
  * 一张卡片：一个沙箱 iframe，握手之后只经端口与组件说话（D3）。
  *
- * 卡片自己的尺寸变化只更新数据属性，iframe 不重建；组件的版本变了才换一个 iframe（D4）。
+ * 位置与高度由看板给；组件报上来的内容高度转给看板，重新摆放不重建 iframe（D15）。
  */
-export function WidgetCard({ instance, widget, metrics, controls }: WidgetCardProps): ReactNode {
+export function WidgetCard({ instance, widget, metrics, placement, onHeight, controls }: WidgetCardProps): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const portRef = useRef<MessagePort | null>(null)
   const readyRef = useRef(false)
-  const layout = layoutOf(widget, metrics)
-  const size = 'box' in layout
-    ? { w: Math.round(layout.box.w), h: Math.round(layout.box.h), family: layout.family, cols: layout.box.cols, rows: layout.box.rows }
-    : null
+  const [failure, setFailure] = useState<string | null>(null)
+  const height = clampCardHeight(placement.height, metrics)
+  const size = { w: Math.round(placement.width), h: Math.round(height), family: 'inline' as const, cols: 1, rows: 0 }
   const sizeRef = useRef(size)
   sizeRef.current = size
+  const heightRef = useRef(onHeight)
+  heightRef.current = onHeight
   const src = widgetDocumentPath(widget.hash)
 
   useEffect(() => {
@@ -70,16 +53,26 @@ export function WidgetCard({ instance, widget, metrics, controls }: WidgetCardPr
     portRef.current = port
     port.start()
     const send = (message: ParentMessage): void => port.postMessage(message)
+    port.onmessage = (event: MessageEvent) => {
+      const message = event.data as WidgetMessage | undefined
+      if (message === undefined || typeof message.type !== 'string') return
+      if (!(WIDGET_MESSAGE_TYPES as readonly string[]).includes(message.type)) return
+      if (!withinLimit(message)) {
+        console.error('widget-board: 组件发来的消息超过长度上限，丢弃')
+        return
+      }
+      if (message.type === 'height') heightRef.current(instance.id, message.height)
+      if (message.type === 'error') setFailure(message.message)
+    }
     const connect = (): void => {
-      const current = sizeRef.current
-      if (readyRef.current || current === null) return
+      if (readyRef.current) return
       readyRef.current = true
       frame.contentWindow?.postMessage({ type: 'connect' }, '*', [channel.port2])
       send({
         type: 'init',
         lang: document.documentElement.lang || navigator.language,
         motion: reducedMotion() ? 'reduced' : 'full',
-        size: current,
+        size: sizeRef.current,
         props: instance.props ?? {},
         data: instance.data ?? null,
         state: instance.state ?? null,
@@ -113,26 +106,15 @@ export function WidgetCard({ instance, widget, metrics, controls }: WidgetCardPr
 
   useEffect(() => {
     const port = portRef.current
-    if (port === null || !readyRef.current || size === null) return
+    if (port === null || !readyRef.current) return
     port.postMessage({ type: 'size', size } satisfies ParentMessage)
-  }, [size?.w, size?.h, size?.family])
+  }, [size.w, size.h])
 
-  if (!('box' in layout)) {
-    return (
-      <div className="dsh-widget-board__cell" data-instance={instance.id} data-failure="">
-        <div className="dsh-widget-board__failure">
-          <p className="dsh-widget-board__failure-title">{widget.title.zh}</p>
-          <p className="dsh-widget-board__failure-reason">{layout.failure}</p>
-        </div>
-      </div>
-    )
-  }
   return (
     <div
       className="dsh-widget-board__cell"
       data-instance={instance.id}
-      data-family={layout.family}
-      style={{ gridColumn: `span ${layout.box.cols}`, gridRow: `span ${layout.box.rows}` }}
+      style={{ left: placement.x, top: placement.y, width: placement.width, height }}
     >
       <iframe
         ref={frameRef}
@@ -140,6 +122,7 @@ export function WidgetCard({ instance, widget, metrics, controls }: WidgetCardPr
         sandbox="allow-scripts"
         title={widget.title.zh}
       />
+      {failure === null ? null : <p className="dsh-widget-board__failure-strip" role="status">{failure}</p>}
     </div>
   )
 }

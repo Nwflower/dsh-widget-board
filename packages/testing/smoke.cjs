@@ -2,10 +2,10 @@
 /**
  * smoke.cjs — 在真实的临时宿主上走一遍插件自己的表面。
  *
- * 检查的是本插件的判据，不看宿主的实现：侧栏出现入口、点开是一页看板、卡片 iframe 里天气卡加载
- * 出来、切换预报日时天空与数字真的换、减弱动效下天空静置、控制台没有错误。查找只用插件自己写在
- * 节点上的标记（`svg.dsh-widget-board__icon` 与 `data-dsh-widget-board-*`），宿主换了内部结构也
- * 不会让这些判据失真（D1）。
+ * 检查的是本插件的判据，不看宿主的实现：侧栏出现入口、点开是一页信息流看板、两张卡片各自加载
+ * 出来、天气卡切预报日与番茄钟开合计时都真的动、窄窗口里列数降到一列、减弱动效下天空静置、
+ * 控制台没有错误。查找只用插件自己写在节点上的标记（`svg.dsh-widget-board__icon`、
+ * `data-dsh-widget-board-*`、卡片的 iframe `title`），宿主换了内部结构也不会让这些判据失真（D1）。
  *
  * 用法：node packages/testing/smoke.cjs
  */
@@ -17,10 +17,22 @@ const { openPage, start } = require('./dsh-web.cjs')
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
 const BOARD_VIEW = '[data-dsh-widget-board-view]'
+const FLOW = '.dsh-widget-board__flow'
 const CARD_FRAME = 'iframe.dsh-widget-board__frame'
 const SHEET = 'style[data-plugin="dsh-widget-board"]'
+/** 两张内置卡片的 iframe 标题，来自 manifest 的中文标题。 */
+const WEATHER_FRAME = 'iframe.dsh-widget-board__frame[title="天气"]'
+const POMODORO_FRAME = 'iframe.dsh-widget-board__frame[title="番茄钟"]'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+let failures = 0
+
+/** 记一条判据。 */
+function check(label, ok, detail) {
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail === undefined ? '' : `  (${detail})`}`)
+  if (!ok) failures += 1
+}
 
 /**
  * 关掉宿主自己在首次启动时打开的浮层。
@@ -48,34 +60,62 @@ async function dismissOverlays(page) {
 }
 
 /**
- * 打开查看看板，并交回卡片 iframe 的 frame。
+ * 打开查看看板。
  *
  * @param page - 宿主页面，侧栏入口已经出现。
- * @returns 卡片文档的 frame。
  */
 async function openBoard(page) {
   await dismissOverlays(page)
   await page.evaluate((selector) => document.querySelector(selector)?.closest('button')?.click(), PANEL_ICON)
   await page.waitForSelector(BOARD_VIEW, { timeout: 20000 })
-  const handle = await page.waitForSelector(CARD_FRAME, { timeout: 30000 })
-  const frame = await handle.contentFrame()
-  if (frame === null) throw new Error('卡片 iframe 没有可用的 frame')
-  await frame.waitForSelector('.wx', { timeout: 20000 })
-  // 握手把令牌递进去之后，卡片才穿上主题颜色。
-  await frame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--w-color-bg').trim() !== '', undefined, { timeout: 20000 })
-  return frame
-}
-
-let failures = 0
-
-/** 记一条判据。 */
-function check(label, ok, detail) {
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail === undefined ? '' : `  (${detail})`}`)
-  if (!ok) failures += 1
+  await page.waitForSelector(POMODORO_FRAME, { timeout: 30000 })
+  await page.waitForSelector(WEATHER_FRAME, { timeout: 30000 })
 }
 
 /**
- * 主路径：入口、看板、天气卡、切换预报日。
+ * 等一张卡片的文档完成握手（令牌进了 iframe 才算接上）。
+ *
+ * @param page - 宿主页面。
+ * @param selector - 那张卡片的 iframe。
+ * @returns 卡片的 frame。
+ */
+async function frameOf(page, selector) {
+  // 卡片可能正在重挂：iframe 存在但文档还没起来的瞬间要等一等。单次等待要短，
+  // 否则一次卡在空白文档上就会把后面的重试全耗掉。
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const handle = await page.$(selector)
+    if (handle !== null) {
+      const frame = await handle.contentFrame()
+      if (frame !== null) {
+        const wired = await frame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--w-color-bg').trim() !== '', undefined, { timeout: 3000 })
+          .then(() => true, () => false)
+        if (wired) return frame
+      }
+    }
+    await sleep(250)
+  }
+  throw new Error(`卡片的 iframe 一直没有接上：${selector}`)
+}
+
+/**
+ * 等一张卡片的高度跟它内容的高度对上：卡片高度由组件上报（D15）。
+ *
+ * @param page - 宿主页面。
+ * @param title - 卡片 iframe 的标题。
+ * @returns 卡片的内容高度。
+ */
+async function settleCard(page, title) {
+  const frame = await frameOf(page, `iframe.dsh-widget-board__frame[title="${title}"]`)
+  const content = await frame.evaluate(() => Math.round(document.body.getBoundingClientRect().height))
+  await page.waitForFunction(({ title, content }) => {
+    const card = document.querySelector(`iframe.dsh-widget-board__frame[title="${title}"]`)?.closest('[data-instance]')
+    return card !== null && card !== undefined && Math.abs(card.getBoundingClientRect().height - content) <= 1
+  }, { title, content }, { timeout: 20000 })
+  return content
+}
+
+/**
+ * 主路径：入口、信息流、天气卡切预报日、番茄钟开合。
  *
  * @param page - 宿主页面。
  * @param problems - 打开页面以来控制台里的错误、警告与未捕获异常。
@@ -84,18 +124,37 @@ async function mainPass(page, problems) {
   await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
   check('侧栏出现看板入口', true)
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
-  const frame = await openBoard(page)
+  await openBoard(page)
   check('中栏打开一页看板', await page.evaluate((selector) => document.querySelector(selector) !== null, BOARD_VIEW))
-  check('卡片文档按哈希取到', frame.url().includes('/widget/'), frame.url().replace(/^.*\/plugins/, '/plugins').slice(0, 60))
-  check('天气卡画出来了', await frame.evaluate(() => document.querySelector('.wx') !== null))
-  check('五个预报日', (await frame.evaluate(() => document.querySelectorAll('.t-tab').length)) === 5)
-  check('令牌进了 iframe', (await frame.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--w-color-bg').trim())) !== '')
 
-  const day = await frame.evaluate(() => document.querySelector('#wx-day')?.textContent ?? '')
-  await frame.locator('#wx-tab-3').click()
-  await frame.waitForFunction(() => document.querySelector('.wx-bg')?.getAttribute('data-wx') === 'storm', undefined, { timeout: 5000 })
+  const columns = await page.evaluate(() => Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-flow-columns') ?? 0))
+  check('信息流按容器宽度分列', columns >= 1, `${columns} 列`)
+
+  const weatherHeight = await settleCard(page, '天气')
+  const pomodoroHeight = await settleCard(page, '番茄钟')
+  check('卡片高度由内容决定', weatherHeight > 300 && pomodoroHeight > 200, `天气 ${weatherHeight} / 番茄钟 ${pomodoroHeight}`)
+
+  const boxes = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
+    const rect = node.getBoundingClientRect()
+    return { id: node.getAttribute('data-instance'), width: Math.round(rect.width), height: Math.round(rect.height), left: Math.round(rect.left), top: Math.round(rect.top) }
+  }))
+  check('两张卡片都在看板上', boxes.length === 2, boxes.map((box) => `${box.width}×${box.height}`).join(' / '))
+  const [first, second] = boxes
+  const overlap = first !== undefined && second !== undefined &&
+    first.left < second.left + second.width && second.left < first.left + first.width &&
+    first.top < second.top + second.height && second.top < first.top + first.height
+  check('卡片不互相压住', !overlap)
+
+  const weather = await frameOf(page, WEATHER_FRAME)
+  check('卡片文档按哈希取到', weather.url().includes('/widget/'), weather.url().replace(/^.*\/api/, '/api').slice(0, 52))
+  check('天气卡画出来了', await weather.evaluate(() => document.querySelector('.wx') !== null))
+  check('五个预报日', (await weather.evaluate(() => document.querySelectorAll('.t-tab').length)) === 5)
+
+  const day = await weather.evaluate(() => document.querySelector('#wx-day')?.textContent ?? '')
+  await weather.locator('#wx-tab-3').click()
+  await weather.waitForFunction(() => document.querySelector('.wx-bg')?.getAttribute('data-wx') === 'storm', undefined, { timeout: 5000 })
   await sleep(400)
-  const after = await frame.evaluate(() => ({
+  const after = await weather.evaluate(() => ({
     sky: document.querySelector('.wx-bg')?.getAttribute('data-wx'),
     day: document.querySelector('#wx-day')?.textContent,
     temp: document.querySelector('#wx-temp')?.textContent,
@@ -107,6 +166,29 @@ async function mainPass(page, problems) {
   check('温度换成新的数字', after.temp === '15', after.temp)
   check('数字走逐位动画', after.digits === 2)
   check('图标换到闪电', after.icon === true)
+
+  const pomodoro = await frameOf(page, POMODORO_FRAME)
+  check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
+  check('刻度铺满一滑动条', (await pomodoro.evaluate(() => document.querySelectorAll('.pomo-tick').length)) === 46)
+  await pomodoro.evaluate(() => {
+    const range = document.querySelector('#pomo-range')
+    range.value = '40'
+    range.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await sleep(200)
+  check('拖动滑动条换数字', (await pomodoro.evaluate(() => document.querySelector('#pomo-digits')?.textContent)) === '40')
+  await pomodoro.locator('#pomo-start').click()
+  await sleep(200)
+  const running = await pomodoro.evaluate(() => ({
+    pressed: document.querySelector('#pomo-start')?.getAttribute('aria-pressed'),
+    label: document.querySelector('#pomo-start-label')?.textContent,
+    disabled: document.querySelector('#pomo-range')?.disabled,
+  }))
+  check('开始时按钮换成结束', running.pressed === 'true' && running.label === '结束这一段', running.label)
+  check('运行中不能再改时长', running.disabled === true)
+  await pomodoro.locator('#pomo-start').click()
+  await sleep(200)
+  check('结束之后回到未运行', (await pomodoro.evaluate(() => document.querySelector('#pomo-start')?.getAttribute('aria-pressed'))) === 'false')
 
   const live = await page.evaluate(async () => {
     const response = await fetch('api/widget-board/events', { headers: { accept: 'text/event-stream' } })
@@ -124,47 +206,19 @@ async function mainPass(page, problems) {
 }
 
 /**
- * 减弱动效：天空静置，雨与闪电不画。
- *
- * @param page - 宿主页面。
- */
-async function reducedPass(page) {
-  await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
-  const frame = await openBoard(page)
-  check('根部标着减弱动效', (await frame.evaluate(() => document.documentElement.dataset.motion)) === 'reduced')
-  const still = await frame.evaluate(() => ({
-    blob: getComputedStyle(document.querySelector('.wx-blob')).animationName,
-    flash: getComputedStyle(document.querySelector('.wx-flash')).display,
-    tabTransition: getComputedStyle(document.querySelector('.t-tabs-pill')).transitionDuration,
-  }))
-  check('飘动的光斑停住', still.blob === 'none', still.blob)
-  check('闪电不画', still.flash === 'none', still.flash)
-  check('切换栏不做过渡', still.tabTransition === '0s', still.tabTransition)
-}
-
-/**
- * 窄窗口：断点按容器宽度重新判定，尺寸族跟着降级，iframe 里收到的族与看板一致（D4）。
+ * 窄窗口：列数降到一列，卡片宽度跟着容器走（D15）。
  *
  * @param page - 宿主页面，看板已经打开。
  */
 async function narrowPass(page) {
   await page.setViewportSize({ width: 520, height: 900 })
-  await sleep(1500)
-  const board = await page.evaluate(() => ({
-    width: document.querySelector('[data-dsh-widget-board-view]')?.clientWidth,
-    family: document.querySelector('[data-instance]')?.getAttribute('data-family'),
+  await sleep(1800)
+  const narrow = await page.evaluate(() => ({
+    columns: Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-flow-columns') ?? 0),
+    widths: Array.from(document.querySelectorAll('[data-instance]')).map((node) => Math.round(node.getBoundingClientRect().width)),
   }))
-  check('窄窗口里降级到 s 族', board.family === 's', `容器 ${board.width}px，族 ${board.family}`)
-  const handle = await page.$('iframe.dsh-widget-board__frame')
-  const frame = await handle.contentFrame()
-  const inside = await frame.evaluate(() => ({
-    size: document.documentElement.dataset.size,
-    cols: getComputedStyle(document.documentElement).getPropertyValue('--w-cols').trim(),
-    width: Math.round(document.querySelector('.wx').getBoundingClientRect().width),
-  }))
-  check('iframe 里的尺寸族与看板一致', inside.size === board.family, `${board.family} / ${inside.size}`)
-  check('组件拿到列数', inside.cols === '2', inside.cols)
-  check('卡片铺满窄窗口的宽度', inside.width > 200, `${inside.width}px`)
+  check('窄窗口里只剩一列', narrow.columns === 1, `${narrow.columns} 列`)
+  check('卡片跟着容器变宽', narrow.widths.every((width) => width > 400), narrow.widths.join(' / '))
 }
 
 /**
@@ -178,28 +232,47 @@ async function narrowPass(page) {
 async function reloadPass(page) {
   const target = join(__dirname, '..', '..', 'lib', 'widgets', 'weather', 'style.css')
   const original = await readFile(target)
-  const before = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame')?.src ?? '')
+  // 看的是被改的那张卡：另一张不该跟着换地址。
+  const before = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame[title="天气"]')?.src ?? '')
   try {
     await writeFile(target, Buffer.concat([original, Buffer.from('\n/* smoke: 热重载探针 */\n')]))
-    const swapped = await page.waitForFunction(
+    // 重挂的瞬间 iframe 的 src 会是空的，所以这里等的是一个非空且不同的地址。
+    const after = await page.waitForFunction(
       (previous) => {
-        const frame = document.querySelector('iframe.dsh-widget-board__frame')
-        return frame !== null && frame.src !== previous
+        const frame = document.querySelector('iframe.dsh-widget-board__frame[title="天气"]')
+        if (frame === null || frame.src === '' || frame.src === previous) return false
+        return frame.src
       },
       before,
       { timeout: 20000 },
-    ).then(() => true, () => false)
-    check('改了组件文件后卡片按新哈希重挂', swapped)
-    const after = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame')?.src ?? '')
-    check('新地址与原地址不同', after !== before && after !== '', after.split('/widget/')[1]?.slice(0, 12))
-    const handle = await page.$('iframe.dsh-widget-board__frame')
-    const frame = await handle.contentFrame()
-    await frame.waitForSelector('.wx', { timeout: 20000 })
-    check('重挂之后天气卡仍然画出来', true)
+    ).then((handle) => handle.jsonValue(), () => '')
+    check('改了组件文件后卡片按新哈希重挂', after !== '' && after !== before, after === '' ? '一直没换地址' : after.split('/widget/')[1]?.slice(0, 12))
+    const frame = await frameOf(page, WEATHER_FRAME)
+    check('重挂之后天气卡仍然画出来', await frame.evaluate(() => document.querySelector('.wx') !== null))
   } finally {
     await writeFile(target, original)
   }
   await sleep(1500)
+}
+
+/**
+ * 减弱动效：天空静置，雨与闪电不画。
+ *
+ * @param page - 宿主页面。
+ */
+async function reducedPass(page) {
+  await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
+  await openBoard(page)
+  const weather = await frameOf(page, WEATHER_FRAME)
+  check('根部标着减弱动效', (await weather.evaluate(() => document.documentElement.dataset.motion)) === 'reduced')
+  const still = await weather.evaluate(() => ({
+    blob: getComputedStyle(document.querySelector('.wx-blob')).animationName,
+    flash: getComputedStyle(document.querySelector('.wx-flash')).display,
+    tabTransition: getComputedStyle(document.querySelector('.t-tabs-pill')).transitionDuration,
+  }))
+  check('飘动的光斑停住', still.blob === 'none', still.blob)
+  check('闪电不画', still.flash === 'none', still.flash)
+  check('切换栏不做过渡', still.tabTransition === '0s', still.tabTransition)
 }
 
 start().then(async (host) => {

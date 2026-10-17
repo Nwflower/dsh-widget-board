@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 1,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "新增的内置组件自动出现在已有的看板上：加入卡片的面板做出来之前，这是看到新组件的唯一路径。",
+  "en": "New built-in widgets appear on an existing board by themselves until the add-card panel exists."
+}

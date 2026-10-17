@@ -9,7 +9,6 @@
 | [D1](D1-host-surfaces.md) | 只走宿主扩展点 | — |
 | [D2](D2-packages-and-build.md) | 按依赖分包，TypeScript 与 esbuild | — |
 | [D3](D3-isolation-and-trust.md) | 组件隔离与信任分级 | — |
-| [D4](D4-breakpoints-and-families.md) | 断点与尺寸族 | — |
 | [D5](D5-host-authority.md) | 宿主权威、存储与修订号 | — |
 | [D6](D6-data-sources-and-actions.md) | 数据源、动作与批准 | — |
 | [D7](D7-widget-format.md) | 组件格式与内容寻址版本 | — |
@@ -20,7 +19,8 @@
 | [D12](D12-extension-contract.md) | 对其他插件的扩展契约 | — |
 | [D13](D13-testing.md) | 测试分层与共用检查器 | — |
 | [D14](D14-documentation.md) | 文档分层 | — |
+| [D15](D15-flow-board.md) | 信息流看板布局 | D4 |
 
 ## 作废的编号
 
-无。
+D4（由 D15 取代）。

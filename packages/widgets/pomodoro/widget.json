@@ -1,0 +1,44 @@
+{
+  "id": "pomodoro",
+  "title": {
+    "zh": "番茄钟",
+    "en": "Pomodoro"
+  },
+  "description": {
+    "zh": "选一段专注时长开始倒计时，剩余分钟、进度刻度与按钮文字跟着走。",
+    "en": "Pick a focus length and start; the remaining minutes, the ticks and the button label follow the session."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "text": {
+    "title": {
+      "zh": "专注时间",
+      "en": "Focus time"
+    },
+    "idle": {
+      "zh": "选一段专注时长",
+      "en": "Pick a session length"
+    },
+    "length": {
+      "zh": "专注时长（分钟）",
+      "en": "Session length in minutes"
+    },
+    "running": {
+      "zh": "专注中，先别打断自己",
+      "en": "Focusing — stay with it"
+    },
+    "done": {
+      "zh": "这一段结束了",
+      "en": "Session complete"
+    },
+    "start": {
+      "zh": "开始专注",
+      "en": "Start focus"
+    },
+    "stop": {
+      "zh": "结束这一段",
+      "en": "End session"
+    }
+  }
+}

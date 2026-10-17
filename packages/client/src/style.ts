@@ -1,9 +1,10 @@
 import { PACKAGE_NAME } from '@dsh-widget-board/contracts'
+import badge from './badge.css'
 import board from './board.css'
 import dock from './dock.css'
 
-/** 看板外壳与下方浮层各一份样式，挂进文档头时拼成一张。 */
-const sheet = `${board}\n${dock}`
+/** 看板外壳、下方浮层与入口徽标各一份样式，挂进文档头时拼成一张。 */
+const sheet = `${board}\n${dock}\n${badge}`
 
 /**
  * 把本插件的样式表挂进文档头。

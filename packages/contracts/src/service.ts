@@ -5,7 +5,7 @@
  * 服务带一个 API 版本常量；提供方把自己的版本一起传进来，对不上就可见地拒绝，看板照常服务。
  * 跨包时提供方只在自己包里写同形的 `declare module` 声明，不做值导入。
  */
-import type { WidgetSize } from './bridge'
+import type { WidgetNotification, WidgetSize } from './bridge'
 
 /** 宿主侧与浏览器侧服务的名字。 */
 export const WIDGET_BOARD_SERVICE_NAME = 'widgetBoard'
@@ -86,6 +86,8 @@ export interface WidgetNativeProps {
   setState(patch: unknown): void
   /** 发出 manifest 里声明过的动作（D6）。 */
   action(id: string, payload?: unknown): void
+  /** 往看板栏上记一条未读通知（D7）。 */
+  notify(notification?: WidgetNotification): void
   /** manifest 的 `text` 里的一条文案，按当前语言取。 */
   t(key: string): string
 }

@@ -26,6 +26,22 @@ export interface WidgetSize {
 /** 动画档位：宿主要求减弱动效时是 `reduced`（D10）。 */
 export type MotionLevel = 'full' | 'reduced'
 
+/**
+ * 组件发到看板栏上的一条通知（D7）。
+ *
+ * 只带给人看的两段文字：看板栏记下未读条数，正文留作悬停时的那一句。标题省略时外壳用组件的标题。
+ */
+export interface WidgetNotification {
+  title?: string
+  body?: string
+}
+
+/** 通知标题的长度上限；更长的消息按形状不对丢弃。 */
+export const NOTIFICATION_TITLE_LIMIT = 120
+
+/** 通知正文的长度上限。 */
+export const NOTIFICATION_BODY_LIMIT = 400
+
 /** 主题：令牌的计算值、语言与动画档位；握手时给一次，之后变化时再给（D10）。 */
 export interface WidgetTheme {
   /** 宿主令牌的计算值，键是 `组-名`；运行时写成 iframe 根节点的 `--w-*`。 */
@@ -60,6 +76,7 @@ export type WidgetMessage =
   | { type: 'action', id: string, payload?: unknown }
   | { type: 'height', height: number }
   | { type: 'error', message: string }
+  | ({ type: 'notify' } & WidgetNotification)
 
 /** 一条消息的 JSON 长度上限；超限的丢弃并报错（D3）。 */
 export const MESSAGE_LIMIT = 64 * 1024
@@ -71,7 +88,7 @@ export const MESSAGE_RATE_LIMIT = 200
 export const PARENT_MESSAGE_TYPES = ['init', 'size', 'data', 'props', 'state', 'theme', 'pause', 'resume'] as const
 
 /** 组件消息的类型集合，供两端判定。 */
-export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'height', 'error'] as const
+export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'height', 'error', 'notify'] as const
 
 /**
  * 一条消息是否在长度上限之内。
@@ -141,6 +158,17 @@ export function isParentMessage(value: unknown): value is ParentMessage {
 }
 
 /**
+ * 一段可选的文字是否在规定长度以内。
+ *
+ * @param value - 外来值。
+ * @param limit - 最长的字符数。
+ * @returns 没给、或在长度以内时为真。
+ */
+function isOptionalText(value: unknown, limit: number): boolean {
+  return value === undefined || (typeof value === 'string' && value.length <= limit)
+}
+
+/**
  * 判断一条组件的消息。
  *
  * @param value - 外来值。
@@ -159,6 +187,9 @@ export function isWidgetMessage(value: unknown): value is WidgetMessage {
       return typeof value.height === 'number' && Number.isFinite(value.height) && value.height >= 0
     case 'error':
       return typeof value.message === 'string'
+    case 'notify':
+      return isOptionalText(value.title, NOTIFICATION_TITLE_LIMIT)
+        && isOptionalText(value.body, NOTIFICATION_BODY_LIMIT)
     default:
       return false
   }

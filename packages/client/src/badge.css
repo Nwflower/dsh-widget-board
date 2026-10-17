@@ -1,0 +1,76 @@
+/*
+ * 看板入口上的未读通知徽标（D7）。
+ *
+ * 动效照 transitions.dev 的 notification badge：徽标斜着滑进来，圆点自己弹开，入口本身不动。
+ * 时长、距离与虚化从 tokens.json 的 badge-* 读；滑入与弹开用套件已有的 ease-smooth 与 ease-pop，
+ * 收起用 ease-standard。减弱动效时整块静置：徽标直接出现或消失。
+ */
+.dsh-widget-board__panel-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dsh-widget-board__badge {
+  position: absolute;
+  top: -6px;
+  right: -5px;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.dsh-widget-board__badge[data-open="true"] {
+  animation: dsh-widget-board-badge-slide var(--w-motion-badge-slide) var(--w-motion-ease-smooth);
+}
+
+.dsh-widget-board__badge-dot {
+  display: block;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--w-color-accent);
+  color: var(--w-color-on-accent);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: center;
+  transform: scale(1);
+  transform-origin: center;
+  opacity: 1;
+  filter: blur(0);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 22%);
+  transition:
+    transform var(--w-motion-badge-pop) var(--w-motion-ease-pop),
+    opacity var(--w-motion-badge-fade) var(--w-motion-ease-pop),
+    filter var(--w-motion-badge-pop) var(--w-motion-ease-pop);
+  will-change: transform, opacity, filter;
+}
+
+.dsh-widget-board__badge[data-open="false"] .dsh-widget-board__badge-dot {
+  transform: scale(0);
+  opacity: 0;
+  filter: blur(var(--w-motion-badge-blur));
+  transition:
+    transform var(--w-motion-badge-pop-close) var(--w-motion-ease-standard),
+    opacity var(--w-motion-badge-fade-close) var(--w-motion-ease-standard),
+    filter var(--w-motion-badge-pop-close) var(--w-motion-ease-standard);
+}
+
+@keyframes dsh-widget-board-badge-slide {
+  from { transform: translate(var(--w-motion-badge-offset-x), var(--w-motion-badge-offset-y)); }
+  to { transform: translate(0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-widget-board__badge,
+  .dsh-widget-board__badge-dot {
+    animation: none !important;
+    transition: none !important;
+  }
+}

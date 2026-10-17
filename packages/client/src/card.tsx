@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { BoardInstance, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardInstance, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { CardShell } from './card-shell'
 import { CardSurface } from './card-surface'
@@ -27,6 +27,8 @@ export interface WidgetCardProps {
   frames: FrameHost
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
   onState: (id: string, patch: unknown) => void
+  /** 组件发到看板栏上的一条通知（D7）。 */
+  onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 把这张卡从看板上移除。 */
   onRemove: (id: string) => void
   controls: CardControls
@@ -54,6 +56,7 @@ export function WidgetCard({
   theme,
   frames,
   onState,
+  onNotify,
   onRemove,
   controls,
   onDragStart,
@@ -87,6 +90,7 @@ export function WidgetCard({
         theme={theme}
         frames={frames}
         onState={onState}
+        onNotify={onNotify}
         paused={paused}
       />
     </CardShell>

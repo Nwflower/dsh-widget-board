@@ -1,6 +1,6 @@
 import { createElement, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { BoardInstance, ParentMessage, WidgetMessage, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardInstance, ParentMessage, WidgetMessage, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
 import { MESSAGE_RATE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { isChinese, t } from './copy'
@@ -29,6 +29,8 @@ export interface CardSurfaceProps {
   frames: FrameHost
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
   onState: (id: string, patch: unknown) => void
+  /** 组件发到看板栏上的一条通知（D7）。 */
+  onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 这一层画面是否暂停：组卡把藏起来的一面停住（D16）。 */
   paused: boolean
 }
@@ -56,6 +58,7 @@ export function CardSurface({
   theme,
   frames,
   onState,
+  onNotify,
   paused,
 }: CardSurfaceProps): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
@@ -76,6 +79,8 @@ export function CardSurface({
   sizeRef.current = size
   const stateRef = useRef(onState)
   stateRef.current = onState
+  const notifyRef = useRef(onNotify)
+  notifyRef.current = onNotify
   const themeRef = useRef(theme)
   themeRef.current = theme
   const pausedRef = useRef(paused)
@@ -131,6 +136,7 @@ export function CardSurface({
       // 高度由看板布局给出，组件上报的内容高度不参与（D16）；消息仍然合法，只是不用。
       if (message.type === 'error') setFailure(message.message)
       if (message.type === 'setState') stateRef.current(instance.id, message.patch)
+      if (message.type === 'notify') notifyRef.current(instance, widget, message)
       if (message.type === 'action') {
         sendInstanceAction(instance.id, message.id, message.payload).catch((error: Error) => { setFailure(error.message) })
       }
@@ -228,6 +234,9 @@ export function CardSurface({
                 setState: (patch: unknown) => onState(instance.id, patch),
                 action: (id: string, payload?: unknown) => {
                   sendInstanceAction(instance.id, id, payload).catch((error: Error) => { setFailure(error.message) })
+                },
+                notify: (notification?: WidgetNotification) => {
+                  notifyRef.current(instance, widget, notification ?? {})
                 },
                 t: (key: string) => {
                   const entry = widget.text?.[key]

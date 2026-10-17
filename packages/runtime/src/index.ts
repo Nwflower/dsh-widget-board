@@ -8,6 +8,7 @@ import type {
   MotionLevel,
   ParentMessage,
   WidgetMessage,
+  WidgetNotification,
   WidgetSize,
 } from '@dsh-widget-board/contracts'
 import { MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
@@ -30,6 +31,8 @@ export interface WidgetApi {
   setState(patch: unknown): void
   /** 发出 manifest 里声明过的动作（D6）。 */
   action(id: string, payload?: unknown): void
+  /** 往看板栏上记一条未读通知；省略标题时用组件的标题（D7）。 */
+  notify(notification?: WidgetNotification): void
   /** 内联在会话正文里时上报自身高度；看板不使用这个高度。 */
   fit(): void
   /** manifest `text` 里的一条文案，按当前语言取。 */
@@ -194,6 +197,11 @@ function install(): void {
     onState: (handler) => subscribe(listeners.state, handler),
     setState: (patch) => send({ type: 'setState', patch }),
     action: (id, payload) => send({ type: 'action', id, payload }),
+    notify: (notification) => send({
+      type: 'notify',
+      ...(notification?.title === undefined ? {} : { title: notification.title }),
+      ...(notification?.body === undefined ? {} : { body: notification.body }),
+    }),
     fit: () => send({ type: 'height', height: root.scrollHeight }),
     t: (key) => {
       const entry = text[key]

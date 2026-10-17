@@ -63,13 +63,14 @@ describe('父页面的消息', () => {
 })
 
 describe('组件的消息', () => {
-  it('认下组件会发的五种消息', () => {
+  it('认下组件会发的六种消息', () => {
     const messages: WidgetMessage[] = [
       { type: 'ready' },
       { type: 'setState', patch: { a: 1 } },
       { type: 'action', id: 'refresh', payload: null },
       { type: 'height', height: 120 },
       { type: 'error', message: '坏了' },
+      { type: 'notify', title: '番茄钟', body: '这一段结束了' },
     ]
     for (const message of messages) expect(isWidgetMessage(message)).toBe(true)
   })
@@ -78,6 +79,15 @@ describe('组件的消息', () => {
     expect(isWidgetMessage({ type: 'action', id: '' })).toBe(false)
     expect(isWidgetMessage({ type: 'height', height: -1 })).toBe(false)
     expect(isWidgetMessage({ type: 'error', message: 42 })).toBe(false)
+  })
+
+  it('通知只带两段有长度上限的文字', () => {
+    expect(isWidgetMessage({ type: 'notify' })).toBe(true)
+    expect(isWidgetMessage({ type: 'notify', title: '标题' })).toBe(true)
+    expect(isWidgetMessage({ type: 'notify', title: 42 })).toBe(false)
+    expect(isWidgetMessage({ type: 'notify', body: 42 })).toBe(false)
+    expect(isWidgetMessage({ type: 'notify', title: 'x'.repeat(121) })).toBe(false)
+    expect(isWidgetMessage({ type: 'notify', body: 'x'.repeat(401) })).toBe(false)
   })
 
   it('超长的消息不算数', () => {

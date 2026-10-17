@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { BoardInstance, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardInstance, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import type { CardControls } from './card'
 import { CardShell } from './card-shell'
@@ -22,6 +22,8 @@ export interface FlipGroupCardProps {
   theme: ShellTheme
   frames: FrameHost
   onState: (id: string, patch: unknown) => void
+  /** 组件发到看板栏上的一条通知（D7）。 */
+  onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 整组一起移除（D19）。 */
   onRemoveGroup: () => void
   controls: CardControls
@@ -61,6 +63,7 @@ export function FlipGroupCard({
   theme,
   frames,
   onState,
+  onNotify,
   onRemoveGroup,
   controls,
   onDragStart,
@@ -107,6 +110,7 @@ export function FlipGroupCard({
                   theme={theme}
                   frames={frames}
                   onState={onState}
+                  onNotify={onNotify}
                   paused={paused || flipped}
                 />
               )}
@@ -122,6 +126,7 @@ export function FlipGroupCard({
                   theme={theme}
                   frames={frames}
                   onState={onState}
+                  onNotify={onNotify}
                   paused={paused || !flipped}
                 />
               )}

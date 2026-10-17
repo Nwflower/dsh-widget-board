@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { BoardEventFrame, BoardSnapshot, CardLayout, WidgetMinBox, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardEventFrame, BoardInstance, BoardSnapshot, CardLayout, WidgetMinBox, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_ID, WIDGET_BOARD_PANEL_ID } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
@@ -17,7 +17,7 @@ import {
 import type { CardControls } from './card'
 import { WidgetCard } from './card'
 import { CARD_CLIP_RADIUS } from './card-shell'
-import { t } from './copy'
+import { isChinese, t } from './copy'
 import { BoardDock } from './dock'
 import { FlipGroupCard } from './flip-group'
 import { createFrameHost } from './frame-host'
@@ -25,6 +25,7 @@ import type { BoardCard } from './group'
 import { FLIP_GROUP_ENTRY, cardId, cardLayout, groupCards, layoutItemsOf } from './group'
 import { subscribeLive } from './live'
 import { mergeEvent, needsSnapshot } from './merge'
+import { noticeOf, notificationStore } from './notifications'
 import { addGroup, addInstance, fetchSnapshot, refreshBoard, removeGroup, removeInstance, saveBoardLayouts, saveInstanceState } from './snapshot'
 import type { ShellTheme } from './theme'
 import { resolveTheme, watchTheme } from './theme'
@@ -201,6 +202,17 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [])
 
+  /** 组件发来一条通知：记成未读，侧栏入口的徽标读出条数（D7）。 */
+  const onNotify = useCallback((instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => {
+    const widgetTitle = isChinese() ? widget.title.zh : widget.title.en
+    notificationStore.push({
+      instanceId: instance.id,
+      widgetId: instance.widget,
+      widgetTitle,
+      ...noticeOf(notification, widgetTitle),
+    })
+  }, [])
+
   /** 加一张固定的翻面组（D19）：两张卡的落点相同，之后整组一起拖动。 */
   const addGroupCard = useCallback((layout?: CardLayout): Promise<boolean> => {
     if (busyRef.current) return Promise.resolve(false)
@@ -343,6 +355,10 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   }, [finishExit])
 
   useEffect(() => subscribeLive(onEvent), [onEvent])
+
+  // 打开看板就算看过之前的通知。放在布局效果里：卡片 iframe 的握手要等这次提交之后，组件在
+  // init 里发来的通知不会被这一下清掉（D7）。
+  useLayoutEffect(() => { notificationStore.markAllRead() }, [])
 
   useEffect(() => {
     refetch()
@@ -604,6 +620,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                     theme={theme}
                     frames={frames}
                     onState={onState}
+                    onNotify={onNotify}
                     onRemoveGroup={() => onRemoveGroup(card.id)}
                     controls={controls}
                     onDragStart={beginDrag}
@@ -647,6 +664,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                   theme={theme}
                   frames={frames}
                   onState={onState}
+                  onNotify={onNotify}
                   onRemove={onRemove}
                   controls={controls}
                   onDragStart={beginDrag}

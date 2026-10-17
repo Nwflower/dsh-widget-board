@@ -39,6 +39,7 @@ const COPY = {
   noAnswer: { zh: '组件没有应答，切回看板重新加载这一张', en: 'The widget did not answer; reopen the board to reload it' },
   saveFailed: { zh: '存不下这张卡的状态', en: 'Could not save this card' },
   layoutFailed: { zh: '存不下卡片布局', en: 'Could not save the card layout' },
+  unread: { zh: '条未读通知', en: 'unread notifications' },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

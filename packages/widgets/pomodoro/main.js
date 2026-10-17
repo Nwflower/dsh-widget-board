@@ -221,6 +221,8 @@
     timer = 0
     paint()
     save()
+    // 到点才通知：主动结束的一段不算。标题用组件标题，看板栏上能看出是谁发的。
+    if (finished && widget !== undefined) widget.notify({ title: label('title'), body: label('done') })
   }
 
   /** 接着跑一段已经在走的计时：余额按结束时刻算，切页面不影响。 */

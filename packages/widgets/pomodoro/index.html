@@ -1,14 +1,18 @@
 <div class="pomo">
-  <div class="pomo-head">
+  <div class="pomo-head w-frame">
     <h2 class="pomo-title" id="pomo-title"></h2>
     <p class="pomo-cap"><span class="t-text-swap" id="pomo-cap" aria-live="polite"></span></p>
   </div>
-  <div class="pomo-readout">
+  <div class="pomo-readout w-frame">
     <div class="pomo-time" id="pomo-time" role="timer" aria-live="off"></div>
   </div>
-  <div class="pomo-slider" id="pomo-slider">
+  <div class="pomo-slider w-frame" id="pomo-slider">
     <div class="pomo-ticks" aria-hidden="true"></div>
-    <input type="range" class="pomo-range" id="pomo-range" min="15" max="60" step="1" value="25" aria-labelledby="pomo-title">
+    <input type="range" class="pomo-range" id="pomo-range" min="5" max="60" step="1" value="25" aria-labelledby="pomo-title">
+  </div>
+  <div class="pomo-presets w-actions" id="pomo-presets" role="group">
+    <button type="button" class="pomo-preset" data-minutes="5" data-text="quick5"></button>
+    <button type="button" class="pomo-preset" data-minutes="25" data-text="quick25"></button>
   </div>
   <button type="button" class="pomo-start" id="pomo-start" aria-pressed="false"><span class="t-text-swap" id="pomo-start-label"></span></button>
 </div>

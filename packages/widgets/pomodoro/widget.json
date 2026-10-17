@@ -5,8 +5,8 @@
     "en": "Pomodoro"
   },
   "description": {
-    "zh": "选一段专注时长开始倒计时，剩余的分秒、进度刻度与按钮文字跟着走。",
-    "en": "Pick a focus length and start; the remaining minutes and seconds, the ticks and the button label follow the session."
+    "zh": "拖刻度选 5 到 60 分钟，或按 5 分钟、25 分钟直接开始倒计时；剩余的分秒、进度刻度与按钮文字跟着走。",
+    "en": "Drag for 5 to 60 minutes, or press 5 minutes or 25 minutes to start at once; the remaining minutes and seconds, the ticks and the button label follow the session."
   },
   "author": "dsh-widget-board",
   "version": "0.1.0",
@@ -23,6 +23,18 @@
     "length": {
       "zh": "专注时长（分钟）",
       "en": "Session length in minutes"
+    },
+    "quick": {
+      "zh": "快捷开始",
+      "en": "Quick start"
+    },
+    "quick5": {
+      "zh": "5分钟",
+      "en": "5 min"
+    },
+    "quick25": {
+      "zh": "25分钟",
+      "en": "25 min"
     },
     "running": {
       "zh": "专注中，先别打断自己",

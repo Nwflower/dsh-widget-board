@@ -13,7 +13,7 @@
 
   var widget = window.widget
   var root = document.documentElement
-  var MINUTES = { min: 15, max: 60 }
+  var MINUTES = { min: 5, max: 60 }
   var TICK_MS = 200
 
   var el = {
@@ -22,6 +22,8 @@
     time: card.querySelector('#pomo-time'),
     ticks: card.querySelector('.pomo-ticks'),
     range: card.querySelector('#pomo-range'),
+    presets: card.querySelector('#pomo-presets'),
+    presetButtons: Array.prototype.slice.call(card.querySelectorAll('.pomo-preset')),
     start: card.querySelector('#pomo-start'),
     startLabel: card.querySelector('#pomo-start-label')
   }
@@ -152,6 +154,27 @@
     }
   }
 
+  /**
+   * 刻度按设备像素落位：分数坐标上的 2px 条会被画成 2px 或 3px，看起来粗细不匀。
+   * 每根条的位置与宽度都取整到设备像素，剩下的差值落在间距上。
+   */
+  function placeTicks() {
+    var ticks = el.ticks.children
+    var count = ticks.length
+    if (count < 2) return
+    var box = el.ticks.getBoundingClientRect()
+    if (box.width <= 0) return
+    var ratio = window.devicePixelRatio || 1
+    var width = Math.max(1, Math.round(2 * ratio)) / ratio
+    var span = box.width - width
+    for (var index = 0; index < count; index += 1) {
+      var tick = ticks[index]
+      var at = box.left + (index / (count - 1)) * span
+      tick.style.width = `${width}px`
+      tick.style.left = `${Math.round(at * ratio) / ratio - box.left}px`
+    }
+  }
+
   /** 亮到 `fraction` 为止的刻度。 */
   function paintTicks(fraction) {
     var ticks = el.ticks.children
@@ -175,11 +198,22 @@
     return state.minutes * 60
   }
 
+  /** 两个快捷时长：当前选中的那个亮着；点一下直接开始这一段。 */
+  function paintPresets() {
+    el.presetButtons.forEach(function (button) {
+      var text = label(button.dataset.text)
+      if (button.textContent !== text) button.textContent = text
+      button.dataset.active = state.minutes === Number(button.dataset.minutes) ? 'true' : 'false'
+    })
+  }
+
   /** 把一次会话落到界面上。 */
   function paint() {
+    card.dataset.running = state.running ? 'true' : 'false'
     el.range.value = String(state.minutes)
     el.range.disabled = state.running
     el.start.setAttribute('aria-pressed', state.running ? 'true' : 'false')
+    paintPresets()
     if (state.running) {
       var left = remainingSeconds()
       swapText(el.caption, label('running'))
@@ -267,6 +301,15 @@
   // 拖动过程中只重画，松手时才交给宿主：免得一次拖动写出几十次状态。
   el.range.addEventListener('change', save)
 
+  // 快捷时长既换数字也立刻开始：点 5 分钟就是要一段 5 分钟的专注。跑着的时候这一排收起来，
+  // 换一段要先结束当前这一段。
+  el.presetButtons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      state.minutes = Number(button.dataset.minutes)
+      start()
+    })
+  })
+
   el.start.addEventListener('click', function () {
     if (state.running) stop(false)
     else start()
@@ -277,6 +320,7 @@
     el.title.textContent = label('title')
     el.time.setAttribute('aria-label', label('remaining'))
     el.range.setAttribute('aria-label', label('length'))
+    el.presets.setAttribute('aria-label', label('quick'))
     paint()
   }
 
@@ -285,11 +329,16 @@
     widget.onSize(function () {
       paintLabels()
       paintTicks(state.running ? 1 - remainingSeconds() / totalSeconds() : selectedFraction())
+      requestAnimationFrame(placeTicks)
     })
     widget.onState(restore)
   }
 
+  // 单独打开这份文档时没有宿主，宽度变化只会走窗口的 resize。
+  window.addEventListener('resize', function () { requestAnimationFrame(placeTicks) })
+
   buildTicks()
   buildTime()
   paintLabels()
+  placeTicks()
 })()

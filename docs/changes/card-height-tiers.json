@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 10,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "卡片高度改成七档档位：6、10、14、18、22、26、30rem，缩放时在档位之间跳，不再逐像素拉伸。",
+  "en": "Card height now snaps to seven steps — 6, 10, 14, 18, 22, 26 and 30 rem — so resizing jumps between steps instead of stretching by the pixel."
+}

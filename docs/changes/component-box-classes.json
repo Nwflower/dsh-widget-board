@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 17,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "组件拿到宽度与高度两个方向的尺寸档（data-box-width、data-box-height）；令牌补上间距与字号阶梯，运行时套件补 .w-frame、.w-actions、.w-scroll 三个布局原语与按档位隐藏的类。",
+  "en": "Widgets now get width and height size classes (data-box-width, data-box-height); the token set gains spacing and type scales, and the runtime suite gains the .w-frame, .w-actions and .w-scroll layout primitives plus size-class hiding helpers."
+}

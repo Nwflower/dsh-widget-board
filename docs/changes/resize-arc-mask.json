@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 13,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "右下角的缩放手柄改成贴着卡片圆角的一段弧：静置时不画，悬停时半透明，拖动时完整露出；改变大小时，尺寸读数铺成覆盖整张卡的遮罩。",
+  "en": "The bottom-right resize handle is now an arc that follows the card's rounded corner — hidden at rest, semi-transparent on hover and fully shown while dragging; while resizing, the size readout becomes a mask over the whole card."
+}

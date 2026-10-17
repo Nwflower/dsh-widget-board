@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 15,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "番茄钟在大卡片里把读数、刻度与按钮收进居中的一列，数字随卡片尺寸放大，开始按钮不再拉满整张卡。",
+  "en": "Large pomodoro cards center the readout, ticks and buttons in one column, scale the clock with the card, and stop stretching Start across the whole card."
+}

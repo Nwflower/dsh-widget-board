@@ -6,6 +6,50 @@
 
 ## [Unreleased]
 
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">新增功能</h3>
+
+- 组件可以调 `widget.notify({ title, body })` 发起通知：侧栏的看板入口右上角滑入未读条数，悬停读到最近一条的标题与正文，点一下看板入口之后清零；番茄钟到点会自己发一条。
+
+### 体验优化
+
+- 卡片高度改成七档档位：6、10、14、18、22、26、30rem，缩放时在档位之间跳，不再逐像素拉伸。
+- 卡片顶部的纵向位置改成每 2rem 一档：拖动与落点吸附到 0、2、4…rem，自动堆叠向下推开时向上取整，整理也落在这张网格上。
+- 组件库改成按来源分组的网格，每格是组件自己的实时缩略画面；按住一格拖到看板，轻点一格加在末尾。
+- 右下角的缩放手柄改成贴着卡片圆角的一段弧：静置时不画，悬停时半透明，拖动时完整露出；改变大小时，尺寸读数铺成覆盖整张卡的遮罩。
+- 番茄钟的刻度进度条在矮卡片里也保留，时长范围改成 5 到 60 分钟，读数在卡片中间居中，并在开始按钮上方加了 5 分钟、25 分钟两个快捷按钮：点一下直接开始倒计时，跑起来之后这排按钮收起，不能拿来重新计时。
+- 番茄钟在大卡片里把读数、刻度与按钮收进居中的一列，数字随卡片尺寸放大，开始按钮不再拉满整张卡。
+- 组件在 widget.json 里声明的最小盒子（minBox）现在会生效：新卡片与拖动落点抬到下限，缩放停在下限，载入看板与组件库热重载时把低于下限的卡片抬上来；组卡取正反两面的并集。
+- 组件拿到宽度与高度两个方向的尺寸档（data-box-width、data-box-height）；令牌补上间距与字号阶梯，运行时套件补 .w-frame、.w-actions、.w-scroll 三个布局原语与按档位隐藏的类。
+- 删掉一张卡片时，卡片按附件磁贴入场的反向退场：淡出并缩到 0.85，250ms，曲线与磁贴入场同一条；退场走完才换快照，其它卡片这时才开始收拢。
+- 组件库的缩略画面标成 preview 位置，组件可以在这里换一套静态排版；番茄钟的缩略画面收掉快捷时长与开始按钮，待办收掉输入行，只留标题、读数与内容。
+
+### 其他变更
+
+- 新增尺寸矩阵检查（npm run matrix，并接入 npm run verify）：每个内置组件在代表性的看板盒子与缩略画面里检查横向溢出、空画面、被裁的可见控件与控制台错误。
+
+<h3 id="en-unreleased">New Features</h3>
+
+- Widgets can call `widget.notify({ title, body })` to raise a notification: the Board entry in the sidebar slides in the unread count, hovering reads the latest title and body, clicking the entry clears it, and the pomodoro raises one when its session ends.
+
+### Improvements
+
+- Card height now snaps to seven steps — 6, 10, 14, 18, 22, 26 and 30 rem — so resizing jumps between steps instead of stretching by the pixel.
+- Card tops now snap to 2 rem steps: dragging and dropping land on 0, 2, 4… rem, automatic stacking rounds up to the grid, and Tidy uses the same rows.
+- The widget library is now a grid grouped by source, each tile showing a live thumbnail of the widget itself; hold a tile to drag it onto the board, or tap one to add it at the end.
+- The bottom-right resize handle is now an arc that follows the card's rounded corner — hidden at rest, semi-transparent on hover and fully shown while dragging; while resizing, the size readout becomes a mask over the whole card.
+- The pomodoro keeps its tick progress bar in short cards, spans 5 to 60 minutes, centers the readout in the card, and adds 5-minute and 25-minute buttons above Start that begin the countdown right away; once a session runs, that row is hidden so it cannot restart the clock.
+- Large pomodoro cards center the readout, ticks and buttons in one column, scale the clock with the card, and stop stretching Start across the whole card.
+- The minimum box a widget declares in widget.json now applies: new cards and drop points are raised to it, resizing stops at it, and cards below it are raised when a board loads or the library hot-reloads; a flip group uses the union of both sides.
+- Widgets now get width and height size classes (data-box-width, data-box-height); the token set gains spacing and type scales, and the runtime suite gains the .w-frame, .w-actions and .w-scroll layout primitives plus size-class hiding helpers.
+- Removing a card now plays the attachment tile's entrance in reverse — fade out and shrink to 0.85 over 250 ms on the same curve — and the board swaps the snapshot only after the exit, so the other cards start closing in afterwards.
+- Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content.
+
+### Chores
+
+- Adds a size-matrix check (npm run matrix, wired into npm run verify): every built-in widget is checked in representative board boxes and the thumbnail view for horizontal overflow, an empty surface, clipped visible controls and console errors.
+
 ## [0.1.0] - 2026-10-17
 
 [中文](#cn-0.1.0) | [English](#en-0.1.0)

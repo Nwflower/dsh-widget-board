@@ -1,0 +1,8 @@
+{
+  "group": "chores",
+  "order": 0,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "新增尺寸矩阵检查（npm run matrix，并接入 npm run verify）：每个内置组件在代表性的看板盒子与缩略画面里检查横向溢出、空画面、被裁的可见控件与控制台错误。",
+  "en": "Adds a size-matrix check (npm run matrix, wired into npm run verify): every built-in widget is checked in representative board boxes and the thumbnail view for horizontal overflow, an empty surface, clipped visible controls and console errors."
+}

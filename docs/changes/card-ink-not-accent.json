@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 2,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "卡片内部的控件不再跟随宿主的强调色：切换栏药丸、选中文字、主按钮与焦点框改用卡片画面自己的墨色。",
+  "en": "Controls inside a card no longer take the host's accent colour: the switcher pill, the selected label, the primary button and the focus rings use the card's own ink."
+}

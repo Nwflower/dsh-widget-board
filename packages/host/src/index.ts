@@ -9,6 +9,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { PACKAGE_NAME, PLUGIN_ROUTE, connectionOf, webServerOf } from '@dsh-widget-board/contracts'
 import { loadAssets } from './assets'
 import { loadLibrary } from './library'
+import type { WidgetRecord } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
@@ -22,6 +23,9 @@ export const name = PACKAGE_NAME
 /** 宿主半边要注册路由，所以等 web 服务出现才启动（D1）。 */
 export const inject = ['webServer']
 
+/** 出现过的组件版本在内存里留几份。 */
+const VERSION_LIMIT = 32
+
 /**
  * 启动：读组件库与看板，注册路由，开工件库与运行时的监视；拆除时按注册的反序释放（D11）。
  *
@@ -34,7 +38,15 @@ export async function apply(ctx: Context): Promise<void> {
   const library = await loadLibrary(widgets)
   const board = await loadBoard(join(dshHome(), 'widget-board', 'board.json'), library)
   const live = createLive(await loadAssets(runtime))
-  const context: RouteContext = { library, board, live, connection: connectionOf(ctx) }
+  // 出现过的版本：热重载时把新版本记进来，旧的留着，页面里指向旧哈希的 iframe 才不会变成 404。
+  const versions = new Map<string, WidgetRecord>()
+  const remember = (records: Map<string, WidgetRecord>): void => {
+    for (const record of records.values()) versions.set(record.hash, record)
+    // 内存里只留最近的若干份，够热重载与刚关掉的页面用。
+    for (const hash of [...versions.keys()].slice(0, Math.max(0, versions.size - VERSION_LIMIT))) versions.delete(hash)
+  }
+  remember(library)
+  const context: RouteContext = { library, versions, board, live, connection: connectionOf(ctx) }
   const disposeRoute = webServerOf(ctx).register({
     kind: 'prefix',
     path: PLUGIN_ROUTE,
@@ -43,7 +55,9 @@ export async function apply(ctx: Context): Promise<void> {
   const stopWatching = watchTree(lib, async () => {
     // 组件库或运行时变了：先读新的，读不出来的话保留旧的并报出原因（D11）。
     try {
-      context.library = await loadLibrary(widgets)
+      const next = await loadLibrary(widgets)
+      remember(next)
+      context.library = next
       live.publish(await loadAssets(runtime))
     } catch (error) {
       console.error(`widget-board: 重读 ${lib} 失败，继续用上一份：${(error as Error).message}`)

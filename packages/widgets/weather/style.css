@@ -13,10 +13,12 @@
   --wx-ink-muted: color-mix(in srgb, #fff 78%, transparent);
   --wx-sun: #ffd75e;
   --wx-icon: 48px;
-  --wx-radius: 27px;
-  /* 切换栏压在天空上：一层暗色玻璃，两种配色下都读得出来；药丸与选中文字走主题令牌。 */
+  --wx-radius: var(--w-radius-card, 24px);
+  /* 切换栏压在天空上：一层暗色玻璃，药丸与选中文字用画面自己的墨色，不跟宿主的强调色。 */
   --tabs-bar: color-mix(in srgb, #000 16%, transparent);
+  --tabs-pill: color-mix(in srgb, #fff 22%, transparent);
   --tabs-label: var(--wx-ink-muted);
+  --tabs-label-active: var(--wx-ink);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -221,8 +223,9 @@
   100% { transform: translateY(10px); opacity: 0; }
 }
 
-/* 切换栏：套件给滑动药丸与文字过渡，这里只定它在这张卡里的位置。 */
+/* 切换栏：套件给滑动药丸与文字过渡，这里只定它在这张卡里的位置与墨色。 */
 .wx-tabs { margin: 16px 12px 12px; }
+.wx-tabs .t-tab:focus-visible { outline-color: var(--wx-ink); }
 
 /* 窄列：字号收一号，切换栏的图标缩小，内容仍然放得进一屏。 */
 @media (max-width: 340px) {

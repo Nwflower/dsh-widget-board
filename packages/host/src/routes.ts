@@ -13,7 +13,13 @@ import type { WidgetRecord } from './library'
 
 /** 路由处理器读到的一切；组件库与资产随热重载替换，所以这里持有一个可变的对象。 */
 export interface RouteContext {
+  /** 当前版本：看板快照按它取组件的哈希。 */
   library: Map<string, WidgetRecord>
+  /**
+   * 出现过的版本，按内容哈希索引（D7）。热重载之后，页面里仍然指向旧哈希的 iframe 还取得到文档，
+   * 不会因为一次重载变成 404。
+   */
+  versions: Map<string, WidgetRecord>
   board: Board
   live: Live
   connection: HostConnection | undefined
@@ -93,7 +99,8 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const document = /^\/widget\/([0-9a-f]{64})\/document$/.exec(path)
     const hash = document?.[1]
-    const record = hash === undefined ? undefined : [...context.library.values()].find((candidate) => candidate.hash === hash)
+    // 按出现过的版本取，不只看当前版本：热重载之后仍在请求旧哈希的 iframe 也拿得到文档。
+    const record = hash === undefined ? undefined : context.versions.get(hash)
     if (record === undefined) {
       response.writeHead(404)
       response.end()

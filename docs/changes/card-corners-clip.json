@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 1,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "深色下卡片四角露出白色：iframe 的文档画布在圆角之外是白的，父页面现在按同一份圆角令牌裁剪卡片。",
+  "en": "Card corners showed white in dark mode: the iframe document canvas is white outside the rounded card, so the page now clips each card to the shared corner-radius token."
+}

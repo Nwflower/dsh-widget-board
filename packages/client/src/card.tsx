@@ -2,9 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { BoardInstance, ParentMessage, WidgetMessage, WidgetSummary } from '@dsh-widget-board/contracts'
 import { WIDGET_MESSAGE_TYPES, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
+import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { FlowMetrics, FlowPlacement } from '@dsh-widget-board/model'
 import { clampCardHeight } from '@dsh-widget-board/model'
 import { resolveTokens } from './tokens'
+
+/**
+ * 卡片的圆角来自令牌，外壳与组件读同一个值：iframe 的文档画布在圆角之外是白的，父页面按这个
+ * 圆角裁剪，四角才不会露出白边。
+ */
+const CARD_RADIUS = (tokens as { radius: { card: string } }).radius.card
 
 /** 卡片向页面登记的暂停与恢复，由页面唯一的一个 IntersectionObserver 调用（D15）。 */
 export interface CardControls {
@@ -121,6 +128,7 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
         className="dsh-widget-board__frame"
         sandbox="allow-scripts"
         title={widget.title.zh}
+        style={{ borderRadius: CARD_RADIUS }}
       />
       {failure === null ? null : <p className="dsh-widget-board__failure-strip" role="status">{failure}</p>}
     </div>

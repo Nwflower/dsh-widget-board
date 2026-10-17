@@ -94,7 +94,7 @@ async function frameOf(page, selector) {
     }
     await sleep(250)
   }
-  throw new Error(`卡片的 iframe 一直没有接上：${selector}`)
+  throw new Error(`卡片的 iframe 一直没有接上：${selector}\n页面里的 frame：\n${page.frames().map((frame) => `  ${frame.url().slice(-60)}`).join('\n')}`)
 }
 
 /**
@@ -112,6 +112,23 @@ async function settleCard(page, title) {
     return card !== null && card !== undefined && Math.abs(card.getBoundingClientRect().height - content) <= 1
   }, { title, content }, { timeout: 20000 })
   return content
+}
+
+/**
+ * 等看板的几何稳定下来：卡片的高度刚上报时位置还在移位，点击会打在正在移动的节点上。
+ *
+ * @param page - 宿主页面。
+ */
+async function settled(page) {
+  await page.waitForFunction(() => {
+    const key = Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
+      const rect = node.getBoundingClientRect()
+      return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`
+    }).join('|')
+    const seen = window.__smokeGeometry
+    window.__smokeGeometry = key
+    return seen !== undefined && seen === key
+  }, undefined, { timeout: 10000, polling: 300 })
 }
 
 /**
@@ -133,6 +150,7 @@ async function mainPass(page, problems) {
   const weatherHeight = await settleCard(page, '天气')
   const pomodoroHeight = await settleCard(page, '番茄钟')
   check('卡片高度由内容决定', weatherHeight > 300 && pomodoroHeight > 200, `天气 ${weatherHeight} / 番茄钟 ${pomodoroHeight}`)
+  await settled(page)
 
   const boxes = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
     const rect = node.getBoundingClientRect()

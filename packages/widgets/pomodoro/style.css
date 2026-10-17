@@ -50,8 +50,20 @@
   gap: 8px;
   font-variant-numeric: tabular-nums;
 }
-.pomo-readout .t-digit-group { color: var(--pomo-ink); font-size: 60px; font-weight: 500; line-height: 70px; }
-.pomo-unit { color: var(--pomo-ink-muted); font-size: 13px; line-height: 20px; }
+/* 剩余时间：分与秒各两位。翻页的半页画同一个渐变，位置由脚本按半页在卡片里的位置对齐。 */
+.pomo-time {
+  --t-flip-page: radial-gradient(circle at 50% 38%, #2a0319 0%, #7a0a48 22%, #c3157a 52%, #6b1148 100%);
+  --t-flip-page-filter: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pomo-ink);
+  font-size: 54px;
+  font-weight: 500;
+  line-height: 62px;
+}
+.pomo-time .t-flip { margin-inline: 1px; }
+.pomo-time .pomo-colon { margin-inline: 2px; color: var(--pomo-ink-muted); }
 
 /* 刻度就是时长刻度：选中的那一头亮起来，运行中它变成进度。 */
 .pomo-slider { position: relative; height: 40px; }

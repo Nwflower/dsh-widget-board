@@ -132,6 +132,18 @@ async function settled(page) {
 }
 
 /**
+ * 读卡片上的剩余时间：翻页的数字由四个格子组成，每格上下两半写着同一个数字，只取上半。
+ *
+ * @param frame - 番茄钟的 frame。
+ * @returns `mm:ss`。
+ */
+async function timeOf(frame) {
+  const digits = await frame.evaluate(() => Array.from(document.querySelectorAll('#pomo-time .t-flip'))
+    .map((cell) => cell.querySelector(':scope > .t-flip-half[data-half="top"]')?.textContent ?? ''))
+  return `${digits.slice(0, 2).join('')}:${digits.slice(2).join('')}`
+}
+
+/**
  * 把两张卡的会话清回初始值：卡片的状态存在宿主上，上一轮跑剩的计时与选中日期会让这一轮的判定漂。
  *
  * @param page - 宿主页面，看板还没打开。
@@ -225,8 +237,9 @@ async function mainPass(page, problems) {
     range.value = '40'
     range.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  await sleep(200)
-  check('拖动滑动条换数字', (await pomodoro.evaluate(() => document.querySelector('#pomo-digits')?.textContent)) === '40')
+  // 翻页半秒之内落定，等它停稳再读。
+  await sleep(600)
+  check('拖动滑动条换数字', (await timeOf(pomodoro)) === '40:00')
   await pomodoro.locator('#pomo-start').click()
   await sleep(200)
   const running = await pomodoro.evaluate(() => ({
@@ -236,6 +249,15 @@ async function mainPass(page, problems) {
   }))
   check('开始时按钮换成结束', running.pressed === 'true' && running.label === '结束这一段', running.label)
   check('运行中不能再改时长', running.disabled === true)
+
+  // 秒数每秒走一格，走的那一格用翻页换：等一页翻动的半页出现，再看它停在整秒上。
+  const flipped = await pomodoro.waitForFunction(() => document.querySelectorAll('#pomo-time .t-flip-page').length > 0, undefined, { timeout: 4000 })
+    .then(() => true, () => false)
+  check('数字按翻页换', flipped)
+  await sleep(1500)
+  const pages = await pomodoro.evaluate(() => document.querySelectorAll('#pomo-time .t-flip-page').length)
+  const shown = await timeOf(pomodoro)
+  check('秒数在走', pages === 0 && /^39:5\d$|^40:00$/.test(shown), shown)
 
   // 卡片重挂、整页重载之后计时接着跑：会话存在宿主上，不随页面丢失（D5）。
   const pomodoroId = await page.evaluate(() => {
@@ -257,10 +279,10 @@ async function mainPass(page, problems) {
     pressed: document.querySelector('#pomo-start')?.getAttribute('aria-pressed'),
     caption: document.querySelector('#pomo-cap')?.textContent,
     disabled: document.querySelector('#pomo-range')?.disabled,
-    digits: document.querySelector('#pomo-digits')?.textContent,
   }))
+  const resumedTime = await timeOf(resumed)
   check('重载之后计时还在跑', back.pressed === 'true' && back.disabled === true, `${back.pressed} / ${back.caption}`)
-  check('剩下的时长还在', back.digits === '40', back.digits)
+  check('剩下的时长还在', /^39:\d\d$|^40:00$/.test(resumedTime), resumedTime)
 
   await resumed.locator('#pomo-start').click()
   await sleep(400)

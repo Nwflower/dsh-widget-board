@@ -4,7 +4,8 @@
  * 组件与外界只有 `window.widget` 这一条路（D7）：文案从 manifest 的 `text` 里按语言取，选中的
  * 时长与结束时刻经 `setState` 交给宿主存下来——切走再切回、页面被重挂之后都接着跑。
  *
- * 计时按结束时刻算，不按每次滴答累加，所以页面被节流也不会走慢。
+ * 剩余时间按结束时刻算，不按每次滴答累加，所以页面被节流也不会走慢。数字按翻页显示：一个数字
+ * 分成上下两半，变大的翻页上去，变小的翻页下来。
  */
 (function () {
   var card = document.querySelector('.pomo')
@@ -13,22 +14,22 @@
   var widget = window.widget
   var root = document.documentElement
   var MINUTES = { min: 15, max: 60 }
-  var TICK_MS = 250
+  var TICK_MS = 200
 
   var el = {
     title: card.querySelector('#pomo-title'),
     caption: card.querySelector('#pomo-cap'),
-    digits: card.querySelector('#pomo-digits'),
-    slider: card.querySelector('#pomo-slider'),
+    time: card.querySelector('#pomo-time'),
     ticks: card.querySelector('.pomo-ticks'),
     range: card.querySelector('#pomo-range'),
     start: card.querySelector('#pomo-start'),
     startLabel: card.querySelector('#pomo-start-label')
   }
 
-  /** 一次会话的状态：选中的分钟数、是否在跑、跑的时候在哪一刻结束。 */
-  var state = { minutes: 25, running: false, endsAt: 0, finished: false, shown: 25 }
+  /** 一次会话的状态：选中的分钟数、是否在跑、跑的时候在哪一刻结束、已经画出来的剩余秒数。 */
+  var state = { minutes: 25, running: false, endsAt: 0, finished: false, shown: -1 }
   var timer = 0
+  var cells = []
 
   /** manifest 里的一条文案；没有宿主时退回键名。 */
   function label(key) { return widget === undefined ? key : widget.t(key) }
@@ -51,28 +52,93 @@
     }, ms('--w-motion-fast', 150))
   }
 
-  /** 数字：逐位换成新值，后两位错开出现，没变的位不动。 */
-  function setDigits(value) {
-    var text = String(value)
-    var previous = el.digits.textContent.replace(/\s+/g, '')
-    if (previous === text) return
-    state.shown = value
-    if (reduced()) { el.digits.textContent = text; return }
-    var same = 0
-    while (same < previous.length && same < text.length && previous[same] === text[same]) same += 1
-    el.digits.classList.remove('is-animating')
-    el.digits.replaceChildren()
-    text.split('').forEach(function (character, index) {
-      var span = document.createElement('span')
-      span.className = 't-digit'
-      span.textContent = character
-      if (index < same) span.dataset.same = ''
-      if (index === text.length - 2) span.dataset.stagger = '1'
-      else if (index === text.length - 1) span.dataset.stagger = '2'
-      el.digits.appendChild(span)
+  /** 数字的一半：上半截显示数字的上半，下半截显示下半。 */
+  function half(part, value) {
+    var node = document.createElement('span')
+    node.className = 't-flip-half'
+    node.dataset.half = part
+    node.textContent = value
+    return node
+  }
+
+  /** 翻过去的那半页：带自己的底色，不透明才不会透出后面的数字。 */
+  function leaf(part, value, role) {
+    var node = document.createElement('span')
+    node.className = 't-flip-page'
+    node.dataset.half = part
+    node.dataset.role = role
+    node.textContent = value
+    return node
+  }
+
+  /** 把半页的底色对到卡片上的那一块：按它在卡片里的位置偏移同一张渐变。 */
+  function alignLeaf(node) {
+    var box = node.getBoundingClientRect()
+    node.style.setProperty('--t-flip-page-x', `${-box.left}px`)
+    node.style.setProperty('--t-flip-page-y', `${-box.top}px`)
+  }
+
+  /** 翻完之后只留下静止的两半。 */
+  function settle(cell, to) {
+    if (cell.dataset.value !== to) return
+    cell.removeAttribute('data-dir')
+    cell.replaceChildren(half('top', to), half('bottom', to))
+  }
+
+  /** 一个数字格换成新值：变大的翻页上去，变小的翻页下来。 */
+  function flip(cell, from, to) {
+    var up = Number(to) > Number(from)
+    var out = leaf(up ? 'bottom' : 'top', from, 'out')
+    var into = leaf(up ? 'top' : 'bottom', to, 'in')
+    cell.dataset.dir = up ? 'up' : 'down'
+    cell.replaceChildren(
+      half('top', up ? from : to),
+      half('bottom', up ? to : from),
+      out,
+      into
+    )
+    alignLeaf(out)
+    alignLeaf(into)
+    if (reduced()) { settle(cell, to); return }
+    setTimeout(function () { settle(cell, to) }, ms('--w-motion-flip', 320))
+  }
+
+  /** 剩余时间：四个数字格与中间那个冒号，只建一次。 */
+  function buildTime() {
+    ;['0', '0', ':', '0', '0'].forEach(function (seed) {
+      if (seed === ':') {
+        var colon = document.createElement('span')
+        colon.className = 'pomo-colon'
+        colon.textContent = ':'
+        el.time.appendChild(colon)
+        return
+      }
+      var cell = document.createElement('span')
+      cell.className = 't-flip'
+      cell.append(half('top', seed), half('bottom', seed))
+      el.time.appendChild(cell)
+      cells.push(cell)
     })
-    void el.digits.offsetHeight
-    el.digits.classList.add('is-animating')
+  }
+
+  /** 把剩余秒数画成 mm:ss，只翻真正变了的数字格。 */
+  function paintTime(seconds) {
+    if (seconds === state.shown) return
+    state.shown = seconds
+    var minutes = Math.floor(seconds / 60)
+    var rest = seconds % 60
+    var chars = [Math.floor(minutes / 10), minutes % 10, Math.floor(rest / 10), rest % 10].map(String)
+    cells.forEach(function (cell, index) {
+      var to = chars[index]
+      var from = cell.dataset.value
+      if (from === to) return
+      cell.dataset.value = to
+      if (from === undefined) {
+        cell.replaceChildren(half('top', to), half('bottom', to))
+        return
+      }
+      flip(cell, from, to)
+    })
   }
 
   /** 刻度从头铺到尾，选中或走到的部分亮起来。 */
@@ -99,9 +165,14 @@
     return (state.minutes - MINUTES.min) / (MINUTES.max - MINUTES.min)
   }
 
-  /** 剩余分钟数，向上取整到分钟。 */
-  function remainingMinutes() {
-    return Math.max(0, Math.ceil((state.endsAt - Date.now()) / 60000))
+  /** 剩余秒数，向上取整：最后不足一秒的那一下停在 00:01 上。 */
+  function remainingSeconds() {
+    return Math.max(0, Math.ceil((state.endsAt - Date.now()) / 1000))
+  }
+
+  /** 一次会话的总秒数。 */
+  function totalSeconds() {
+    return state.minutes * 60
   }
 
   /** 把一次会话落到界面上。 */
@@ -110,30 +181,32 @@
     el.range.disabled = state.running
     el.start.setAttribute('aria-pressed', state.running ? 'true' : 'false')
     if (state.running) {
+      var left = remainingSeconds()
       swapText(el.caption, label('running'))
       swapText(el.startLabel, label('stop'))
-      paintTicks(1 - remainingMinutes() / state.minutes)
+      paintTicks(1 - left / totalSeconds())
+      paintTime(left)
     } else {
       swapText(el.caption, label(state.finished ? 'done' : 'idle'))
       swapText(el.startLabel, label('start'))
       paintTicks(selectedFraction())
+      paintTime(state.finished ? 0 : totalSeconds())
     }
   }
 
-  /** 跑着的时候每秒对一次表；只有分钟数真的变了才动数字。 */
+  /** 跑着的时候对表；只有秒数变了才动数字。 */
   function tick() {
-    var left = remainingMinutes()
-    if (left !== state.shown) setDigits(left)
-    paintTicks(1 - left / state.minutes)
-    if (left <= 0) finish()
+    var left = remainingSeconds()
+    paintTime(left)
+    paintTicks(1 - left / totalSeconds())
+    if (left <= 0) stop(true)
   }
 
   /** 开始一段。 */
   function start() {
     state.running = true
     state.finished = false
-    state.endsAt = Date.now() + state.minutes * 60000
-    setDigits(state.minutes)
+    state.endsAt = Date.now() + totalSeconds() * 1000
     paint()
     clearInterval(timer)
     timer = setInterval(tick, TICK_MS)
@@ -146,15 +219,8 @@
     state.finished = finished
     clearInterval(timer)
     timer = 0
-    if (finished) setDigits(0)
     paint()
     save()
-  }
-
-  /** 把这次会话交给宿主存下来：下一次赋值来自它，切页面与重挂都接得上（D5）。 */
-  function save() {
-    if (widget === undefined) return
-    widget.setState({ minutes: state.minutes, endsAt: state.running ? state.endsAt : 0 })
   }
 
   /** 接着跑一段已经在走的计时：余额按结束时刻算，切页面不影响。 */
@@ -162,10 +228,15 @@
     state.running = true
     state.finished = false
     state.endsAt = end
-    setDigits(remainingMinutes())
     paint()
     clearInterval(timer)
     timer = setInterval(tick, TICK_MS)
+  }
+
+  /** 把这次会话交给宿主存下来：下一次赋值来自它，切页面与重挂都接得上（D5）。 */
+  function save() {
+    if (widget === undefined) return
+    widget.setState({ minutes: state.minutes, endsAt: state.running ? state.endsAt : 0 })
   }
 
   /** 第一次拿到的状态就是这张卡存下的会话；之后的回声不再覆盖正在跑的计时。 */
@@ -188,7 +259,6 @@
   el.range.addEventListener('input', function () {
     state.minutes = Number(el.range.value)
     state.finished = false
-    setDigits(state.minutes)
     paint()
   })
 
@@ -203,6 +273,7 @@
   /** 文案落到界面上；语言变化后重新走一遍。 */
   function paintLabels() {
     el.title.textContent = label('title')
+    el.time.setAttribute('aria-label', label('remaining'))
     el.range.setAttribute('aria-label', label('length'))
     paint()
   }
@@ -211,12 +282,12 @@
   if (widget !== undefined) {
     widget.onSize(function () {
       paintLabels()
-      paintTicks(state.running ? 1 - remainingMinutes() / state.minutes : selectedFraction())
+      paintTicks(state.running ? 1 - remainingSeconds() / totalSeconds() : selectedFraction())
     })
     widget.onState(restore)
   }
 
   buildTicks()
-  setDigits(state.minutes)
+  buildTime()
   paintLabels()
 })()

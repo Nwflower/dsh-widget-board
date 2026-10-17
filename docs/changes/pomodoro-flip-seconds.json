@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 5,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "番茄钟显示到秒：剩余时间按 `mm:ss` 走，换数字时把数字分成上下两半翻页——变大翻页上去，变小翻页下来。翻页做成了套件的原语（`.t-flip`），转动的半页画组件自己的底色，翻转过程中看不出多出一块。",
+  "en": "The pomodoro shows seconds now: the remaining time counts down as mm:ss and each digit turns over in halves — up when it grows, down when it shrinks. The flip is a suite primitive (`.t-flip`) whose page paints the widget's own background, so a turning half does not show a slab."
+}

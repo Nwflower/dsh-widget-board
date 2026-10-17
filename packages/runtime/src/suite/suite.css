@@ -33,6 +33,61 @@ body { overflow: hidden; }
 .t-digit-group.is-animating .t-digit[data-stagger="2"] { animation-delay: calc(var(--w-motion-digit-stagger) * 2); }
 .t-digit-group.is-animating .t-digit[data-same] { animation: none; }
 
+/*
+ * 翻页数字：一个数字分成上下两半，变大的翻页上去，变小的翻页下来。
+ *
+ * 两片翻动的半页要盖住后面的数字，否则会重影；它们的底色用 `--t-flip-page` 画组件自己的那张画面，
+ * 组件按半页在视口里的位置给 `--t-flip-page-x/y`，画出来与卡片上的那张对齐——半页转过去时看不出
+ * 多了一块。没给画面时退回背景滤镜：压暗并虚化身后那一块。出去的那片先转，进来的那片在它转过
+ * 垂直位置之后接着转，合成一次翻页；组件在动画结束之后把两半换成静止的那份。
+ */
+@keyframes w-flip-out-up { from { transform: rotateX(0deg); } to { transform: rotateX(-90deg); } }
+@keyframes w-flip-in-up { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
+@keyframes w-flip-out-down { from { transform: rotateX(0deg); } to { transform: rotateX(90deg); } }
+@keyframes w-flip-in-down { from { transform: rotateX(-90deg); } to { transform: rotateX(0deg); } }
+.t-flip {
+  position: relative;
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  vertical-align: top;
+  perspective: 420px;
+}
+.t-flip > span {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+.t-flip-half[data-half="top"] { height: 50%; align-items: flex-start; }
+.t-flip-half[data-half="bottom"] {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 50%;
+  align-items: flex-end;
+}
+.t-flip-page {
+  position: absolute;
+  inset-inline: 0;
+  height: 50%;
+  background-image: var(--t-flip-page, none);
+  background-size: 100vw 100vh;
+  background-position: var(--t-flip-page-x, 0) var(--t-flip-page-y, 0);
+  backdrop-filter: var(--t-flip-page-filter, blur(4px) brightness(0.55));
+  animation-duration: calc(var(--w-motion-flip) * 0.55);
+  animation-timing-function: var(--w-motion-ease-standard);
+  animation-fill-mode: both;
+}
+.t-flip-page[data-half="top"] { top: 0; align-items: flex-start; transform-origin: 50% 100%; }
+.t-flip-page[data-half="bottom"] { bottom: 0; align-items: flex-end; transform-origin: 50% 0%; }
+.t-flip-page[data-role="in"] { animation-delay: calc(var(--w-motion-flip) * 0.45); }
+.t-flip[data-dir="up"] .t-flip-page[data-role="out"] { animation-name: w-flip-out-up; }
+.t-flip[data-dir="up"] .t-flip-page[data-role="in"] { animation-name: w-flip-in-up; }
+.t-flip[data-dir="down"] .t-flip-page[data-role="out"] { animation-name: w-flip-out-down; }
+.t-flip[data-dir="down"] .t-flip-page[data-role="in"] { animation-name: w-flip-in-down; }
+
+
 /* 文字切换：旧值上移淡出，新值从下方淡入。 */
 .t-text-swap {
   display: inline-block;
@@ -151,6 +206,7 @@ body { overflow: hidden; }
 /* 离开视口的卡片停在原地（D4）。 */
 :root[data-paused] .t-digit-group.is-animating .t-digit,
 :root[data-paused] .t-digit-group.is-animating .t-digit[data-stagger],
+:root[data-paused] .t-flip-page,
 :root[data-paused] .t-tabs-pill { animation-play-state: paused; }
 
 /* 减弱动效：切换只剩不透明度的直切，滚动与滑动一律不走（D10）。 */
@@ -160,6 +216,7 @@ body { overflow: hidden; }
   transform: none;
 }
 :root[data-motion="reduced"] .t-digit-group .t-digit { animation: none; }
+:root[data-motion="reduced"] .t-flip-page { animation: none; }
 :root[data-motion="reduced"] .t-text-swap,
 :root[data-motion="reduced"] .t-morph-swap,
 :root[data-motion="reduced"] .t-morph-swap > span,

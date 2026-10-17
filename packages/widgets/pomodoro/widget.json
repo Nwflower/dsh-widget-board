@@ -5,8 +5,8 @@
     "en": "Pomodoro"
   },
   "description": {
-    "zh": "选一段专注时长开始倒计时，剩余分钟、进度刻度与按钮文字跟着走。",
-    "en": "Pick a focus length and start; the remaining minutes, the ticks and the button label follow the session."
+    "zh": "选一段专注时长开始倒计时，剩余的分秒、进度刻度与按钮文字跟着走。",
+    "en": "Pick a focus length and start; the remaining minutes and seconds, the ticks and the button label follow the session."
   },
   "author": "dsh-widget-board",
   "version": "0.1.0",
@@ -39,6 +39,10 @@
     "stop": {
       "zh": "结束这一段",
       "en": "End session"
+    },
+    "remaining": {
+      "zh": "剩余时间",
+      "en": "Time left"
     }
   }
 }

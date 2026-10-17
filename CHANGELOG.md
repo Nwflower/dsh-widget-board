@@ -22,6 +22,7 @@
 - 卡片内部的控件不再跟随宿主的强调色：切换栏药丸、选中文字、主按钮与焦点框改用卡片画面自己的墨色。
 - 卡片的握手不再随每次快照刷新重建：props、data、state 的更新走各自的消息。切回看板时先用上一份快照画出内容，再取最新的。
 - 卡片的界面状态存在宿主上：番茄钟切走再切回、页面重载之后接着计时，天气卡记得选中的是哪一个预报日。组件的 `setState` 现在有地方落，重挂之后经 `init` 拿回来。
+- 番茄钟显示到秒：剩余时间按 `mm:ss` 走，换数字时把数字分成上下两半翻页——变大翻页上去，变小翻页下来。翻页做成了套件的原语（`.t-flip`），转动的半页画组件自己的底色，翻转过程中看不出多出一块。
 
 ### 问题修复
 
@@ -44,6 +45,7 @@
 - Controls inside a card no longer take the host's accent colour: the switcher pill, the selected label, the primary button and the focus rings use the card's own ink.
 - A card's handshake is no longer rebuilt on every snapshot refresh — prop, data and state updates travel on their own messages. Returning to the board draws the last snapshot first, then refreshes it.
 - A card's interface state lives on the host now: the pomodoro keeps counting across a panel switch or a page reload, and the weather card remembers which forecast day was open. Widget `setState` has somewhere to land and comes back through `init` after a remount.
+- The pomodoro shows seconds now: the remaining time counts down as mm:ss and each digit turns over in halves — up when it grows, down when it shrinks. The flip is a suite primitive (`.t-flip`) whose page paints the widget's own background, so a turning half does not show a slab.
 
 ### Bug Fixes
 

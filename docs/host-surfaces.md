@@ -20,6 +20,7 @@
 - **中栏页面**：`ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: <面板 id>, children: { '<子插槽>': { kind: 'list', scope: 'root' } }, inject: () => ({ … }) }, Page))`。只在该面板被选中时挂载；声明的子插槽经组件收到的 `renderSlot(key, ownerProps)` 渲染。出处：同上，以及 `src/client/seats.tsx`。
 - **会话里的工具视图**：插槽 `tool.call.toolview`，`kind: 'keyed'`、`scope: 'session'`，按线上工具名分派，任何名字都可以注册，包括本插件注册的工具；注册已占用的键会替换原视图。视图的 owner 属性带 `callId`、`toolName`、`useDisclosure`，以及按阶段区分的 `{ phase: 'preparing' | 'start' | 'result', block }`。出处：`dsh-client-ui-tool/lib/types/client/contract/slots.d.ts`。
 - **右侧栏标签页**：插槽 `sidebar.right.pane.tab`（`kind: 'keyed'`、`scope: 'session'`）按标签页类型定义的 `id` 分派；类型定义 `SidebarRightTabDefinition` 有 `id`、`kind`、`multiple`、`keepMounted`、`patterns`、`priority`、`canOpen`、标题函数；标题另有 `sidebar.right.pane.tab.title` 插槽。停靠与浮动两种形态都由这个插槽画。出处：`dsh-client-ui-sidebar-right/lib/types/client/contract/slots.d.ts`、`tab-registry.d.ts`。
+- **设置页里的一节**：插槽 `settings.section`（`kind: 'list'`、`scope: 'root'`）。它由设置外壳的占用者（`dsh-client-ui-settings-general`）在运行时经 `children` 声明，只在侧栏「设置」那一行挂载期间存在，所以注册要经 `ctx.slots.inject('settings.section', …)` 等它出现，不能直接 `register`。注册选项是 `{ name, id, order?, label? }`：`id` 是必填的节 key，同时是导航选中的那一项；`label` 可以是函数，导航每次投影时重读。组件收到的 owner 属性只有 `close()`（关掉设置面板），一次只挂载 `id` 等于当前导航项的那一节。出处：`dsh-client-ui-settings/lib/types/client/contract/slots.d.ts`（`:73`、`:154`）与 `dsh-client-ui-settings-general/lib/client.js`（`:1258`、`:1293`、`:337`、`:1140`），在 0.2.1-rc.2 上按类型声明与实现核实；本仓库的注册在 `packages/client/src/panel.ts`。
 
 ### 宿主服务
 

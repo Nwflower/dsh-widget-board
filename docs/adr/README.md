@@ -24,6 +24,7 @@
 | [D18](D18-board-events.md) | 变更通知按事件推送 | — |
 | [D19](D19-card-groups.md) | 组卡：两张普通卡片共享一个盒子 | — |
 | [D20](D20-component-box-contract.md) | 组件的盒子契约 | — |
+| [D21](D21-multiple-boards.md) | 多块看板 | — |
 
 ## 作废的编号
 

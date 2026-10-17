@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 17,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "看板从一块变成多块：顶部一条标签在几块看板之间切换，每块看板有自己的卡片、盒子与修订号；存储拆成一份索引加每块看板一份文件，旧版本的单一看板在第一次打开时自动搬成第一块看板。",
+  "en": "The board now holds several boards: a tab strip at the top switches between them, and each board keeps its own cards, boxes and revisions; storage splits into one index plus one file per board, and an older single board is carried over as the first one when it opens."
+}

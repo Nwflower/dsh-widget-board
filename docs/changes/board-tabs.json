@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 19,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "看板页顶部多了一条标签：每块看板一个标签，活动标签的药丸滑过去；标签条上只放一个新建入口，切换标签时不重挂任何组件——所有看板的卡片同时挂载，看不见的那些照旧暂停。",
+  "en": "The board page gains a tab strip: one tab per board with a pill that slides to the active one, a single New entry on the strip, and no widget is remounted when you switch — every board's cards stay mounted, and the ones you cannot see stay paused."
+}

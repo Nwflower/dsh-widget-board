@@ -1,0 +1,35 @@
+{
+  "id": "markdown",
+  "title": {
+    "zh": "Markdown",
+    "en": "Markdown"
+  },
+  "description": {
+    "zh": "Markdown 与代码卡：标题、列表、表格、引用和按语言高亮的代码块，适合笔记、提示词与片段。",
+    "en": "Markdown and code: headings, lists, tables, quotes and language-highlighted code blocks for notes, prompts and snippets."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "libs": ["marked", "highlight"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "markdown": { "type": "string", "maxLength": 60000 }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "还没有内容",
+      "en": "Nothing here yet"
+    }
+  }
+}

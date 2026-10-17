@@ -1,0 +1,110 @@
+/*
+ * 看板题头像普通卡片一样由容器给盒子；底色、点阵、边框与圆角都用运行时套件的令牌，
+ * 浅色与深色各自可读（D10、D16）。
+ */
+.hero {
+  position: relative;
+  box-sizing: border-box;
+  height: 100vh;
+  padding: clamp(16px, 4.2vw, 26px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 80%, transparent);
+  border-radius: var(--w-radius-card, 18px);
+  background-color: var(--w-color-surface, #fff);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--w-color-fg, #0b1016) 7%, transparent) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  color: var(--w-color-fg, #0b1016);
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
+  isolation: isolate;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 58%;
+}
+
+.hero-kicker {
+  margin: 0 0 12px;
+  color: var(--w-color-muted, #6c6c6c);
+  font-family: var(--t-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(28px, 7.2vw, 52px);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.03;
+}
+
+.hero-accent { color: var(--w-color-accent, #2563eb); }
+
+.hero-tagline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  color: var(--w-color-muted, #6c6c6c);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.hero-dot {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--w-color-accent, #2563eb);
+}
+
+.hero-art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 56%;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22%);
+  mask-image: linear-gradient(to right, transparent 0, #000 22%);
+}
+
+.hero-art-field {
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  margin: 0;
+  color: color-mix(in srgb, var(--w-color-accent, #2563eb) 62%, transparent);
+  font-family: var(--t-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  line-height: 12px;
+  white-space: pre;
+  user-select: none;
+  transform: translateY(-50%);
+}
+
+.hero-art-cloud {
+  position: absolute;
+  top: 16%;
+  left: 6%;
+  width: 72%;
+  height: 68%;
+  fill: var(--w-color-surface, #fff);
+}
+
+@media (max-width: 560px) {
+  .hero-copy { max-width: 100%; }
+  .hero-art { display: none; }
+}
+
+@media (max-height: 200px) {
+  .hero-tagline { display: none; }
+  .hero-kicker { margin-bottom: 6px; }
+}

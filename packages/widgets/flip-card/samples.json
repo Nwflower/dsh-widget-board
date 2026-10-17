@@ -1,0 +1,26 @@
+{
+  "s": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "props": {
+      "frontKicker": "FLIP · 01",
+      "frontTitle": "一张会翻面的卡片",
+      "frontText": "正面放一句结论。",
+      "backKicker": "BACK · 02",
+      "backTitle": "背面",
+      "backText": "背面放细节。"
+    }
+  },
+  "l": {
+    "lang": "zh-CN",
+    "motion": "full",
+    "props": {
+      "frontKicker": "FLIP · 01",
+      "frontTitle": "一张会翻面的卡片",
+      "frontText": "正面放一句结论，背面放细节。内容由 props 填进来，模板本身不认主题。",
+      "backKicker": "BACK · 02",
+      "backTitle": "背面",
+      "backText": "背面适合放解释、清单或下一件事。再翻一次回到正面。"
+    }
+  }
+}

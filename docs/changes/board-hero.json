@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 9,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "原来的固定题头改成组件库里的看板题头卡，可以拖动、缩放、移除；旧看板升级时补一次这张卡，添加按钮只留在下方菜单。",
+  "en": "The fixed masthead is now a Board hero card in the widget library that can be dragged, resized and removed; older boards receive the card once on upgrade, and Add lives only in the bottom menu."
+}

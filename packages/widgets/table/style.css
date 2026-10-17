@@ -1,0 +1,58 @@
+/*
+ * 表格卡的样式：表头吸顶，数字列右对齐并等宽，窄卡片横向滚动。
+ */
+.table-card__body {
+  min-height: 0;
+}
+
+.table-card__scroll {
+  overflow: auto;
+}
+
+.table-card__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 18px;
+  table-layout: auto;
+}
+
+.table-card__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 8px 6px 0;
+  border-bottom: 1px solid var(--w-color-border, #e5e7eb);
+  background: var(--w-color-surface, #fff);
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table-card__table td {
+  padding: 8px 8px 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 55%, transparent);
+  color: var(--w-color-fg, #0b1016);
+  white-space: nowrap;
+}
+
+.table-card__table tr:last-child td { border-bottom: 0; }
+
+.table-card__table th[data-align="right"],
+.table-card__table td[data-align="right"] {
+  padding-right: 0;
+  padding-left: 8px;
+  text-align: right;
+}
+
+.table-card__table td[data-numeric="true"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.table-card__table th:first-child,
+.table-card__table td:first-child { padding-left: 0; }

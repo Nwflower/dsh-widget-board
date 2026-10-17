@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { BoardEventFrame, BoardSnapshot, CardLayout } from '@dsh-widget-board/contracts'
-import { WIDGET_BOARD_PANEL_ID } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_ID, WIDGET_BOARD_PANEL_ID } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
 import {
@@ -12,16 +12,18 @@ import {
   gridMetrics,
   normalizeCardLayout,
   resolveLayout,
+  tidyLayout,
 } from '@dsh-widget-board/model'
 import type { CardControls } from './card'
 import { WidgetCard } from './card'
 import { t } from './copy'
+import { BoardDock } from './dock'
+import { FlipGroupCard } from './flip-group'
 import { createFrameHost } from './frame-host'
-import { LibraryPanel } from './library'
+import { FLIP_GROUP_ENTRY, cardId, cardLayout, groupCards, layoutItemsOf } from './group'
 import { subscribeLive } from './live'
 import { mergeEvent, needsSnapshot } from './merge'
-import { BoardMasthead } from './masthead'
-import { addInstance, fetchSnapshot, removeInstance, saveBoardLayouts, saveInstanceState } from './snapshot'
+import { addGroup, addInstance, fetchSnapshot, refreshBoard, removeGroup, removeInstance, saveBoardLayouts, saveInstanceState } from './snapshot'
 import type { ShellTheme } from './theme'
 import { resolveTheme, watchTheme } from './theme'
 
@@ -104,19 +106,21 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const [draft, setDraft] = useState<Record<string, CardLayout> | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** 刷新一次就让每张卡换一个 key：卡片文档重新挂载，组件里的本地画面也跟着重来。 */
+  const [refreshGeneration, setRefreshGeneration] = useState(0)
   const flowRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const draftRef = useRef<Record<string, CardLayout> | null>(null)
   const busyRef = useRef(false)
   /** 快照请求的序号：先发出、后返回的那一份不能盖掉更新的那一份。 */
   const fetchIdRef = useRef(0)
-  const cards = useRef(new Map<string, { pause: () => void, resume: () => void }>())
+  const cardControls = useRef(new Map<string, { pause: () => void, resume: () => void }>())
   const frames = useMemo(() => createFrameHost(), [])
 
   const controls = useMemo<CardControls>(() => ({
     register(id, handlers) {
-      cards.current.set(id, handlers)
-      return () => { cards.current.delete(id) }
+      cardControls.current.set(id, handlers)
+      return () => { cardControls.current.delete(id) }
     },
   }), [])
 
@@ -155,19 +159,116 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [])
 
+  /** 加一张固定的翻面组（D19）：两张卡的落点相同，之后整组一起拖动。 */
+  const addGroupCard = useCallback((layout?: CardLayout): Promise<boolean> => {
+    if (busyRef.current) return Promise.resolve(false)
+    busyRef.current = true
+    setBusy(true)
+    return addGroup(layout).then((next) => {
+      fetchIdRef.current += 1
+      cachedSnapshot = next
+      setSnapshot(next)
+      setFailure(null)
+      setLibraryOpen(false)
+      return true
+    }, (error: Error) => {
+      setFailure(error.message)
+      return false
+    }).finally(() => {
+      busyRef.current = false
+      setBusy(false)
+    })
+  }, [])
+
   const onAdd = useCallback((id: string) => {
+    if (id === FLIP_GROUP_ID) {
+      void addGroupCard()
+      return
+    }
+    busyRef.current = true
     setBusy(true)
     addInstance(id).then((next) => {
+      fetchIdRef.current += 1
       cachedSnapshot = next
       setSnapshot(next)
       setFailure(null)
       setLibraryOpen(false)
     }, (error: Error) => { setFailure(error.message) })
-      .finally(() => { setBusy(false) })
-  }, [])
+      .finally(() => {
+        busyRef.current = false
+        setBusy(false)
+      })
+  }, [addGroupCard])
+
+  /**
+   * 把组件库的一行拖到看板上：按落点算出列与纵向位置，随添加请求一起交给宿主。
+   *
+   * 落点不在看板内容区（在浮窗、菜单或题头上）时不加卡片，返回 false 让拖放那边收尾。
+   *
+   * @param widget - 组件的 id。
+   * @param clientX - 松手时的屏幕横坐标。
+   * @param clientY - 松手时的屏幕纵坐标。
+   * @returns 是否加进了看板。
+   */
+  const onAddAt = useCallback(async (widget: string, clientX: number, clientY: number): Promise<boolean> => {
+    const flow = flowRef.current
+    if (flow === null || snapshot === null || metrics === null || busyRef.current) return false
+    const rect = flow.getBoundingClientRect()
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return false
+    const step = metrics.columnWidth + metrics.gap
+    const column = clamp(Math.floor((clientX - rect.left) / step), 0, metrics.columns - 1)
+    const y = Math.max(0, roundTo((clientY - rect.top) / metrics.rootFontSize, HEIGHT_STEP_REM))
+    if (widget === FLIP_GROUP_ID) return await addGroupCard({ x: column, y, w: 1, h: DEFAULT_HEIGHT_REM })
+    busyRef.current = true
+    setBusy(true)
+    try {
+      const next = await addInstance(widget, { x: column, y, w: 1, h: DEFAULT_HEIGHT_REM })
+      fetchIdRef.current += 1
+      cachedSnapshot = next
+      setSnapshot(next)
+      setFailure(null)
+      setLibraryOpen(false)
+      return true
+    } catch (error) {
+      setFailure((error as Error).message)
+      return false
+    } finally {
+      busyRef.current = false
+      setBusy(false)
+    }
+  }, [addGroupCard, metrics, snapshot])
+
+  /** 主动热刷新：宿主重读组件库与运行时，然后让看板上的卡片重新挂载。 */
+  const onRefresh = useCallback(() => {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusy(true)
+    refreshBoard().then((next) => {
+      fetchIdRef.current += 1
+      cachedSnapshot = next
+      setSnapshot(next)
+      setFailure(null)
+      setLibraryOpen(false)
+      setRefreshGeneration((generation) => generation + 1)
+    }, (error: Error) => {
+      setFailure(error.message)
+      refetch()
+    }).finally(() => {
+      busyRef.current = false
+      setBusy(false)
+    })
+  }, [refetch])
 
   const onRemove = useCallback((id: string) => {
     removeInstance(id).then((next) => {
+      cachedSnapshot = next
+      setSnapshot(next)
+      setFailure(null)
+    }, (error: Error) => { setFailure(error.message) })
+  }, [])
+
+  const onRemoveGroup = useCallback((group: string) => {
+    removeGroup(group).then((next) => {
       cachedSnapshot = next
       setSnapshot(next)
       setFailure(null)
@@ -206,7 +307,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         const id = (entry.target as HTMLElement).dataset.instance
-        const handlers = id === undefined ? undefined : cards.current.get(id)
+        const handlers = id === undefined ? undefined : cardControls.current.get(id)
         if (handlers === undefined) continue
         if (entry.isIntersecting) handlers.resume()
         else handlers.pause()
@@ -216,15 +317,38 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     return () => observer.disconnect()
   }, [metrics, snapshot])
 
-  const instances = snapshot?.board.instances ?? []
-  const items = instances.map((instance) => ({
-    id: instance.id,
+  const cards = useMemo(() => groupCards(snapshot?.board.instances ?? []), [snapshot])
+  const items = cards.map((card) => ({
+    id: cardId(card),
     layout: normalizeCardLayout(
-      draft?.[instance.id] ?? instance.layout ?? { x: 0, y: 0, w: 1, h: DEFAULT_HEIGHT_REM },
+      draft?.[cardId(card)] ?? cardLayout(card) ?? { x: 0, y: 0, w: 1, h: DEFAULT_HEIGHT_REM },
       metrics?.columns,
     ),
   }))
   const layout: GridLayout | null = metrics === null ? null : resolveLayout(items, metrics, drag?.id)
+
+  /** 密排：按当前画面上的阅读顺序把每张卡放进最低的列。 */
+  const onTidy = useCallback(() => {
+    if (snapshot === null || metrics === null || layout === null || dragRef.current !== null || busyRef.current) return
+    const tidied = tidyLayout(
+      Object.entries(layout.layouts).map(([id, next]) => ({ id, layout: next })),
+      metrics,
+    )
+    busyRef.current = true
+    setBusy(true)
+    saveBoardLayouts(snapshot.board.layoutRevision, tidied).then((next) => {
+      fetchIdRef.current += 1
+      cachedSnapshot = next
+      setSnapshot(next)
+      setFailure(null)
+    }, (error: Error) => {
+      setFailure(error.message)
+      refetch()
+    }).finally(() => {
+      busyRef.current = false
+      setBusy(false)
+    })
+  }, [layout, metrics, refetch, snapshot])
 
   const cancelDrag = useCallback(() => {
     // 指针捕获在松手之后还会丢一次；提交还在路上时不能把本地预览一起清掉。
@@ -237,17 +361,15 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
 
   const beginDrag = useCallback((event: ReactPointerEvent<HTMLElement>, id: string, kind: DragKind) => {
     if (snapshot === null || metrics === null || dragRef.current !== null || busyRef.current) return
-    const instance = snapshot.board.instances.find((candidate) => candidate.id === id)
-    if (instance === undefined) return
+    const dragCards = groupCards(snapshot.board.instances)
+    const index = dragCards.findIndex((card) => cardId(card) === id)
+    if (index === -1) return
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
     // 从屏幕上正在显示的那一份开始拖：存储里的布局在窄列里可能被推开过，直接用它会跳一下。
-    const resolved = resolveLayout(snapshot.board.instances.map((candidate) => ({
-      id: candidate.id,
-      layout: candidate.layout ?? { x: 0, y: 0, w: 1, h: DEFAULT_HEIGHT_REM },
-    })), metrics)
-    const placement = resolved.placements[snapshot.board.instances.findIndex((candidate) => candidate.id === id)]
+    const resolved = resolveLayout(layoutItemsOf(dragCards), metrics)
+    const placement = resolved.placements[index]
     if (placement === undefined) return
     const flow = flowRef.current?.getBoundingClientRect()
     const started: DragState = {
@@ -361,24 +483,21 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   let body: ReactNode = null
   if (failure !== null) body = <div className="dsh-widget-board__notice">{failure}</div>
   else if (snapshot === null) body = <div className="dsh-widget-board__notice">{t('loading')}</div>
-  else if (instances.length === 0) body = <div className="dsh-widget-board__notice">{t('empty')}</div>
+  else if (cards.length === 0) body = <div className="dsh-widget-board__notice">{t('empty')}</div>
 
   // 松手后的落点画成虚影；卡片自己用 free 的像素盒子跟手。
   const ghost = drag === null || layout === null ? undefined : layout.placements.find((placement) => placement.id === drag.id)
 
   return (
-    <div
-      className="dsh-widget-board"
-      data-dsh-widget-board-view={WIDGET_BOARD_PANEL_ID}
-      data-dsh-widget-board-columns={metrics?.columns ?? 0}
-      data-dragging={drag === null ? undefined : 'true'}
-      style={SHELL_STYLE}
-    >
-      <BoardMasthead onAdd={() => setLibraryOpen((open) => !open)} open={libraryOpen} />
-      {libraryOpen && snapshot !== null
-        ? <LibraryPanel entries={snapshot.library} onAdd={busy ? null : onAdd} onClose={() => setLibraryOpen(false)} />
-        : null}
-      {body}
+    <>
+      <div
+        className="dsh-widget-board"
+        data-dsh-widget-board-view={WIDGET_BOARD_PANEL_ID}
+        data-dsh-widget-board-columns={metrics?.columns ?? 0}
+        data-dragging={drag === null ? undefined : 'true'}
+        style={SHELL_STYLE}
+      >
+        {body}
       <div ref={flowRef} className="dsh-widget-board__flow" style={layout === null ? undefined : { height: layout.height }}>
         {ghost === undefined
           ? null
@@ -391,10 +510,39 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
           )}
         {snapshot === null || layout === null || metrics === null
           ? null
-          : instances.map((instance, index) => {
-              const widget = snapshot.widgets[instance.widget]
+          : cards.map((card, index) => {
               const target = layout.placements[index]
               if (target === undefined) return null
+              const cardKey = cardId(card)
+              const placement = drag !== null && drag.id === cardKey
+                ? { ...target, x: drag.free.x, y: drag.free.y, width: drag.free.width, height: drag.free.height }
+                : target
+              if (card.kind === 'group') {
+                const frontWidget = snapshot.widgets[card.front.widget]
+                const backWidget = snapshot.widgets[card.back.widget]
+                return (
+                  <FlipGroupCard
+                    key={`${card.id}@${frontWidget?.hash ?? 'missing'}@${backWidget?.hash ?? 'missing'}@${refreshGeneration}`}
+                    front={card.front}
+                    back={card.back}
+                    frontWidget={frontWidget}
+                    backWidget={backWidget}
+                    placement={placement}
+                    gesture={drag !== null && drag.id === cardKey ? drag.kind : null}
+                    theme={theme}
+                    frames={frames}
+                    onState={onState}
+                    onRemoveGroup={() => onRemoveGroup(card.id)}
+                    controls={controls}
+                    onDragStart={beginDrag}
+                    onDragMove={moveDrag}
+                    onDragEnd={endDrag}
+                    onDragCancel={cancelDrag}
+                  />
+                )
+              }
+              const instance = card.instance
+              const widget = snapshot.widgets[instance.widget]
               if (widget === undefined) {
                 const entry = snapshot.library.find((candidate) => candidate.id === instance.widget)
                 return (
@@ -414,17 +562,14 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                   </div>
                 )
               }
-              const placement = drag !== null && drag.id === instance.id
-                ? { ...target, x: drag.free.x, y: drag.free.y, width: drag.free.width, height: drag.free.height }
-                : target
               return (
                 <WidgetCard
-                  // 只有组件版本变了才换一张卡：卡片状态存进宿主之后，修订号变动不该把计时重置掉。
-                  key={`${instance.id}@${widget.hash}`}
+                  // 只有组件版本变了或用户主动刷新才换一张卡：卡片状态存进宿主之后，修订号变动不该把计时重置掉。
+                  key={`${instance.id}@${widget.hash}@${refreshGeneration}`}
                   instance={instance}
                   widget={widget}
                   placement={placement}
-                  gesture={drag?.id === instance.id ? drag.kind : null}
+                  gesture={drag !== null && drag.id === instance.id ? drag.kind : null}
                   theme={theme}
                   frames={frames}
                   onState={onState}
@@ -436,8 +581,20 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                   onDragCancel={cancelDrag}
                 />
               )
-            })}
+                })}
+        </div>
       </div>
-    </div>
+      <BoardDock
+        entries={snapshot === null ? [] : [FLIP_GROUP_ENTRY, ...snapshot.library]}
+        libraryOpen={libraryOpen}
+        busy={busy}
+        onOpenLibrary={() => setLibraryOpen(true)}
+        onCloseLibrary={() => setLibraryOpen(false)}
+        onAdd={onAdd}
+        onAddAt={onAddAt}
+        onTidy={onTidy}
+        onRefresh={onRefresh}
+      />
+    </>
   )
 }

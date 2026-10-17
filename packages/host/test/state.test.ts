@@ -4,9 +4,9 @@
  * 状态存在宿主上，卡片重挂之后靠它把会话接回来；合并规则只有一条，所以由单元测试盯着。
  */
 import { describe, expect, it } from 'vitest'
-import type { Board } from '@dsh-widget-board/contracts'
+import type { Board, BoardInstance } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
-import { withBoardLayouts, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
+import { withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
 
 /** 一块带两张卡的看板。 */
 function board(): Board {
@@ -124,6 +124,13 @@ describe('加卡片与移除卡片', () => {
     expect(instance?.layout).toEqual({ x: 2, y: 0, w: 1, h: 22 })
   })
 
+  it('组件声明的默认盒子决定新卡片的宽高', () => {
+    const hero = record('hero')
+    hero.manifest.defaultBox = { w: 2, h: 14 }
+    const instance = withInstanceAdded(board(), hero).board.instances[2]
+    expect(instance?.layout).toEqual({ x: 2, y: 0, w: 2, h: 14 })
+  })
+
   it('新卡片能带上数据源的名字与 props', () => {
     const added = withInstanceAdded(board(), record('usage'), { source: 'claude-style.usage', props: { days: 30 } })
     expect(added.board.instances[2]?.source).toBe('claude-style.usage')
@@ -137,5 +144,61 @@ describe('加卡片与移除卡片', () => {
 
   it('移除看板上没有的卡片时报错', () => {
     expect(() => withInstanceRemoved(board(), 'missing')).toThrow(/看板上没有这张卡/)
+  })
+})
+
+describe('翻面组', () => {
+  /** 一个已经在校验过的组件记录。 */
+  function record(id: string): WidgetRecord {
+    return {
+      hash: id.padEnd(64, '0'),
+      dir: `/widgets/${id}`,
+      source: 'builtin',
+      manifest: { id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'] },
+      files: new Map(),
+    }
+  }
+
+  it('一次加出正面与背面两张普通卡片，共用一个组 id 与盒子', () => {
+    const added = withGroupAdded(board(), record('stat'), record('chart'))
+    const [front, back] = added.board.instances.slice(2)
+    expect(added.board.instances).toHaveLength(4)
+    expect(front?.group?.id).toBe(added.id)
+    expect(back?.group?.id).toBe(added.id)
+    expect(front?.group?.side).toBe('front')
+    expect(back?.group?.side).toBe('back')
+    expect(front?.group?.template).toBe('flip')
+    expect(front?.widget).toBe('stat')
+    expect(back?.widget).toBe('chart')
+    expect(front?.layout).toEqual({ x: 2, y: 0, w: 1, h: 22 })
+    expect(back?.layout).toEqual(front?.layout)
+  })
+
+  it('拖动落点给两张卡用同一份', () => {
+    const added = withGroupAdded(board(), record('stat'), record('chart'), { layout: { x: 1, y: 4.5, w: 2, h: 26 } })
+    expect(added.board.instances.slice(2).map((instance) => instance.layout)).toEqual([
+      { x: 1, y: 4.5, w: 2, h: 26 },
+      { x: 1, y: 4.5, w: 2, h: 26 },
+    ])
+  })
+
+  it('移除整组时两张卡一起离开', () => {
+    const added = withGroupAdded(board(), record('stat'), record('chart'))
+    const next = withGroupRemoved(added.board, added.id)
+    expect(next.instances.map((instance) => instance.id)).toEqual(['first', 'second'])
+  })
+
+  it('只提交正面时，背面的盒子跟着换到同一份', () => {
+    const added = withGroupAdded(board(), record('stat'), record('chart'))
+    const front = added.board.instances[2] as BoardInstance
+    const next = withBoardLayouts(added.board, { [front.id]: { x: 0, y: 30, w: 2, h: 12 } })
+    expect(next.instances.slice(2).map((instance) => instance.layout)).toEqual([
+      { x: 0, y: 30, w: 2, h: 12 },
+      { x: 0, y: 30, w: 2, h: 12 },
+    ])
+  })
+
+  it('移除看板上没有的组时报错', () => {
+    expect(() => withGroupRemoved(board(), 'missing')).toThrow(/看板上没有这一组/)
   })
 })

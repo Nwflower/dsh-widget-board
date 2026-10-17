@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 5,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "三个通用卡片动效模板：翻转卡、磁吸卡、全息卡；套件提供动效与指针行为，组件只填 props 里的文案。",
+  "en": "Three reusable card templates: flip, magnetic and holographic; the runtime suite owns the motion and pointer behaviour, and props own the copy."
+}

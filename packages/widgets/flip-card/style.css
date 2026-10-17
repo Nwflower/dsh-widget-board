@@ -1,0 +1,98 @@
+/*
+ * 翻转卡的样式。
+ *
+ * 3D 翻转的几何与时长在运行时套件里（.t-flip-card）；这里只写两张脸的内容与配色。
+ * 正面走主题令牌，背面用卡片自己的主题色压暗，两面都保持可读（D10）。
+ */
+
+.flip-card {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  border-radius: var(--w-radius-card, 24px);
+  color: var(--w-color-fg, #0b1016);
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
+  cursor: pointer;
+  -webkit-font-smoothing: antialiased;
+}
+
+.flip-card * { box-sizing: border-box; }
+
+.flip-card__front,
+.flip-card__back {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(18px, 5vw, 30px);
+  border-radius: inherit;
+}
+
+.flip-card__front {
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #dfe4ea) 80%, transparent);
+  background: var(--w-color-surface, #fff);
+}
+
+.flip-card__back {
+  background:
+    radial-gradient(circle at 78% 16%, color-mix(in srgb, var(--w-color-accent, #1a6cff) 62%, transparent), transparent 58%),
+    linear-gradient(145deg, color-mix(in srgb, var(--w-color-accent, #1a6cff) 38%, #0b1220), #0b1220);
+  color: #fff;
+}
+
+.flip-card__kicker {
+  color: var(--w-color-accent, #1a6cff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+.flip-card__title {
+  margin: auto 0 0;
+  color: inherit;
+  font-size: clamp(24px, 8vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+}
+
+.flip-card__text {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.flip-card__hint {
+  margin-top: auto;
+  color: var(--w-color-muted, #6b7684);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.flip-card__back .flip-card__kicker,
+.flip-card__back .flip-card__hint { color: rgb(255 255 255 / 62%); }
+.flip-card__back .flip-card__title { color: #fff; }
+.flip-card__back .flip-card__text { color: rgb(255 255 255 / 78%); }
+
+@media (max-width: 260px) {
+  .flip-card__front,
+  .flip-card__back { padding: 16px; }
+  .flip-card__title { font-size: 24px; }
+}
+
+@media (max-height: 260px) {
+  .flip-card__text { display: none; }
+  .flip-card__title { font-size: 24px; }
+  .flip-card__front,
+  .flip-card__back { gap: 6px; padding: 16px; }
+}
+
+/* 减弱动效：翻面直接换，不做过渡（D10）。 */
+:root[data-motion="reduced"] .flip-card__title { transition: none; }

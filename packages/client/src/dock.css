@@ -1,0 +1,349 @@
+/*
+ * 看板下方的浮层：菜单、组件库浮窗、拖放接住层与预览卡。
+ *
+ * 这些节点固定在看板根节点之外，不参与卡片排版；颜色读宿主的 --dsw-* 令牌，时长与曲线由
+ * BoardDock 写在浮层层上的 --w-motion-* 给出（D10、D16）。
+ */
+
+/* 组件库浮窗：固定在看板内容之上，按来源分组；一行可以按住拖到看板。 */
+.dsh-widget-board__library {
+  position: fixed;
+  bottom: 166px;
+  left: 50%;
+  z-index: 90;
+  display: flex;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(62vh, 520px);
+  flex-direction: column;
+  padding: 16px 18px 18px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 82%, transparent);
+  border-radius: 18px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 26%, transparent);
+  transform: translateX(-50%);
+  animation: dsh-widget-board-rise var(--w-motion-base) var(--w-motion-ease-pop) both;
+}
+
+.dsh-widget-board__library-head {
+  position: sticky;
+  top: -16px;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -2px -2px 8px;
+  padding: 2px 2px 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__library-title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dsh-widget-board__library-hint {
+  margin: 4px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dsh-widget-board__library-close {
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dsh-widget-board__library-group { margin-top: 10px; }
+
+.dsh-widget-board__library-source {
+  margin: 0 0 8px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dsh-widget-board__library-provider {
+  margin-left: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.dsh-widget-board__library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dsh-widget-board__library-add {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  text-align: left;
+  transition:
+    border-color var(--w-motion-fast) var(--w-motion-ease-standard),
+    background var(--w-motion-fast) var(--w-motion-ease-standard),
+    transform var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__library-add:hover {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 5%, var(--dsw-alias-bg-base));
+}
+
+.dsh-widget-board__library-add:active { cursor: grabbing; transform: scale(0.99); }
+
+.dsh-widget-board__library-add[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.dsh-widget-board__library-grip {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.1em;
+}
+
+.dsh-widget-board__library-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dsh-widget-board__library-name { font-size: 13px; font-weight: 600; }
+
+.dsh-widget-board__library-desc,
+.dsh-widget-board__library-error {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dsh-widget-board__library-error { color: var(--dsw-alias-state-error-primary); }
+
+/* 下方菜单：一张 SVG goo 层画底色、桥接与投影；按钮是压在上面的清晰层。 */
+.dsh-widget-board__dock-layer {
+  --dsh-widget-board-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  display: contents;
+}
+
+.dsh-widget-board__dock {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  z-index: 80;
+  width: 200px;
+  height: 140px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.dsh-widget-board__goo-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  will-change: filter, transform;
+}
+
+.dsh-widget-board__goo-circle {
+  fill: var(--dsw-alias-bg-layer-1);
+  transform: translate(0, 0);
+  transform-box: fill-box;
+  transition: transform var(--w-motion-goo-close) var(--w-motion-goo-ease-close);
+  will-change: transform;
+}
+
+.dsh-widget-board__dock[data-open="true"] .dsh-widget-board__goo-circle {
+  transform: translate(var(--fx, 0px), var(--fy, 0px));
+  transition: transform var(--w-motion-goo-open) var(--w-motion-goo-ease-open);
+  transition-delay: calc(var(--i, 0) * var(--w-motion-goo-stagger));
+}
+
+.dsh-widget-board__dock-action,
+.dsh-widget-board__dock-trigger {
+  position: absolute;
+  top: 80px;
+  left: 80px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate(0, 0);
+  transition:
+    transform var(--w-motion-goo-close) var(--w-motion-goo-ease-close),
+    background-color var(--w-motion-goo-hover) ease;
+  will-change: transform;
+  place-items: center;
+}
+
+.dsh-widget-board__dock-action { pointer-events: none; }
+
+.dsh-widget-board__dock[data-open="true"] .dsh-widget-board__dock-action {
+  pointer-events: auto;
+  transform: translate(var(--fx, 0px), var(--fy, 0px));
+  transition:
+    transform var(--w-motion-goo-open) var(--w-motion-goo-ease-open),
+    background-color var(--w-motion-goo-hover) ease;
+  transition-delay: calc(var(--i, 0) * var(--w-motion-goo-stagger)), 0ms;
+}
+
+.dsh-widget-board__dock[data-open="true"] .dsh-widget-board__dock-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent);
+}
+
+.dsh-widget-board__dock-action:disabled { cursor: wait; opacity: 0.55; }
+
+.dsh-widget-board__dock-action svg {
+  display: block;
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity var(--w-motion-goo-icon-close) ease,
+    filter var(--w-motion-goo-icon-close) ease;
+}
+
+.dsh-widget-board__dock[data-open="true"] .dsh-widget-board__dock-action svg {
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--w-motion-goo-icon) ease,
+    filter var(--w-motion-goo-icon) ease;
+  transition-delay:
+    calc(var(--i, 0) * var(--w-motion-goo-stagger) + var(--w-motion-goo-icon-delay)),
+    calc(var(--i, 0) * var(--w-motion-goo-stagger) + var(--w-motion-goo-icon-delay));
+}
+
+.dsh-widget-board__dock-trigger {
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.dsh-widget-board__dock-trigger-icon {
+  display: grid;
+  place-items: center;
+  transition: transform var(--w-motion-goo-rotate) var(--w-motion-goo-rotate-ease);
+}
+
+.dsh-widget-board__dock[data-open="true"] .dsh-widget-board__dock-trigger-icon {
+  transform: rotate(var(--w-motion-goo-turn));
+}
+
+.dsh-widget-board__dock-trigger:focus-visible,
+.dsh-widget-board__dock-action:focus-visible {
+  outline: 2px solid var(--dsw-alias-label-primary);
+  outline-offset: 2px;
+}
+
+@keyframes dsh-widget-board-anticipate {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(var(--w-motion-goo-bounce-distance)); }
+  100% { transform: translateY(0); }
+}
+
+.dsh-widget-board__dock.is-anticipating .dsh-widget-board__goo-svg,
+.dsh-widget-board__dock.is-anticipating .dsh-widget-board__dock-trigger {
+  animation: dsh-widget-board-anticipate var(--w-motion-goo-bounce) var(--w-motion-goo-ease-close) both;
+}
+
+.dsh-widget-board__drag-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  cursor: grabbing;
+  touch-action: none;
+}
+
+.dsh-widget-board__drag-proxy {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  display: flex;
+  width: 190px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 42%, transparent);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 18px 50px color-mix(in srgb, #000 28%, transparent);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.dsh-widget-board__drag-proxy-kicker {
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dsh-widget-board__drag-proxy-title { font-size: 13px; font-weight: 600; }
+
+.dsh-widget-board__drag-proxy-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-brand-primary);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+@keyframes dsh-widget-board-rise {
+  from { opacity: 0; transform: translate(-50%, 10px) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-widget-board__library { animation: none; }
+  .dsh-widget-board__goo-circle,
+  .dsh-widget-board__dock-action,
+  .dsh-widget-board__dock-action svg,
+  .dsh-widget-board__dock-trigger-icon { transition: none !important; }
+  .dsh-widget-board__dock.is-anticipating .dsh-widget-board__goo-svg,
+  .dsh-widget-board__dock.is-anticipating .dsh-widget-board__dock-trigger { animation: none !important; }
+}
+

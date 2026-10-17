@@ -1,0 +1,90 @@
+/*
+ * 图表卡的样式：SVG 铺满剩余高度，折线/面积/柱状由 data-kind 切换；刻度与说明在下方。
+ */
+.chart-card__body {
+  gap: 10px;
+}
+
+.chart-card__plot {
+  position: relative;
+  min-height: 56px;
+  flex: 1;
+}
+
+.chart-card__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-card__grid line {
+  stroke: color-mix(in srgb, var(--w-color-border, #e5e7eb) 78%, transparent);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-card__line {
+  fill: none;
+  stroke: var(--w-color-accent, #2563eb);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-card__area {
+  fill: color-mix(in srgb, var(--w-color-accent, #2563eb) 14%, transparent);
+}
+
+.chart-card__bar {
+  fill: var(--w-color-accent, #2563eb);
+  opacity: 0.82;
+}
+
+.chart-card__dot {
+  fill: var(--w-color-accent, #2563eb);
+}
+
+.chart-card[data-kind="line"] .chart-card__area,
+.chart-card[data-kind="bar"] .chart-card__line,
+.chart-card[data-kind="bar"] .chart-card__area,
+.chart-card[data-kind="bar"] .chart-card__dot,
+.chart-card[data-kind="line"] .chart-card__bars,
+.chart-card[data-kind="area"] .chart-card__bars {
+  display: none;
+}
+
+.chart-card__axis {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.chart-card__axis span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-card__axis span:nth-child(2) { text-align: center; }
+.chart-card__axis span:last-child { text-align: right; }
+
+.chart-card__caption {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-height: 260px) {
+  .chart-card__caption { display: none; }
+}

@@ -15,6 +15,7 @@ import {
   nextCardLayout,
   normalizeCardLayout,
   resolveLayout,
+  tidyLayout,
 } from '../src/grid'
 
 /** 一张卡片的布局。 */
@@ -138,6 +139,57 @@ describe('摆放', () => {
   })
 })
 
+describe('紧凑排布', () => {
+  it('按画面上的从上到下、从左到右重新放进最矮的列', () => {
+    const metrics = { columns: 2, columnWidth: 100, gap: 10, rootFontSize: 16 }
+    const result = tidyLayout([
+      { id: 'lower', layout: layout(2, 30, 1, 10) },
+      { id: 'upper', layout: layout(0, 10, 1, 10) },
+    ], metrics)
+    expect(result).toEqual({
+      upper: { x: 0, y: 0, w: 1, h: 10 },
+      lower: { x: 1, y: 0, w: 1, h: 10 },
+    })
+  })
+
+  it('跨列卡片占住覆盖的列，后面的卡片落在它下面', () => {
+    const metrics = { columns: 2, columnWidth: 100, gap: 10, rootFontSize: 16 }
+    const result = tidyLayout([
+      { id: 'wide', layout: layout(0, 0, 2, 10) },
+      { id: 'next', layout: layout(0, 0, 1, 6) },
+    ], metrics)
+    expect(result.wide).toEqual({ x: 0, y: 0, w: 2, h: 10 })
+    expect(result.next).toEqual({ x: 0, y: 10.625, w: 1, h: 6 })
+  })
+
+  it('高矮不同的卡片各自落在当前最矮的列，不留下大洞', () => {
+    const metrics = { columns: 2, columnWidth: 100, gap: 10, rootFontSize: 16 }
+    const result = tidyLayout([
+      { id: 'tall', layout: layout(0, 0, 1, 20) },
+      { id: 'short', layout: layout(1, 0, 1, 6) },
+      { id: 'next', layout: layout(1, 8, 1, 6) },
+    ], metrics)
+    expect(result.tall).toEqual({ x: 0, y: 0, w: 1, h: 20 })
+    expect(result.short).toEqual({ x: 1, y: 0, w: 1, h: 6 })
+    expect(result.next).toEqual({ x: 1, y: 6.625, w: 1, h: 6 })
+  })
+
+  it('同样的输入给出同样的排布', () => {
+    const metrics = gridMetrics(920, 16)
+    const items = [
+      { id: 'a', layout: layout(2, 20, 1, 8) },
+      { id: 'b', layout: layout(0, 0, 2, 6) },
+      { id: 'c', layout: layout(1, 9, 1, 10) },
+    ]
+    const first = tidyLayout(items, metrics)
+    for (let run = 0; run < 5; run += 1) expect(tidyLayout(items, metrics)).toEqual(first)
+  })
+
+  it('空看板给出空表', () => {
+    expect(tidyLayout([], gridMetrics(920, 16))).toEqual({})
+  })
+})
+
 describe('新卡片的默认位置', () => {
   it('放进最矮的一列底部', () => {
     const first = nextCardLayout([])
@@ -160,5 +212,11 @@ describe('新卡片的默认位置', () => {
   it('四列都被占到之后，新卡片落在最矮的一列底部并隔一个间距', () => {
     const next = nextCardLayout([{ layout: layout(0, 0, 4, DEFAULT_HEIGHT_REM) }])
     expect(next).toEqual({ x: 0, y: DEFAULT_HEIGHT_REM + GAP_REM, w: 1, h: DEFAULT_HEIGHT_REM })
+  })
+
+  it('组件声明的默认盒子决定新卡片的宽高', () => {
+    const hero = nextCardLayout([], { w: 2, h: 14 })
+    expect(hero).toEqual({ x: 0, y: 0, w: 2, h: 14 })
+    expect(nextCardLayout([{ layout: hero }], { w: 1, h: 10 })).toEqual({ x: 2, y: 0, w: 1, h: 10 })
   })
 })

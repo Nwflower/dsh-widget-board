@@ -1,0 +1,72 @@
+/*
+ * 时间线卡的样式：左侧一条竖线，事件按时间往下排；状态只落在节点上。
+ */
+.timeline-card__body {
+  position: relative;
+  padding-left: 14px;
+}
+
+.timeline-card__body::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 8px;
+  left: 4px;
+  width: 1px;
+  background: color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
+}
+
+.timeline-card__row {
+  position: relative;
+  padding: 0 0 14px;
+}
+
+.timeline-card__row:last-child { padding-bottom: 0; }
+
+.timeline-card__row::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: -14px;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--w-color-muted, #6b7684);
+  border-radius: 50%;
+  background: var(--w-color-surface, #fff);
+}
+
+.timeline-card__row[data-status="ok"]::before {
+  border-color: var(--w-color-accent, #2563eb);
+  background: var(--w-color-accent, #2563eb);
+}
+
+.timeline-card__row[data-status="warn"]::before { border-color: #b45309; }
+.timeline-card__row[data-status="error"]::before { border-color: #b91c1c; background: #b91c1c; }
+
+.timeline-card__time {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.timeline-card__title {
+  margin: 2px 0 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.timeline-card__detail {
+  margin: 2px 0 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}

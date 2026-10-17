@@ -1,0 +1,48 @@
+{
+  "id": "timeline",
+  "title": {
+    "zh": "时间线",
+    "en": "Timeline"
+  },
+  "description": {
+    "zh": "按时间排的事件：时间、标题、细节与状态，适合提交、发布与事故记录。",
+    "en": "Events in time order with time, title, detail and status; for commits, releases and incidents."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 50,
+        "items": {
+          "type": "object",
+          "required": ["time", "title"],
+          "properties": {
+            "time": { "type": "string", "maxLength": 24 },
+            "title": { "type": "string", "maxLength": 120 },
+            "detail": { "type": "string", "maxLength": 160 },
+            "status": { "enum": ["ok", "warn", "error", "idle"] }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无事件",
+      "en": "No events"
+    }
+  }
+}

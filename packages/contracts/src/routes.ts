@@ -25,6 +25,15 @@ export const BOARD_LAYOUT_PATH = '/board/layout'
 /** 加一张卡：`POST /board/instance`（D17）。 */
 export const BOARD_INSTANCE_PATH = '/board/instance'
 
+/** 加一张固定的翻面组：`POST /board/group`（D19）。 */
+export const BOARD_GROUP_PATH = '/board/group'
+
+/** 按组 id 移除整组：`POST /board/group/remove`（D19）。 */
+export const BOARD_GROUP_REMOVE_PATH = '/board/group/remove'
+
+/** 主动热刷新：`POST /refresh`，宿主重读组件库与运行时（D17）。 */
+export const REFRESH_PATH = '/refresh'
+
 /** 变更通知：宿主把发生了什么的告诉在线页面（D18）。 */
 export const EVENTS_PATH = '/events'
 
@@ -74,6 +83,15 @@ export const boardLayoutPath = (): string => `${CLIENT_ROUTE}${BOARD_LAYOUT_PATH
 
 /** 往看板上加一张卡的地址，文档相对。 */
 export const boardInstancePath = (): string => `${CLIENT_ROUTE}${BOARD_INSTANCE_PATH}`
+
+/** 往看板上加一张固定翻面组的地址，文档相对。 */
+export const boardGroupPath = (): string => `${CLIENT_ROUTE}${BOARD_GROUP_PATH}`
+
+/** 按组 id 移除整组的地址，文档相对。 */
+export const boardGroupRemovePath = (): string => `${CLIENT_ROUTE}${BOARD_GROUP_REMOVE_PATH}`
+
+/** 主动热刷新的地址，文档相对。 */
+export const refreshPath = (): string => `${CLIENT_ROUTE}${REFRESH_PATH}`
 
 /**
  * 某个版本组件文档的地址，文档相对。

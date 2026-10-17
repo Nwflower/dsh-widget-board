@@ -1,0 +1,48 @@
+{
+  "id": "kv",
+  "title": {
+    "zh": "键值",
+    "en": "Key-value"
+  },
+  "description": {
+    "zh": "一组键值对，适合版本、主机、配置摘要与运行状态。",
+    "en": "A set of key-value pairs for versions, hosts, config summaries and runtime state."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 },
+      "columns": { "type": "integer", "minimum": 1, "maximum": 3 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 40,
+        "items": {
+          "type": "object",
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "type": "string", "maxLength": 60 },
+            "value": { "type": ["string", "number"] },
+            "note": { "type": "string", "maxLength": 80 }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无字段",
+      "en": "No fields"
+    }
+  }
+}

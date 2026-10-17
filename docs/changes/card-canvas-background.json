@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 7,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "翻面与磁吸卡片的 iframe 不再露白：画布先铺一层宿主底色和点阵，翻面时卡片两侧与组件留白都跟着主题走。",
+  "en": "Flipping and magnetic cards no longer show a white iframe backdrop: the document canvas now paints the host background and dot grid, so the sides of a flipping card and any empty space follow the theme."
+}

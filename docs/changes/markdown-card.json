@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 8,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "Markdown 与代码卡：GFM 排版、表格、引用与按语言高亮的代码块；新增精选库 marked 与 highlight，随插件内联进组件文档，不联网。",
+  "en": "Markdown and code card: GFM typesetting, tables, quotes and language-highlighted code blocks; adds the curated marked and highlight libraries, inlined into widget documents and kept offline."
+}

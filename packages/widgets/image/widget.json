@@ -1,0 +1,37 @@
+{
+  "id": "image",
+  "title": {
+    "zh": "图片",
+    "en": "Image"
+  },
+  "description": {
+    "zh": "一张图加一行说明；图片用 data URL 或 blob URL，宿主沙箱只允许这两种来源。",
+    "en": "An image with a caption; images arrive as data URLs or blob URLs, the only sources the sandbox allows."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "src": { "type": "string", "maxLength": 60000 },
+      "alt": { "type": "string", "maxLength": 160 },
+      "caption": { "type": "string", "maxLength": 160 }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "还没有图片",
+      "en": "No image"
+    }
+  }
+}

@@ -12,6 +12,8 @@ import type {
   BoardEvent,
   BoardLayoutRequest,
   BoardSnapshot,
+  GroupAddRequest,
+  GroupRemoveRequest,
   HostConnection,
   HostRequest,
   HostResponse,
@@ -22,14 +24,15 @@ import type {
   InstanceStateRequest,
   WidgetLibraryEntry,
 } from '@dsh-widget-board/contracts'
-import { PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import type { Live } from './live'
 import type { WidgetRecord } from './library'
 import { dataError } from './schema'
 import type { Registries } from './sources'
-import { StaleRevisionError, withBoardLayouts, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState } from './state'
+import { isCardLayout } from '@dsh-widget-board/model'
+import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState } from './state'
 
 /** 卡片状态的请求体上限：界面状态只是几张表单的值，几 KB 足够。 */
 const STATE_LIMIT = 16 * 1024
@@ -62,6 +65,8 @@ export interface RouteContext {
   save(change: (current: Board) => Board, options: SaveOptions): Promise<Board>
   live: Live
   connection: HostConnection | undefined
+  /** 主动重读组件库与运行时（D17）：菜单上的刷新按钮用它。 */
+  refresh: () => Promise<void>
   /** 数据源与动作的注册表（D6）。 */
   sources: Registries
 }
@@ -262,11 +267,13 @@ const ROUTES: Route[] = [
         throw new Refusal(400, `没有数据源 ${wanted.source}，提供它的插件可能没有安装`)
       }
       if (wanted.props !== undefined && !isRecord(wanted.props)) throw new Refusal(400, 'props 要是普通的 JSON 对象')
+      if (wanted.layout !== undefined && !isCardLayout(wanted.layout)) throw new Refusal(400, 'layout 的列号、跨列与高度不合法')
       // 先定下卡片的 id：写入排进队列之后，响应与数据源都要按它找这张卡。
       const id = randomUUID()
       const options = {
         ...(source === undefined ? {} : { source }),
         ...(wanted.props === undefined ? {} : { props: wanted.props }),
+        ...(wanted.layout === undefined ? {} : { layout: wanted.layout }),
       }
       await context.save((current) => withInstanceAdded(current, record, options, id).board, {
         layoutChanged: true,
@@ -279,6 +286,50 @@ const ROUTES: Route[] = [
         await saveData(context, id, data)
       }
       json(response, 201, { id, snapshot: snapshot(context) })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/board\/group$/,
+    limit: ADD_LIMIT,
+    async handle(context, request, response) {
+      const body = await readJson(request, ADD_LIMIT)
+      if (body !== undefined && !isRecord(body)) throw new Refusal(400, '加组卡要写明落点')
+      const wanted = (body ?? {}) as GroupAddRequest
+      if (wanted.layout !== undefined && !isCardLayout(wanted.layout)) throw new Refusal(400, 'layout 的列号、跨列与高度不合法')
+      const front = context.records.get(FLIP_GROUP_FRONT)
+      const back = context.records.get(FLIP_GROUP_BACK)
+      if (front === undefined || back === undefined) throw new Refusal(400, `翻面组需要组件 ${FLIP_GROUP_FRONT} 与 ${FLIP_GROUP_BACK}`)
+      let id = ''
+      await context.save((current) => {
+        const added = withGroupAdded(current, front, back, wanted.layout === undefined ? {} : { layout: wanted.layout })
+        id = added.id
+        return added.board
+      }, { layoutChanged: true, event: () => ({ type: 'board' }) })
+      json(response, 201, { id, snapshot: snapshot(context) })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/board\/group\/remove$/,
+    limit: EMPTY_LIMIT,
+    async handle(context, request, response) {
+      const body = await readJson(request, EMPTY_LIMIT)
+      if (!isRecord(body) || typeof body.group !== 'string' || body.group === '') throw new Refusal(400, '移除组卡要写明 group')
+      const wanted = body as unknown as GroupRemoveRequest
+      if (!context.board.instances.some((instance) => instance.group?.id === wanted.group)) throw new Refusal(404, `看板上没有这一组：${wanted.group}`)
+      await context.save((current) => withGroupRemoved(current, wanted.group), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      json(response, 200, snapshot(context))
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/refresh$/,
+    limit: EMPTY_LIMIT,
+    async handle(context, request, response) {
+      await readJson(request, EMPTY_LIMIT)
+      await context.refresh()
+      json(response, 200, snapshot(context))
     },
   },
   {

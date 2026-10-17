@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 6,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "八个通用数据组件：数字、列表、表格、图表、进度、键值、时间线与图片；内容由 data 填、标题由 props 改，共用 .t-data 骨架。",
+  "en": "Eight generic data widgets: stat, list, table, chart, progress, key-value, timeline and image; data fills the content, props change the headings, and all share the .t-data skeleton."
+}

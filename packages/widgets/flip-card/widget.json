@@ -1,0 +1,36 @@
+{
+  "id": "flip-card",
+  "title": {
+    "zh": "翻转卡",
+    "en": "Flip card"
+  },
+  "description": {
+    "zh": "通用翻转卡模板：悬停或轻点翻到背面，正反两面的文案都由 props 填入。",
+    "en": "A reusable flip-card template: hover or tap to turn it over; props fill both faces."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "frontKicker": { "type": "string", "maxLength": 40 },
+      "frontTitle": { "type": "string", "maxLength": 80 },
+      "frontText": { "type": "string", "maxLength": 220 },
+      "backKicker": { "type": "string", "maxLength": 40 },
+      "backTitle": { "type": "string", "maxLength": 80 },
+      "backText": { "type": "string", "maxLength": 220 }
+    }
+  },
+  "text": {
+    "hint": {
+      "zh": "悬停或轻点翻转",
+      "en": "Hover or tap to flip"
+    },
+    "backHint": {
+      "zh": "翻回正面",
+      "en": "Flip back"
+    }
+  }
+}

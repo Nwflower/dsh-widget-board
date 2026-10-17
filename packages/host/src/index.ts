@@ -101,6 +101,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
    * 写入不会让一次正在进行的拖动变成过期（D5、D16）。
    */
   let writing: Promise<void> = Promise.resolve()
+  /** 刷新路由要调的重读：重读函数在下面定义，闭包先接住这个变量。 */
+  let refreshLibrary: () => Promise<void> = async () => {}
   const save: RouteContext['save'] = (change, options) => {
     const run = writing.then(async () => {
       const current = context.board
@@ -129,18 +131,26 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     save,
     live,
     connection: connectionOf(ctx),
+    refresh: () => refreshLibrary(),
     sources,
   }
 
-  /** 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。 */
-  const reload = async (): Promise<void> => {
-    const next = await loadLibrary(roots)
-    for (const record of next.records.values()) await versions.remember(record)
-    library = next
-    context.records = next.records
-    context.entries = next.entries
-    live.publish(await loadAssets(runtime))
+  // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与
+  // 刷新按钮同时到来时后一次看得到前一次的结果。
+  let reloading: Promise<void> = Promise.resolve()
+  const reload = (): Promise<void> => {
+    const run = reloading.then(async () => {
+      const next = await loadLibrary(roots)
+      for (const record of next.records.values()) await versions.remember(record)
+      library = next
+      context.records = next.records
+      context.entries = next.entries
+      live.publish(await loadAssets(runtime))
+    })
+    reloading = run.catch(() => undefined)
+    return run
   }
+  refreshLibrary = reload
 
   const handler = createHandler(context)
   const disposeRoute = webServerOf(ctx).register({

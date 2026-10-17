@@ -11,6 +11,7 @@ import type {
   WidgetSize,
 } from '@dsh-widget-board/contracts'
 import { MESSAGE_LIMIT, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
+import { installMotionTemplates } from './motion'
 
 /** 组件的公共接口，写在编写指南里的那一份。 */
 export interface WidgetApi {
@@ -267,6 +268,7 @@ function installPress(): void {
 
 install()
 installPress()
+installMotionTemplates()
 installFailureReports()
 // 内容高度一变就报一次：内联显示按它占位；看板的卡片高度由布局给出（D16）。
 new ResizeObserver(reportHeight).observe(document.body)

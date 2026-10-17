@@ -75,6 +75,7 @@
 - 检查器：按尺寸族的像素两端渲染，收集脚本错误、CSP 违规、溢出、空白、静置；同一个模块供矩阵与自检调用。
 - 尺寸矩阵：组件 × 尺寸族 × 两端 × 配色 × 语言，加一次减弱动效；截图写到运行的输出目录。
 - 内置组件：`stat`、`list`、`table`、`chart`、`markdown`、`progress`、`kv`、`timeline`、`image`，每个都有全部尺寸族的样例。
+- 卡片动效模板：`flip-card`、`magnetic-card`、`holographic-card`，复用套件的翻转、磁吸与全息原语；每个都有 `s` 与 `l` 的样例。
 - `packages/testing/fixtures/`：故意溢出、抛错、违反 CSP、空白的组件。
 
 完成判据：

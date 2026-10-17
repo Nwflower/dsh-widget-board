@@ -1,0 +1,217 @@
+/*
+ * Markdown 卡的样式：正文按卡片宽度排版，代码块横向滚动，语法色由令牌混出。
+ */
+.md-card__body {
+  gap: 0;
+  font-size: 12px;
+  line-height: 19px;
+  overflow-wrap: anywhere;
+}
+
+.md-card__body > :first-child { margin-top: 0; }
+.md-card__body > :last-child { margin-bottom: 0; }
+
+.md-card__body h1,
+.md-card__body h2,
+.md-card__body h3,
+.md-card__body h4,
+.md-card__body h5,
+.md-card__body h6 {
+  margin: 14px 0 6px;
+  color: var(--w-color-fg, #0b1016);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.md-card__body h1 { font-size: 19px; }
+.md-card__body h2 { font-size: 16px; }
+.md-card__body h3 { font-size: 14px; }
+.md-card__body h4,
+.md-card__body h5,
+.md-card__body h6 { font-size: 12px; }
+
+.md-card__body p {
+  margin: 0 0 8px;
+}
+
+.md-card__body strong { font-weight: 650; }
+
+.md-card__body em { font-style: italic; }
+
+.md-card__body a {
+  color: var(--w-color-accent, #2563eb);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.md-card__body ul,
+.md-card__body ol {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.md-card__body li { margin: 2px 0; }
+
+.md-card__body li::marker { color: var(--w-color-muted, #6b7684); }
+
+.md-card__body blockquote {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border-left: 2px solid var(--w-color-accent, #2563eb);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 4%, transparent);
+  color: var(--w-color-muted, #6b7684);
+}
+
+.md-card__body blockquote p { margin: 0; }
+
+.md-card__body code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 6%, transparent);
+  font-family: var(--t-mono);
+  font-size: 10.5px;
+}
+
+.md-card__body pre {
+  margin: 8px 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #dfe4ea) 75%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 4%, transparent);
+  color: var(--w-color-fg, #0b1016);
+  font-family: var(--t-mono);
+  font-size: 10.5px;
+  line-height: 16px;
+  tab-size: 2;
+}
+
+.md-card__body pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.md-code { margin: 8px 0; }
+
+.md-code__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 9px 0;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.md-code pre { margin-top: 6px; }
+
+.md-card__body table {
+  width: 100%;
+  margin: 8px 0;
+  border-collapse: collapse;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.md-card__body th,
+.md-card__body td {
+  padding: 4px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--w-color-border, #dfe4ea) 70%, transparent);
+  text-align: left;
+}
+
+.md-card__body th {
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.md-card__body tr:last-child td { border-bottom: 0; }
+
+.md-card__body hr {
+  height: 1px;
+  margin: 12px 0;
+  border: 0;
+  background: color-mix(in srgb, var(--w-color-border, #dfe4ea) 80%, transparent);
+}
+
+.md-card__body img {
+  display: block;
+  max-width: 100%;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+
+.md-card__body .md-image-alt {
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 9px;
+}
+
+.md-card__body input[type="checkbox"] {
+  width: 11px;
+  height: 11px;
+  margin: 0 4px 0 0;
+  accent-color: var(--w-color-accent, #2563eb);
+  vertical-align: -1px;
+}
+
+/* 语法高亮：色相固定，亮度靠前景混出来，浅色与深色都保持可读。 */
+.md-card__body .hljs-comment,
+.md-card__body .hljs-quote { color: var(--w-color-muted, #6b7684); font-style: italic; }
+
+.md-card__body .hljs-keyword,
+.md-card__body .hljs-selector-tag,
+.md-card__body .hljs-literal,
+.md-card__body .hljs-doctag { color: var(--w-color-accent, #2563eb); }
+
+.md-card__body .hljs-string,
+.md-card__body .hljs-regexp,
+.md-card__body .hljs-attr,
+.md-card__body .hljs-template-variable {
+  color: color-mix(in srgb, #0f7b5a 72%, var(--w-color-fg, #0b1016));
+}
+
+.md-card__body .hljs-number,
+.md-card__body .hljs-built_in,
+.md-card__body .hljs-symbol {
+  color: color-mix(in srgb, #b45309 76%, var(--w-color-fg, #0b1016));
+}
+
+.md-card__body .hljs-title,
+.md-card__body .hljs-section,
+.md-card__body .hljs-function .hljs-title {
+  color: color-mix(in srgb, #2563eb 72%, var(--w-color-fg, #0b1016));
+}
+
+.md-card__body .hljs-type,
+.md-card__body .hljs-class .hljs-title,
+.md-card__body .hljs-selector-class {
+  color: color-mix(in srgb, #7c3aed 72%, var(--w-color-fg, #0b1016));
+}
+
+.md-card__body .hljs-variable,
+.md-card__body .hljs-params,
+.md-card__body .hljs-property { color: var(--w-color-fg, #0b1016); }
+
+.md-card__body .hljs-meta,
+.md-card__body .hljs-tag { color: var(--w-color-muted, #6b7684); }
+
+@media (max-width: 300px) {
+  .md-card__body { font-size: 11px; line-height: 18px; }
+  .md-card__body h1 { font-size: 17px; }
+  .md-card__body h2 { font-size: 15px; }
+  .md-card__body pre { font-size: 10px; line-height: 15px; }
+}

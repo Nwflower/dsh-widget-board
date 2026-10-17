@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest'
 import type { WidgetRecord } from '../src/library'
 import { buildDocument, contentSecurityPolicy } from '../src/document'
 
-/** 三份共用资产。 */
-const ASSETS = { tokensCss: ':root{--w-color-bg:#fff}', suiteCss: '.t-tab{}', runtimeJs: 'window.widget={}' }
+/** 共用资产。 */
+const ASSETS = { tokensCss: ':root{--w-color-bg:#fff}', suiteCss: '.t-tab{}', runtimeJs: 'window.widget={}', libs: {} }
 
 /**
  * 一个组件记录。
@@ -41,6 +41,20 @@ describe('文档', () => {
     const html = buildDocument(record({ 'index.html': '<p></p>', 'style.css': 'p{}', 'main.js': 'go()' }), ASSETS, 'n1', { lang: 'zh-CN' })
     expect(html.match(/nonce="n1"/g)).toHaveLength(2)
     expect(html).toContain('go()')
+  })
+
+  it('manifest 点名的库在组件脚本之前内联', () => {
+    const widget = record({ 'index.html': '<p></p>', 'style.css': 'p{}', 'main.js': 'go()' })
+    widget.manifest.libs = ['marked']
+    const html = buildDocument(widget, { ...ASSETS, libs: { marked: 'window.marked={}' } }, 'n1', { lang: 'zh-CN' })
+    expect(html.match(/nonce="n1"/g)).toHaveLength(3)
+    expect(html.indexOf('window.marked={}')).toBeLessThan(html.indexOf('go()'))
+  })
+
+  it('manifest 点名了没有随包提供的库时拒绝拼装', () => {
+    const widget = record({ 'index.html': '<p></p>', 'style.css': 'p{}' })
+    widget.manifest.libs = ['ghost']
+    expect(() => buildDocument(widget, ASSETS, 'n1', { lang: 'zh-CN' })).toThrow(/没有随包提供/)
   })
 
   it('样式的结束标签让文档拒绝拼装', () => {

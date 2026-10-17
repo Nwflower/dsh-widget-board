@@ -1,0 +1,68 @@
+/*
+ * 数字卡的样式。
+ *
+ * 骨架（底色、边框、标题区）来自套件的 `.t-data`；这里只放大数字、收窄趋势行。
+ */
+.stat__body {
+  justify-content: center;
+}
+
+.stat__value {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(44px, 19vw, 88px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.07em;
+  line-height: 0.9;
+  overflow-wrap: anywhere;
+}
+
+.stat__unit {
+  flex: none;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 16px;
+}
+
+.stat__trend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-family: var(--t-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  line-height: 14px;
+}
+
+.stat__delta {
+  color: var(--w-color-accent, #2563eb);
+  font-weight: 600;
+}
+
+.stat__note { color: var(--w-color-muted, #6b7684); }
+
+.stat__caption {
+  margin: 8px 0 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.stat[data-trend="down"] .stat__delta { color: var(--w-color-fg, #0b1016); }
+.stat[data-trend="flat"] .stat__delta { color: var(--w-color-muted, #6b7684); }
+
+@media (max-height: 260px) {
+  .stat__value { font-size: 44px; }
+  .stat__trend { margin-top: 8px; }
+  .stat__caption { display: none; }
+}

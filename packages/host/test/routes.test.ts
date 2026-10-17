@@ -135,7 +135,7 @@ function harness(): Harness {
       return next
     },
     live: {
-      assets: { tokensCss: '', suiteCss: '', runtimeJs: '' },
+      assets: { tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} },
       revision: 0,
       subscribe: () => undefined,
       publish: () => undefined,
@@ -143,6 +143,7 @@ function harness(): Harness {
       close: () => undefined,
     },
     connection: undefined,
+    refresh: async () => undefined,
     sources,
   }
   const handler = createHandler(context)
@@ -259,6 +260,18 @@ describe('加卡片与移除卡片', () => {
     expect(test.events[0]).toEqual({ type: 'board' })
   })
 
+  it('请求带着拖放落点时，新卡片按它摆放', async () => {
+    const test = harness()
+    const response = await test.send('POST', '/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 1, y: 4.5, w: 1, h: 10 } }))
+    expect(response.status).toBe(201)
+    expect(test.context.board.instances.at(-1)?.layout).toEqual({ x: 1, y: 4.5, w: 1, h: 10 })
+  })
+
+  it('拖放落点不合法时回 400', async () => {
+    const response = await harness().send('POST', '/board/instance', JSON.stringify({ widget: 'weather', layout: { x: 3, y: 0, w: 2, h: 10 } }))
+    expect(response.status).toBe(400)
+  })
+
   it('组件库没有这个组件时回 400', async () => {
     const response = await harness().send('POST', '/board/instance', JSON.stringify({ widget: 'nope' }))
     expect(response.status).toBe(400)
@@ -297,12 +310,72 @@ describe('加卡片与移除卡片', () => {
     expect(test.context.board.instances.at(-1)?.data).toBeNull()
   })
 
+  it('刷新路由触发一次重读并回快照', async () => {
+    const test = harness()
+    let calls = 0
+    test.context.refresh = async () => { calls += 1 }
+    const response = await test.send('POST', '/refresh')
+    expect(response.status).toBe(200)
+    expect(calls).toBe(1)
+    expect(JSON.parse(response.body).board.instances).toHaveLength(2)
+  })
+
   it('移除卡片回快照，布局修订号加一', async () => {
     const test = harness()
     const response = await test.send('POST', '/instance/first/remove')
     expect(response.status).toBe(200)
     expect(test.context.board.instances.map((instance) => instance.id)).toEqual(['second'])
     expect(test.context.board.layoutRevision).toBe(6)
+  })
+})
+
+describe('翻面组', () => {
+  /** 一套装好 stat 与 chart 的替身：加组卡时宿主按固定 id 找它们。 */
+  function groupHarness(): Harness {
+    const test = harness()
+    for (const id of ['stat', 'chart']) {
+      test.context.records.set(id, { ...RECORD, manifest: { ...RECORD.manifest, id, title: { zh: id, en: id } } })
+    }
+    return test
+  }
+
+  it('一次加出正面与背面两张卡，回组 id 与快照', async () => {
+    const test = groupHarness()
+    const response = await test.send('POST', '/board/group', JSON.stringify({ layout: { x: 1, y: 0, w: 1, h: 22 } }))
+    expect(response.status).toBe(201)
+    const body = JSON.parse(response.body) as { id: string, snapshot: { board: Board } }
+    expect(body.snapshot.board.instances).toHaveLength(4)
+    const [front, back] = body.snapshot.board.instances.slice(2)
+    expect(front?.group).toMatchObject({ id: body.id, side: 'front', template: 'flip' })
+    expect(back?.group).toMatchObject({ id: body.id, side: 'back', template: 'flip' })
+    expect(front?.layout).toEqual({ x: 1, y: 0, w: 1, h: 22 })
+    expect(back?.layout).toEqual(front?.layout)
+    expect(test.context.board.layoutRevision).toBe(6)
+    expect(test.events).toEqual([{ type: 'board' }])
+  })
+
+  it('没有 stat 或 chart 时回 400', async () => {
+    const response = await harness().send('POST', '/board/group', JSON.stringify({}))
+    expect(response.status).toBe(400)
+  })
+
+  it('落点不合法时回 400', async () => {
+    const response = await groupHarness().send('POST', '/board/group', JSON.stringify({ layout: { x: 3, y: 0, w: 2, h: 10 } }))
+    expect(response.status).toBe(400)
+  })
+
+  it('按组 id 移除时两张卡一起离开', async () => {
+    const test = groupHarness()
+    const added = JSON.parse((await test.send('POST', '/board/group', JSON.stringify({}))).body) as { id: string }
+    const response = await test.send('POST', '/board/group/remove', JSON.stringify({ group: added.id }))
+    expect(response.status).toBe(200)
+    expect(test.context.board.instances.map((instance) => instance.id)).toEqual(['first', 'second'])
+    expect(test.context.board.layoutRevision).toBe(7)
+  })
+
+  it('移除没有的组时回 404', async () => {
+    const response = await groupHarness().send('POST', '/board/group/remove', JSON.stringify({ group: 'missing' }))
+    expect(response.status).toBe(404)
   })
 })
 

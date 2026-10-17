@@ -1,0 +1,48 @@
+{
+  "id": "chart",
+  "title": {
+    "zh": "图表",
+    "en": "Chart"
+  },
+  "description": {
+    "zh": "折线、面积与柱状三种趋势图，共用一份采样点；适合请求量、耗时与配额。",
+    "en": "Line, area and bar trends over one set of samples; for traffic, latency and quotas."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 },
+      "kind": { "enum": ["line", "area", "bar"] }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "points": {
+        "type": "array",
+        "maxItems": 60,
+        "items": {
+          "type": "object",
+          "required": ["label", "value"],
+          "properties": {
+            "label": { "type": "string", "maxLength": 24 },
+            "value": { "type": "number" }
+          }
+        }
+      },
+      "caption": { "type": "string", "maxLength": 160 }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无采样点",
+      "en": "No samples"
+    }
+  }
+}

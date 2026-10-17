@@ -1,0 +1,24 @@
+{
+  "id": "magnetic-card",
+  "title": {
+    "zh": "磁吸卡",
+    "en": "Magnetic card"
+  },
+  "description": {
+    "zh": "通用磁吸卡模板：指针在卡片上移动时卡片跟过去，移开后弹性回到原位。",
+    "en": "A reusable magnetic-card template: the card follows the pointer and springs back when it leaves."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "text": { "type": "string", "maxLength": 220 },
+      "meta": { "type": "string", "maxLength": 60 }
+    }
+  }
+}

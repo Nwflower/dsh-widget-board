@@ -15,10 +15,15 @@
 - 组件热重载：宿主监视 `lib/`，组件或运行时一改就重读，在线页面按新哈希把卡片重挂，不用刷新。
 - 番茄钟卡片：选一段专注时长开始倒计时，剩余分钟、进度刻度与按钮文字跟着走。
 - 待办卡片：一张卡片上的清单，回车加一条、勾掉做完的，进度条跟着走；条目存在宿主上，切走再切回、页面重载之后都还在。
+- 三个通用卡片动效模板：翻转卡、磁吸卡、全息卡；套件提供动效与指针行为，组件只填 props 里的文案。
+- 八个通用数据组件：数字、列表、表格、图表、进度、键值、时间线与图片；内容由 data 填、标题由 props 改，共用 .t-data 骨架。
+- 翻面组原型：正反各一张普通卡片，共用一个卡片盒子，鼠标移上去翻面；固定为数字与图表，从组件库加入，整组移除。
+- Markdown 与代码卡：GFM 排版、表格、引用与按语言高亮的代码块；新增精选库 marked 与 highlight，随插件内联进组件文档，不联网。
 - 组件库有了三个来源：包内的内置组件、`$DSH_HOME/widget-board/widgets/` 里的用户组件，以及插件经 `widgetBoard` 服务注册的目录。版本按内容哈希留在磁盘上，跨重启可用；某个组件坏掉只让它自己不可用，看板里的卡片显示原因与移除入口。
 - 看板题头多了一个添加组件的按钮：从组件库按来源分组挑一个，卡片出现在最矮的一列底部；卡片的右上角可以把它移除。
 - 组件的按钮有了去处：`window.widget.action` 发出的动作由宿主交给注册的动作执行，只有 manifest 里声明过的动作才会被接受。插件可以经 `widgetBoard.registerAction` 提供动作。
 - 插件可以把组件画在页面里：浏览器侧的 `widgetBoard.registerWidgetType` 登记一个 React 组件，与组件库里同 id 的组件对上之后，卡片改用这个组件渲染，参数与 `window.widget` 同形，抛错只废掉那一张卡。组件还可以在 manifest 里声明默认的数据源，加卡片时按它取第一次数据。仓库带了一个提供方 fixture，冒烟装上它走一遍注册、显示与移除。
+- 看板下方出现居中的菜单：添加组件打开悬浮的组件库，按住一行拖到看板可指定落点；整理把卡片按阅读顺序密排；刷新让宿主重读组件库并重挂卡片。
 
 ### 体验优化
 
@@ -30,6 +35,8 @@
 - 番茄钟显示到秒：剩余时间按 `mm:ss` 走，换数字时把数字分成上下两半翻页——变大翻页上去，变小翻页下来。翻页做成了套件的原语（`.t-flip`），转动的半页画组件自己的底色，翻转过程中看不出多出一块。
 - 看板换了外观：左侧题头、右侧点阵与字模图案，卡片右下角的蓝色手柄在拖动时显示实时尺寸。
 - 拖动时卡片跟着指针走，松手后的落点用虚影标在格子里；缩放时卡片跟着右下角走，尺寸读数显示当前大小。
+- 看板下方菜单改成参考 gooey-plus-menu 的扇面：加号化开成三个图标动作，底色、桥接与投影由同一张 SVG goo 滤镜画出，展开按 40ms 错峰，收起时整块下沉 5px 再回弹。
+- 原来的固定题头改成组件库里的看板题头卡，可以拖动、缩放、移除；旧看板升级时补一次这张卡，添加按钮只留在下方菜单。
 - 卡片状态与数据的写入不再让每个开着的页面重取整份看板：宿主推的是这张卡改了什么，页面就地合并。布局提交同理。
 - 切换浅色深色、换皮肤或改系统动画偏好时，卡片里的组件当场跟着变，不再等重新加载；组件的文案与文档的 `lang` 也跟着宿主的界面语言走。
 
@@ -41,6 +48,7 @@
 - 偶发加载不出内容：构建重写 `lib/` 的瞬间，宿主可能读到空的运行时并把没有运行时的文档发给卡片。构建改成先写临时文件再改名，宿主拒收空资产并沿用上一份；卡片六秒收不到任何消息就在卡片上说明没接上。
 - 卡片外圈那道一像素的浅色描边去掉了：卡片的边由它自己的画面收口，外壳只留投影。
 - 新组件不用重启宿主也能出现在看板上：热重载读到组件库里的新组件时，看板给它补一张卡。之前只在启动时补，改组件看得见、加组件得重启一次。
+- 翻面与磁吸卡片的 iframe 不再露白：画布先铺一层宿主底色和点阵，翻面时卡片两侧与组件留白都跟着主题走。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -49,10 +57,15 @@
 - Widget hot reload: the host watches `lib/`, re-reads the library when a widget or the runtime changes, and open pages remount their cards on the new hash without a refresh.
 - Pomodoro card: pick a focus length and start; the remaining minutes, the progress ticks and the button label follow the session.
 - To-do card: a list on a card — press Enter to add, tick what is done, and the progress bar follows; items live on the host, so they survive a panel switch or a page reload.
+- Three reusable card templates: flip, magnetic and holographic; the runtime suite owns the motion and pointer behaviour, and props own the copy.
+- Eight generic data widgets: stat, list, table, chart, progress, key-value, timeline and image; data fills the content, props change the headings, and all share the .t-data skeleton.
+- Flip group prototype: two ordinary cards, one per side, sharing one card box and flipping on hover; fixed to stat and chart, added from the library and removed as a group.
+- Markdown and code card: GFM typesetting, tables, quotes and language-highlighted code blocks; adds the curated marked and highlight libraries, inlined into widget documents and kept offline.
 - The widget library reads three sources: the built-in widgets in the package, the reader's own under `$DSH_HOME/widget-board/widgets/`, and directories that plugins register through the `widgetBoard` service. Versions are kept on disk by content hash across restarts, and one broken widget only takes itself out — its cards show the reason and a way to remove them.
 - The board header has an add-widget button: pick from the library, grouped by source, and the card lands at the bottom of the shortest column. A card's top-right corner removes it.
 - A widget's buttons have somewhere to go: an action sent through `window.widget.action` runs the registered action on the host, and only actions declared in the manifest are accepted. Plugins can provide actions through `widgetBoard.registerAction`.
 - Plugins can draw a widget in the page: the browser-side `widgetBoard.registerWidgetType` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`, while a throw only breaks that one card. A widget can also name a default data source in its manifest, read when the card is added. The repository ships a provider fixture that the smoke installs, renders and removes.
+- A centred menu now sits at the bottom of the board: Add opens a floating library whose rows can be dragged onto a chosen column, Tidy compacts all cards in reading order, and Refresh re-reads the library and remounts the cards.
 
 ### Improvements
 
@@ -64,6 +77,8 @@
 - The pomodoro shows seconds now: the remaining time counts down as mm:ss and each digit turns over in halves — up when it grows, down when it shrinks. The flip is a suite primitive (`.t-flip`) whose page paints the widget's own background, so a turning half does not show a slab.
 - The board has a new look: an editorial masthead with a dot grid and a character field, and a blue corner handle that shows a card's live size while it is being resized.
 - A dragged card follows the pointer while a ghost marks the grid cell it will land in; resizing follows the bottom-right corner and the size readout tracks the current size.
+- The bottom menu now follows the gooey-plus-menu fan: the plus splits into three icon actions whose fill, bridges and shadow come from one SVG goo filter, with a 40 ms stagger on open and a 5 px dip before the close settles.
+- The fixed masthead is now a Board hero card in the widget library that can be dragged, resized and removed; older boards receive the card once on upgrade, and Add lives only in the bottom menu.
 - A card state or data write no longer makes every open page refetch the whole board: the host pushes what changed on that card and the page merges it in place. Layout commits work the same way.
 - Switching light and dark, changing skin or the system motion preference updates the components in place instead of waiting for a reload, and the widget document's `lang` follows the host's interface language.
 
@@ -75,4 +90,5 @@
 - Intermittent empty cards: while a build rewrote `lib/` the host could read an empty runtime and serve documents without it. The build now writes each artifact to a temporary file and renames it, the host refuses empty assets and keeps the previous ones, and a card that hears nothing for six seconds says so on the card.
 - The one-pixel light outline around each card is gone: a card's edge is its own artwork now, and the page only draws the shadow.
 - A new widget reaches the board without restarting the host: when a hot reload finds a widget the board has no card for, one is added. Before, that only happened at startup, so editing a widget showed up but adding one needed a restart.
+- Flipping and magnetic cards no longer show a white iframe backdrop: the document canvas now paints the host background and dot grid, so the sides of a flipping card and any empty space follow the theme.
 

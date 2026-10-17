@@ -157,7 +157,7 @@ function tokenCss(tokens) {
   return `${lines.join('\n')}\n`
 }
 
-/** 把组件套件与内置组件放进 lib/，并按令牌生成样式表。 */
+/** 把组件套件、精选库与内置组件放进 lib/，并按令牌生成样式表。 */
 function writeAssets() {
   writeAtomic(path.join(LIB, 'runtime', 'suite.css'), fs.readFileSync(path.join(RUNTIME, 'suite', 'suite.css'), 'utf8'))
   writeAtomic(path.join(LIB, 'runtime', 'tokens.css'), tokenCss(TOKENS))
@@ -165,6 +165,40 @@ function writeAssets() {
   const staging = path.join(LIB, '.widgets-staging')
   fs.cpSync(WIDGETS, staging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
   fs.renameSync(staging, path.join(LIB, 'widgets'))
+}
+
+/**
+ * 精选库：组件在 manifest 的 `libs` 里点名，宿主把这里写出的脚本内联进组件文档（D7）。
+ *
+ * 每个库是一份 IIFE，挂到 `window` 上；组件拿到的就是那个全局，不需要自己的打包步骤。
+ */
+const LIBS = [
+  { id: 'marked', entry: path.join(RUNTIME, 'libs', 'marked.ts') },
+  { id: 'highlight', entry: path.join(RUNTIME, 'libs', 'highlight.ts') },
+]
+
+/**
+ * 写出精选库。
+ *
+ * @returns 每个库的字节数，按 id 索引。
+ */
+async function buildLibs() {
+  const sizes = {}
+  for (const lib of LIBS) {
+    const code = await output({
+      entryPoints: [lib.entry],
+      outfile: path.join(LIB, 'runtime', 'libs', `${lib.id}.js`),
+      bundle: true,
+      format: 'iife',
+      platform: 'browser',
+      target: 'esnext',
+      minify: true,
+      legalComments: 'none',
+    }, '.js')
+    writeAtomic(path.join(LIB, 'runtime', 'libs', `${lib.id}.js`), code)
+    sizes[lib.id] = Buffer.byteLength(code)
+  }
+  return sizes
 }
 
 typecheck('tsconfig.json')
@@ -175,4 +209,5 @@ const client = await buildClientHalf()
 const host = await buildHostHalf()
 const runtime = await buildRuntime()
 writeAssets()
-console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，内置组件已就位`)
+const libs = await buildLibs()
+console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位`)

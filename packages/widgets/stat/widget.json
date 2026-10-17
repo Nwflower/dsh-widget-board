@@ -1,0 +1,39 @@
+{
+  "id": "stat",
+  "title": {
+    "zh": "数字",
+    "en": "Stat"
+  },
+  "description": {
+    "zh": "一个主数字、单位、趋势与一行说明，适合 KPI、额度和耗时。",
+    "en": "A headline number with a unit, a trend and one line of context; for KPIs, quotas and elapsed time."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "value": { "type": ["number", "string"] },
+      "unit": { "type": "string", "maxLength": 16 },
+      "delta": { "type": "number" },
+      "note": { "type": "string", "maxLength": 80 },
+      "caption": { "type": "string", "maxLength": 160 }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无数据",
+      "en": "No data"
+    }
+  }
+}

@@ -174,12 +174,61 @@ export function resolveLayout(items: readonly GridItem[], metrics: GridMetrics, 
 }
 
 /**
+ * 紧密排布：按当前画面上的阅读顺序，把每张卡片放进连续列里最低的位置。
+ *
+ * 先按当前的 `y`、再按 `x` 排，顺序与用户看到的从上到下、从左到右一致；跨列卡片占住它覆盖的
+ * 每一列。结果只改位置，宽度与高度保持原样。
+ *
+ * @param items - 卡片与它们当前的布局。
+ * @param metrics - 这一帧的栅格。
+ * @returns 每张卡片整理后的布局。
+ */
+export function tidyLayout(items: readonly GridItem[], metrics: GridMetrics): Record<string, CardLayout> {
+  const ordered = items
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const y = left.item.layout.y - right.item.layout.y
+      if (y !== 0) return y
+      const x = left.item.layout.x - right.item.layout.x
+      return x !== 0 ? x : left.index - right.index
+    })
+  const levels = Array.from({ length: metrics.columns }, () => 0)
+  const layouts: Record<string, CardLayout> = {}
+  for (const { item } of ordered) {
+    const layout = normalizeCardLayout(item.layout, metrics.columns)
+    const height = layout.h * metrics.rootFontSize
+    let column = 0
+    let top = Number.POSITIVE_INFINITY
+    for (let candidate = 0; candidate <= metrics.columns - layout.w; candidate += 1) {
+      let y = 0
+      for (let index = candidate; index < candidate + layout.w; index += 1) y = Math.max(y, levels[index] as number)
+      if (y < top) {
+        top = y
+        column = candidate
+      }
+    }
+    layouts[item.id] = { x: column, y: top / metrics.rootFontSize, w: layout.w, h: layout.h }
+    for (let index = column; index < column + layout.w; index += 1) {
+      levels[index] = top + height + metrics.gap
+    }
+  }
+  return layouts
+}
+
+/**
  * 新卡片放在最矮的一列底部，与其他卡片隔一个间距。
  *
  * @param instances - 已经摆放好的卡片。
- * @returns 一张一列宽的新卡片的布局。
+ * @param box - 新卡片的宽高；省略时是一列宽、`DEFAULT_HEIGHT_REM` 高。组件可以在 manifest 里
+ * 声明自己的 `defaultBox`，看板按它找最矮的位置。
+ * @returns 新卡片的布局。
  */
-export function nextCardLayout(instances: readonly { layout: CardLayout }[]): CardLayout {
+export function nextCardLayout(
+  instances: readonly { layout: CardLayout }[],
+  box: { w: number, h: number } = { w: 1, h: DEFAULT_HEIGHT_REM },
+): CardLayout {
+  const width = Math.max(1, Math.min(MAX_COLUMNS, Math.round(box.w)))
+  const height = Math.max(MIN_HEIGHT_REM, box.h)
   const bottoms = Array.from({ length: MAX_COLUMNS }, () => 0)
   for (const instance of instances) {
     const layout = normalizeCardLayout(instance.layout)
@@ -189,9 +238,14 @@ export function nextCardLayout(instances: readonly { layout: CardLayout }[]): Ca
     }
   }
   let column = 0
-  for (let index = 1; index < bottoms.length; index += 1) {
-    if (bottoms[index] < bottoms[column]) column = index
+  let lowest = Number.POSITIVE_INFINITY
+  for (let candidate = 0; candidate <= MAX_COLUMNS - width; candidate += 1) {
+    let bottom = 0
+    for (let index = candidate; index < candidate + width; index += 1) bottom = Math.max(bottom, bottoms[index] as number)
+    if (bottom < lowest) {
+      lowest = bottom
+      column = candidate
+    }
   }
-  const bottom = bottoms[column]
-  return { x: column, y: bottom === 0 ? 0 : bottom + GAP_REM, w: 1, h: DEFAULT_HEIGHT_REM }
+  return { x: column, y: lowest === 0 ? 0 : lowest + GAP_REM, w: width, h: height }
 }

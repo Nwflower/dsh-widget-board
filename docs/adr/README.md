@@ -22,6 +22,7 @@
 | [D16](D16-card-grid.md) | 卡片盒子的自由布局 | D15、D4 |
 | [D17](D17-library-sources.md) | 组件库的来源、提供方注册与数据源 | — |
 | [D18](D18-board-events.md) | 变更通知按事件推送 | — |
+| [D19](D19-card-groups.md) | 组卡：两张普通卡片共享一个盒子 | — |
 
 ## 作废的编号
 

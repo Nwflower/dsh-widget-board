@@ -68,6 +68,8 @@ export interface WidgetManifest {
   text?: Record<string, LocalizedText>
   /** 看板上的最小盒子（D16）。 */
   minBox?: WidgetMinBox
+  /** 加卡片时的默认盒子；省略时是一列宽、22rem 高（D16）。 */
+  defaultBox?: WidgetMinBox
 }
 
 /**
@@ -150,15 +152,8 @@ export const WIDGET_MANIFEST_SCHEMA = {
     },
     libs: { type: 'array', items: { type: 'string', minLength: 1 } },
     text: { type: 'object', additionalProperties: { $ref: '#/$defs/text' } },
-    minBox: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['w', 'h'],
-      properties: {
-        w: { type: 'integer', minimum: 1, maximum: 4 },
-        h: { type: 'number', minimum: 1, maximum: 200 },
-      },
-    },
+    minBox: { $ref: '#/$defs/box' },
+    defaultBox: { $ref: '#/$defs/box' },
   },
   $defs: {
     text: {
@@ -168,6 +163,15 @@ export const WIDGET_MANIFEST_SCHEMA = {
       properties: {
         zh: { type: 'string', minLength: 1 },
         en: { type: 'string', minLength: 1 },
+      },
+    },
+    box: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['w', 'h'],
+      properties: {
+        w: { type: 'integer', minimum: 1, maximum: 4 },
+        h: { type: 'number', minimum: 1, maximum: 200 },
       },
     },
   },

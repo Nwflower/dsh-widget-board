@@ -18,6 +18,29 @@ export interface CardLayout {
   h: number
 }
 
+/** 组卡的模板：目前只有翻面一种（D19）。 */
+export const GROUP_TEMPLATES = ['flip'] as const
+
+/** 一个组卡模板。 */
+export type GroupTemplate = (typeof GROUP_TEMPLATES)[number]
+
+/** 组卡里的位置。 */
+export const GROUP_SIDES = ['front', 'back'] as const
+
+/** 组卡里的一个位置。 */
+export type GroupSide = (typeof GROUP_SIDES)[number]
+
+/**
+ * 组卡的标记：两张普通卡片共享一个组 id，正面一张、背面一张（D19）。
+ *
+ * 组没有自己的组件文档，它由外壳把两张普通卡片放进一个盒子里；`side` 决定哪一张是正面。
+ */
+export interface InstanceGroup {
+  id: string
+  side: GroupSide
+  template: GroupTemplate
+}
+
 /** 一张卡片：哪个组件的哪个版本，它自己的 props、data、state，以及它在看板上的盒子。 */
 export interface BoardInstance {
   id: string
@@ -31,7 +54,21 @@ export interface BoardInstance {
   state: unknown
   /** 卡片在看板上的位置与尺寸（D16）。 */
   layout: CardLayout
+  /** 组卡标记：普通卡片没有这一项（D19）。 */
+  group?: InstanceGroup
 }
+
+/** 翻面组在组件库里的 id；它不是一张组件卡，添加时由宿主建出正反两张卡。 */
+export const FLIP_GROUP_ID = 'flip-group'
+
+/** 翻面组的正面固定用这个组件，背面固定用下一个；原型阶段不做自由配置（D19）。 */
+export const FLIP_GROUP_FRONT = 'stat'
+
+/** 翻面组的背面组件。 */
+export const FLIP_GROUP_BACK = 'chart'
+
+/** 看板题头组件的 id；旧看板升级时补上这一张卡（D16）。 */
+export const BOARD_HERO_ID = 'board-hero'
 
 /** 一块看板。 */
 export interface Board {
@@ -98,11 +135,27 @@ export interface InstanceActionRequest {
  * `POST /board/instance` 的请求体：往看板上加一张卡（D17）。
  *
  * `source` 取名自插件注册的数据源；省略时卡片的数据保持为空，由后续推送填写。
+ * `layout` 是拖到看板上的落点；省略时宿主把卡片放进最矮的一列。
  */
 export interface InstanceAddRequest {
   widget: string
   source?: string
   props?: Record<string, unknown>
+  layout?: CardLayout
+}
+
+/**
+ * `POST /board/group` 的请求体：加一张固定的翻面组（D19）。
+ *
+ * 原型阶段正反两张卡的组件由宿主固定，请求只带落点。
+ */
+export interface GroupAddRequest {
+  layout?: CardLayout
+}
+
+/** `POST /board/group/remove` 的请求体：按组 id 移除整组（D19）。 */
+export interface GroupRemoveRequest {
+  group: string
 }
 
 /**

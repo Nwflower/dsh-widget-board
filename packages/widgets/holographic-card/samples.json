@@ -1,0 +1,22 @@
+{
+  "s": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "props": {
+      "kicker": "HOLO · 04",
+      "title": "全息卡",
+      "text": "彩虹跟着指针。",
+      "meta": "PREMIUM"
+    }
+  },
+  "l": {
+    "lang": "zh-CN",
+    "motion": "full",
+    "props": {
+      "kicker": "HOLO · 04",
+      "title": "全息卡",
+      "text": "移动指针，彩虹和高光跟着走。内容由 props 填进来。",
+      "meta": "PREMIUM CARD"
+    }
+  }
+}

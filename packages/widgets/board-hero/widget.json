@@ -1,0 +1,48 @@
+{
+  "id": "board-hero",
+  "title": {
+    "zh": "看板题头",
+    "en": "Board hero"
+  },
+  "description": {
+    "zh": "一块活的看板的标题、说明与字模图案；像普通卡片一样拖动、缩放与移除。",
+    "en": "The title, tagline and type specimen of a living board; drag, resize and remove it like any other card."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "defaultBox": { "w": 2, "h": 14 },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "lead": { "type": "string", "maxLength": 20 },
+      "accent": { "type": "string", "maxLength": 20 },
+      "tail": { "type": "string", "maxLength": 20 },
+      "tagline": { "type": "string", "maxLength": 80 }
+    }
+  },
+  "text": {
+    "kicker": {
+      "zh": "BOARD · LIVE",
+      "en": "BOARD · LIVE"
+    },
+    "lead": {
+      "zh": "一块",
+      "en": "A"
+    },
+    "accent": {
+      "zh": "活的",
+      "en": "living"
+    },
+    "tail": {
+      "zh": "看板",
+      "en": "board"
+    },
+    "tagline": {
+      "zh": "独立工作、任何事情、自由排版",
+      "en": "Independent work, anything, free layout"
+    }
+  }
+}

@@ -11,7 +11,8 @@
   ```
   <id>/
     widget.json    id、名字与描述（中英）、作者、semver、支持的尺寸族与降级顺序、
-                   props 与 data 的 JSON Schema、actions、权限（网络主机、命令）、刷新策略、所需的库、文案
+                   props 与 data 的 JSON Schema、actions、权限（网络主机、命令）、刷新策略、所需的库、文案、
+                   看板上的默认盒子与最小盒子
     index.html     标记片段
     style.css
     main.js        可选
@@ -20,10 +21,11 @@
   ```
 
 - `widget.json` 按 `contracts` 里的 JSON Schema 校验，校验用 Ajv。manifest 不合格的组件不进入组件库，错误原样返回给作者。
+- manifest 的 `defaultBox` 声明加卡片时的默认宽高；省略时是一列宽、22rem 高。`board-hero` 用 2 列、14rem，让题头的标题、说明与字模图案排得开。
 - 运行时接口 `window.widget`：`props`、`data`、`onData`、`state`、`setState`、`size`、`onResize`、`action`、`t`、`fit`、`reportError`。
 - CSS 套件提供令牌、动效原语（数字滚动、文字变形、图标切换、骨架闪烁、列表重排）与基础件（`.w-chip`、`.w-meter`、`.w-fit`）。组件用套件即可做出一致的外观与动效（D10）。
-- 精选库架子：组件在 manifest 里写 `libs`，从插件随包发布、按哈希提供的库里取用（首批 `marked`、`uplot`），不联网。加一个库就是加一个目录加它的许可。
-- 内置一批「数据即组件」的通用组件：`stat`、`list`、`table`、`chart`、`markdown`、`progress`、`kv`、`timeline`、`image`。agent 只推数据不写代码就能出一张卡。
+- 精选库：组件在 manifest 的 `libs` 里点名，宿主把随包提供的库内联进这份组件文档，以全局交给组件的脚本（首批 `marked` 与 `highlight`），不联网。加一个库是加一个源文件、一条构建项与它的许可；库的更新随插件版本发布。
+- 内置一批「数据即组件」的通用组件：`stat`、`list`、`table`、`chart`、`markdown`、`progress`、`kv`、`timeline`、`image`。agent 只推数据不写代码就能出一张卡。Markdown 卡用 `marked` 排版、`highlight` 上色，两个库就是精选库的第一批用户。
 - 版本是内容哈希：对排序后的「路径加内容」计算，与打包方式无关；manifest 的 semver 只用于显示。每个出现过的版本存进 `blobs/<hash>.dshw`，当前版本的可编辑副本在 `widgets/<id>/`。
 - 用户与 agent 的组件存在 `$DSH_HOME/widget-board/widgets/<id>/`，宿主监视目录，改动后校验并热重载。
 - 实例默认跟随组件的当前版本，也可以固定到某个哈希。会话里内联显示的组件总是按工具结果里记录的哈希重画。

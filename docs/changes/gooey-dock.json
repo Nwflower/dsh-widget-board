@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 8,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "看板下方菜单改成参考 gooey-plus-menu 的扇面：加号化开成三个图标动作，底色、桥接与投影由同一张 SVG goo 滤镜画出，展开按 40ms 错峰，收起时整块下沉 5px 再回弹。",
+  "en": "The bottom menu now follows the gooey-plus-menu fan: the plus splits into three icon actions whose fill, bridges and shadow come from one SVG goo filter, with a 40 ms stagger on open and a 5 px dip before the close settles."
+}

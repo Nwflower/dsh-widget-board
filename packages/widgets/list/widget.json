@@ -1,0 +1,47 @@
+{
+  "id": "list",
+  "title": {
+    "zh": "列表",
+    "en": "List"
+  },
+  "description": {
+    "zh": "带状态点的行列表：标题、右侧次要信息与一行说明，内容多时在卡片里滚动。",
+    "en": "A row list with status dots, a title, right-aligned meta and scrolling when the list grows."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 100,
+        "items": {
+          "type": "object",
+          "required": ["title"],
+          "properties": {
+            "title": { "type": "string", "maxLength": 120 },
+            "meta": { "type": "string", "maxLength": 40 },
+            "status": { "enum": ["ok", "warn", "error", "idle"] }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无条目",
+      "en": "Nothing here yet"
+    }
+  }
+}

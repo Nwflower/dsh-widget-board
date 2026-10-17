@@ -1,0 +1,24 @@
+{
+  "id": "holographic-card",
+  "title": {
+    "zh": "全息卡",
+    "en": "Holographic card"
+  },
+  "description": {
+    "zh": "通用全息卡模板：彩虹渐变与高光跟着指针走，文案由 props 填入。",
+    "en": "A reusable holographic-card template: a rainbow sheen and highlight follow the pointer; props fill the copy."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "text": { "type": "string", "maxLength": 220 },
+      "meta": { "type": "string", "maxLength": 60 }
+    }
+  }
+}

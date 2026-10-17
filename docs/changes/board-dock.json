@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 26,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "看板下方出现居中的菜单：添加组件打开悬浮的组件库，按住一行拖到看板可指定落点；整理把卡片按阅读顺序密排；刷新让宿主重读组件库并重挂卡片。",
+  "en": "A centred menu now sits at the bottom of the board: Add opens a floating library whose rows can be dragged onto a chosen column, Tidy compacts all cards in reading order, and Refresh re-reads the library and remounts the cards."
+}

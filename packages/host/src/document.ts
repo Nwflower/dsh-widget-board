@@ -12,11 +12,13 @@ import { randomBytes } from 'node:crypto'
 import type { LocalizedText } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from './library'
 
-/** 一次文档请求要内联的三份共用资产，由构建写出、宿主启动时读入。 */
+/** 一次文档请求要内联的共用资产，由构建写出、宿主启动时读入。 */
 export interface DocumentAssets {
   tokensCss: string
   suiteCss: string
   runtimeJs: string
+  /** 精选库：manifest 的 `libs` 按 id 取这里的脚本文本（D7）。 */
+  libs: Record<string, string>
 }
 
 /** 拼一份文档时要的界面语言。 */
@@ -139,6 +141,11 @@ export function buildDocument(record: WidgetRecord, assets: DocumentAssets, nonc
   const style = inlineAssets(record.files.get('style.css')?.toString('utf8') ?? '', record, `${name}/style.css`)
   const rawScript = record.files.get('main.js')?.toString('utf8')
   const script = rawScript === undefined ? undefined : inlineAssets(rawScript, record, `${name}/main.js`)
+  const libs = (record.manifest.libs ?? []).map((id) => {
+    const code = assets.libs[id]
+    if (code === undefined) throw new Error(`组件 ${name} 要求的库 ${id} 没有随包提供`)
+    return `<script nonce="${nonce}">${scriptSafe(code, `库 ${id}`)}</script>`
+  })
   return `<!doctype html>
 <html lang="${escapeText(options.lang)}">
 <head>
@@ -151,6 +158,7 @@ export function buildDocument(record: WidgetRecord, assets: DocumentAssets, nonc
 </head>
 <body>
 ${markup}
+${libs.join('\n')}
 <script nonce="${nonce}">${scriptSafe(assets.runtimeJs, '组件运行时')}</script>
 ${script === undefined ? '' : `<script nonce="${nonce}">${scriptSafe(script, `${name}/main.js`)}</script>`}
 </body>

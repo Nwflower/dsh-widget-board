@@ -2,19 +2,20 @@
  * 看板的存储：`$DSH_HOME/widget-board/board.json`，宿主是唯一写入者（D5）。
  *
  * 第一次启动时给组件库里的每个组件放一张卡；此后的组件增删都来自添加面板与工具，不再自动补卡。
- * 每张卡片带着自己的盒子（D16）。旧看板没有盒子时按最矮的一列补上默认位置；格式版本对不上时
- * 启动直接报错并保留原文件（D11）。卡片引用的组件不在组件库里不算错误：卡片保留，界面把它画成
- * 不可用的占位（D17）。
+ * 每张卡片带着自己的盒子（D16）。旧看板没有盒子时按最矮的一列补上默认位置；版本 1 的看板升级时
+ * 把原来的固定题头补成一张 `board-hero` 卡。格式版本对不上时启动直接报错并保留原文件（D11）。卡片
+ * 引用的组件不在组件库里不算错误：卡片保留，界面把它画成不可用的占位（D17）。
  */
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Board, BoardInstance, CardLayout } from '@dsh-widget-board/contracts'
+import type { Board, BoardInstance, CardLayout, InstanceGroup } from '@dsh-widget-board/contracts'
+import { BOARD_HERO_ID } from '@dsh-widget-board/contracts'
 import { isCardLayout, nextCardLayout } from '@dsh-widget-board/model'
 import type { WidgetRecord } from './library'
 
-/** 存储格式的版本。 */
-export const BOARD_FORMAT = 1
+/** 存储格式的版本：2 把固定的题头换成了 `board-hero` 卡片。 */
+export const BOARD_FORMAT = 2
 
 /** 看板修订号从几开始。 */
 export const INITIAL_REVISION = 0
@@ -40,13 +41,13 @@ export class StaleRevisionError extends Error {
  *
  * @param record - 组件记录。
  * @param existing - 已经摆放好的卡片，用来找最矮的一列。
- * @param options - 数据源与 props。
+ * @param options - 数据源、props 与拖放落点。
  * @returns 卡片。
  */
 export function instanceOf(
   record: WidgetRecord,
   existing: readonly BoardInstance[],
-  options: { source?: string, props?: Record<string, unknown> } = {},
+  options: { source?: string, props?: Record<string, unknown>, layout?: CardLayout } = {},
 ): BoardInstance {
   return {
     id: randomUUID(),
@@ -56,7 +57,7 @@ export function instanceOf(
     props: options.props ?? {},
     data: null,
     state: null,
-    layout: nextCardLayout(existing),
+    layout: options.layout ?? nextCardLayout(existing, record.manifest.defaultBox),
   }
 }
 
@@ -108,6 +109,31 @@ export function withLayouts(board: Board): { board: Board, changed: boolean } {
 }
 
 /**
+ * 版本 1 的看板升级：把原来固定在外壳里的题头补成一张 `board-hero` 卡，插到最前面。
+ *
+ * 这一张卡只补一次：看板版本随之变成 2，用户之后把题头卡移除也不会再次补回来。
+ *
+ * @param board - 版本 1 的看板。
+ * @param records - 已校验的组件。
+ * @returns 升级后的看板。
+ */
+function upgradeV1(board: Board, records: Map<string, WidgetRecord>): Board {
+  const hero = records.get(BOARD_HERO_ID)
+  if (hero === undefined || board.instances.some((instance) => instance.widget === BOARD_HERO_ID)) {
+    return { ...board, version: BOARD_FORMAT }
+  }
+  const box = hero.manifest.defaultBox ?? { w: 2, h: 14 }
+  const instance = instanceOf(hero, [], { layout: { x: 0, y: 0, w: box.w, h: box.h } })
+  return {
+    ...board,
+    version: BOARD_FORMAT,
+    revision: board.revision + 1,
+    layoutRevision: board.layoutRevision + 1,
+    instances: [instance, ...board.instances],
+  }
+}
+
+/**
  * 读看板；文件不存在时写出一块新的。
  *
  * @param file - `board.json` 的路径。
@@ -126,11 +152,13 @@ export async function loadBoard(file: string, records: Map<string, WidgetRecord>
     return board
   }
   const parsed = JSON.parse(raw) as Board
-  if (parsed.version !== BOARD_FORMAT) {
-    throw new Error(`${file} 的格式版本是 ${String(parsed.version)}，这个宿主只认 ${BOARD_FORMAT}；原文件保留`)
+  if (parsed.version !== 1 && parsed.version !== BOARD_FORMAT) {
+    throw new Error(`${file} 的格式版本是 ${String(parsed.version)}，这个宿主只认 1 或 ${BOARD_FORMAT}；原文件保留`)
   }
-  const filled = withLayouts(parsed)
-  if (filled.changed) await writeBoard(file, filled.board)
+  const upgraded = parsed.version === 1 ? upgradeV1(parsed, records) : parsed
+  const filled = withLayouts(upgraded)
+  const changed = parsed.version === 1 || filled.changed
+  if (changed) await writeBoard(file, filled.board)
   return filled.board
 }
 
@@ -209,14 +237,14 @@ export function withInstanceData(board: Board, id: string, data: unknown): Board
  *
  * @param board - 当前看板。
  * @param record - 组件记录。
- * @param options - 数据源与 props。
+ * @param options - 数据源、props 与拖放落点。
  * @param id - 卡片的 id；省略时生成一个。路由先定下 id，才能在写入之后按它回话。
  * @returns 带新卡片的看板与新卡片的 id。
  */
 export function withInstanceAdded(
   board: Board,
   record: WidgetRecord,
-  options: { source?: string, props?: Record<string, unknown> } = {},
+  options: { source?: string, props?: Record<string, unknown>, layout?: CardLayout } = {},
   id: string = randomUUID(),
 ): { board: Board, id: string } {
   const instance = { ...instanceOf(record, board.instances, options), id }
@@ -239,6 +267,52 @@ export function withInstanceRemoved(board: Board, id: string): Board {
 }
 
 /**
+ * 往看板上加一张固定的翻面组（D19）：正面一张卡、背面一张卡，共用一个组 id 与同一个盒子。
+ *
+ * 两张卡都是普通卡片，各自有 props、data、state 和实例路由；组只多一层标记，不在组件库里占一个
+ * 组件类型。原型阶段正反两面的组件由调用方固定，之后再把选择权交给界面。
+ *
+ * @param board - 当前看板。
+ * @param front - 正面的组件记录。
+ * @param back - 背面的组件记录。
+ * @param options - 拖动落点。
+ * @returns 加了这一组的看板与组 id。
+ */
+export function withGroupAdded(
+  board: Board,
+  front: WidgetRecord,
+  back: WidgetRecord,
+  options: { layout?: CardLayout } = {},
+): { board: Board, id: string } {
+  const id = randomUUID()
+  const layout = options.layout ?? nextCardLayout(board.instances)
+  const base = { template: 'flip' as const }
+  const frontInstance: BoardInstance = {
+    ...instanceOf(front, board.instances, { layout }),
+    group: { ...base, id, side: 'front' } satisfies InstanceGroup,
+  }
+  const backInstance: BoardInstance = {
+    ...instanceOf(back, [...board.instances, frontInstance], { layout }),
+    group: { ...base, id, side: 'back' } satisfies InstanceGroup,
+  }
+  return { board: { ...board, instances: [...board.instances, frontInstance, backInstance] }, id }
+}
+
+/**
+ * 按组 id 移除整组（D19）：正反两张卡一起离开看板，不留下只有一侧的半个组。
+ *
+ * @param board - 当前看板。
+ * @param id - 组 id。
+ * @returns 少了这一组的看板。
+ * @throws {Error} 看板上没有这个组。
+ */
+export function withGroupRemoved(board: Board, id: string): Board {
+  const instances = board.instances.filter((instance) => instance.group?.id !== id)
+  if (instances.length === board.instances.length) throw new Error(`看板上没有这一组：${id}`)
+  return { ...board, instances }
+}
+
+/**
  * 把一次提交的布局写进对应的卡片。
  *
  * 提交里出现的每一张卡都必须在看板上，布局的四个数都要在合法范围内；不合法的提交整体拒绝，
@@ -250,13 +324,17 @@ export function withInstanceRemoved(board: Board, id: string): Board {
  * @throws {Error} 看板上没有某张卡，或某份布局不合法。
  */
 export function withBoardLayouts(board: Board, layouts: Record<string, CardLayout>): Board {
-  const known = new Set(board.instances.map((instance) => instance.id))
+  const known = new Map(board.instances.map((instance) => [instance.id, instance]))
+  /** 组卡的两张卡共用同一个盒子：提交里出现任意一侧，整组都换到这一份（D19）。 */
+  const groupLayouts = new Map<string, CardLayout>()
   for (const [id, layout] of Object.entries(layouts)) {
-    if (!known.has(id)) throw new Error(`看板上没有这张卡：${id}`)
+    const instance = known.get(id)
+    if (instance === undefined) throw new Error(`看板上没有这张卡：${id}`)
     if (!isCardLayout(layout)) throw new Error(`卡片 ${id} 的布局不合法`)
+    if (instance.group !== undefined) groupLayouts.set(instance.group.id, layout)
   }
   const instances = board.instances.map((instance) => {
-    const layout = layouts[instance.id]
+    const layout = layouts[instance.id] ?? (instance.group === undefined ? undefined : groupLayouts.get(instance.group.id))
     return layout === undefined ? instance : { ...instance, layout }
   })
   return { ...board, instances }

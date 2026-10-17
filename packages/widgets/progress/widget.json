@@ -1,0 +1,48 @@
+{
+  "id": "progress",
+  "title": {
+    "zh": "进度",
+    "en": "Progress"
+  },
+  "description": {
+    "zh": "一组带数值与说明的进度条，适合容量、配额与目标完成度。",
+    "en": "A set of progress bars with values and notes; for capacity, quotas and goals."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+          "type": "object",
+          "required": ["label", "value", "max"],
+          "properties": {
+            "label": { "type": "string", "maxLength": 80 },
+            "value": { "type": "number" },
+            "max": { "type": "number" },
+            "note": { "type": "string", "maxLength": 80 }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无进度",
+      "en": "No metrics"
+    }
+  }
+}

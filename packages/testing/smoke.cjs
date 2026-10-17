@@ -2,9 +2,10 @@
 /**
  * smoke.cjs — 在真实的临时宿主上走一遍插件自己的表面。
  *
- * 检查的是本插件的判据，不看宿主的实现：侧栏出现入口、点开是一页卡片栅格、三张卡片各自加载
- * 出来、天气卡切预报日与番茄钟开合计时都真的动、拖动与缩放会改写卡片盒子并保存到宿主、窄窗口里
- * 列数降到一列、减弱动效下天空静置、控制台没有错误。查找只用插件自己写在节点上的标记
+ * 检查的是本插件的判据，不看宿主的实现：侧栏出现入口、点开是一页卡片栅格、卡片各自加载
+ * 出来、天气卡切预报日与番茄钟开合计时都真的动、三个动效模板能翻转与跟随指针、拖动与缩放会改写
+ * 卡片盒子并保存到宿主、窄窗口里列数降到一列、减弱动效下天空静置、控制台没有错误。查找只用插件
+ * 自己写在节点上的标记
  * （`svg.dsh-widget-board__icon`、`data-dsh-widget-board-*`、卡片的 iframe `title`），宿主换了
  * 内部结构也不会让这些判据失真（D1）。
  *
@@ -14,11 +15,15 @@
 const { readFile, writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
+const { dockPass } = require('./dock.cjs')
+const { openLibrary } = require('./library.cjs')
+const { groupPass } = require('./group.cjs')
+const { markdownPass } = require('./markdown.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
 const BOARD_VIEW = '[data-dsh-widget-board-view]'
-const MASTHEAD = '[data-dsh-widget-board-masthead]'
+const HERO_FRAME = 'iframe.dsh-widget-board__frame[title="看板题头"]'
 const MEASURE = '[data-dsh-widget-board-measure]'
 const GHOST = '[data-dsh-widget-board-ghost]'
 const FLOW = '.dsh-widget-board__flow'
@@ -30,6 +35,9 @@ const SHEET = 'style[data-plugin="dsh-widget-board"]'
 const WEATHER_FRAME = 'iframe.dsh-widget-board__frame[title="天气"]'
 const POMODORO_FRAME = 'iframe.dsh-widget-board__frame[title="番茄钟"]'
 const TODO_FRAME = 'iframe.dsh-widget-board__frame[title="待办"]'
+const FLIP_FRAME = 'iframe.dsh-widget-board__frame[title="翻转卡"]'
+const MAGNETIC_FRAME = 'iframe.dsh-widget-board__frame[title="磁吸卡"]'
+const HOLO_FRAME = 'iframe.dsh-widget-board__frame[title="全息卡"]'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -77,6 +85,25 @@ async function openBoard(page) {
   await page.waitForSelector(BOARD_VIEW, { timeout: 20000 })
   await page.waitForSelector(POMODORO_FRAME, { timeout: 30000 })
   await page.waitForSelector(WEATHER_FRAME, { timeout: 30000 })
+}
+
+/**
+ * 三个动效模板不自动铺到已有看板上（D17）：缺哪一张就从下方菜单打开组件库加哪一张。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function ensureTemplates(page) {
+  const wanted = [['flip-card', '翻转卡'], ['magnetic-card', '磁吸卡'], ['holographic-card', '全息卡']]
+  for (const [id, title] of wanted) {
+    const present = await page.evaluate((title) => Array.from(document.querySelectorAll('iframe.dsh-widget-board__frame')).some((frame) => frame.title === title), title)
+    if (present) continue
+    const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
+    await openLibrary(page)
+    await page.waitForSelector(`[data-dsh-widget-board-add="${id}"]`, { timeout: 10000 })
+    await page.locator(`[data-dsh-widget-board-add="${id}"]`).click()
+    await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 10000 })
+    await page.waitForSelector(`iframe.dsh-widget-board__frame[title="${title}"]`, { timeout: 30000 })
+  }
 }
 
 /**
@@ -194,7 +221,10 @@ async function resetLayout(page) {
   const snapshot = await page.evaluate(async () => (await fetch('api/widget-board/board')).json())
   const layouts = {}
   snapshot.board.instances.forEach((instance, index) => {
-    layouts[instance.id] = { x: index % 4, y: 0, w: 1, h: 22 }
+    // 天气卡固定在最右一列，拖动测试从 x=2 往左走；其余卡片码在第一列，互不干扰。
+    layouts[instance.id] = instance.widget === 'weather'
+      ? { x: 2, y: 0, w: 1, h: 22 }
+      : { x: 0, y: index * 23, w: 1, h: 22 }
   })
   await page.evaluate(async ({ layoutRevision, layouts }) => {
     await fetch('api/widget-board/board/layout', {
@@ -216,10 +246,11 @@ async function mainPass(page, problems) {
   check('侧栏出现看板入口', true)
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
   await resetCards(page)
-  await resetLayout(page)
   await openBoard(page)
+  await ensureTemplates(page)
+  await resetLayout(page)
   check('中栏打开一页看板', await page.evaluate((selector) => document.querySelector(selector) !== null, BOARD_VIEW))
-  check('看板的题头出现', await page.evaluate((selector) => document.querySelector(selector) !== null, MASTHEAD))
+  check('题头是一张卡片', await page.evaluate((selector) => document.querySelector(selector) !== null, HERO_FRAME))
 
   const columns = await page.evaluate(() => Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-dsh-widget-board-columns') ?? 0))
   check('看板按容器宽度分列', columns >= 1, `${columns} 列`)
@@ -233,7 +264,7 @@ async function mainPass(page, problems) {
     const rect = node.getBoundingClientRect()
     return { id: node.getAttribute('data-instance'), width: Math.round(rect.width), height: Math.round(rect.height), left: Math.round(rect.left), top: Math.round(rect.top) }
   }))
-  check('三张卡片都在看板上', boxes.length === 3, boxes.map((box) => `${box.width}×${box.height}`).join(' / '))
+  check('内置卡片都在看板上', boxes.length >= 6, `${boxes.length} 张 · ${boxes.map((box) => `${box.width}×${box.height}`).join(' / ')}`)
   const overlap = boxes.some((one, index) => boxes.some((other, otherIndex) => otherIndex > index &&
     one.left < other.left + other.width && other.left < one.left + one.width &&
     one.top < other.top + other.height && other.top < one.top + one.height))
@@ -380,16 +411,17 @@ async function mainPass(page, problems) {
 }
 
 /**
- * 添加与移除（D17）：题头的按钮打开组件库，点一个组件多一张卡，再把它移掉。
+ * 添加与移除（D17）：下方菜单的添加动作打开组件库，点一个组件多一张卡，再把它移掉。
  *
  * @param page - 宿主页面，看板已经打开。
  */
 async function addRemovePass(page) {
   const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
-  await page.locator('[data-dsh-widget-board-add-open]').click()
-  await page.waitForSelector('[data-dsh-widget-board-library]', { timeout: 5000 })
+  await openLibrary(page)
   const listed = await page.evaluate(() => document.querySelectorAll('[data-dsh-widget-board-add]').length)
   check('组件库列出全部组件', listed >= 3, `${listed} 个`)
+  const generic = await page.evaluate((ids) => ids.every((id) => document.querySelector(`[data-dsh-widget-board-add="${id}"]`) !== null), ['stat', 'list', 'table', 'chart', 'progress', 'kv', 'timeline', 'image'])
+  check('八个通用数据组件都在组件库里', generic)
   await page.locator('[data-dsh-widget-board-add="weather"]').click()
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 10000 })
   check('从组件库加了一张卡', true)
@@ -408,7 +440,7 @@ async function addRemovePass(page) {
  * @param page - 宿主页面，看板已经打开。
  */
 async function providerPass(page) {
-  await page.locator('[data-dsh-widget-board-add-open]').click()
+  await openLibrary(page)
   await page.waitForSelector('[data-dsh-widget-board-add="test-native"]', { timeout: 15000 })
   check('插件提供的组件出现在组件库里', true)
   await page.locator('[data-dsh-widget-board-add="test-native"]').click()
@@ -420,6 +452,54 @@ async function providerPass(page) {
   await page.locator(`[data-instance="${id}"] [data-dsh-widget-board-handle="remove"]`).click()
   await page.waitForFunction((selector) => document.querySelector(selector) === null, native, { timeout: 10000 })
   check('移除插件提供的卡片', true)
+}
+
+/**
+ * 三个通用动效模板：翻转、磁吸、全息都由运行时套件驱动，组件本身不挂事件。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function templatePass(page) {
+  const flip = await frameOf(page, FLIP_FRAME)
+  check('翻转卡画出来了', await flip.evaluate(() => document.querySelector('.flip-card') !== null))
+  const flipCard = flip.locator('.flip-card')
+  await flipCard.focus()
+  await flipCard.press('Enter')
+  await sleep(250)
+  const flipped = await flip.evaluate(() => ({
+    flipped: document.querySelector('.flip-card')?.classList.contains('is-flipped') === true,
+    pressed: document.querySelector('.flip-card')?.getAttribute('aria-pressed'),
+  }))
+  check('翻转卡可按键盘翻面', flipped.flipped && flipped.pressed === 'true', `${flipped.flipped} / ${flipped.pressed}`)
+
+  const magnetic = await frameOf(page, MAGNETIC_FRAME)
+  check('磁吸卡画出来了', await magnetic.evaluate(() => document.querySelector('.magnetic-card') !== null))
+  await magnetic.locator('.magnetic-card').hover({ position: { x: 30, y: 40 } })
+  await sleep(250)
+  const magnet = await magnetic.evaluate(() => {
+    const card = document.querySelector('.magnetic-card')
+    return {
+      x: card?.style.getPropertyValue('--t-magnetic-x') ?? '',
+      active: card?.classList.contains('is-magnetic-active') === true,
+    }
+  })
+  check('磁吸卡跟随指针', magnet.active && magnet.x !== '' && magnet.x !== '0px', `${magnet.x} / ${magnet.active}`)
+
+  const holo = await frameOf(page, HOLO_FRAME)
+  check('全息卡画出来了', await holo.evaluate(() => document.querySelector('.holo-card') !== null))
+  // 看板上卡片多时全息卡可能在折叠下面：先把它滚到视口中间，再悬停。
+  await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame[title="全息卡"]')?.scrollIntoView({ block: 'center' }))
+  await sleep(250)
+  await holo.locator('.holo-card').hover({ position: { x: 24, y: 24 } })
+  await sleep(250)
+  const sheen = await holo.evaluate(() => {
+    const card = document.querySelector('.holo-card')
+    return {
+      gx: card?.style.getPropertyValue('--t-holo-gx') ?? '',
+      gy: card?.style.getPropertyValue('--t-holo-gy') ?? '',
+    }
+  })
+  check('全息高光跟随指针', sheen.gx !== '' && sheen.gx !== '50%' && sheen.gy !== '', `${sheen.gx} / ${sheen.gy}`)
 }
 
 /**
@@ -616,8 +696,12 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
   try {
     opened = await openPage(host.url)
     await mainPass(opened.page, opened.problems)
+    await templatePass(opened.page)
     await addRemovePass(opened.page)
+    await groupPass(opened.page, check)
+    await markdownPass(opened.page, check)
     await providerPass(opened.page)
+    await dockPass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)
     await reloadPass(opened.page)

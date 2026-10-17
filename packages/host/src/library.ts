@@ -1,23 +1,34 @@
 /**
  * 组件库：读组件目录，校验 manifest，算出内容哈希（D7）。
  *
- * 校验用 Ajv，schema 在 `contracts` 里；不合格的组件不进组件库，错误原样写出。哈希对排序后的
- * 「路径加内容」计算，与打包方式无关，同一个组件在别的机器上算出同一个哈希。
+ * 组件库有多个来源（D17）：包内的内置组件、用户目录里的组件、插件注册的目录。来源按传入的顺序
+ * 优先，同一个 id 只认第一个。一个目录读不出来、manifest 不合格、或 id 已被占用，都只让这一个
+ * 类型不可用：它进 `entries` 并带上原因，其余组件照常可用。用户与插件来源的目录不存在时按空目录
+ * 算，包内的来源例外——它读不出东西说明构建没有写完，直接抛出。
  */
 import { createHash } from 'node:crypto'
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import Ajv from 'ajv'
-import type { WidgetManifest } from '@dsh-widget-board/contracts'
+import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
 import { WIDGET_MANIFEST_SCHEMA } from '@dsh-widget-board/contracts'
 
-/** 一个可用的组件版本：manifest、目录、内容哈希与目录里的全部文件。 */
+/** 一个可用的组件版本：manifest、来源、目录、内容哈希与目录里的全部文件。 */
 export interface WidgetRecord {
   manifest: WidgetManifest
+  source: WidgetRoot['source']
+  provider?: string
   dir: string
   hash: string
   /** 组件目录内的相对路径（正斜杠）到内容。 */
   files: Map<string, Buffer>
+}
+
+/** 一次读组件库的结果：可用的组件、给界面的全部类型与失败的原因。 */
+export interface LibraryLoad {
+  records: Map<string, WidgetRecord>
+  entries: WidgetLibraryEntry[]
+  errors: WidgetLibraryError[]
 }
 
 const ajv = new Ajv({ allErrors: true, strict: true })
@@ -49,7 +60,7 @@ async function readTree(dir: string, prefix = ''): Promise<Map<string, Buffer>> 
  * @param files - 组件目录里的全部文件。
  * @returns 十六进制摘要。
  */
-function contentHash(files: Map<string, Buffer>): string {
+export function contentHash(files: Map<string, Buffer>): string {
   const digest = createHash('sha256')
   for (const path of [...files.keys()].sort()) {
     digest.update(path)
@@ -63,10 +74,11 @@ function contentHash(files: Map<string, Buffer>): string {
  * 读一个组件目录。
  *
  * @param dir - 组件目录。
+ * @param root - 它属于哪个来源。
  * @returns 校验通过的组件记录。
  * @throws {Error} manifest 缺失或不合法，或缺少必需的标记文件。
  */
-export async function readWidget(dir: string): Promise<WidgetRecord> {
+export async function readWidget(dir: string, root: Pick<WidgetRoot, 'source' | 'provider'>): Promise<WidgetRecord> {
   const files = await readTree(dir)
   const manifestFile = files.get('widget.json')
   if (manifestFile === undefined) throw new Error(`${dir} 里没有 widget.json（D7）`)
@@ -78,31 +90,103 @@ export async function readWidget(dir: string): Promise<WidgetRecord> {
   for (const required of ['index.html', 'style.css']) {
     if (!files.has(required)) throw new Error(`${dir} 缺少 ${required}（D7）`)
   }
-  return { manifest, dir, hash: contentHash(files), files }
+  return { manifest, source: root.source, ...(root.provider === undefined ? {} : { provider: root.provider }), dir, hash: contentHash(files), files }
+}
+
+/** 一个记录在界面上的样子。 */
+function entryOf(record: WidgetRecord): WidgetLibraryEntry {
+  const { manifest } = record
+  return {
+    id: manifest.id,
+    source: record.source,
+    ...(record.provider === undefined ? {} : { provider: record.provider }),
+    title: manifest.title,
+    ...(manifest.description === undefined ? {} : { description: manifest.description }),
+    sizes: manifest.sizes,
+    hash: record.hash,
+  }
+}
+
+/** 一个读不出来的目录在界面上的样子：名字取目录名，原因写在 `error` 里。 */
+function failureEntry(root: WidgetRoot, dir: string, message: string): WidgetLibraryEntry {
+  const name = dir.split(/[\\/]/).pop() ?? dir
+  return {
+    id: `${root.provider ?? root.source}/${name}`,
+    source: root.source,
+    ...(root.provider === undefined ? {} : { provider: root.provider }),
+    title: { zh: name, en: name },
+    sizes: [],
+    error: message,
+  }
 }
 
 /**
- * 读组件库目录下的全部组件。
+ * 读一个来源下的全部组件；单个组件不合格只记下原因，不进组件库。
  *
- * @param dir - 组件库目录，其下每个子目录是一个组件。
- * @returns 组件 id 到记录的映射。
- * @throws {Error} 目录读不出来，或某个组件不合格。
+ * @param root - 来源目录。
+ * @param load - 正在拼起来的结果。
  */
-export async function loadLibrary(dir: string): Promise<Map<string, WidgetRecord>> {
-  const library = new Map<string, WidgetRecord>()
+async function readRoot(root: WidgetRoot, load: LibraryLoad): Promise<void> {
   let entries
   try {
-    entries = await readdir(dir, { withFileTypes: true })
+    entries = await readdir(root.dir, { withFileTypes: true })
   } catch (error) {
-    throw new Error(`组件库目录读不出来：${dir}（${(error as Error).message}）`)
+    // 用户与插件来源的目录可以还不存在；包内来源读不出来是构建没写完（D11）。
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' && root.source !== 'builtin') return
+    throw new Error(`组件库目录读不出来：${root.dir}（${(error as Error).message}）`)
   }
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
-    const record = await readWidget(join(dir, entry.name))
-    const existing = library.get(record.manifest.id)
-    if (existing !== undefined) throw new Error(`两个组件用了同一个 id：${record.manifest.id}（${existing.dir} 与 ${record.dir}）`)
-    library.set(record.manifest.id, record)
+    const dir = join(root.dir, entry.name)
+    let record: WidgetRecord
+    try {
+      record = await readWidget(dir, root)
+    } catch (error) {
+      const message = (error as Error).message
+      load.errors.push({
+        source: root.source,
+        ...(root.provider === undefined ? {} : { provider: root.provider }),
+        dir,
+        message,
+      })
+      load.entries.push(failureEntry(root, dir, message))
+      continue
+    }
+    const existing = load.records.get(record.manifest.id)
+    if (existing !== undefined) {
+      const message = `组件 id ${record.manifest.id} 已经在 ${existing.dir} 里用过，这一个没有读进来`
+      load.errors.push({
+        source: root.source,
+        ...(root.provider === undefined ? {} : { provider: root.provider }),
+        dir,
+        id: record.manifest.id,
+        message,
+      })
+      continue
+    }
+    load.records.set(record.manifest.id, record)
+    load.entries.push(entryOf(record))
   }
-  if (library.size === 0) throw new Error(`组件库是空的：${dir}`)
-  return library
+}
+
+/**
+ * 读组件库的全部来源。
+ *
+ * @param roots - 来源目录，按优先级排列；包内的来源必须能读出组件。
+ * @returns 可用的组件、给界面的全部类型与失败的原因。
+ * @throws {Error} 包内的来源目录读不出来，或它一个组件都没读出来。
+ */
+export async function loadLibrary(roots: readonly WidgetRoot[]): Promise<LibraryLoad> {
+  const load: LibraryLoad = { records: new Map(), entries: [], errors: [] }
+  let builtin = 0
+  for (const root of roots) {
+    const before = load.records.size
+    await readRoot(root, load)
+    if (root.source === 'builtin') builtin += load.records.size - before
+  }
+  if (builtin === 0) {
+    throw new Error(`内置组件库是空的：${roots.filter((root) => root.source === 'builtin').map((root) => root.dir).join('、')}（D7）`)
+  }
+  return load
 }

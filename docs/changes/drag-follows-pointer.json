@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 7,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "拖动时卡片跟着指针走，松手后的落点用虚影标在格子里；缩放时卡片跟着右下角走，尺寸读数显示当前大小。",
+  "en": "A dragged card follows the pointer while a ghost marks the grid cell it will land in; resizing follows the bottom-right corner and the size readout tracks the current size."
+}

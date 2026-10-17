@@ -10,7 +10,7 @@ import type {
   WidgetMessage,
   WidgetSize,
 } from '@dsh-widget-board/contracts'
-import { PARENT_MESSAGE_TYPES, withinLimit } from '@dsh-widget-board/contracts'
+import { MESSAGE_LIMIT, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
 
 /** 组件的公共接口，写在编写指南里的那一份。 */
 export interface WidgetApi {
@@ -29,7 +29,7 @@ export interface WidgetApi {
   setState(patch: unknown): void
   /** 发出 manifest 里声明过的动作（D6）。 */
   action(id: string, payload?: unknown): void
-  /** 内联在会话正文里时上报自身高度。 */
+  /** 内联在会话正文里时上报自身高度；看板不使用这个高度。 */
   fit(): void
   /** manifest `text` 里的一条文案，按当前语言取。 */
   t(key: string): string
@@ -72,15 +72,17 @@ function send(message: WidgetMessage): void {
 }
 
 /**
- * 把尺寸写到根节点：尺寸族给 CSS 选排版，列行数给需要按格计算的组件（D4）。
+ * 把尺寸写到根节点：尺寸族与位置给 CSS 选排版，跨列数给按格计算的组件（D16）。
  *
- * @param next - 新的像素盒与尺寸族。
+ * @param next - 新的像素盒、位置与尺寸族。
  */
 function applySize(next: WidgetSize): void {
   size = next
   root.dataset.size = next.family
+  root.dataset.placement = next.placement
   root.style.setProperty('--w-cols', String(next.cols))
-  root.style.setProperty('--w-rows', String(next.rows))
+  root.style.setProperty('--w-w', `${String(Math.round(next.w))}px`)
+  root.style.setProperty('--w-h', `${String(Math.round(next.h))}px`)
   for (const handler of listeners.size) handler(next)
 }
 
@@ -91,9 +93,9 @@ function applyTokens(tokens: Record<string, string> | undefined): void {
 }
 
 /**
- * 量一次内容高度交给父页面：信息流看板按它决定卡片多高（D15）。
+ * 量一次内容高度交给父页面：内联显示时父页面按它决定占多高，看板的卡片高度由布局给出（D16）。
  *
- * 量的是文档正文的内容盒——组件按自己的宽度定高，视口的高低不影响这个数。
+ * 量的是文档正文的内容盒——视口的高低不影响这个数；看板那一侧忽略这条消息。
  */
 function reportHeight(): void {
   const height = Math.ceil(document.body.getBoundingClientRect().height)
@@ -150,6 +152,12 @@ function receive(message: ParentMessage): void {
       state = message.state
       for (const handler of listeners.state) handler(state)
       return
+    case 'theme':
+      lang = message.lang
+      root.lang = message.lang
+      root.dataset.motion = motionLevel(message.motion)
+      applyTokens(message.tokens)
+      return
     case 'pause':
       root.toggleAttribute('data-paused', true)
       return
@@ -198,16 +206,36 @@ function adoptPort(next: MessagePort): void {
   if (port !== null) return
   port = next
   port.onmessage = (event: MessageEvent) => {
-    const message = event.data as ParentMessage | undefined
-    if (message === undefined || typeof message.type !== 'string') return
-    if (!(PARENT_MESSAGE_TYPES as readonly string[]).includes(message.type)) return
+    const message = event.data as unknown
+    if (!isParentMessage(message)) return
     if (!withinLimit(message)) {
-      port?.postMessage({ type: 'error', message: `消息超过 ${withinLimit} 的长度上限` })
+      port?.postMessage({ type: 'error', message: `消息超过 ${String(MESSAGE_LIMIT)} 字节的上限` })
       return
     }
     receive(message)
   }
   port.start()
+}
+
+/**
+ * 组件自己抛出来的异常也要让外壳知道：卡片上显示原因，用户不必去翻开发者工具（D11）。
+ *
+ * 同一条失败只报一次：未捕获的异常会同时走 `error` 与 `unhandledrejection` 两条路。
+ */
+let reported: string | null = null
+function installFailureReports(): void {
+  const report = (message: string): void => {
+    if (reported === message) return
+    reported = message
+    send({ type: 'error', message })
+  }
+  window.addEventListener('error', (event) => {
+    report(event.message || `${event.error instanceof Error ? event.error.message : '脚本出错'}`)
+  })
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason
+    report(reason instanceof Error ? reason.message : String(reason))
+  })
 }
 
 /**
@@ -239,7 +267,8 @@ function installPress(): void {
 
 install()
 installPress()
-// 内容高度一变就报一次：信息流看板的卡片高度只由组件的内容决定（D15）。
+installFailureReports()
+// 内容高度一变就报一次：内联显示按它占位；看板的卡片高度由布局给出（D16）。
 new ResizeObserver(reportHeight).observe(document.body)
 
 window.addEventListener('message', (event: MessageEvent) => {
@@ -256,6 +285,6 @@ if (window.parent !== window) {
   window.parent.postMessage({ type: 'ready' }, '*')
 } else {
   // 单独打开这份文档时没有宿主：按视口给一个尺寸，便于本地核对外观。
-  applySize({ w: window.innerWidth, h: window.innerHeight, family: 'inline', cols: 1, rows: 0 })
+  applySize({ w: window.innerWidth, h: window.innerHeight, placement: 'inline', family: 'inline', cols: 1 })
   root.dataset.motion = motionLevel('full')
 }

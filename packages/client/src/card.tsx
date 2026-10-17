@@ -1,11 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { createElement, useEffect, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { BoardInstance, ParentMessage, WidgetMessage, WidgetSummary } from '@dsh-widget-board/contracts'
-import { WIDGET_MESSAGE_TYPES, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
+import { MESSAGE_RATE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
-import type { FlowMetrics, FlowPlacement } from '@dsh-widget-board/model'
-import { clampCardHeight } from '@dsh-widget-board/model'
-import { resolveTokens } from './tokens'
+import type { GridPlacement } from '@dsh-widget-board/model'
+import { t } from './copy'
+import type { FrameHost } from './frame-host'
+import type { ShellTheme } from './theme'
+import { sendInstanceAction } from './snapshot'
+import { isChinese } from './copy'
+import { useNativeWidget } from './native'
+import { NativeBoundary } from './native-boundary'
 
 /**
  * 卡片的圆角来自令牌。iframe 的文档画布在卡片自己的圆角之外是白的，外壳要把它裁掉：
@@ -22,7 +27,7 @@ const ANSWER_TIMEOUT_MS = 6000
 /** 重连次数上限：用完还在失败就把原因写在卡片上，等人来处理。 */
 const RETRY_LIMIT = 3
 
-/** 卡片向页面登记的暂停与恢复，由页面唯一的一个 IntersectionObserver 调用（D15）。 */
+/** 卡片向页面登记的暂停与恢复，由页面唯一的一个 IntersectionObserver 调用（D16）。 */
 export interface CardControls {
   register(id: string, handlers: { pause: () => void, resume: () => void }): () => void
 }
@@ -31,13 +36,23 @@ export interface CardControls {
 export interface WidgetCardProps {
   instance: BoardInstance
   widget: WidgetSummary
-  metrics: FlowMetrics
-  placement: FlowPlacement
-  /** 组件报上来的内容高度，看板按它重新摆放（D15）。 */
-  onHeight: (id: string, height: number) => void
+  placement: GridPlacement
+  /** 这张卡正在被拖动或缩放：指针事件归外壳，iframe 不接。 */
+  gesture: 'move' | 'resize' | null
+  /** 当前的主题；变化时推给组件（D10）。 */
+  theme: ShellTheme
+  /** 整页唯一的握手中心（D3）。 */
+  frames: FrameHost
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
   onState: (id: string, patch: unknown) => void
+  /** 把这张卡从看板上移除。 */
+  onRemove: (id: string) => void
   controls: CardControls
+  /** 按下拖动把手或缩放手柄；位移、松手与取消都由同一个把手接收。 */
+  onDragStart: (event: ReactPointerEvent<HTMLElement>, id: string, kind: 'move' | 'resize') => void
+  onDragMove: (event: ReactPointerEvent<HTMLElement>) => void
+  onDragEnd: (event: ReactPointerEvent<HTMLElement>) => void
+  onDragCancel: () => void
 }
 
 /** 握手那一刻交给组件的那几样东西。 */
@@ -48,36 +63,55 @@ interface InitFace {
   text: Record<string, { zh: string, en: string }>
 }
 
-/** 系统是否要求减弱动效。 */
-function reducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
 /**
  * 一张卡片：一个沙箱 iframe，握手之后只经端口与组件说话（D3）。
  *
- * 连接只在组件版本变化时重建一次：props、data、state 的更新走各自的消息。把它们放进连接的依赖
- * 里会让每次快照刷新都拆一次端口，正在加载的组件文档就可能错过握手。
+ * 卡片的宽高由看板的布局给出，iframe 的视口就是卡片的内容盒；组件按这个盒子排版，不再上报
+ * 高度来撑高卡片（D16）。连接只在组件版本变化时重建一次：props、data、state 与主题的更新走各自
+ * 的消息。把它们放进连接的依赖里会让每次快照刷新都拆一次端口，正在加载的组件文档就会错过握手。
  */
-export function WidgetCard({ instance, widget, metrics, placement, onHeight, onState, controls }: WidgetCardProps): ReactNode {
+export function WidgetCard({
+  instance,
+  widget,
+  placement,
+  gesture,
+  theme,
+  frames,
+  onState,
+  onRemove,
+  controls,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onDragCancel,
+}: WidgetCardProps): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const portRef = useRef<MessagePort | null>(null)
   const readyRef = useRef(false)
   const answeredRef = useRef(false)
   const [failure, setFailure] = useState<string | null>(null)
+  /** 这张卡不在视口里时为真；原生组件据此停下动画与计时（D16）。 */
+  const [paused, setPaused] = useState(false)
+  /** 提供方为这个组件登记了原生组件时，卡片不再取组件文档，直接画它（D17）。 */
+  const native = useNativeWidget(instance.widget)
   /** 组件没应答时的重连次数：每次重来都换一条通道并重新导入文档。 */
   const [attempt, setAttempt] = useState(0)
-  const height = clampCardHeight(placement.height, metrics)
-  const size = { w: Math.round(placement.width), h: Math.round(height), family: 'inline' as const, cols: 1, rows: 0 }
+  const size = {
+    w: Math.round(placement.width),
+    h: Math.round(placement.height),
+    placement: 'board' as const,
+    family: 'board' as const,
+    cols: placement.columns,
+  }
   const sizeRef = useRef(size)
   sizeRef.current = size
-  const heightRef = useRef(onHeight)
-  heightRef.current = onHeight
   const stateRef = useRef(onState)
   stateRef.current = onState
+  const themeRef = useRef(theme)
+  themeRef.current = theme
   const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} })
   initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} }
-  const src = widgetDocumentPath(widget.hash)
+  const src = widgetDocumentPath(widget.hash, theme.lang)
 
   useEffect(() => {
     const frame = frameRef.current
@@ -89,6 +123,9 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, onS
     answeredRef.current = false
     port.start()
     let live = true
+    let held: (() => void) | undefined
+    /** 一秒窗口里收到的消息时刻，用来限流（D3）。 */
+    const recent: number[] = []
     const send = (message: ParentMessage): void => {
       if (live) port.postMessage(message)
     }
@@ -99,14 +136,20 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, onS
         setAttempt(attempt + 1)
         return
       }
-      setFailure('组件没有应答，切回看板重新加载这一张')
+      setFailure(t('noAnswer'))
     }, ANSWER_TIMEOUT_MS)
     port.onmessage = (event: MessageEvent) => {
       const message = event.data as WidgetMessage | undefined
-      if (message === undefined || typeof message.type !== 'string') return
-      if (!(WIDGET_MESSAGE_TYPES as readonly string[]).includes(message.type)) return
+      if (!isWidgetMessage(message)) return
       if (!withinLimit(message)) {
         console.error('widget-board: 组件发来的消息超过长度上限，丢弃')
+        return
+      }
+      const now = Date.now()
+      while (recent.length > 0 && now - (recent[0] as number) > 1000) recent.shift()
+      recent.push(now)
+      if (recent.length > MESSAGE_RATE_LIMIT) {
+        console.error(`widget-board: 组件一秒内发了超过 ${String(MESSAGE_RATE_LIMIT)} 条消息，丢弃`)
         return
       }
       if (!answeredRef.current) {
@@ -114,34 +157,34 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, onS
         window.clearTimeout(watchdog)
         setFailure(null)
       }
-      if (message.type === 'height') heightRef.current(instance.id, message.height)
+      // 高度由看板布局给出，组件上报的内容高度不参与（D16）；消息仍然合法，只是不用。
       if (message.type === 'error') setFailure(message.message)
       if (message.type === 'setState') stateRef.current(instance.id, message.patch)
+      if (message.type === 'action') {
+        sendInstanceAction(instance.id, message.id, message.payload).catch((error: Error) => { setFailure(error.message) })
+      }
     }
     const connect = (): void => {
       if (!live || readyRef.current) return
       readyRef.current = true
       frame.contentWindow?.postMessage({ type: 'connect' }, '*', [channel.port2])
+      held = frames.hold(port)
       const { props, data, state, text } = initRef.current
+      const { tokens: themeTokens, lang, motion } = themeRef.current
       send({
         type: 'init',
-        lang: document.documentElement.lang || navigator.language,
-        motion: reducedMotion() ? 'reduced' : 'full',
+        lang,
+        motion,
+        tokens: themeTokens,
         size: sizeRef.current,
         props: props ?? {},
         data: data ?? null,
         state: state ?? null,
         text,
-        tokens: resolveTokens(),
       })
     }
-    // 两路触发同一处握手：宿主先到就等 ready，组件先到就等 load。
-    const onReady = (event: MessageEvent): void => {
-      if (event.source !== frame.contentWindow) return
-      if ((event.data as { type?: string } | undefined)?.type !== 'ready') return
-      connect()
-    }
-    window.addEventListener('message', onReady)
+    // 组件的 ready 与 iframe 的 load 都触发握手，谁先到谁算：整页的 message 监听在握手中心里。
+    const detach = frames.attach(frame, connect)
     frame.addEventListener('load', connect)
     // 监听器装好之后再导入文档。每次都重新导入：端口是新建的，已经加载好的文档握着的还是关掉的端口。
     frame.src = src
@@ -153,13 +196,14 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, onS
       live = false
       window.clearTimeout(watchdog)
       dispose()
-      window.removeEventListener('message', onReady)
+      detach()
+      held?.()
       frame.removeEventListener('load', connect)
       port.close()
       portRef.current = null
       readyRef.current = false
     }
-  }, [src, instance.id, controls, attempt])
+  }, [src, instance.id, controls, frames, attempt])
 
   // 连接之后的更新走各自的通道：连接不重建，组件文档也就不会错过 init。
   useEffect(() => {
@@ -184,21 +228,104 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, onS
     const port = portRef.current
     if (port === null || !readyRef.current) return
     port.postMessage({ type: 'size', size } satisfies ParentMessage)
-  }, [size.w, size.h])
+    // size 每次渲染都是新对象，依赖写成它的三个字段，盒子没变就不发。
+  }, [size.w, size.h, size.cols])
+
+  // 原生组件没有端口，暂停与恢复直接落在它的参数上。
+  useEffect(() => {
+    if (native === undefined) return
+    return controls.register(instance.id, {
+      pause: () => setPaused(true),
+      resume: () => setPaused(false),
+    })
+  }, [native, controls, instance.id])
+
+  const dragProps = {
+    onPointerMove: onDragMove,
+    onPointerUp: onDragEnd,
+    onPointerCancel: onDragCancel,
+    onLostPointerCapture: onDragCancel,
+  }
 
   return (
     <div
       className="dsh-widget-board__cell"
       data-instance={instance.id}
-      style={{ left: placement.x, top: placement.y, width: placement.width, height, borderRadius: CARD_RADIUS }}
+      data-gesture={gesture ?? undefined}
+      style={{ left: placement.x, top: placement.y, width: placement.width, height: placement.height, borderRadius: CARD_RADIUS }}
     >
-      <iframe
-        ref={frameRef}
-        className="dsh-widget-board__frame"
-        sandbox="allow-scripts"
-        title={widget.title.zh}
-        style={{ clipPath: CARD_CLIP }}
+      {native === undefined
+        ? (
+          <iframe
+            ref={frameRef}
+            className="dsh-widget-board__frame"
+            sandbox="allow-scripts"
+            title={widget.title.zh}
+            style={{ clipPath: CARD_CLIP }}
+          />
+        )
+        : (
+          <div className="dsh-widget-board__native" data-native-widget={native.provider}>
+            <NativeBoundary label={t('unavailable')}>
+              {createElement(native.component, {
+                size,
+                props: instance.props ?? {},
+                data: instance.data ?? null,
+                state: instance.state ?? null,
+                paused,
+                setState: (patch: unknown) => onState(instance.id, patch),
+                action: (id: string, payload?: unknown) => {
+                  sendInstanceAction(instance.id, id, payload).catch((error: Error) => { setFailure(error.message) })
+                },
+                t: (key: string) => {
+                  const entry = widget.text?.[key]
+                  if (entry === undefined) return key
+                  return isChinese() ? entry.zh : entry.en
+                },
+              })}
+            </NativeBoundary>
+          </div>
+        )}
+      <div
+        className="dsh-widget-board__grip"
+        data-dsh-widget-board-handle="move"
+        title={t('move')}
+        onPointerDown={(event) => onDragStart(event, instance.id, 'move')}
+        {...dragProps}
       />
+      <button
+        type="button"
+        className="dsh-widget-board__remove"
+        data-dsh-widget-board-handle="remove"
+        title={t('remove')}
+        aria-label={t('remove')}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={() => onRemove(instance.id)}
+      >
+        ×
+      </button>
+      <div
+        className="dsh-widget-board__resize"
+        data-dsh-widget-board-handle="resize"
+        title={t('resize')}
+        onPointerDown={(event) => onDragStart(event, instance.id, 'resize')}
+        {...dragProps}
+      />
+      {gesture === null
+        ? null
+        : (
+          <div className="dsh-widget-board__measure" data-dsh-widget-board-measure="" aria-hidden="true">
+            <span className="dsh-widget-board__measure-size">
+              {Math.round(placement.width)}
+              <i> × </i>
+              {Math.round(placement.height)}
+            </span>
+            <span className="dsh-widget-board__measure-hint">
+              <span className="dsh-widget-board__dot" />
+              {gesture === 'resize' ? t('resizeHint') : t('moveHint')}
+            </span>
+          </div>
+        )}
       {failure === null ? null : <p className="dsh-widget-board__failure-strip" role="status">{failure}</p>}
     </div>
   )

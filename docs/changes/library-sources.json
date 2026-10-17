@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 20,
+  "at": "2026-10-17",
+  "external": true,
+  "zh": "组件库有了三个来源：包内的内置组件、`$DSH_HOME/widget-board/widgets/` 里的用户组件，以及插件经 `widgetBoard` 服务注册的目录。版本按内容哈希留在磁盘上，跨重启可用；某个组件坏掉只让它自己不可用，看板里的卡片显示原因与移除入口。",
+  "en": "The widget library reads three sources: the built-in widgets in the package, the reader's own under `$DSH_HOME/widget-board/widgets/`, and directories that plugins register through the `widgetBoard` service. Versions are kept on disk by content hash across restarts, and one broken widget only takes itself out — its cards show the reason and a way to remove them."
+}

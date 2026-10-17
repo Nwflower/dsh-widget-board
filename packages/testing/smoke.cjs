@@ -2,10 +2,11 @@
 /**
  * smoke.cjs — 在真实的临时宿主上走一遍插件自己的表面。
  *
- * 检查的是本插件的判据，不看宿主的实现：侧栏出现入口、点开是一页信息流看板、两张卡片各自加载
- * 出来、天气卡切预报日与番茄钟开合计时都真的动、窄窗口里列数降到一列、减弱动效下天空静置、
- * 控制台没有错误。查找只用插件自己写在节点上的标记（`svg.dsh-widget-board__icon`、
- * `data-dsh-widget-board-*`、卡片的 iframe `title`），宿主换了内部结构也不会让这些判据失真（D1）。
+ * 检查的是本插件的判据，不看宿主的实现：侧栏出现入口、点开是一页卡片栅格、三张卡片各自加载
+ * 出来、天气卡切预报日与番茄钟开合计时都真的动、拖动与缩放会改写卡片盒子并保存到宿主、窄窗口里
+ * 列数降到一列、减弱动效下天空静置、控制台没有错误。查找只用插件自己写在节点上的标记
+ * （`svg.dsh-widget-board__icon`、`data-dsh-widget-board-*`、卡片的 iframe `title`），宿主换了
+ * 内部结构也不会让这些判据失真（D1）。
  *
  * 用法：node packages/testing/smoke.cjs
  */
@@ -17,8 +18,13 @@ const { openPage, start } = require('./dsh-web.cjs')
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
 const BOARD_VIEW = '[data-dsh-widget-board-view]'
+const MASTHEAD = '[data-dsh-widget-board-masthead]'
+const MEASURE = '[data-dsh-widget-board-measure]'
+const GHOST = '[data-dsh-widget-board-ghost]'
 const FLOW = '.dsh-widget-board__flow'
 const CARD_FRAME = 'iframe.dsh-widget-board__frame'
+const GRIP = '[data-dsh-widget-board-handle="move"]'
+const RESIZE = '[data-dsh-widget-board-handle="resize"]'
 const SHEET = 'style[data-plugin="dsh-widget-board"]'
 /** 两张内置卡片的 iframe 标题，来自 manifest 的中文标题。 */
 const WEATHER_FRAME = 'iframe.dsh-widget-board__frame[title="天气"]'
@@ -99,20 +105,31 @@ async function frameOf(page, selector) {
 }
 
 /**
- * 等一张卡片的高度跟它内容的高度对上：卡片高度由组件上报（D15）。
+ * 量一张卡片的盒子与它里面 iframe 的盒子：组件填满卡片，卡片大小由布局给出（D16）。
  *
  * @param page - 宿主页面。
  * @param title - 卡片 iframe 的标题。
- * @returns 卡片的内容高度。
+ * @returns 两个盒子的像素尺寸。
  */
-async function settleCard(page, title) {
-  const frame = await frameOf(page, `iframe.dsh-widget-board__frame[title="${title}"]`)
-  const content = await frame.evaluate(() => Math.round(document.body.getBoundingClientRect().height))
-  await page.waitForFunction(({ title, content }) => {
-    const card = document.querySelector(`iframe.dsh-widget-board__frame[title="${title}"]`)?.closest('[data-instance]')
-    return card !== null && card !== undefined && Math.abs(card.getBoundingClientRect().height - content) <= 1
-  }, { title, content }, { timeout: 20000 })
-  return content
+async function cardBox(page, title) {
+  await page.waitForSelector(`iframe.dsh-widget-board__frame[title="${title}"]`, { timeout: 20000 })
+  await page.waitForFunction((title) => {
+    const frame = document.querySelector(`iframe.dsh-widget-board__frame[title="${title}"]`)
+    const card = frame?.closest('[data-instance]')
+    return card !== null && card !== undefined && card.getBoundingClientRect().height > 60
+  }, title, { timeout: 20000 })
+  return page.evaluate((title) => {
+    const frame = document.querySelector(`iframe.dsh-widget-board__frame[title="${title}"]`)
+    const card = frame?.closest('[data-instance]')
+    const outer = card.getBoundingClientRect()
+    const inner = frame.getBoundingClientRect()
+    return {
+      width: Math.round(outer.width),
+      height: Math.round(outer.height),
+      frameWidth: Math.round(inner.width),
+      frameHeight: Math.round(inner.height),
+    }
+  }, title)
 }
 
 /**
@@ -169,7 +186,27 @@ async function resetCards(page) {
 }
 
 /**
- * 主路径：入口、信息流、天气卡切预报日、番茄钟开合。
+ * 把卡片盒子清回一排默认大小：上一轮拖动或缩放留下的布局会让几何与点击点漂。
+ *
+ * @param page - 宿主页面，看板还没打开。
+ */
+async function resetLayout(page) {
+  const snapshot = await page.evaluate(async () => (await fetch('api/widget-board/board')).json())
+  const layouts = {}
+  snapshot.board.instances.forEach((instance, index) => {
+    layouts[instance.id] = { x: index % 4, y: 0, w: 1, h: 22 }
+  })
+  await page.evaluate(async ({ layoutRevision, layouts }) => {
+    await fetch('api/widget-board/board/layout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ layoutRevision, layouts }),
+    })
+  }, { layoutRevision: snapshot.board.layoutRevision, layouts })
+}
+
+/**
+ * 主路径：入口、卡片栅格、天气卡切预报日、番茄钟开合。
  *
  * @param page - 宿主页面。
  * @param problems - 打开页面以来控制台里的错误、警告与未捕获异常。
@@ -179,15 +216,17 @@ async function mainPass(page, problems) {
   check('侧栏出现看板入口', true)
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
   await resetCards(page)
+  await resetLayout(page)
   await openBoard(page)
   check('中栏打开一页看板', await page.evaluate((selector) => document.querySelector(selector) !== null, BOARD_VIEW))
+  check('看板的题头出现', await page.evaluate((selector) => document.querySelector(selector) !== null, MASTHEAD))
 
-  const columns = await page.evaluate(() => Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-flow-columns') ?? 0))
-  check('信息流按容器宽度分列', columns >= 1, `${columns} 列`)
+  const columns = await page.evaluate(() => Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-dsh-widget-board-columns') ?? 0))
+  check('看板按容器宽度分列', columns >= 1, `${columns} 列`)
 
-  const weatherHeight = await settleCard(page, '天气')
-  const pomodoroHeight = await settleCard(page, '番茄钟')
-  check('卡片高度由内容决定', weatherHeight > 300 && pomodoroHeight > 200, `天气 ${weatherHeight} / 番茄钟 ${pomodoroHeight}`)
+  const weatherBox = await cardBox(page, '天气')
+  check('卡片大小由布局给出', weatherBox.height > 300, `天气 ${weatherBox.width}×${weatherBox.height}`)
+  check('组件填满卡片', Math.abs(weatherBox.frameWidth - weatherBox.width) <= 1 && Math.abs(weatherBox.frameHeight - weatherBox.height) <= 1, `iframe ${weatherBox.frameWidth}×${weatherBox.frameHeight}`)
   await settled(page)
 
   const boxes = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
@@ -332,7 +371,7 @@ async function mainPass(page, problems) {
     await reader.cancel()
     return { status: response.status, first: new TextDecoder().decode(value ?? new Uint8Array()).trim() }
   })
-  check('变更通知接得上，先补一个修订号', live.status === 200 && /^data: \{"revision":\d+\}$/.test(live.first), live.first)
+  check('变更通知接得上，先补一条重取快照', live.status === 200 && /^data: \{"revision":\d+,"event":\{"type":"board"\}\}$/.test(live.first), live.first)
 
   const errors = problems.filter((problem) => problem.startsWith('error:') || problem.startsWith('pageerror:'))
   check('控制台没有错误', errors.length === 0, errors.join(' / '))
@@ -341,7 +380,161 @@ async function mainPass(page, problems) {
 }
 
 /**
- * 窄窗口：列数降到一列，卡片宽度跟着容器走（D15）。
+ * 添加与移除（D17）：题头的按钮打开组件库，点一个组件多一张卡，再把它移掉。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function addRemovePass(page) {
+  const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
+  await page.locator('[data-dsh-widget-board-add-open]').click()
+  await page.waitForSelector('[data-dsh-widget-board-library]', { timeout: 5000 })
+  const listed = await page.evaluate(() => document.querySelectorAll('[data-dsh-widget-board-add]').length)
+  check('组件库列出全部组件', listed >= 3, `${listed} 个`)
+  await page.locator('[data-dsh-widget-board-add="weather"]').click()
+  await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 10000 })
+  check('从组件库加了一张卡', true)
+  const added = await page.evaluate(() => {
+    const cells = Array.from(document.querySelectorAll('[data-instance]'))
+    return cells.at(-1)?.getAttribute('data-instance') ?? ''
+  })
+  await page.locator(`[data-instance="${added}"] [data-dsh-widget-board-handle="remove"]`).click()
+  await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count, before, { timeout: 10000 })
+  check('把加进去的卡移掉了', true)
+}
+
+/**
+ * 插件提供的组件（D17）：组件库里有它，加进来之后由插件登记的原生组件渲染，数据来自插件的数据源。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function providerPass(page) {
+  await page.locator('[data-dsh-widget-board-add-open]').click()
+  await page.waitForSelector('[data-dsh-widget-board-add="test-native"]', { timeout: 15000 })
+  check('插件提供的组件出现在组件库里', true)
+  await page.locator('[data-dsh-widget-board-add="test-native"]').click()
+  const native = '[data-native-widget="dsh-widget-board-test-provider"]'
+  await page.waitForSelector(native, { timeout: 15000 })
+  const count = (await page.locator(native).innerText()).trim()
+  check('原生组件拿到数据源的数据', count === '7', count)
+  const id = await page.evaluate((selector) => document.querySelector(selector)?.closest('[data-instance]')?.getAttribute('data-instance') ?? '', native)
+  await page.locator(`[data-instance="${id}"] [data-dsh-widget-board-handle="remove"]`).click()
+  await page.waitForFunction((selector) => document.querySelector(selector) === null, native, { timeout: 10000 })
+  check('移除插件提供的卡片', true)
+}
+
+/**
+ * 读一张卡片在宿主上的布局。
+ *
+ * @param page - 宿主页面。
+ * @param id - 卡片实例的 id。
+ * @returns 卡片布局，找不到时为 undefined。
+ */
+async function layoutOf(page, id) {
+  return page.evaluate(async (id) => {
+    const snapshot = await (await fetch('api/widget-board/board')).json()
+    return snapshot.board.instances.find((instance) => instance.id === id)?.layout
+  }, id)
+}
+
+/**
+ * 等宿主上的布局满足条件：松手之后写入要经过一次往返。
+ *
+ * @param page - 宿主页面。
+ * @param id - 卡片实例的 id。
+ * @param done - 判断条件。
+ * @returns 满足条件时的布局。
+ */
+async function waitLayout(page, id, done) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const layout = await layoutOf(page, id)
+    if (layout !== undefined && done(layout)) return layout
+    await sleep(200)
+  }
+  throw new Error(`卡片 ${id} 的布局一直没有变成预期的样子：${JSON.stringify(await layoutOf(page, id))}`)
+}
+
+/**
+ * 拖动与缩放：卡片盒子由用户改，松手写入宿主，刷新之后还在（D16）。
+ *
+ * @param page - 宿主页面。
+ */
+async function layoutPass(page) {
+  await resetLayout(page)
+  await openBoard(page)
+  await settled(page)
+
+  const weatherId = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame[title="天气"]')?.closest('[data-instance]')?.getAttribute('data-instance') ?? '')
+  const metrics = await page.evaluate(() => {
+    const view = document.querySelector('[data-dsh-widget-board-view]')
+    const flow = document.querySelector('.dsh-widget-board__flow')
+    const columns = Number(view?.getAttribute('data-dsh-widget-board-columns') ?? 0)
+    const gap = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.75
+    const columnWidth = (flow.getBoundingClientRect().width - gap * (columns - 1)) / columns
+    return { step: columnWidth + gap }
+  })
+
+  const weatherCard = page.locator(`[data-instance="${weatherId}"]`)
+  const startBox = await weatherCard.boundingBox()
+  if (startBox === null) throw new Error('天气卡没有盒子')
+  const grip = weatherCard.locator(GRIP)
+  await grip.hover()
+  const gripBox = await grip.boundingBox()
+  if (gripBox === null) throw new Error('拖动把手没有盒子')
+  await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(gripBox.x + gripBox.width / 2 - metrics.step * 0.7, gripBox.y + gripBox.height / 2 + 70, { steps: 10 })
+  // 虚影有一段很短的滑动，等它落定再读；卡片本身不补间，读完立刻就能对上。
+  await sleep(250)
+  const during = await page.evaluate(({ id, ghost }) => {
+    const card = document.querySelector(`[data-instance="${id}"]`)?.getBoundingClientRect()
+    const target = document.querySelector(ghost)?.getBoundingClientRect()
+    return {
+      card: card === undefined ? null : { left: card.left, top: card.top },
+      ghost: target === undefined ? null : { left: target.left, top: target.top },
+    }
+  }, { id: weatherId, ghost: GHOST })
+  check(
+    '拖动时卡片跟手，虚影停在格子落点',
+    during.card !== null && during.ghost !== null
+      && Math.abs(during.card.left - (startBox.x - metrics.step * 0.7)) <= 2
+      && Math.abs(during.card.top - (startBox.y + 70)) <= 2
+      && Math.abs(during.ghost.left - (startBox.x - metrics.step)) <= 2
+      && Math.abs(during.ghost.top - (startBox.y + 72)) <= 2,
+    JSON.stringify(during),
+  )
+  await page.mouse.up()
+  const moved = await waitLayout(page, weatherId, (layout) => layout.x === 1 && layout.y > 0)
+  check('拖动改写卡片的列与纵向位置', moved.x === 1 && moved.y > 0, JSON.stringify(moved))
+
+  const resize = page.locator(`[data-instance="${weatherId}"] ${RESIZE}`)
+  await resize.hover()
+  const resizeBox = await resize.boundingBox()
+  if (resizeBox === null) throw new Error('缩放手柄没有盒子')
+  await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(resizeBox.x + resizeBox.width / 2 + metrics.step, resizeBox.y + resizeBox.height / 2 + 64, { steps: 10 })
+  const measure = page.locator(`[data-instance="${weatherId}"] ${MEASURE}`)
+  const measured = (await measure.textContent())?.replace(/\s+/g, ' ').trim() ?? ''
+  check('缩放时显示实时尺寸', (await measure.count()) === 1 && /\d+ × \d+/.test(measured), measured)
+  await page.mouse.up()
+  const resized = await waitLayout(page, weatherId, (layout) => layout.w === 2 && layout.h >= 25)
+  check('缩放改写卡片的跨列与高度', resized.w === 2 && resized.h >= 25, JSON.stringify(resized))
+
+  const box = await cardBox(page, '天气')
+  check('组件跟着新盒子排版', box.width > 500 && Math.abs(box.frameHeight - box.height) <= 1, `${box.width}×${box.height}`)
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
+  await openBoard(page)
+  const kept = await layoutOf(page, weatherId)
+  check('重载之后布局还在', kept?.x === resized.x && kept?.w === resized.w && kept?.h === resized.h, JSON.stringify(kept))
+
+  await resetLayout(page)
+  await sleep(600)
+}
+
+/**
+ * 窄窗口：列数降到一列，卡片宽度跟着容器走（D16）。
  *
  * @param page - 宿主页面，看板已经打开。
  */
@@ -349,7 +542,7 @@ async function narrowPass(page) {
   await page.setViewportSize({ width: 520, height: 900 })
   await sleep(1800)
   const narrow = await page.evaluate(() => ({
-    columns: Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-flow-columns') ?? 0),
+    columns: Number(document.querySelector('[data-dsh-widget-board-view]')?.getAttribute('data-dsh-widget-board-columns') ?? 0),
     widths: Array.from(document.querySelectorAll('[data-instance]')).map((node) => Math.round(node.getBoundingClientRect().width)),
   }))
   check('窄窗口里只剩一列', narrow.columns === 1, `${narrow.columns} 列`)
@@ -418,11 +611,14 @@ async function reducedPass(page) {
   check('切换栏不做过渡', still.tabTransition === '0s', still.tabTransition)
 }
 
-start().then(async (host) => {
+start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
   let opened
   try {
     opened = await openPage(host.url)
     await mainPass(opened.page, opened.problems)
+    await addRemovePass(opened.page)
+    await providerPass(opened.page)
+    await layoutPass(opened.page)
     await narrowPass(opened.page)
     await reloadPass(opened.page)
   } finally {

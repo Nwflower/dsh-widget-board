@@ -4,7 +4,7 @@
  * 这张卡的底色是它自己的画面：一层品红的径向渐变，压在上面的文字因此固定用白色；主题令牌管
  * 边框、投影、主按钮与焦点框（D10）。动效原语（数字、文字切换、按压）来自运行时套件。
  *
- * 宽度等于看板给的一列，高度由内容撑开——信息流看板按内容定高（D15）。
+ * 卡片填满看板给的盒子：标题在上、读数居中、按钮贴底，盒子变矮时收间距与刻度（D16）。
  */
 
 .pomo {
@@ -17,8 +17,10 @@
   gap: 24px;
   box-sizing: border-box;
   width: 100%;
-  /* 卡片高度由上报的内容高度取整而来，撑满视口把取整剩下的那一点也盖上（圆角之外的画布是白的）。 */
-  min-height: 100vh;
+  /* iframe 的视口就是卡片的内容盒；撑满它，高度由看板给的盒子决定（D16）。 */
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   padding: 24px;
   border-radius: var(--w-radius-card, 24px);
   background: radial-gradient(circle at 50% 38%, #2a0319 0%, #7a0a48 22%, #c3157a 52%, #6b1148 100%);
@@ -139,6 +141,8 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 20px;
+  /* 盒子比内容高时，按钮贴着底部；矮盒子由下面的媒体查询收掉间距。 */
+  margin-top: auto;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 20%);
   transition:
     transform var(--w-motion-press) var(--w-motion-ease-smooth),
@@ -157,6 +161,23 @@
 @media (max-width: 320px) {
   .pomo { gap: 18px; padding: 18px; }
   .pomo-readout .t-digit-group { font-size: 50px; line-height: 58px; }
+}
+
+/* 矮盒子：先收字号与间距；再矮就把时长刻度收掉，留下读数与开始按钮。 */
+@media (max-height: 420px) {
+  .pomo { gap: 14px; padding: 16px; }
+  .pomo-time { font-size: 44px; line-height: 52px; }
+  .pomo-slider,
+  .pomo-range { height: 32px; }
+  .pomo-start { height: 32px; }
+}
+
+@media (max-height: 300px) {
+  .pomo { gap: 10px; padding: 12px; }
+  .pomo-cap { display: none; }
+  .pomo-time { font-size: 36px; line-height: 42px; }
+  .pomo-slider { display: none; }
+  .pomo-start { height: 30px; }
 }
 
 /* 减弱动效：刻度、滑块、按钮与文字切换一律不走过渡，数字不弹入（D10）。 */

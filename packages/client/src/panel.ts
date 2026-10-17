@@ -1,3 +1,5 @@
+import { createElement } from 'react'
+import type { ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import {
   MAIN_SLOT,
@@ -21,6 +23,8 @@ import { PanelIcon } from './panel-icon'
  */
 export function registerPanel(ctx: Context): () => void {
   const slots = slotsOf(ctx)
+  /** 看板页要跟随宿主的主题，所以把上下文原样交给它（D10）。 */
+  const Page = (): ReactNode => createElement(BoardPage, { context: ctx })
   const disposers = [
     slots.inject(SIDEBAR_PANELLIST_SLOT, () => slots.register({
       name: SIDEBAR_PANELLIST_SLOT,
@@ -31,7 +35,7 @@ export function registerPanel(ctx: Context): () => void {
     slots.inject(MAIN_SLOT, () => slots.register({
       name: MAIN_SLOT,
       key: WIDGET_BOARD_PANEL_ID,
-    }, BoardPage)),
+    }, Page)),
   ]
   return () => {
     for (const dispose of disposers.splice(0)) dispose()

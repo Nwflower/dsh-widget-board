@@ -1,23 +1,23 @@
 /**
- * 变更通知：组件库或运行时变了，就把新的修订号推给在线的看板页（D7 的热重载）。
+ * 变更通知：宿主把发生了什么推给在线的看板页（D18）。
  *
- * 下载文档的路由不带缓存，客户端收到修订号后重新取一次快照；哈希变了，卡片换一个 iframe，用户
- * 不用刷新页面。
+ * 一条通知带一个全局修订号与改动本身：卡片状态与数据就地合并，布局就地换掉，只有卡片增删与
+ * 组件库变化才让页面重取快照。接上时先补一条「重取快照」，页面因此不必在订阅与取快照之间选先后。
  */
-import type { HostResponse } from '@dsh-widget-board/contracts'
+import type { BoardEvent, BoardEventFrame, HostResponse } from '@dsh-widget-board/contracts'
 import type { DocumentAssets } from './document'
 
 /** 在线客户端共享的一份：当前资产、当前修订号，以及订阅它们的响应。 */
 export interface Live {
   readonly assets: DocumentAssets
   readonly revision: number
-  /** 接一个 SSE 连接：先补一份当前修订号，之后跟着变化推。 */
+  /** 接一个 SSE 连接：先补一条重取快照的通知，之后跟着变化推。 */
   subscribe(response: HostResponse): void
-  /** 换一份资产，修订号加一并推给所有观众。 */
+  /** 换一份资产，修订号加一并让页面重取快照。 */
   publish(assets: DocumentAssets): void
-  /** 只推一个修订号：看板或卡片状态变了，资产没变（D5）。 */
-  notify(): void
-  /** 收掉心跳与全部观众。 */
+  /** 推一条改动。 */
+  notify(event: BoardEvent): void
+  /** 收掉心跳，结束全部长连接。 */
   close(): void
 }
 
@@ -38,9 +38,18 @@ export function createLive(assets: DocumentAssets): Live {
     for (const response of audience) response.write?.(': ping\n\n')
   }, HEARTBEAT_MS)
   heartbeat.unref()
-  const announce = (): void => {
-    const frame = `data: ${JSON.stringify({ revision })}\n\n`
-    for (const response of audience) response.write?.(frame)
+  const announce = (event: BoardEvent): void => {
+    revision += 1
+    const frame: BoardEventFrame = { revision, event }
+    const payload = `data: ${JSON.stringify(frame)}\n\n`
+    for (const response of audience) {
+      try {
+        response.write?.(payload)
+      } catch {
+        // 观众断在半条消息上：摘掉它，其余观众照常收（D11）。
+        audience.delete(response)
+      }
+    }
   }
   return {
     get assets() { return current },
@@ -52,21 +61,28 @@ export function createLive(assets: DocumentAssets): Live {
         connection: 'keep-alive',
       })
       audience.add(response)
-      announce()
       // 长连接没有响应体结束的那一刻，观众离开只有这一个信号。
       response.on?.('close', () => { audience.delete(response) })
+      const frame: BoardEventFrame = { revision, event: { type: 'board' } }
+      response.write?.(`data: ${JSON.stringify(frame)}\n\n`)
     },
     publish(next) {
       current = next
-      revision += 1
-      announce()
+      announce({ type: 'board' })
     },
-    notify() {
-      revision += 1
-      announce()
+    notify(event) {
+      announce(event)
     },
     close() {
       clearInterval(heartbeat)
+      for (const response of audience) {
+        // 拆除时观众可能已经断开，结束它失败不必处理：这里做的正是释放（D11）。
+        try {
+          response.end()
+        } catch {
+          audience.delete(response)
+        }
+      }
       audience.clear()
     },
   }

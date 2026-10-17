@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 24,
+  "at": "2026-10-17",
+  "external": true,
+  "zh": "组件的按钮有了去处：`window.widget.action` 发出的动作由宿主交给注册的动作执行，只有 manifest 里声明过的动作才会被接受。插件可以经 `widgetBoard.registerAction` 提供动作。",
+  "en": "A widget's buttons have somewhere to go: an action sent through `window.widget.action` runs the registered action on the host, and only actions declared in the manifest are accepted. Plugins can provide actions through `widgetBoard.registerAction`."
+}

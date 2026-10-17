@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { PACKAGE_NAME } from '@dsh-widget-board/contracts'
+import { PACKAGE_NAME, WIDGET_BOARD_SERVICE_NAME } from '@dsh-widget-board/contracts'
+import { createClientService } from './native'
 import { registerPanel } from './panel'
 import { mountStyle } from './style'
 
@@ -13,11 +14,14 @@ export const name = PACKAGE_NAME
 export const inject = ['slots']
 
 /**
- * 浏览器半边。卡片看板在 PLAN 步骤 6 接入；眼下它注册的地方是一处侧栏入口与一页空看板。
+ * 浏览器半边：样式表、侧栏入口与看板页，以及给其他插件的 `widgetBoard` 服务（D17）。
  *
  * @param ctx - 浏览器半边的根上下文。
  */
 export function apply(ctx: Context): void {
   ctx.effect(() => mountStyle(), 'widget-board: stylesheet')
   ctx.effect(() => registerPanel(ctx), 'widget-board: sidebar row and board page')
+  // 原生组件的登记处先于面板提供：提供方在启动早期就能注册，登记项随插件卸载撤下。
+  const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide
+  if (typeof provide === 'function') provide.call(ctx, WIDGET_BOARD_SERVICE_NAME, createClientService())
 }

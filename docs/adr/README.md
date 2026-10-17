@@ -19,8 +19,10 @@
 | [D12](D12-extension-contract.md) | 对其他插件的扩展契约 | — |
 | [D13](D13-testing.md) | 测试分层与共用检查器 | — |
 | [D14](D14-documentation.md) | 文档分层 | — |
-| [D15](D15-flow-board.md) | 信息流看板布局 | D4 |
+| [D16](D16-card-grid.md) | 卡片盒子的自由布局 | D15、D4 |
+| [D17](D17-library-sources.md) | 组件库的来源、提供方注册与数据源 | — |
+| [D18](D18-board-events.md) | 变更通知按事件推送 | — |
 
 ## 作废的编号
 
-D4（由 D15 取代）。
+D4（由 D16 取代）、D15（由 D16 取代）。

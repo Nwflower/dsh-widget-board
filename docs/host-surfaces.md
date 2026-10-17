@@ -30,7 +30,9 @@
 - **路由**：`ctx.webServer.register(route)`（`WebRoute` 来自 `@deepseek-ai/dsh-host-webserver`）交给插件原始请求，宿主的 `/api` 栅栏不覆盖插件路由。插件自己调用 `ctx.get('connection')?.requestRejection(req)` 借用宿主的栅栏与认证；没有这项服务时只放行本机回环。出处：`D:\Build\dsh-claude-style\packages\engine\node\http.ts`。
 - **组件文档路由与 CSP 在真实宿主里跑通**（D3）：`kind: 'prefix'` 的一条路由交给插件整棵子树；`sandbox="allow-scripts"` 的 iframe 指向按哈希寻址的文档，文档里的运行时与组件脚本以内联 `<script nonce=…>` 运行，响应头的 CSP 是 `default-src 'none'`、`connect-src 'none'`；iframe 的导航请求带着会话 cookie，`requestRejection({ headers })` 放行。出处：本仓库的 `packages/host/src/routes.ts` 与 `packages/testing/smoke.cjs`（在 0.2.1-rc.1 上实证）。
 - **插件的私有路由必须放在 `/api/` 下，浏览器半边用文档相对的地址**（D1）：桌面外壳的页面来源是 `dsh-app://app`，它的协议处理器只把 `/api/*` 转给宿主的 web 服务——`api/task-board/state` 回 200，`plugins/…` 回 404，随包发布的客户端脚本地址也是文档相对的（`plugins/??<包名>/client.js` 没有开头斜杠）。前缀因此定成 `/api/widget-board`，客户端只从 `CLIENT_ROUTE` 拼地址。同一协议下的沙箱 iframe 指向 `api/…` 能正常加载（`load` 事件与 `contentWindow` 都正常）。出处：任务看板 `src/protocol.ts` 与 `src/client/host-api.ts` 的「DOCUMENT-RELATIVE」注释；本仓库在桌面外壳的页面里实测。
-- **宿主令牌不跨 iframe**（D10）：组件文档是不透明来源，宿主的 `--dsw-*` 变量传不过去；令牌要由父页面解析成字面值，经桥的 `init` 消息递进去。解析读 `document.body` 的计算值（主题可能把变量写在根节点或 body 上，两者都能读到继承后的值）。出处：本仓库的 `packages/client/src/tokens.ts` 与 `packages/runtime/src/index.ts`。
+- **宿主令牌不跨 iframe**（D10）：组件文档是不透明来源，宿主的 `--dsw-*` 变量传不过去；令牌要由父页面解析成字面值，经桥的 `init` 消息递进去，之后变化时经 `theme` 消息再推一次（D18）。解析读 `document.body` 的计算值（主题可能把变量写在根节点或 body 上，两者都能读到继承后的值）。出处：本仓库的 `packages/client/src/theme.ts` 与 `packages/runtime/src/index.ts`。
+- **组件目录里的图片与字体要内联**（D3）：文档的 CSP 只放行 `data:` 与 `blob:` 的图片与字体，组件自己发请求又过不了栅栏。作者写 `{{asset:相对路径}}`，宿主拼文档时换成 `data:` 地址；路径越出组件目录或文件不存在时拒绝拼装。出处：本仓库的 `packages/host/src/document.ts` 与 `packages/host/test/document.test.ts`。
+- **配置表单**：`Config` 用 schemastery 声明，可热改的字段标 `.volatile()`，运行时拿到的可能是活的引用（`.get()`）。同一个名字在配置文件里是普通值，所以另声明 `ConfigInput`，schema 写成 `z<ConfigInput, Config>`，读值用 `readConfigField`（两种形态都接受）。出处：任务看板 `src/index.ts`；本仓库 `packages/host/src/index.ts` 照此实现。
 - **批准**：`ctx.approval.request(req)` 返回 `ApprovalOutcome`；请求必须带 `agent`（代表哪个会话询问）与 `toolName`，可带 `callId`、`reason`、`displayReason`。没有会话 agent 的界面动作不能用它。出处：`dsh-user-approval/lib/types/index.d.ts`、`types.d.ts`。
 - **程序执行**：`ctx.ptcRuntime` 运行受沙箱策略约束的程序，宿主函数以命名空间绑定给程序，参数与返回值必须是无损 JSON。本机宿主只带了 node 后端（`dsh-ptc-runtime-node`）。出处：`dsh-ptc-runtime/lib/types/types.d.ts`。
 - **子进程**：`ctx.subprocess` 管理进程组、有界的输出与升级终止。出处：`dsh-subprocess/package.json` 的描述。
@@ -46,14 +48,17 @@
 
 - dsh-web 的工作坊（`dsh-market`）在设置里声明子插槽 `dsh-workshop.panel`，各类资源面板注册进去。出处：dsh-web 仓库根目录的 `AGENTS.md`。
 
+### 提供方
+
+- **浏览器侧的 cordis 服务也能用 `provide` 发布**：与宿主侧同一条写法，`typeof ctx.provide === 'function'` 时调用；提供方在 `apply` 里声明 `inject = ['widgetBoard']` 就能等到它出现。出处：任务看板 `src/client/index.ts`；本仓库的 `packages/client/src/entry.ts` 与 `packages/testing/fixtures/provider/client.js`。
+- **一个外部包能同时带宿主半边与浏览器半边**：`package.json` 的 `exports["."]`、`exports["./client"]`、`dsh.bundle.patch` 与 `dsh.client` 四项齐全时，`dsh plugin --profile web add <目录>` 装进去，两半都起来。冒烟把 `packages/testing/fixtures/provider/` 这样一个包装进临时宿主，核对组件库里出现它、原生组件渲染出数据源的数据、撤下后消失。出处：本仓库的 `packages/testing/dsh-web.cjs`（`extras`）与 `packages/testing/smoke.cjs`。
+
 ## 待在真实宿主上核实
 
 每一项写明它影响哪个决定，以及怎么核实。核实之后移到上一节，或者按结果改写对应的 ADR。
 
 - **右侧栏标签页类型的注册入口**（D1）：类型声明里只看到外壳读取的 `tabTypes`，注册类型定义的方法要在 `dsh-client-ui-sidebar-right` 的 `client/service.d.ts` 与实现里找到，并在页面上打开一个自定义类型的标签页。
-- **gridstack 在宿主页面里的行为**（D2、D4）：在中栏页面里挂一个 gridstack，确认拖拽、缩放、`column(n, 'none')` 与 `load()` 正常，指针经过 iframe 时的处理有效。
-- **存储域对第三方插件可用**（D5）：本插件内联打包的 zod 交给宿主的存储域后能正确校验，同名域在插件重新挂载时能关闭再打开。
 - **`ctx.skills.register` 的虚拟 skill 能被模型列出并加载**（D9）。
 - **工具视图能否在会话重新打开后按工具结果重画**（D9）：`result` 阶段的 `block` 里能否读到工具返回的完整 JSON。
 - **`theme/change` 与 `--dsw-*` 计算值**（D10）：切换浅色、深色与皮肤时事件是否触发，从页面根节点读到的值是否已经是皮肤改写后的值。
-- **iframe 的进程与内存成本**（D4）：一页放 30 张卡片时的内存占用，以及暂停与卸载策略的效果。
+- **iframe 的进程与内存成本**（D16）：一页放 30 张卡片时的内存占用，以及暂停与卸载策略的效果。

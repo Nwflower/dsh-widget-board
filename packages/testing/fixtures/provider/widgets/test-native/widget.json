@@ -1,0 +1,28 @@
+{
+  "id": "test-native",
+  "title": {
+    "zh": "测试原生组件",
+    "en": "Test native widget"
+  },
+  "description": {
+    "zh": "插件提供的原生组件，画在父页面里，数据来自插件注册的数据源。",
+    "en": "A native widget provided by a plugin, drawn in the page, with data from the plugin's data source."
+  },
+  "author": "dsh-widget-board-test-provider",
+  "version": "0.1.0",
+  "sizes": ["s"],
+  "source": "test.count",
+  "data": {
+    "type": "object",
+    "required": ["count"],
+    "properties": {
+      "count": { "type": "number" }
+    }
+  },
+  "actions": [
+    {
+      "id": "bump",
+      "label": { "zh": "加一", "en": "Bump" }
+    }
+  ]
+}

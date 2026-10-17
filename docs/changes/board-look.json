@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 6,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "看板换了外观：左侧题头、右侧点阵与字模图案，卡片右下角的蓝色手柄在拖动时显示实时尺寸。",
+  "en": "The board has a new look: an editorial masthead with a dot grid and a character field, and a blue corner handle that shows a card's live size while it is being resized."
+}

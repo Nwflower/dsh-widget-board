@@ -15,15 +15,23 @@
 - 组件热重载：宿主监视 `lib/`，组件或运行时一改就重读，在线页面按新哈希把卡片重挂，不用刷新。
 - 番茄钟卡片：选一段专注时长开始倒计时，剩余分钟、进度刻度与按钮文字跟着走。
 - 待办卡片：一张卡片上的清单，回车加一条、勾掉做完的，进度条跟着走；条目存在宿主上，切走再切回、页面重载之后都还在。
+- 组件库有了三个来源：包内的内置组件、`$DSH_HOME/widget-board/widgets/` 里的用户组件，以及插件经 `widgetBoard` 服务注册的目录。版本按内容哈希留在磁盘上，跨重启可用；某个组件坏掉只让它自己不可用，看板里的卡片显示原因与移除入口。
+- 看板题头多了一个添加组件的按钮：从组件库按来源分组挑一个，卡片出现在最矮的一列底部；卡片的右上角可以把它移除。
+- 组件的按钮有了去处：`window.widget.action` 发出的动作由宿主交给注册的动作执行，只有 manifest 里声明过的动作才会被接受。插件可以经 `widgetBoard.registerAction` 提供动作。
+- 插件可以把组件画在页面里：浏览器侧的 `widgetBoard.registerWidgetType` 登记一个 React 组件，与组件库里同 id 的组件对上之后，卡片改用这个组件渲染，参数与 `window.widget` 同形，抛错只废掉那一张卡。组件还可以在 manifest 里声明默认的数据源，加卡片时按它取第一次数据。仓库带了一个提供方 fixture，冒烟装上它走一遍注册、显示与移除。
 
 ### 体验优化
 
-- 看板改成信息流布局：列数跟着容器宽度在一到四列之间连续变化，卡片高度由组件自己上报，位置按最矮列装箱。
 - 新增的内置组件自动出现在已有的看板上：加入卡片的面板做出来之前，这是看到新组件的唯一路径。
 - 卡片内部的控件不再跟随宿主的强调色：切换栏药丸、选中文字、主按钮与焦点框改用卡片画面自己的墨色。
 - 卡片的握手不再随每次快照刷新重建：props、data、state 的更新走各自的消息。切回看板时先用上一份快照画出内容，再取最新的。
 - 卡片的界面状态存在宿主上：番茄钟切走再切回、页面重载之后接着计时，天气卡记得选中的是哪一个预报日。组件的 `setState` 现在有地方落，重挂之后经 `init` 拿回来。
+- 看板改成卡片盒子：卡片可以拖动位置、缩放宽高，组件按卡片给的盒子重新排版；布局存在宿主上，刷新与别的窗口都跟着走。
 - 番茄钟显示到秒：剩余时间按 `mm:ss` 走，换数字时把数字分成上下两半翻页——变大翻页上去，变小翻页下来。翻页做成了套件的原语（`.t-flip`），转动的半页画组件自己的底色，翻转过程中看不出多出一块。
+- 看板换了外观：左侧题头、右侧点阵与字模图案，卡片右下角的蓝色手柄在拖动时显示实时尺寸。
+- 拖动时卡片跟着指针走，松手后的落点用虚影标在格子里；缩放时卡片跟着右下角走，尺寸读数显示当前大小。
+- 卡片状态与数据的写入不再让每个开着的页面重取整份看板：宿主推的是这张卡改了什么，页面就地合并。布局提交同理。
+- 切换浅色深色、换皮肤或改系统动画偏好时，卡片里的组件当场跟着变，不再等重新加载；组件的文案与文档的 `lang` 也跟着宿主的界面语言走。
 
 ### 问题修复
 
@@ -41,15 +49,23 @@
 - Widget hot reload: the host watches `lib/`, re-reads the library when a widget or the runtime changes, and open pages remount their cards on the new hash without a refresh.
 - Pomodoro card: pick a focus length and start; the remaining minutes, the progress ticks and the button label follow the session.
 - To-do card: a list on a card — press Enter to add, tick what is done, and the progress bar follows; items live on the host, so they survive a panel switch or a page reload.
+- The widget library reads three sources: the built-in widgets in the package, the reader's own under `$DSH_HOME/widget-board/widgets/`, and directories that plugins register through the `widgetBoard` service. Versions are kept on disk by content hash across restarts, and one broken widget only takes itself out — its cards show the reason and a way to remove them.
+- The board header has an add-widget button: pick from the library, grouped by source, and the card lands at the bottom of the shortest column. A card's top-right corner removes it.
+- A widget's buttons have somewhere to go: an action sent through `window.widget.action` runs the registered action on the host, and only actions declared in the manifest are accepted. Plugins can provide actions through `widgetBoard.registerAction`.
+- Plugins can draw a widget in the page: the browser-side `widgetBoard.registerWidgetType` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`, while a throw only breaks that one card. A widget can also name a default data source in its manifest, read when the card is added. The repository ships a provider fixture that the smoke installs, renders and removes.
 
 ### Improvements
 
-- The board is an information flow now: one to four columns follow the container width, each card's height comes from the widget itself, and cards pack into the shortest column.
 - New built-in widgets appear on an existing board by themselves until the add-card panel exists.
 - Controls inside a card no longer take the host's accent colour: the switcher pill, the selected label, the primary button and the focus rings use the card's own ink.
 - A card's handshake is no longer rebuilt on every snapshot refresh — prop, data and state updates travel on their own messages. Returning to the board draws the last snapshot first, then refreshes it.
 - A card's interface state lives on the host now: the pomodoro keeps counting across a panel switch or a page reload, and the weather card remembers which forecast day was open. Widget `setState` has somewhere to land and comes back through `init` after a remount.
+- The board is a grid of card boxes now: drag a card to move it, resize it from the corner, and the widget lays itself out inside the box. Layouts live on the host and survive reloads and other windows.
 - The pomodoro shows seconds now: the remaining time counts down as mm:ss and each digit turns over in halves — up when it grows, down when it shrinks. The flip is a suite primitive (`.t-flip`) whose page paints the widget's own background, so a turning half does not show a slab.
+- The board has a new look: an editorial masthead with a dot grid and a character field, and a blue corner handle that shows a card's live size while it is being resized.
+- A dragged card follows the pointer while a ghost marks the grid cell it will land in; resizing follows the bottom-right corner and the size readout tracks the current size.
+- A card state or data write no longer makes every open page refetch the whole board: the host pushes what changed on that card and the page merges it in place. Layout commits work the same way.
+- Switching light and dark, changing skin or the system motion preference updates the components in place instead of waiting for a reload, and the widget document's `lang` follows the host's interface language.
 
 ### Bug Fixes
 

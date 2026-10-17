@@ -1,0 +1,4 @@
+# 冒烟用的提供方：向 web profile 插一行，随宿主一起启动。
+- insert:
+    - id: widget-board-test-provider
+      name: 'dsh-widget-board-test-provider'

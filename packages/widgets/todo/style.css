@@ -4,7 +4,7 @@
  * 这张卡是张工具卡：底色、字色、分隔线、进度都走主题令牌，浅色与深色各自可读（D10）。勾选框、
  * 进度条与加号按钮都用卡片自己的墨色画，不引宿主的强调色。圆角与别的卡同源。
  *
- * 宽度等于看板给的一列，高度由内容撑开（D15）。
+ * 卡片填满看板给的盒子：清单占据剩下的高度、超出就在卡片里滚动，输入行贴底（D16）。
  */
 
 .todo {
@@ -13,8 +13,10 @@
   gap: 12px;
   box-sizing: border-box;
   width: 100%;
-  /* 卡片高度由上报的内容高度取整而来，撑满视口把取整剩下的那一点也盖上。 */
-  min-height: 100vh;
+  /* iframe 的视口就是卡片的内容盒；撑满它，高度由看板给的盒子决定（D16）。 */
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   padding: 18px 18px 16px;
   border-radius: var(--w-radius-card, 24px);
   background: var(--w-color-surface, #fff);
@@ -66,12 +68,13 @@
   transition: transform var(--w-motion-base) var(--w-motion-ease-smooth);
 }
 
-/* 清单：最多露出七行，再多就在卡片里滚，不让一张卡长到占满一列。 */
+/* 清单：占住卡片剩下的高度，再多就在卡片里滚；空清单不占高度，空状态留在标题下面。 */
 .todo-list {
   display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 2px;
-  max-height: 15rem;
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -79,6 +82,8 @@
   list-style: none;
   scrollbar-width: thin;
 }
+
+.todo-list:empty { flex: none; }
 
 .todo-row {
   display: flex;
@@ -216,6 +221,14 @@
 }
 
 .todo-empty[hidden] { display: none; }
+
+/* 矮盒子：收掉内边距与间距，清单先让出高度。 */
+@media (max-height: 300px) {
+  .todo { gap: 8px; padding: 12px; }
+  .todo-add { padding-top: 8px; }
+  .todo-input,
+  .todo-submit { height: 28px; }
+}
 
 /* 加一条：底下一道分隔，输入框占满，右边一个加号。 */
 .todo-add {

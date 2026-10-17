@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 0,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "看板改成信息流布局：列数跟着容器宽度在一到四列之间连续变化，卡片高度由组件自己上报，位置按最矮列装箱。",
-  "en": "The board is an information flow now: one to four columns follow the container width, each card's height comes from the widget itself, and cards pack into the shortest column."
-}

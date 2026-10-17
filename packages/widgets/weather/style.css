@@ -4,7 +4,7 @@
  * 天空是这张卡自己的画面：渐变、光斑、雨与闪电的颜色属于天气，不随主题走，压在上面的文字因此
  * 固定用白色。主题令牌只管这张卡的边框、投影与底部那条预报切换栏（D10）。
  *
- * 卡片的宽度等于看板给的一列，高度按 3:4 从宽度算出来——信息流看板按内容定高（D15）。
+ * 卡片填满看板给的盒子：天空铺满，文字按盒子的宽高重新排版，盒子变矮时收掉次要信息（D16）。
  * 动效原语（数字、文字、图标、切换栏）来自运行时套件；这里只有天气自己的排版与天空。
  */
 
@@ -23,10 +23,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  aspect-ratio: 3 / 4;
-  max-height: 30rem;
-  /* 卡片高度由上报的内容高度取整而来，撑满视口把取整剩下的那一点也盖上（圆角之外的画布是白的）。 */
-  min-height: 100vh;
+  /* iframe 的视口就是卡片的内容盒；撑满它，高度由看板给的盒子决定（D16）。 */
+  height: 100vh;
+  min-height: 0;
   overflow: hidden;
   isolation: isolate;
   border-radius: var(--wx-radius);
@@ -235,6 +234,26 @@
   .wx-tabs .t-tabs-pill { height: 42px; }
 }
 
+/* 矮盒子：先收字号与内边距；再矮就把预报切换栏与次要信息收掉，留下天气本身。 */
+@media (max-height: 360px) {
+  .wx-body { padding: 16px 18px 0; }
+  .wx-temp { font-size: 46px; line-height: 54px; }
+  .wx-cond { font-size: 12px; line-height: 18px; }
+  .wx-tabs { margin: 10px 8px 8px; }
+  .wx-tabs .t-tab,
+  .wx-tabs .t-tabs-pill { height: 36px; }
+}
+
+@media (max-height: 260px) {
+  .wx-body { padding: 12px 14px 10px; }
+  .wx-day,
+  .wx-hl { display: none; }
+  .wx-temp { font-size: 38px; line-height: 44px; }
+  .wx-big { width: 44px; height: 44px; }
+  .wx-big svg { width: 36px; height: 36px; }
+  .wx-tabs { display: none; }
+}
+
 /* 减弱动效：天空静置，雨与闪电不画，水滴停在可见处（D10）。 */
 :root[data-motion="reduced"] .wx-blob,
 :root[data-motion="reduced"] .wx-rain > span,
@@ -245,7 +264,7 @@
 :root[data-motion="reduced"] .wx-flash { display: none; }
 :root[data-motion="reduced"] .wx-drops > span { opacity: 1; }
 
-/* 离开视口：天空与图标停在原地（D15）。 */
+/* 离开视口：天空与图标停在原地（D16）。 */
 :root[data-paused] .wx-blob,
 :root[data-paused] .wx-rain > span,
 :root[data-paused] .wx-flash,

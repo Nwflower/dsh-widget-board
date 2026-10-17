@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 5,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "看板改成卡片盒子：卡片可以拖动位置、缩放宽高，组件按卡片给的盒子重新排版；布局存在宿主上，刷新与别的窗口都跟着走。",
+  "en": "The board is a grid of card boxes now: drag a card to move it, resize it from the corner, and the widget lays itself out inside the box. Layouts live on the host and survive reloads and other windows."
+}

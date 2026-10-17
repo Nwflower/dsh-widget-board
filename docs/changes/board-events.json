@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 21,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "卡片状态与数据的写入不再让每个开着的页面重取整份看板：宿主推的是这张卡改了什么，页面就地合并。布局提交同理。",
+  "en": "A card state or data write no longer makes every open page refetch the whole board: the host pushes what changed on that card and the page merges it in place. Layout commits work the same way."
+}

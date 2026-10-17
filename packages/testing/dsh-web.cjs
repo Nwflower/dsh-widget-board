@@ -91,6 +91,7 @@ function run(command, env) {
  * @param options.home - 临时 `$DSH_HOME`，默认 `.debug/host`。
  * @param options.profile - 要起的 profile，默认 `web`。
  * @param options.port - 端口；0 让系统挑一个。
+ * @param options.extras - 一起装进这个 profile 的其他包目录，例如提供方 fixture。
  * @param options.timeoutMs - 等启动地址的上限。
  * @returns `{ url, home, stop }`；`stop` 连同它起的子进程一起收掉。
  */
@@ -104,6 +105,9 @@ async function start(options = {}) {
   ensureWorkspace(home)
   // 幂等：第一次跑时装进来，之后 pnpm 报 "already up to date"。
   run(`dsh plugin --profile ${profile} add "${ROOT}"`, { ...process.env, DSH_HOME: home })
+  for (const extra of options.extras ?? []) {
+    run(`dsh plugin --profile ${profile} add "${extra}"`, { ...process.env, DSH_HOME: home })
+  }
   const env = {
     ...process.env,
     DSH_HOME: home,

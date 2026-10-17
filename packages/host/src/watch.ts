@@ -36,14 +36,20 @@ export function watchTree(target: string, onChange: () => void): () => void {
     }
   }
   arm()
-  const parent = watch(dirname(target), (_event, name) => {
-    if (name !== null && name.toString() !== basename(target)) return
-    fire()
-    arm()
-  })
+  let parent: FSWatcher | null = null
+  try {
+    parent = watch(dirname(target), (_event, name) => {
+      if (name !== null && name.toString() !== basename(target)) return
+      fire()
+      arm()
+    })
+  } catch {
+    // 父目录也还不存在（用户组件目录第一次使用时才会建）：监视退化成只在目录已在时生效。
+    parent = null
+  }
   return () => {
     clearTimeout(timer)
-    parent.close()
+    parent?.close()
     tree?.close()
   }
 }

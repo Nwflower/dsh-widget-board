@@ -1,11 +1,13 @@
 /*
  * 看板页面的样式。
  *
- * 颜色与排版读宿主的 --dsw-* 令牌；列数、列宽与每张卡片的位置由 model 算好后以内联样式给出，
- * 样式表不再抄一份数字（D10、D15）。
+ * 颜色与排版读宿主的 --dsw-* 令牌；列宽、卡片的位置与尺寸由 model 算好后以内联样式给出，样式表
+ * 不再抄一份数字（D10、D16）。卡片移动的时长与曲线来自外壳写在根节点上的 --w-motion-*；题头、
+ * 拖动把手与尺寸读数只画外壳自己的节点，不碰组件画面。
  */
 
 .dsh-widget-board {
+  --dsh-widget-board-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   position: relative;
   display: flex;
   height: 100%;
@@ -13,23 +15,168 @@
   flex-direction: column;
   padding: 20px;
   overflow: auto;
-  background: var(--dsw-alias-bg-base);
+  background-color: var(--dsw-alias-bg-base);
+  /* 一层很淡的点阵，像参考里的图纸；卡片与题头各自盖住自己那一块。 */
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 1px, transparent 1.2px);
+  background-size: 18px 18px;
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family);
+  container-type: inline-size;
 }
 
-/* 信息流：卡片都是这一层的子节点，位置用绝对定位给出，宽度变化不重建 iframe（D15）。 */
+/* 题头：左侧是两行标题与说明，右侧是被云挡住的字模图纸。 */
+.dsh-widget-board__masthead {
+  position: relative;
+  flex: none;
+  margin-bottom: 18px;
+  padding: 22px 26px 24px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 80%, transparent);
+  border-radius: 18px;
+  background-color: var(--dsw-alias-bg-layer-1);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  isolation: isolate;
+}
+
+.dsh-widget-board__masthead-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 58%;
+}
+
+.dsh-widget-board__eyebrow {
+  margin: 0 0 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+.dsh-widget-board__title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: clamp(30px, 4.6cqw, 54px);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.03;
+}
+
+.dsh-widget-board__accent { color: var(--dsw-alias-brand-primary); }
+
+.dsh-widget-board__tagline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.dsh-widget-board__dot {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary);
+}
+
+/* 字模图纸：一排排蓝色字符，左侧淡出；云用题头自己的底色盖住中间一片。 */
+.dsh-widget-board__art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 56%;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22%);
+  mask-image: linear-gradient(to right, transparent 0, #000 22%);
+}
+
+.dsh-widget-board__art-field {
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  margin: 0;
+  color: color-mix(in srgb, var(--dsw-alias-brand-primary) 62%, transparent);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  line-height: 12px;
+  white-space: pre;
+  user-select: none;
+  transform: translateY(-50%);
+}
+
+.dsh-widget-board__art-cloud {
+  position: absolute;
+  top: 16%;
+  left: 6%;
+  width: 72%;
+  height: 68%;
+  fill: var(--dsw-alias-bg-layer-1);
+}
+
+@container (max-width: 820px) {
+  .dsh-widget-board__masthead { padding: 18px 20px 20px; }
+  .dsh-widget-board__masthead-copy { max-width: 66%; }
+  .dsh-widget-board__art { width: 46%; opacity: 0.7; }
+}
+
+@container (max-width: 620px) {
+  .dsh-widget-board__masthead-copy { max-width: 100%; }
+  .dsh-widget-board__art { display: none; }
+}
+
+/* 卡片都是这一层的子节点，位置用绝对定位给出；宽度变化只改坐标，不重建 iframe（D16）。 */
 .dsh-widget-board__flow {
   position: relative;
   flex: none;
   width: 100%;
 }
 
-/* 卡片的投影是外壳的事：组件只管画画面，圆角由 cards 内联的令牌给（D10、D15）。
+/* 卡片的投影是外壳的事：组件只管画画面，圆角由 cards 内联的令牌给（D10、D16）。
  * 不描边：卡片的边由它自己的画面收口。投影用黑色低透明度，深色配色下明亮的前景当投影会变成光晕。 */
 .dsh-widget-board__cell {
   position: absolute;
-  box-shadow: 0 8px 32px -4px rgb(0 0 0 / 24%);
+  box-shadow: 0 5px 22px -8px rgb(0 0 0 / 18%);
+  transition:
+    left var(--w-motion-base) var(--w-motion-ease-standard),
+    top var(--w-motion-base) var(--w-motion-ease-standard),
+    width var(--w-motion-base) var(--w-motion-ease-standard),
+    height var(--w-motion-base) var(--w-motion-ease-standard),
+    box-shadow var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__cell:hover {
+  box-shadow: 0 10px 34px -10px rgb(0 0 0 / 24%);
+}
+
+/* 被拖动的那一张跟手，不补间；其他卡片按新位置滑过去。 */
+.dsh-widget-board__cell[data-gesture] {
+  z-index: 3;
+  box-shadow: 0 18px 48px -12px rgb(0 0 0 / 30%);
+  transition: none;
+}
+
+/* 松手后的落点：一个虚线虚影，卡片自己浮在指针下面。 */
+.dsh-widget-board__ghost {
+  position: absolute;
+  z-index: 0;
+  box-sizing: border-box;
+  border: 1.5px dashed color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
+  border-radius: var(--w-radius-card);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, transparent);
+  pointer-events: none;
+  transition:
+    left var(--w-motion-fast) var(--w-motion-ease-standard),
+    top var(--w-motion-fast) var(--w-motion-ease-standard),
+    width var(--w-motion-fast) var(--w-motion-ease-standard),
+    height var(--w-motion-fast) var(--w-motion-ease-standard);
 }
 
 .dsh-widget-board__frame {
@@ -40,10 +187,172 @@
   background: transparent;
 }
 
+/* 原生组件画的卡片：它自己画满这一块，外壳只给盒子与裁剪。 */
+.dsh-widget-board__native {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  border-radius: inherit;
+  clip-path: inset(0 round calc(var(--w-radius-card) + 2px));
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+/* 拖动时指针归外壳：iframe 不接收悬停与按下，否则拖动到卡片上方会断掉。 */
+.dsh-widget-board[data-dragging="true"] .dsh-widget-board__frame {
+  pointer-events: none;
+}
+
+/* 顶部的拖动把手：悬停或拖动时出现，压在组件的画面上。 */
+.dsh-widget-board__grip {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  z-index: 2;
+  width: 40px;
+  height: 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);
+  cursor: grab;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity var(--w-motion-fast) var(--w-motion-ease-standard);
+  touch-action: none;
+}
+
+.dsh-widget-board__grip::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 14px;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 60%, transparent);
+}
+
+.dsh-widget-board__cell:hover .dsh-widget-board__grip,
+.dsh-widget-board__cell[data-gesture="move"] .dsh-widget-board__grip {
+  opacity: 1;
+}
+
+.dsh-widget-board__cell[data-gesture="move"] .dsh-widget-board__grip {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 26%, transparent);
+  cursor: grabbing;
+}
+
+.dsh-widget-board__cell[data-gesture="move"] .dsh-widget-board__grip::after {
+  background: var(--dsw-alias-brand-primary);
+}
+
+/* 右下角的缩放手柄：蓝色角括号加一个圆点，拖动时一直露着。 */
+.dsh-widget-board__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  cursor: nwse-resize;
+  /* 静置时留一个很淡的角标，悬停或拖动时完整露出来。 */
+  opacity: 0.3;
+  transition: opacity var(--w-motion-fast) var(--w-motion-ease-standard);
+  touch-action: none;
+}
+
+.dsh-widget-board__resize::before {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 11px;
+  height: 11px;
+  border-right: 2px solid var(--dsw-alias-brand-primary);
+  border-bottom: 2px solid var(--dsw-alias-brand-primary);
+  border-bottom-right-radius: 2px;
+}
+
+.dsh-widget-board__resize::after {
+  content: "";
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
+}
+
+.dsh-widget-board__cell:hover .dsh-widget-board__resize,
+.dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__resize {
+  opacity: 1;
+}
+
+/* 触屏没有悬停：两个把手一直露着，仍然只占很小一块。 */
+@media (hover: none) {
+  .dsh-widget-board__grip,
+  .dsh-widget-board__resize { opacity: 0.85; }
+}
+
+/* 尺寸读数：只在外壳拿着指针时出现，压在卡片左下角。 */
+.dsh-widget-board__measure {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  min-width: 118px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 9px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 90%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 96%, transparent);
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 32%);
+  pointer-events: none;
+}
+
+.dsh-widget-board__measure-size {
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__measure-size i {
+  color: var(--dsw-alias-label-tertiary);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.dsh-widget-board__measure-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.dsh-widget-board__measure-hint .dsh-widget-board__dot {
+  width: 5px;
+  height: 5px;
+}
+
 .dsh-widget-board__notice {
   margin: auto;
   padding: 24px;
   color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
   font-size: var(--dsw-font-xs-13-font-size);
   line-height: var(--dsw-font-xs-13-line-height);
   text-align: center;
@@ -62,4 +371,203 @@
   color: var(--dsw-alias-state-error-primary);
   font-size: var(--dsw-font-xs-13-font-size);
   line-height: var(--dsw-font-xs-13-line-height);
+}
+
+/* 添加组件：题头右侧的一个按钮，打开组件库面板。 */
+.dsh-widget-board__masthead-actions {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 3;
+}
+
+.dsh-widget-board__add {
+  padding: 7px 14px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 42%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+  color: var(--dsw-alias-brand-primary);
+  cursor: pointer;
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  text-transform: uppercase;
+  transition: background var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__add:hover {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 22%, transparent);
+}
+
+/* 组件库面板：题头下面的一块，按来源分组。 */
+.dsh-widget-board__library {
+  flex: none;
+  margin-bottom: 16px;
+  padding: 16px 18px 18px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 80%, transparent);
+  border-radius: 16px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.dsh-widget-board__library-title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dsh-widget-board__library-close {
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dsh-widget-board__library-group { margin-top: 14px; }
+
+.dsh-widget-board__library-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dsh-widget-board__library-provider {
+  margin-left: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.dsh-widget-board__library-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dsh-widget-board__library-add {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__library-add:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
+}
+
+.dsh-widget-board__library-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.dsh-widget-board__library-name { font-size: 13px; font-weight: 600; }
+
+.dsh-widget-board__library-desc,
+.dsh-widget-board__library-error {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dsh-widget-board__library-error { color: var(--dsw-alias-state-error-primary); }
+
+/* 组件不可用的卡片：保留盒子与位置，写明是哪个组件与为什么。 */
+.dsh-widget-board__cell--missing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px dashed color-mix(in srgb, var(--dsw-alias-state-error-primary) 42%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 6%, var(--dsw-alias-bg-base));
+  overflow: auto;
+}
+
+.dsh-widget-board__missing-title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dsh-widget-board__missing-name,
+.dsh-widget-board__missing-reason {
+  margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.dsh-widget-board__missing-reason { color: var(--dsw-alias-state-error-primary); }
+
+.dsh-widget-board__missing-remove {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* 移除卡片的小按钮：悬停卡片时露在右上角。 */
+.dsh-widget-board__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 90%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 92%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 16px;
+  opacity: 0;
+  padding: 0;
+  transition: opacity var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__cell:hover .dsh-widget-board__remove,
+.dsh-widget-board__remove:focus-visible {
+  opacity: 1;
 }

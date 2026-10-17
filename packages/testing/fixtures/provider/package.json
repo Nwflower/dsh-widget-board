@@ -1,0 +1,25 @@
+{
+  "name": "dsh-widget-board-test-provider",
+  "version": "0.0.0",
+  "private": true,
+  "description": "冒烟用的提供方：注册一个原生组件、一个数据源与一个动作，证明 widgetBoard 服务面可用。",
+  "type": "module",
+  "main": "host.js",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.1-rc.1"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": ["widgetBoard"],
+      "platform": "web"
+    }
+  }
+}

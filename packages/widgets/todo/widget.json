@@ -1,0 +1,32 @@
+{
+  "id": "todo",
+  "title": {
+    "zh": "待办",
+    "en": "To-do"
+  },
+  "description": {
+    "zh": "一张卡片上的待办清单：勾掉做完的，写一条回车就加上。",
+    "en": "A to-do list on a card: tick what is done, press Enter to add an item."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "text": {
+    "title": {
+      "zh": "待办",
+      "en": "To-do"
+    },
+    "empty": {
+      "zh": "还没有待办",
+      "en": "Nothing to do yet"
+    },
+    "add": {
+      "zh": "加一条，回车确认",
+      "en": "Add an item, press Enter"
+    },
+    "remove": {
+      "zh": "删掉这一条",
+      "en": "Remove this item"
+    }
+  }
+}

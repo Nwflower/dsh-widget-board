@@ -23,6 +23,7 @@ const SHEET = 'style[data-plugin="dsh-widget-board"]'
 /** 两张内置卡片的 iframe 标题，来自 manifest 的中文标题。 */
 const WEATHER_FRAME = 'iframe.dsh-widget-board__frame[title="天气"]'
 const POMODORO_FRAME = 'iframe.dsh-widget-board__frame[title="番茄钟"]'
+const TODO_FRAME = 'iframe.dsh-widget-board__frame[title="待办"]'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -153,7 +154,7 @@ async function resetCards(page) {
     const snapshot = await (await fetch('api/widget-board/board')).json()
     return snapshot.board.instances.map((instance) => ({ id: instance.id, widget: instance.widget }))
   })
-  const patches = { pomodoro: { minutes: 25, endsAt: 0 }, weather: { day: 0 } }
+  const patches = { pomodoro: { minutes: 25, endsAt: 0 }, weather: { day: 0 }, todo: { items: [] } }
   for (const instance of instances) {
     const patch = patches[instance.widget]
     if (patch === undefined) continue
@@ -193,11 +194,10 @@ async function mainPass(page, problems) {
     const rect = node.getBoundingClientRect()
     return { id: node.getAttribute('data-instance'), width: Math.round(rect.width), height: Math.round(rect.height), left: Math.round(rect.left), top: Math.round(rect.top) }
   }))
-  check('两张卡片都在看板上', boxes.length === 2, boxes.map((box) => `${box.width}×${box.height}`).join(' / '))
-  const [first, second] = boxes
-  const overlap = first !== undefined && second !== undefined &&
-    first.left < second.left + second.width && second.left < first.left + first.width &&
-    first.top < second.top + second.height && second.top < first.top + first.height
+  check('三张卡片都在看板上', boxes.length === 3, boxes.map((box) => `${box.width}×${box.height}`).join(' / '))
+  const overlap = boxes.some((one, index) => boxes.some((other, otherIndex) => otherIndex > index &&
+    one.left < other.left + other.width && other.left < one.left + one.width &&
+    one.top < other.top + other.height && other.top < one.top + one.height))
   check('卡片不互相压住', !overlap)
 
   const weather = await frameOf(page, WEATHER_FRAME)
@@ -287,6 +287,43 @@ async function mainPass(page, problems) {
   await resumed.locator('#pomo-start').click()
   await sleep(400)
   check('结束之后回到未运行', (await resumed.evaluate(() => document.querySelector('#pomo-start')?.getAttribute('aria-pressed'))) === 'false')
+
+  // 待办卡片：回车加一条、勾掉它（状态存在宿主上，D5）。
+  const todo = await frameOf(page, TODO_FRAME)
+  check('待办卡画出来了', await todo.evaluate(() => document.querySelector('.todo') !== null))
+  await todo.locator('#todo-input').fill('写第二张卡片')
+  await todo.locator('#todo-input').press('Enter')
+  await sleep(400)
+  const added = await todo.evaluate(() => ({
+    rows: document.querySelectorAll('.todo-row').length,
+    count: document.querySelector('#todo-count')?.textContent,
+    text: document.querySelector('.todo-text')?.textContent,
+  }))
+  check('回车加一条', added.rows === 1 && added.text === '写第二张卡片' && added.count === '0 / 1', `${added.rows} 条 / ${added.count}`)
+  await todo.locator('.todo-row .todo-check').first().click()
+  await sleep(300)
+  const ticked = await todo.evaluate(() => ({
+    done: document.querySelectorAll('.todo-row[data-done="true"]').length,
+    count: document.querySelector('#todo-count')?.textContent,
+    progress: document.querySelector('#todo-progress')?.style.transform,
+  }))
+  check('勾掉一条', ticked.done === 1 && ticked.count === '1 / 1' && ticked.progress === 'scaleX(1)', `${ticked.count} / ${ticked.progress}`)
+
+  // 整页重载之后清单与勾选都还在：条目走的是宿主上的状态（D5）。
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
+  await openBoard(page)
+  const todoAgain = await frameOf(page, TODO_FRAME)
+  await sleep(600)
+  const kept = await todoAgain.evaluate(() => ({
+    rows: document.querySelectorAll('.todo-row').length,
+    done: document.querySelectorAll('.todo-row[data-done="true"]').length,
+    text: document.querySelector('.todo-text')?.textContent,
+  }))
+  check('重载之后待办还在', kept.rows === 1 && kept.done === 1 && kept.text === '写第二张卡片', `${kept.rows} 条 / ${kept.done} 条已完成`)
+  await todoAgain.locator('.todo-row .todo-remove').first().click()
+  await sleep(300)
+  check('删掉这一条', (await todoAgain.evaluate(() => document.querySelectorAll('.todo-row').length)) === 0)
 
   const live = await page.evaluate(async () => {
     const response = await fetch('api/widget-board/events', { headers: { accept: 'text/event-stream' } })

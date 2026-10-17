@@ -68,9 +68,9 @@
   align-items: center;
   justify-content: center;
   color: var(--pomo-ink);
-  font-size: 54px;
+  font-size: clamp(54px, 20vmin, 112px);
   font-weight: 500;
-  line-height: 62px;
+  line-height: 1.15;
 }
 .pomo-time .t-flip { margin-inline: 1px; }
 .pomo-time .pomo-colon { margin-inline: 2px; color: var(--pomo-ink-muted); }
@@ -258,6 +258,30 @@
   .pomo-presets { display: none; }
   .pomo-time { font-size: 24px; line-height: 28px; }
   .pomo-start { height: 20px; font-size: 11px; }
+}
+
+/* 宽卡片：读数与控制收进居中的一列，按钮不再拉满整张卡；高度另有收缩规则。 */
+@media (min-width: 600px) {
+  .pomo-presets,
+  .pomo-start {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+  }
+}
+
+/* 大卡片：数字与控件跟着盒子放大。 */
+@media (min-width: 600px) and (min-height: 340px) {
+  .pomo {
+    --pomo-slider-h: 44px;
+    --pomo-tick-h: 22px;
+    --pomo-thumb-h: 40px;
+  }
+  .pomo-time { font-size: clamp(54px, 20vmin, 112px); line-height: 1.15; }
+  .pomo-title { font-size: 18px; line-height: 24px; }
+  .pomo-cap { font-size: 13px; line-height: 18px; }
+  .pomo-preset { height: 36px; font-size: 13px; }
+  .pomo-start { height: 42px; font-size: 14px; }
 }
 
 /* 减弱动效：刻度、滑块、快捷时长、按钮与文字切换一律不走过渡，数字不弹入（D10）。 */

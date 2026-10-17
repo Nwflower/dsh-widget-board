@@ -14,9 +14,10 @@ const SHIELD = '[data-dsh-widget-board-drag-shield]'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** 读一次看板快照。 */
+/** 读一次工作区快照，取出当前选中的那块看板（D21）。 */
 async function snapshot(page) {
-  return await page.evaluate(async () => (await fetch('api/widget-board/board')).json())
+  const workspace = await page.evaluate(async () => (await fetch('api/widget-board/boards')).json())
+  return { ...workspace, board: workspace.boards.find((board) => board.id === workspace.active) ?? workspace.boards[0] }
 }
 
 /**
@@ -121,8 +122,9 @@ async function dockPass(page, check) {
   const revision = after.board.layoutRevision
   await page.locator(`${ACTION}[data-dsh-widget-board-dock-action="tidy"]`).click()
   await page.waitForFunction(async (previous) => {
-    const next = await (await fetch('api/widget-board/board')).json()
-    return next.board.layoutRevision > previous
+    const workspace = await (await fetch('api/widget-board/boards')).json()
+    const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
+    return board.layoutRevision > previous
   }, revision, { timeout: 10000 })
   const tidied = await snapshot(page)
   check('整理提交了整块布局', tidied.board.layoutRevision > revision)

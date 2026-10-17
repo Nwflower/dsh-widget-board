@@ -23,6 +23,7 @@ const { groupPass } = require('./group.cjs')
 const { markdownPass } = require('./markdown.cjs')
 const { noticePass } = require('./notice.cjs')
 const { openBoard } = require('./panel.cjs')
+const { tabsPass } = require('./tabs.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -251,8 +252,9 @@ async function mainPass(page, problems) {
 
   // 卡片重挂、整页重载之后计时接着跑：会话存在宿主上，不随页面丢失（D5）。
   const stored = await page.evaluate(async (id) => {
-    const snapshot = await (await fetch('api/widget-board/board')).json()
-    return snapshot.board.instances.find((instance) => instance.id === id)?.state ?? null
+    const workspace = await (await fetch('api/widget-board/boards')).json()
+    const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
+    return board.instances.find((instance) => instance.id === id)?.state ?? null
   }, pomodoroId)
   check('宿主存下了结束时刻', typeof stored?.endsAt === 'number' && stored.endsAt > Date.now(), JSON.stringify(stored))
 
@@ -453,8 +455,9 @@ async function templatePass(page) {
  */
 async function layoutOf(page, id) {
   return page.evaluate(async (id) => {
-    const snapshot = await (await fetch('api/widget-board/board')).json()
-    return snapshot.board.instances.find((instance) => instance.id === id)?.layout
+    const workspace = await (await fetch('api/widget-board/boards')).json()
+    const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
+    return board.instances.find((instance) => instance.id === id)?.layout
   }, id)
 }
 
@@ -652,6 +655,7 @@ async function reducedPass(page) {
 
 start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
   let opened
+  let reduced
   try {
     opened = await openPage(host.url)
     await mainPass(opened.page, opened.problems)
@@ -665,16 +669,15 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await layoutPass(opened.page)
     await narrowPass(opened.page)
     await reloadPass(opened.page)
-  } finally {
-    if (opened !== undefined) await opened.close()
-  }
-  let reduced
-  try {
+    // 标签条放在最后：它新建一块看板再收掉，中途失败也不会影响前面的场景。
+    await tabsPass(opened.page, { check })
     reduced = await openPage(host.url, { reducedMotion: 'reduce' })
     await reducedPass(reduced.page)
     const errors = reduced.problems.filter((problem) => problem.startsWith('error:') || problem.startsWith('pageerror:'))
     check('减弱动效下控制台没有错误', errors.length === 0, errors.join(' / '))
   } finally {
+    // 任何一步抛出来都要把这一轮起的页面与宿主收干净：留着的宿主会占住端口与临时 profile。
+    if (opened !== undefined) await opened.close()
     if (reduced !== undefined) await reduced.close()
     host.stop()
   }

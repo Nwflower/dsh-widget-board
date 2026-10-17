@@ -8,7 +8,8 @@
 
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
 const BOARD_VIEW = '[data-dsh-widget-board-view]'
-const CARD_FRAME = 'iframe.dsh-widget-board__frame'
+// 工作区里可能挂着几块看板，只有选中的那块看得见（D21）：等它里面的第一张卡，而不是全页第一张。
+const CARD_FRAME = '.dsh-widget-board__flow[data-active="true"] iframe.dsh-widget-board__frame'
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**

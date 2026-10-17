@@ -149,7 +149,10 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
     const page = opened.page
     await page.waitForSelector('svg.dsh-widget-board__icon', { timeout: 120000 })
     await openBoard(page)
-    const snapshot = await page.evaluate(async () => (await fetch('api/widget-board/board')).json())
+    const snapshot = await page.evaluate(async () => {
+      const workspace = await (await fetch('api/widget-board/boards')).json()
+      return { ...workspace, board: workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0] }
+    })
     const metrics = await boardMetrics(page)
     const instances = snapshot.board.instances
     const frames = new Map()

@@ -15,6 +15,12 @@ function rootFontSize(): number {
 }
 
 /**
+ * 上一次读到的快照。切到别的面板再切回看板时，页面会重挂，但卡片先用上一份内容画出来，不必对着
+ * 「正在读看板…」等一次往返；随后仍然向宿主取最新的一份。
+ */
+let cachedSnapshot: BoardSnapshot | null = null
+
+/**
  * 中栏的看板页：一列列往下排的信息流（D15）。
  *
  * 列数按这块容器的宽度判定，整页只有一个 ResizeObserver；离开视口的卡片由整页唯一的一个
@@ -22,7 +28,7 @@ function rootFontSize(): number {
  * 来自宿主的一次快照，之后随宿主的变更通知重取（D5、D7）。
  */
 export function BoardPage(): ReactNode {
-  const [snapshot, setSnapshot] = useState<BoardSnapshot | null>(null)
+  const [snapshot, setSnapshot] = useState<BoardSnapshot | null>(cachedSnapshot)
   const [failure, setFailure] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<FlowMetrics | null>(null)
   const [heights, setHeights] = useState<Record<string, number>>({})
@@ -47,6 +53,7 @@ export function BoardPage(): ReactNode {
     let live = true
     fetchSnapshot().then((next) => {
       if (!live) return
+      cachedSnapshot = next
       setSnapshot(next)
       setFailure(null)
     }, (error: Error) => { if (live) setFailure(error.message) })

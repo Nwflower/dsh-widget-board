@@ -71,6 +71,20 @@ async function output(options, extension) {
   return file.text
 }
 
+/**
+ * 先写临时文件再改名：宿主与在线的页面随时可能在读 `lib/`，读到写了一半的产物就等于把一份坏
+ * 资产发了出去。
+ *
+ * @param file - 目标路径。
+ * @param text - 文件内容。
+ */
+function writeAtomic(file, text) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const temporary = `${file}.tmp`
+  fs.writeFileSync(temporary, text)
+  fs.renameSync(temporary, file)
+}
+
 /** 浏览器半边。 */
 async function buildClientHalf() {
   const code = await output({
@@ -88,7 +102,7 @@ async function buildClientHalf() {
     banner: { js: FACTORY_OPEN },
     footer: { js: FACTORY_CLOSE },
   }, '.js')
-  fs.writeFileSync(path.join(LIB, 'client.js'), code)
+  writeAtomic(path.join(LIB, 'client.js'), code)
   return Buffer.byteLength(code)
 }
 
@@ -103,8 +117,7 @@ async function buildHostHalf() {
     target: 'node22',
     external: HOST_NODE_PACKAGES,
   }, '.js')
-  fs.mkdirSync(path.join(LIB, 'host'), { recursive: true })
-  fs.writeFileSync(path.join(LIB, 'host', 'index.js'), code)
+  writeAtomic(path.join(LIB, 'host', 'index.js'), code)
   return Buffer.byteLength(code)
 }
 
@@ -119,8 +132,7 @@ async function buildRuntime() {
     target: 'esnext',
     minify: true,
   }, '.js')
-  fs.mkdirSync(path.join(LIB, 'runtime'), { recursive: true })
-  fs.writeFileSync(path.join(LIB, 'runtime', 'runtime.js'), code)
+  writeAtomic(path.join(LIB, 'runtime', 'runtime.js'), code)
   return Buffer.byteLength(code)
 }
 
@@ -147,10 +159,12 @@ function tokenCss(tokens) {
 
 /** 把组件套件与内置组件放进 lib/，并按令牌生成样式表。 */
 function writeAssets() {
-  fs.mkdirSync(path.join(LIB, 'runtime'), { recursive: true })
-  fs.copyFileSync(path.join(RUNTIME, 'suite', 'suite.css'), path.join(LIB, 'runtime', 'suite.css'))
-  fs.writeFileSync(path.join(LIB, 'runtime', 'tokens.css'), tokenCss(TOKENS))
-  fs.cpSync(WIDGETS, path.join(LIB, 'widgets'), { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
+  writeAtomic(path.join(LIB, 'runtime', 'suite.css'), fs.readFileSync(path.join(RUNTIME, 'suite', 'suite.css'), 'utf8'))
+  writeAtomic(path.join(LIB, 'runtime', 'tokens.css'), tokenCss(TOKENS))
+  // 组件树先拷到旁边再改名：逐个文件出现的过程中，宿主读到的组件可能是半份。
+  const staging = path.join(LIB, '.widgets-staging')
+  fs.cpSync(WIDGETS, staging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
+  fs.renameSync(staging, path.join(LIB, 'widgets'))
 }
 
 typecheck('tsconfig.json')

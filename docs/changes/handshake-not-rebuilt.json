@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 3,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "卡片的握手不再随每次快照刷新重建：props、data、state 的更新走各自的消息。切回看板时先用上一份快照画出内容，再取最新的。",
+  "en": "A card's handshake is no longer rebuilt on every snapshot refresh — prop, data and state updates travel on their own messages. Returning to the board draws the last snapshot first, then refreshes it."
+}

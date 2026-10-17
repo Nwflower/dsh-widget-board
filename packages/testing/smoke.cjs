@@ -167,6 +167,8 @@ async function mainPass(page, problems) {
   check('卡片文档按哈希取到', weather.url().includes('/widget/'), weather.url().replace(/^.*\/api/, '/api').slice(0, 52))
   check('天气卡画出来了', await weather.evaluate(() => document.querySelector('.wx') !== null))
   check('五个预报日', (await weather.evaluate(() => document.querySelectorAll('.t-tab').length)) === 5)
+  // 卡片里的文案来自 manifest 的 text，只有握手接上才拿得到；拿不到时组件会退回键名。
+  check('天气卡的地点由数据填上', (await weather.evaluate(() => document.querySelector('#wx-place')?.textContent)) === '旧金山')
 
   const day = await weather.evaluate(() => document.querySelector('#wx-day')?.textContent ?? '')
   await weather.locator('#wx-tab-3').click()
@@ -188,6 +190,11 @@ async function mainPass(page, problems) {
   const pomodoro = await frameOf(page, POMODORO_FRAME)
   check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
   check('刻度铺满一滑动条', (await pomodoro.evaluate(() => document.querySelectorAll('.pomo-tick').length)) === 46)
+  const labels = await pomodoro.evaluate(() => ({
+    title: document.querySelector('#pomo-title')?.textContent,
+    caption: document.querySelector('#pomo-cap')?.textContent,
+  }))
+  check('番茄钟的文案接上了', labels.title === '专注时间' && labels.caption === '选一段专注时长', `${labels.title} / ${labels.caption}`)
   await pomodoro.evaluate(() => {
     const range = document.querySelector('#pomo-range')
     range.value = '40'
@@ -267,6 +274,12 @@ async function reloadPass(page) {
     check('改了组件文件后卡片按新哈希重挂', after !== '' && after !== before, after === '' ? '一直没换地址' : after.split('/widget/')[1]?.slice(0, 12))
     const frame = await frameOf(page, WEATHER_FRAME)
     check('重挂之后天气卡仍然画出来', await frame.evaluate(() => document.querySelector('.wx') !== null))
+    // 重挂会丢组件自己的界面状态（选中的是哪一天），但语言与数据必须重新接上。
+    const reloaded = await frame.evaluate(() => ({
+      place: document.querySelector('#wx-place')?.textContent,
+      day: document.querySelector('#wx-day')?.textContent ?? '',
+    }))
+    check('重挂之后文案也接上了', reloaded.place === '旧金山' && reloaded.day.startsWith('星期'), `${reloaded.place} / ${reloaded.day}`)
   } finally {
     await writeFile(target, original)
   }

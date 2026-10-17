@@ -20,12 +20,14 @@
 - 看板改成信息流布局：列数跟着容器宽度在一到四列之间连续变化，卡片高度由组件自己上报，位置按最矮列装箱。
 - 新增的内置组件自动出现在已有的看板上：加入卡片的面板做出来之前，这是看到新组件的唯一路径。
 - 卡片内部的控件不再跟随宿主的强调色：切换栏药丸、选中文字、主按钮与焦点框改用卡片画面自己的墨色。
+- 卡片的握手不再随每次快照刷新重建：props、data、state 的更新走各自的消息。切回看板时先用上一份快照画出内容，再取最新的。
 
 ### 问题修复
 
 - 看板快照读不出来：插件路由改到 `/api/widget-board`，浏览器半边改用文档相对地址。桌面外壳的页面来源是自定义协议，只有 `/api/*` 会被转给宿主。
 - 深色下卡片四角露出白色：iframe 的文档画布在圆角之外是白的，父页面现在按同一份圆角令牌裁剪卡片。
 - 热重载之后页面里指向旧哈希的帧不再变成 404：宿主留着一个组件出现过的若干版本，按哈希取文档。
+- 偶发加载不出内容：构建重写 `lib/` 的瞬间，宿主可能读到空的运行时并把没有运行时的文档发给卡片。构建改成先写临时文件再改名，宿主拒收空资产并沿用上一份；卡片六秒收不到任何消息就在卡片上说明没接上。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -39,10 +41,12 @@
 - The board is an information flow now: one to four columns follow the container width, each card's height comes from the widget itself, and cards pack into the shortest column.
 - New built-in widgets appear on an existing board by themselves until the add-card panel exists.
 - Controls inside a card no longer take the host's accent colour: the switcher pill, the selected label, the primary button and the focus rings use the card's own ink.
+- A card's handshake is no longer rebuilt on every snapshot refresh — prop, data and state updates travel on their own messages. Returning to the board draws the last snapshot first, then refreshes it.
 
 ### Bug Fixes
 
 - The board snapshot failed to load: the plugin's routes moved under `/api/widget-board` and the browser half now uses document-relative addresses. The desktop shell serves the page from a custom protocol and only forwards `/api/*` to the host.
 - Card corners showed white in dark mode: the iframe document canvas is white outside the rounded card, so the page now clips each card to the shared corner-radius token.
 - A frame still pointing at the previous hash no longer 404s after a reload: the host keeps the versions a widget has appeared as and serves documents by hash.
+- Intermittent empty cards: while a build rewrote `lib/` the host could read an empty runtime and serve documents without it. The build now writes each artifact to a temporary file and renames it, the host refuses empty assets and keeps the previous ones, and a card that hears nothing for six seconds says so on the card.
 

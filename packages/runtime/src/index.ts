@@ -10,7 +10,7 @@ import type {
   WidgetMessage,
   WidgetSize,
 } from '@dsh-widget-board/contracts'
-import { MESSAGE_LIMIT, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
+import { MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
 import { installMotionTemplates } from './motion'
 
 /** 组件的公共接口，写在编写指南里的那一份。 */
@@ -79,8 +79,11 @@ function send(message: WidgetMessage): void {
  */
 function applySize(next: WidgetSize): void {
   size = next
+  const box = boxClassesOf(next.w, next.h)
   root.dataset.size = next.family
   root.dataset.placement = next.placement
+  root.dataset.boxWidth = box.width
+  root.dataset.boxHeight = box.height
   root.style.setProperty('--w-cols', String(next.cols))
   root.style.setProperty('--w-w', `${String(Math.round(next.w))}px`)
   root.style.setProperty('--w-h', `${String(Math.round(next.h))}px`)

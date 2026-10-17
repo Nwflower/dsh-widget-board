@@ -11,6 +11,52 @@ export const WIDGET_FAMILIES = ['s', 'm', 'l', 'wide', 'xl', 'hero', 'expanded',
 /** 一个尺寸族。 */
 export type WidgetFamily = (typeof WIDGET_FAMILIES)[number]
 
+/** 看板给组件的宽度档：窄列、常规、宽卡。 */
+export const WIDGET_BOX_WIDTHS = ['narrow', 'regular', 'wide'] as const
+
+/** 一个宽度档。 */
+export type WidgetBoxWidth = (typeof WIDGET_BOX_WIDTHS)[number]
+
+/** 看板给组件的高度档：矮、常规、高。 */
+export const WIDGET_BOX_HEIGHTS = ['short', 'regular', 'tall'] as const
+
+/** 一个高度档。 */
+export type WidgetBoxHeight = (typeof WIDGET_BOX_HEIGHTS)[number]
+
+/** 组件拿到的盒子档位：两个方向各自判定，组件按组合取舍内容。 */
+export interface WidgetBoxClasses {
+  width: WidgetBoxWidth
+  height: WidgetBoxHeight
+}
+
+/** 宽度档的边界：小于它是窄列，大于等于宽卡边界是宽卡。 */
+export const BOX_WIDTH_NARROW = 320
+
+/** 宽卡的宽度边界。 */
+export const BOX_WIDTH_WIDE = 600
+
+/** 矮盒子的高度边界。 */
+export const BOX_HEIGHT_SHORT = 260
+
+/** 高盒子的高度边界。 */
+export const BOX_HEIGHT_TALL = 360
+
+/**
+ * 按像素盒给出宽度与高度档位（D16）。
+ *
+ * 两个方向分开判定：一张两列宽、14rem 高的卡片是 `wide/short`，组件可以只加宽、不加高。
+ *
+ * @param width - 内容盒的像素宽度。
+ * @param height - 内容盒的像素高度。
+ * @returns 两个方向的档位。
+ */
+export function boxClassesOf(width: number, height: number): WidgetBoxClasses {
+  return {
+    width: width < BOX_WIDTH_NARROW ? 'narrow' : width >= BOX_WIDTH_WIDE ? 'wide' : 'regular',
+    height: height < BOX_HEIGHT_SHORT ? 'short' : height >= BOX_HEIGHT_TALL ? 'tall' : 'regular',
+  }
+}
+
 /** 组件库的一个来源：包内、用户目录、插件注册（D17）。 */
 export const WIDGET_SOURCES = ['builtin', 'user', 'plugin'] as const
 

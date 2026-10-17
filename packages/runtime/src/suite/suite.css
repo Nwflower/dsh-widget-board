@@ -429,3 +429,34 @@ body { overflow: hidden; }
   .t-data__kicker { margin-bottom: 3px; }
   .t-data__empty { padding: 10px; }
 }
+
+/*
+ * 尺寸档与布局原语（D16）：运行时把内容盒归到宽度与高度两个档位，写在根节点的
+ * `data-box-width` 与 `data-box-height` 上。类可选；组件需要跨尺寸时先用档位属性，再用媒体查询。
+ */
+.w-frame {
+  width: 100%;
+  max-width: 40rem;
+  margin-inline: auto;
+}
+
+.w-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--w-space-sm, 8px);
+}
+
+.w-actions > * {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.w-scroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+:root[data-box-height="short"] .w-hide-short,
+:root[data-box-width="narrow"] .w-hide-narrow { display: none; }

@@ -1,0 +1,172 @@
+/*
+ * 组件套件的动效原语（D7、D10）。
+ *
+ * 时长、曲线、距离与缩放全部来自 tokens.json 生成的 --w-motion-* 令牌，组件不写自己的时长。
+ * 减弱动效与暂停都落在根节点上：`data-motion="reduced"` 时整套静置，`data-paused` 时动画停在
+ * 原地（D4 的离开视口、D10 的减弱动效）。
+ */
+
+/* 视口就是卡片的内容盒：组件的根节点铺满 iframe（D4）。 */
+html, body { height: 100%; margin: 0; }
+body { overflow: hidden; }
+
+/* 数字滚动：逐位换成新值，后两位错开出现，没变的位不动。 */
+@keyframes w-digit-in {
+  0% {
+    transform: translate(
+      calc(var(--w-motion-digit-distance) * var(--w-motion-digit-dir-x)),
+      calc(var(--w-motion-digit-distance) * var(--w-motion-digit-dir-y))
+    );
+    opacity: 0;
+    filter: blur(var(--w-motion-digit-blur));
+  }
+  100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+}
+.t-digit-group { display: inline-flex; align-items: baseline; }
+.t-digit { display: inline-block; }
+.t-digit-group.is-animating .t-digit { animation: w-digit-in var(--w-motion-digit) var(--w-motion-ease-pop) both; }
+.t-digit-group.is-animating .t-digit[data-stagger="1"] { animation-delay: var(--w-motion-digit-stagger); }
+.t-digit-group.is-animating .t-digit[data-stagger="2"] { animation-delay: calc(var(--w-motion-digit-stagger) * 2); }
+.t-digit-group.is-animating .t-digit[data-same] { animation: none; }
+
+/* 文字切换：旧值上移淡出，新值从下方淡入。 */
+.t-text-swap {
+  display: inline-block;
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition:
+    transform var(--w-motion-fast) var(--w-motion-ease-standard),
+    filter var(--w-motion-fast) var(--w-motion-ease-standard),
+    opacity var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+.t-text-swap.is-exit {
+  transform: translateY(calc(var(--w-motion-text-shift) * -1));
+  filter: blur(var(--w-motion-text-blur));
+  opacity: 0;
+}
+.t-text-swap.is-enter-start {
+  transform: translateY(var(--w-motion-text-shift));
+  filter: blur(var(--w-motion-text-blur));
+  opacity: 0;
+  transition: none;
+}
+
+/* 文字变形：只替换前后不同的那一段，容器宽度跟着过渡。 */
+.t-morph { white-space: nowrap; }
+.t-morph-swap {
+  display: inline-grid;
+  vertical-align: bottom;
+  justify-items: start;
+  transition: width var(--w-motion-morph-resize) var(--w-motion-ease-smooth);
+}
+.t-morph-swap > span {
+  grid-area: 1 / 1;
+  white-space: pre;
+  transition:
+    opacity var(--w-motion-morph) var(--w-motion-ease-smooth),
+    filter var(--w-motion-morph) var(--w-motion-ease-smooth);
+}
+.t-morph-new { opacity: 0; filter: blur(var(--w-motion-text-blur)); }
+.t-morph-swap.is-morphing .t-morph-old { opacity: 0; filter: blur(var(--w-motion-text-blur)); }
+.t-morph-swap.is-morphing .t-morph-new { opacity: 1; filter: blur(0); }
+
+/* 图标切换：新图标从缩小、模糊的原点放大到位；哪一个是当前图标由 data-active 决定。 */
+.t-icon-swap { position: relative; display: inline-grid; }
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  position: relative;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  filter: blur(var(--w-motion-icon-blur));
+  transform: scale(var(--w-motion-icon-scale));
+  transition:
+    opacity var(--w-motion-base) var(--w-motion-ease-standard),
+    filter var(--w-motion-base) var(--w-motion-ease-standard),
+    transform var(--w-motion-base) var(--w-motion-ease-standard);
+}
+.t-icon-swap .t-icon[data-active] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+/* 分段切换：一条滑动的药丸跟着选中的那一格。三个颜色可以由组件在这条规则之外覆盖。 */
+.t-tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 15px;
+  background: var(--tabs-bar, color-mix(in srgb, var(--w-color-surface) 86%, transparent));
+}
+.t-tab {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--tabs-label, var(--w-color-muted));
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 1;
+  transition:
+    color var(--w-motion-base) var(--w-motion-ease-smooth),
+    transform var(--w-motion-press) var(--w-motion-ease-smooth);
+}
+.t-tab:active { transform: scale(var(--w-motion-press-scale)); transition: color var(--w-motion-base) var(--w-motion-ease-smooth), transform 0ms; }
+.t-tab[aria-selected="true"] { color: var(--tabs-label-active, var(--w-color-on-accent)); }
+@media (hover: hover) and (pointer: fine) { .t-tab:not([aria-selected="true"]):hover { color: var(--tabs-label-active, var(--w-color-on-accent)); } }
+.t-tab:focus-visible { outline: 2px solid var(--w-color-accent); outline-offset: -2px; }
+.t-tabs-pill {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  z-index: 0;
+  width: 0;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--tabs-pill, var(--w-color-accent));
+  transform: translateX(0);
+  transition:
+    transform var(--w-motion-base) var(--w-motion-ease-smooth),
+    width var(--w-motion-base) var(--w-motion-ease-smooth);
+  pointer-events: none;
+}
+
+/* 离开视口的卡片停在原地（D4）。 */
+:root[data-paused] .t-digit-group.is-animating .t-digit,
+:root[data-paused] .t-digit-group.is-animating .t-digit[data-stagger],
+:root[data-paused] .t-tabs-pill { animation-play-state: paused; }
+
+/* 减弱动效：切换只剩不透明度的直切，滚动与滑动一律不走（D10）。 */
+:root[data-motion="reduced"] .t-icon-swap .t-icon {
+  transition: opacity var(--w-motion-base) linear;
+  filter: none;
+  transform: none;
+}
+:root[data-motion="reduced"] .t-digit-group .t-digit { animation: none; }
+:root[data-motion="reduced"] .t-text-swap,
+:root[data-motion="reduced"] .t-morph-swap,
+:root[data-motion="reduced"] .t-morph-swap > span,
+:root[data-motion="reduced"] .t-tabs-pill,
+:root[data-motion="reduced"] .t-tab { transition: none; }
+:root[data-motion="reduced"] .t-tab:active { transform: none; }
+
+/* 触屏按下不选中标签，只按动作本身给的时长回弹。 */
+:where(button, [role="button"], [role="tab"], summary, .t-pressable) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}

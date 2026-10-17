@@ -146,11 +146,16 @@ async function start(options = {}) {
  * @param url - `start()` 交回的地址。
  * @param options.headless - 不开窗口（默认开）。
  * @param options.width/height - 视口。
+ * @param options.reducedMotion - `reduce` 时整页按减弱动效渲染。
  * @returns `{ page, problems, close }`；`problems` 收集控制台里的错误、警告与未捕获异常。
  */
 async function openPage(url, options = {}) {
   const browser = await launchBrowser({ headless: options.headless ?? true })
-  const context = await newContextOn(browser, { width: options.width ?? 1440, height: options.height ?? 900 })
+  const context = await newContextOn(browser, {
+    width: options.width ?? 1440,
+    height: options.height ?? 900,
+    ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
+  })
   const page = await context.newPage()
   const problems = []
   page.on('console', (message) => {

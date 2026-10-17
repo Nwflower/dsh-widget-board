@@ -28,6 +28,8 @@
 - **系统提示**：`ctx.systemPrompt.section({ name, order, text })` 返回释放函数；同名重复注册会抛出，所以要先释放旧的。出处：任务看板 `src/index.ts`。
 - **skill**：`ctx.skills.register(SkillRegistration)` 注册运行时 skill。出处：`dsh-skill/lib/types/index.d.ts`。
 - **路由**：`ctx.webServer.register(route)`（`WebRoute` 来自 `@deepseek-ai/dsh-host-webserver`）交给插件原始请求，宿主的 `/api` 栅栏不覆盖插件路由。插件自己调用 `ctx.get('connection')?.requestRejection(req)` 借用宿主的栅栏与认证；没有这项服务时只放行本机回环。出处：`D:\Build\dsh-claude-style\packages\engine\node\http.ts`。
+- **组件文档路由与 CSP 在真实宿主里跑通**（D3）：`kind: 'prefix'` 的一条路由交给插件整棵子树；`sandbox="allow-scripts"` 的 iframe 指向按哈希寻址的文档，文档里的运行时与组件脚本以内联 `<script nonce=…>` 运行，响应头的 CSP 是 `default-src 'none'`、`connect-src 'none'`；iframe 的导航请求带着会话 cookie，`requestRejection({ headers })` 放行。出处：本仓库的 `packages/host/src/routes.ts` 与 `packages/testing/smoke.cjs`（在 0.2.1-rc.1 上实证）。
+- **宿主令牌不跨 iframe**（D10）：组件文档是不透明来源，宿主的 `--dsw-*` 变量传不过去；令牌要由父页面解析成字面值，经桥的 `init` 消息递进去。解析读 `document.body` 的计算值（主题可能把变量写在根节点或 body 上，两者都能读到继承后的值）。出处：本仓库的 `packages/client/src/tokens.ts` 与 `packages/runtime/src/index.ts`。
 - **批准**：`ctx.approval.request(req)` 返回 `ApprovalOutcome`；请求必须带 `agent`（代表哪个会话询问）与 `toolName`，可带 `callId`、`reason`、`displayReason`。没有会话 agent 的界面动作不能用它。出处：`dsh-user-approval/lib/types/index.d.ts`、`types.d.ts`。
 - **程序执行**：`ctx.ptcRuntime` 运行受沙箱策略约束的程序，宿主函数以命名空间绑定给程序，参数与返回值必须是无损 JSON。本机宿主只带了 node 后端（`dsh-ptc-runtime-node`）。出处：`dsh-ptc-runtime/lib/types/types.d.ts`。
 - **子进程**：`ctx.subprocess` 管理进程组、有界的输出与升级终止。出处：`dsh-subprocess/package.json` 的描述。
@@ -47,7 +49,6 @@
 
 每一项写明它影响哪个决定，以及怎么核实。核实之后移到上一节，或者按结果改写对应的 ADR。
 
-- **组件文档路由能否在 iframe 里运行脚本**（D3）：页面上放一个 `sandbox="allow-scripts"` 的 iframe，指向插件路由提供的一份带 CSP 与 nonce 的 HTML，确认脚本运行、`connect-src 'none'` 生效，并且 iframe 的导航请求能通过 `requestRejection`（导航请求是否带上会话 cookie）。在浏览器与桌面外壳里各试一次。
 - **右侧栏标签页类型的注册入口**（D1）：类型声明里只看到外壳读取的 `tabTypes`，注册类型定义的方法要在 `dsh-client-ui-sidebar-right` 的 `client/service.d.ts` 与实现里找到，并在页面上打开一个自定义类型的标签页。
 - **gridstack 在宿主页面里的行为**（D2、D4）：在中栏页面里挂一个 gridstack，确认拖拽、缩放、`column(n, 'none')` 与 `load()` 正常，指针经过 iframe 时的处理有效。
 - **存储域对第三方插件可用**（D5）：本插件内联打包的 zod 交给宿主的存储域后能正确校验，同名域在插件重新挂载时能关闭再打开。

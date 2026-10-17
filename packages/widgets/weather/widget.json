@@ -1,0 +1,64 @@
+{
+  "id": "weather",
+  "title": {
+    "zh": "天气",
+    "en": "Weather"
+  },
+  "description": {
+    "zh": "iOS 风格的天气卡：切换预报日时，天空背景、图标、温度与天气文字一起过渡。",
+    "en": "An iOS-style weather card whose living sky, icon, temperature and condition transition together as you switch forecast days."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "data": {
+    "type": "object",
+    "properties": {
+      "place": {
+        "type": "object",
+        "required": ["zh", "en"],
+        "properties": {
+          "zh": { "type": "string" },
+          "en": { "type": "string" }
+        }
+      },
+      "days": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 7,
+        "items": {
+          "type": "object",
+          "required": ["name", "short", "icon", "sky", "condition", "temp", "high", "low"],
+          "properties": {
+            "name": {
+              "type": "object",
+              "required": ["zh", "en"],
+              "properties": { "zh": { "type": "string" }, "en": { "type": "string" } }
+            },
+            "short": {
+              "type": "object",
+              "required": ["zh", "en"],
+              "properties": { "zh": { "type": "string" }, "en": { "type": "string" } }
+            },
+            "icon": { "enum": ["sun", "cloud", "rain", "bolt"] },
+            "sky": { "enum": ["clear", "cloudy", "rain", "storm"] },
+            "condition": {
+              "type": "object",
+              "required": ["zh", "en"],
+              "properties": { "zh": { "type": "string" }, "en": { "type": "string" } }
+            },
+            "temp": { "type": "number" },
+            "high": { "type": "number" },
+            "low": { "type": "number" }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "forecast": {
+      "zh": "未来五天",
+      "en": "Five-day forecast"
+    }
+  }
+}

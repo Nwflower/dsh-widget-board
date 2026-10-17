@@ -1,8 +1,8 @@
 /*
  * 看板页面的样式。
  *
- * 颜色与排版读宿主的 --dsw-* 令牌，浅色与深色因此都跟随宿主；令牌改由 contracts/tokens.json
- * 出具一份、这里改写成它的别名，是 PLAN 步骤 3 之后的事（D10）。
+ * 颜色与排版读宿主的 --dsw-* 令牌；列数、行高与间距由 model 算好后以内联样式给出，样式表不再
+ * 抄一份数字（D4、D10）。
  */
 
 .dsh-widget-board {
@@ -10,32 +10,61 @@
   height: 100%;
   min-height: 0;
   flex-direction: column;
+  overflow: auto;
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family);
-  overflow: hidden;
 }
 
-.dsh-widget-board__empty {
-  display: flex;
+.dsh-widget-board__grid {
+  display: grid;
+  align-content: start;
+  padding: 20px;
+}
+
+.dsh-widget-board__cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dsh-widget-board__frame {
+  display: block;
+  width: 100%;
   height: 100%;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  border: 0;
+  border-radius: 27px;
+  background: transparent;
+}
+
+.dsh-widget-board__notice {
+  margin: auto;
   padding: 24px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--dsw-font-xs-13-font-size);
+  line-height: var(--dsw-font-xs-13-line-height);
   text-align: center;
 }
 
-.dsh-widget-board__title {
+.dsh-widget-board__failure {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 27px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__failure-title {
   margin: 0;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-state-error-primary);
   font-size: var(--dsw-font-base-16-font-size);
   line-height: var(--dsw-font-base-16-line-height);
 }
 
-.dsh-widget-board__hint {
-  max-width: 42ch;
+.dsh-widget-board__failure-reason {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
   font-size: var(--dsw-font-xs-13-font-size);

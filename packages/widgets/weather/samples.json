@@ -1,0 +1,20 @@
+{
+  "s": {
+    "lang": "zh-CN",
+    "motion": "reduced"
+  },
+  "l": {
+    "lang": "zh-CN",
+    "motion": "full",
+    "data": {
+      "place": { "zh": "北京", "en": "Beijing" },
+      "days": [
+        { "name": { "zh": "星期一", "en": "Monday" }, "short": { "zh": "周一", "en": "Mon" }, "icon": "sun", "sky": "clear", "condition": { "zh": "晴", "en": "Sunny" }, "temp": 21, "high": 24, "low": 12 },
+        { "name": { "zh": "星期二", "en": "Tuesday" }, "short": { "zh": "周二", "en": "Tue" }, "icon": "cloud", "sky": "cloudy", "condition": { "zh": "阴", "en": "Overcast" }, "temp": 18, "high": 20, "low": 11 },
+        { "name": { "zh": "星期三", "en": "Wednesday" }, "short": { "zh": "周三", "en": "Wed" }, "icon": "rain", "sky": "rain", "condition": { "zh": "中雨", "en": "Rain" }, "temp": 15, "high": 17, "low": 10 },
+        { "name": { "zh": "星期四", "en": "Thursday" }, "short": { "zh": "周四", "en": "Thu" }, "icon": "bolt", "sky": "storm", "condition": { "zh": "雷阵雨", "en": "Thunderstorms" }, "temp": 14, "high": 16, "low": 9 },
+        { "name": { "zh": "星期五", "en": "Friday" }, "short": { "zh": "周五", "en": "Fri" }, "icon": "sun", "sky": "clear", "condition": { "zh": "晴", "en": "Sunny" }, "temp": 20, "high": 23, "low": 13 }
+      ]
+    }
+  }
+}

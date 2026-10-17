@@ -13,9 +13,11 @@
     "jsx": "react-jsx",
     "types": [],
     "paths": {
+      "@dsh-widget-board/contracts": ["./packages/contracts/src/index.ts"],
       "@dsh-widget-board/contracts/*": ["./packages/contracts/src/*"],
+      "@dsh-widget-board/model": ["./packages/model/src/index.ts"],
       "@dsh-widget-board/model/*": ["./packages/model/src/*"]
     }
   },
-  "include": ["packages/client/src", "packages/contracts/src"]
+  "include": ["packages/client/src", "packages/contracts/src", "packages/model/src", "packages/runtime/src"]
 }

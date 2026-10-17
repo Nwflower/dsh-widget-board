@@ -12,7 +12,9 @@
     "skipLibCheck": true,
     "types": ["node"],
     "paths": {
+      "@dsh-widget-board/contracts": ["./packages/contracts/src/index.ts"],
       "@dsh-widget-board/contracts/*": ["./packages/contracts/src/*"],
+      "@dsh-widget-board/model": ["./packages/model/src/index.ts"],
       "@dsh-widget-board/model/*": ["./packages/model/src/*"]
     }
   },

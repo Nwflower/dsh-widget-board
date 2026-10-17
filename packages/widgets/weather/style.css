@@ -1,0 +1,256 @@
+/*
+ * 天气卡的样式。
+ *
+ * 天空是这张卡自己的画面：渐变、光斑、雨与闪电的颜色属于天气，不随主题走，压在上面的文字因此
+ * 固定用白色。主题令牌只管这张卡的边框、投影与底部那条预报切换栏（D10）。
+ *
+ * 动效原语（数字、文字、图标、切换栏）来自运行时套件；这里只有天气自己的排版与天空。
+ */
+
+.wx {
+  --wx-ink: #fff;
+  --wx-ink-muted: color-mix(in srgb, #fff 78%, transparent);
+  --wx-sun: #ffd75e;
+  --wx-icon: 48px;
+  --wx-radius: 27px;
+  /* 切换栏压在天空上：一层暗色玻璃，两种配色下都读得出来；药丸与选中文字走主题令牌。 */
+  --tabs-bar: color-mix(in srgb, #000 16%, transparent);
+  --tabs-label: var(--wx-ink-muted);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: var(--wx-radius);
+  background: var(--w-color-bg, #0b1016);
+  color: var(--wx-ink);
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
+  -webkit-font-smoothing: antialiased;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--w-color-border, #2a3138) 100%, transparent),
+    0 8px 32px -4px color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
+}
+
+/* 天空：四个天气各自一层，切换时交叉淡入。 */
+.wx-bg { position: absolute; inset: 0; z-index: -1; }
+.wx-sky {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity var(--w-motion-sky-fade) var(--w-motion-ease-standard);
+}
+.wx-bg[data-wx="clear"] .wx-sky[data-key="clear"],
+.wx-bg[data-wx="cloudy"] .wx-sky[data-key="cloudy"],
+.wx-bg[data-wx="rain"] .wx-sky[data-key="rain"],
+.wx-bg[data-wx="storm"] .wx-sky[data-key="storm"] { opacity: 1; }
+
+.wx-sky[data-key="clear"] { background: linear-gradient(180deg, #1f6fd1 0%, #2f7fdb 55%, #3b8ae0 100%); }
+.wx-sky[data-key="cloudy"] { background: linear-gradient(180deg, #4e6a85 0%, #7a91a8 100%); }
+.wx-sky[data-key="rain"] { background: linear-gradient(180deg, #3f5266 0%, #5f7388 100%); }
+.wx-sky[data-key="storm"] { background: linear-gradient(180deg, #323b47 0%, #56616e 100%); }
+
+.wx-blob {
+  position: absolute;
+  border-radius: 50%;
+  animation: wx-drift var(--w-motion-drift) var(--w-motion-ease-standard) infinite alternate;
+}
+.wx-blob--glow {
+  right: -110px;
+  bottom: -110px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(255, 200, 120, 0.34), rgba(255, 200, 120, 0) 65%);
+}
+.wx-blob--cool {
+  left: -130px;
+  top: 70px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(110, 190, 255, 0.32), rgba(110, 190, 255, 0) 68%);
+  animation-duration: calc(var(--w-motion-drift) * 1.3);
+  animation-direction: alternate-reverse;
+}
+.wx-blob--cloud1 {
+  left: -90px;
+  top: 110px;
+  width: 300px;
+  height: 170px;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 68%);
+}
+.wx-blob--cloud2 {
+  right: -90px;
+  bottom: 30px;
+  width: 240px;
+  height: 150px;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 68%);
+  animation-duration: calc(var(--w-motion-drift) * 1.25);
+  animation-direction: alternate-reverse;
+}
+.wx-blob--mist {
+  left: -60px;
+  bottom: -40px;
+  width: 320px;
+  height: 200px;
+  background: radial-gradient(ellipse, rgba(170, 200, 230, 0.22), rgba(170, 200, 230, 0) 68%);
+}
+.wx-blob--storm {
+  right: -100px;
+  top: 40px;
+  width: 300px;
+  height: 200px;
+  background: radial-gradient(ellipse, rgba(140, 160, 190, 0.2), rgba(140, 160, 190, 0) 68%);
+}
+@keyframes wx-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(var(--w-motion-drift-distance), calc(var(--w-motion-drift-distance) * -0.6)) scale(1.08); }
+}
+
+.wx-rain { position: absolute; inset: 0; }
+.wx-rain > span {
+  position: absolute;
+  top: -24px;
+  left: var(--x);
+  width: 1.5px;
+  height: var(--len, 16px);
+  border-radius: 1px;
+  background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42));
+  animation: wx-fall var(--w-motion-rain) linear infinite;
+  animation-delay: calc(var(--w-motion-rain) * var(--d) * -1);
+}
+@keyframes wx-fall {
+  from { transform: translate(0, 0) rotate(8deg); }
+  to { transform: translate(-50px, 380px) rotate(8deg); }
+}
+.wx-flash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse at 70% 0%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%);
+  animation: wx-flash var(--w-motion-flash) ease-out infinite;
+}
+@keyframes wx-flash {
+  0%, 86%, 100% { opacity: 0; }
+  88% { opacity: 0.4; }
+  89% { opacity: 0.08; }
+  91% { opacity: 0.3; }
+}
+
+/* 内容 */
+.wx-body { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 24px 24px 0; }
+.wx-place {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wx-day { font-size: 12px; line-height: 16px; color: var(--wx-ink-muted); }
+.wx-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+}
+.wx-temp {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 60px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 70px;
+}
+.wx-cond { margin-top: 4px; font-size: 13px; line-height: 20px; }
+.wx-hl {
+  color: var(--wx-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* 大图标 */
+.wx-big { flex: none; display: grid; width: 64px; height: 64px; place-items: center; }
+.wx-big svg { width: var(--wx-icon); height: var(--wx-icon); stroke-width: 2.1; }
+.wx-big .t-icon[data-key="sun"], .wx-big .t-icon[data-key="bolt"] { color: var(--wx-sun); }
+.wx-big .t-icon[data-key="cloud"], .wx-big .t-icon[data-key="rain"] { color: var(--wx-ink); }
+.wx-idle { display: grid; place-items: center; }
+.wx-idle--spin { animation: wx-spin var(--w-motion-spin) linear infinite; }
+.wx-idle--float { animation: wx-float var(--w-motion-float) var(--w-motion-ease-standard) infinite alternate; }
+.wx-idle--flicker { animation: wx-flicker calc(var(--w-motion-float) * 1.5) var(--w-motion-ease-standard) infinite; }
+@keyframes wx-spin { to { transform: rotate(360deg); } }
+@keyframes wx-float {
+  from { transform: translateY(calc(var(--w-motion-float-distance) * -1)); }
+  to { transform: translateY(var(--w-motion-float-distance)); }
+}
+@keyframes wx-flicker {
+  0%, 70%, 100% { opacity: 1; transform: scale(1); }
+  74% { opacity: 0.55; transform: scale(0.97); }
+  78% { opacity: 1; transform: scale(1.02); }
+}
+.wx-drops {
+  position: absolute;
+  left: 50%;
+  top: 46px;
+  display: flex;
+  justify-content: space-between;
+  width: 24px;
+  margin-left: -12px;
+}
+.wx-drops > span {
+  width: 2.5px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--wx-ink);
+  opacity: 0;
+  animation: wx-drop var(--w-motion-drop) ease-in infinite;
+}
+.wx-drops > span:nth-child(2) { animation-delay: calc(var(--w-motion-drop) * 0.35); }
+.wx-drops > span:nth-child(3) { animation-delay: calc(var(--w-motion-drop) * 0.7); }
+@keyframes wx-drop {
+  0% { transform: translateY(-2px); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+
+/* 切换栏：套件给滑动药丸与文字过渡，这里只定它在这张卡里的位置。 */
+.wx-tabs { margin: 16px 12px 12px; }
+
+/* 小尺寸：压缩字号与间距，让整张卡落在两行网格里（D4 的 s 族）。 */
+:root[data-size="s"] .wx { --wx-icon: 36px; }
+:root[data-size="s"] .wx-body { padding: 14px 14px 0; }
+:root[data-size="s"] .wx-place { font-size: 13px; line-height: 18px; }
+:root[data-size="s"] .wx-day { font-size: 11px; line-height: 14px; }
+:root[data-size="s"] .wx-hero { margin-top: 2px; gap: 8px; }
+:root[data-size="s"] .wx-temp { font-size: 38px; line-height: 44px; }
+:root[data-size="s"] .wx-big { width: 44px; height: 44px; }
+:root[data-size="s"] .wx-drops { top: 34px; }
+:root[data-size="s"] .wx-cond { margin-top: 0; font-size: 12px; line-height: 16px; }
+:root[data-size="s"] .wx-hl { font-size: 11px; line-height: 14px; }
+:root[data-size="s"] .wx-tabs { margin: 8px 8px 8px; padding: 2px; gap: 2px; }
+:root[data-size="s"] .t-tab { height: 34px; font-size: 10px; line-height: 12px; gap: 0; }
+:root[data-size="s"] .t-tab svg { width: 12px; height: 12px; }
+:root[data-size="s"] .t-tabs-pill { top: 2px; height: 34px; }
+
+/* 减弱动效：天空静置，雨与闪电不画，水滴停在可见处（D10）。 */
+:root[data-motion="reduced"] .wx-blob,
+:root[data-motion="reduced"] .wx-rain > span,
+:root[data-motion="reduced"] .wx-flash,
+:root[data-motion="reduced"] .wx-idle,
+:root[data-motion="reduced"] .wx-drops > span { animation: none; }
+:root[data-motion="reduced"] .wx-rain,
+:root[data-motion="reduced"] .wx-flash { display: none; }
+:root[data-motion="reduced"] .wx-drops > span { opacity: 1; }
+
+/* 离开视口：天空与图标停在原地（D4）。 */
+:root[data-paused] .wx-blob,
+:root[data-paused] .wx-rain > span,
+:root[data-paused] .wx-flash,
+:root[data-paused] .wx-idle,
+:root[data-paused] .wx-drops > span { animation-play-state: paused; }

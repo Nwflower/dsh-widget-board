@@ -52,10 +52,14 @@ async function launchBrowser(options = {}) {
  *
  * @param browser - `launchBrowser` 起的浏览器。
  * @param options.width/height - 视口。
+ * @param options.reducedMotion - `reduce` 时这个上下文按减弱动效渲染。
  * @returns Playwright 的 BrowserContext。
  */
 async function newContextOn(browser, options = {}) {
-  return browser.newContext({ viewport: { width: options.width ?? 1280, height: options.height ?? 900 } })
+  return browser.newContext({
+    viewport: { width: options.width ?? 1280, height: options.height ?? 900 },
+    ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
+  })
 }
 
 module.exports = { findBrowser, launchBrowser, newContextOn }

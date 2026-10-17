@@ -80,8 +80,8 @@
 ## 参考来源
 
 - 宿主源码：全局安装的 `@deepseek-ai/dsh`，包在其 `node_modules/@deepseek-ai/` 下，类型声明在各包的 `lib/types/`。方案核实时的宿主版本是 0.2.1-rc.1。
-- 任务看板插件（面板注册、工具注册、扩展契约的先例）：上游 `https://github.com/zhu1090093659/dsh-web` 的 `packages/dsh-task-board`；本机有一份只读副本在 `D:\Build\dsh-claude-style\.debug\dsh-web\packages\dsh-task-board`。
-- 检查与工具脚本（lint、jscpd、verify、ADR 索引、changelog、AGENTS 命令表）照搬 `D:\Build\dsh-claude-style\scripts\` 与 `packages/testing/`，按本仓库的包结构改写。
+- 任务看板插件（面板注册、工具注册、扩展契约的先例）：上游 `https://github.com/zhu1090093659/dsh-web` 的 `packages/dsh-task-board`；本机有一份只读副本在 `D:\DSH\dsh-claude-style\.debug\dsh-web\packages\dsh-task-board`。
+- 检查与工具脚本（lint、jscpd、verify、ADR 索引、changelog、AGENTS 命令表）照搬 `D:\DSH\dsh-claude-style\scripts\` 与 `packages/testing/`，按本仓库的包结构改写。
 - 视觉参考：`https://transitions.dev/studio.html?id=cWqA5gXWQV9`，组件是 HTML、CSS、JS 三份文件，动效原语用类名声明，时长从根节点的 CSS 变量读。
 
 ## 命令

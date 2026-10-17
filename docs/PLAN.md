@@ -16,7 +16,7 @@
 
 - 根目录 `package.json`（包名、`exports`、`dsh.client`、`dsh.bundle.patch`、`files`、`engines`、开发依赖）、`cordis.patch.yml`、各包的 `tsconfig`。
 - esbuild 构建三个产物：`lib/host/index.js`、`lib/client.js`、`lib/runtime/`（按内容哈希命名）；类型检查是构建的一步。
-- 从 `D:\Build\dsh-claude-style\scripts\` 移植并改写：lint（750 行停止线、jscpd、包之间的依赖方向、禁止在插件根节点之外查询文档、禁止带 try/catch 的导入）、ADR 索引生成与核对、`docs/changes/` 生成 CHANGELOG、AGENTS 命令表生成与核对、`verify` 单一入口。
+- 从 `D:\DSH\dsh-claude-style\scripts\` 移植并改写：lint（750 行停止线、jscpd、包之间的依赖方向、禁止在插件根节点之外查询文档、禁止带 try/catch 的导入）、ADR 索引生成与核对、`docs/changes/` 生成 CHANGELOG、AGENTS 命令表生成与核对、`verify` 单一入口。
 - 一个把本仓库链接进临时 DSH profile 并启动宿主的脚本，`DSH_HOME` 在 `.debug/` 下。
 - 持续集成工作流：检查、构建、单元层；`required` 汇总任务。
 

@@ -7,13 +7,14 @@
 import { join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { PACKAGE_NAME, PLUGIN_ROUTE, connectionOf, webServerOf } from '@dsh-widget-board/contracts'
+import type { Board } from '@dsh-widget-board/contracts'
 import { loadAssets } from './assets'
 import { loadLibrary } from './library'
 import type { WidgetRecord } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
-import { loadBoard } from './state'
+import { loadBoard, writeBoard } from './state'
 import { watchTree } from './watch'
 import { dshHome } from './home'
 
@@ -35,8 +36,9 @@ export async function apply(ctx: Context): Promise<void> {
   const lib = resolve(import.meta.dirname, '..')
   const widgets = join(lib, 'widgets')
   const runtime = join(lib, 'runtime')
+  const boardFile = join(dshHome(), 'widget-board', 'board.json')
   const library = await loadLibrary(widgets)
-  const board = await loadBoard(join(dshHome(), 'widget-board', 'board.json'), library)
+  const board = await loadBoard(boardFile, library)
   const live = createLive(await loadAssets(runtime))
   // 出现过的版本：热重载时把新版本记进来，旧的留着，页面里指向旧哈希的 iframe 才不会变成 404。
   const versions = new Map<string, WidgetRecord>()
@@ -46,7 +48,19 @@ export async function apply(ctx: Context): Promise<void> {
     for (const hash of [...versions.keys()].slice(0, Math.max(0, versions.size - VERSION_LIMIT))) versions.delete(hash)
   }
   remember(library)
-  const context: RouteContext = { library, versions, board, live, connection: connectionOf(ctx) }
+  // 写入串行：后一次看得到前一次的结果，磁盘上不会出现两份互相覆盖的看板。
+  let writing: Promise<void> = Promise.resolve()
+  const save = (change: (current: Board) => Board): Promise<void> => {
+    const run = writing.then(async () => {
+      const next = change(context.board)
+      await writeBoard(boardFile, next)
+      context.board = next
+      live.notify()
+    })
+    writing = run.catch(() => undefined)
+    return run
+  }
+  const context: RouteContext = { library, versions, board, save, live, connection: connectionOf(ctx) }
   const disposeRoute = webServerOf(ctx).register({
     kind: 'prefix',
     path: PLUGIN_ROUTE,

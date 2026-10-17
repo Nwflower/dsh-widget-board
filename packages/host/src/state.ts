@@ -93,3 +93,30 @@ export async function writeBoard(file: string, board: Board): Promise<void> {
   await writeFile(temporary, `${JSON.stringify(board, null, 2)}\n`, 'utf8')
   await rename(temporary, file)
 }
+
+/** 普通的 JSON 对象：可以当补丁合并。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * 把一张卡的状态换成打了补丁的那份。
+ *
+ * 组件送来的是补丁：两边都是普通对象时合并一层，其余情况整体替换。卡片自己的 props 与 data 由
+ * 宿主或工具写入，这里只动 state。
+ *
+ * @param board - 当前看板。
+ * @param id - 卡片实例的 id。
+ * @param patch - 组件送来的补丁。
+ * @returns 换过这张卡状态的看板。
+ * @throws {Error} 看板上没有这张卡。
+ */
+export function withInstanceState(board: Board, id: string, patch: unknown): Board {
+  const index = board.instances.findIndex((instance) => instance.id === id)
+  if (index === -1) throw new Error(`看板上没有这张卡：${id}`)
+  const instance = board.instances[index] as BoardInstance
+  const state = isRecord(instance.state) && isRecord(patch) ? { ...instance.state, ...patch } : patch
+  const instances = [...board.instances]
+  instances[index] = { ...instance, state }
+  return { ...board, instances }
+}

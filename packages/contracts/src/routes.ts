@@ -22,6 +22,17 @@ export const BOARD_PATH = '/board'
 /** 变更通知：组件库或运行时变化时推送一次修订号（D7 的热重载）。 */
 export const EVENTS_PATH = '/events'
 
+/** 卡片的状态：`POST /instance/<id>/state`，组件把界面状态交给宿主存下来（D5）。 */
+export const INSTANCE_ROUTE = '/instance'
+
+/**
+ * 某张卡存状态的地址，文档相对。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 存放状态的路径。
+ */
+export const instanceStatePath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/state`
+
 /**
  * 某个版本组件文档的地址，文档相对。
  *

@@ -37,3 +37,12 @@ export interface BoardSnapshot {
   board: Board
   widgets: Record<string, WidgetSummary>
 }
+
+/**
+ * `POST /instance/<id>/state` 的请求体：组件把界面状态交给宿主。
+ *
+ * `patch` 合并进这张卡已经存下的状态：两边都是普通对象时合并一层，其余情况整体替换。
+ */
+export interface InstanceStateRequest {
+  patch: unknown
+}

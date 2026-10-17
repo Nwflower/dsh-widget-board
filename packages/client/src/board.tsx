@@ -7,7 +7,7 @@ import { PENDING_RATIO, flowLayout, flowMetrics } from '@dsh-widget-board/model'
 import type { CardControls } from './card'
 import { WidgetCard } from './card'
 import { subscribeLive } from './live'
-import { fetchSnapshot } from './snapshot'
+import { fetchSnapshot, saveInstanceState } from './snapshot'
 
 /** 根字号的像素值：列宽与间距按它换算（D15）。 */
 function rootFontSize(): number {
@@ -45,6 +45,13 @@ export function BoardPage(): ReactNode {
 
   const onHeight = useCallback((id: string, height: number) => {
     setHeights((current) => (current[id] === height ? current : { ...current, [id]: height }))
+  }, [])
+
+  // 组件交出来的界面状态直接写给宿主；宿主是唯一权威，存下之后它自己会通知所有在线页面（D5）。
+  const onState = useCallback((id: string, patch: unknown) => {
+    saveInstanceState(id, patch).catch((error: Error) => {
+      console.error(`widget-board: 存不下 ${id} 的状态：${error.message}`)
+    })
   }, [])
 
   useEffect(() => subscribeLive(setRevision), [])
@@ -120,12 +127,14 @@ export function BoardPage(): ReactNode {
               }
               return (
                 <WidgetCard
-                  key={`${instance.id}@${revision}`}
+                  // 只有组件版本变了才换一张卡：卡片状态存进宿主之后，修订号变动不该把计时重置掉。
+                  key={`${instance.id}@${widget.hash}`}
                   instance={instance}
                   widget={widget}
                   metrics={metrics}
                   placement={placement}
                   onHeight={onHeight}
+                  onState={onState}
                   controls={controls}
                 />
               )

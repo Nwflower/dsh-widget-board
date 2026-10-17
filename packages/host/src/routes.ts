@@ -1,15 +1,19 @@
 /**
- * 插件的私有路由（D1、D3）：看板快照、组件文档与变更通知。
+ * 插件的私有路由（D1、D3）：看板快照、卡片状态、组件文档与变更通知。
  *
  * 每条请求先过宿主的请求栅栏；宿主没有这项服务时只放行本机回环来的请求，判定以对端地址为准。
  * 组件文档按内容哈希寻址，响应头带 CSP，一次请求一个 nonce，且不带缓存——文档里还内联着运行时
  * 与套件，组件哈希并不覆盖它们。
  */
-import type { Board, BoardSnapshot, HostConnection, HostRequest, HostResponse } from '@dsh-widget-board/contracts'
-import { BOARD_PATH, EVENTS_PATH, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import type { Board, BoardSnapshot, HostConnection, HostRequest, HostResponse, InstanceStateRequest } from '@dsh-widget-board/contracts'
+import { BOARD_PATH, EVENTS_PATH, INSTANCE_ROUTE, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import type { Live } from './live'
 import type { WidgetRecord } from './library'
+import { withInstanceState } from './state'
+
+/** 一卡片状态的请求体上限：界面状态只是几张表单的值，几 KB 足够。 */
+const STATE_LIMIT = 16 * 1024
 
 /** 路由处理器读到的一切；组件库与资产随热重载替换，所以这里持有一个可变的对象。 */
 export interface RouteContext {
@@ -21,6 +25,8 @@ export interface RouteContext {
    */
   versions: Map<string, WidgetRecord>
   board: Board
+  /** 改一次看板：写到磁盘、换掉内存里的那份、推一个修订号；写入串行，后一次看得到前一次的结果。 */
+  save(change: (current: Board) => Board): Promise<void>
   live: Live
   connection: HostConnection | undefined
 }
@@ -69,6 +75,27 @@ function snapshot(context: RouteContext): BoardSnapshot {
 }
 
 /**
+ * 读一个 JSON 请求体，超过上限就拒绝。
+ *
+ * @param request - 宿主的请求。
+ * @returns 解出来的 JSON。
+ * @throws {Error} 超过上限或不是合法 JSON。
+ */
+async function readJson(request: HostRequest): Promise<unknown> {
+  const chunks: Buffer[] = []
+  let size = 0
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
+    size += buffer.length
+    if (size > STATE_LIMIT) throw new Error(`请求体超过 ${String(STATE_LIMIT)} 字节`)
+    chunks.push(buffer)
+  }
+  const text = Buffer.concat(chunks).toString('utf8')
+  const parsed: unknown = text === '' ? undefined : JSON.parse(text)
+  return parsed
+}
+
+/**
  * 生成前缀路由的处理器。
  *
  * @param context - 组件库、看板、通知器与栅栏；`library` 会在热重载时被替换。
@@ -82,13 +109,37 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
       response.end()
       return
     }
+    const url = new URL(request.url ?? '/', 'http://board.invalid')
+    const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
+    const state = new RegExp(`^${INSTANCE_ROUTE}/([^/]+)/state$`).exec(path)
+    if (state !== null) {
+      if (request.method !== 'POST') {
+        response.writeHead(405, { allow: 'POST' })
+        response.end()
+        return
+      }
+      const id = decodeURIComponent(state[1] as string)
+      let patch: unknown
+      try {
+        patch = (await readJson(request) as InstanceStateRequest | undefined)?.patch
+      } catch (error) {
+        json(response, 400, { error: (error as Error).message })
+        return
+      }
+      try {
+        await context.save((current) => withInstanceState(current, id, patch))
+      } catch (error) {
+        json(response, 404, { error: (error as Error).message })
+        return
+      }
+      json(response, 200, { ok: true })
+      return
+    }
     if (request.method !== 'GET') {
       response.writeHead(405, { allow: 'GET' })
       response.end()
       return
     }
-    const url = new URL(request.url ?? '/', 'http://board.invalid')
-    const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
     if (path === BOARD_PATH) {
       json(response, 200, snapshot(context))
       return

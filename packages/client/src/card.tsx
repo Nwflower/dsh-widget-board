@@ -35,6 +35,8 @@ export interface WidgetCardProps {
   placement: FlowPlacement
   /** 组件报上来的内容高度，看板按它重新摆放（D15）。 */
   onHeight: (id: string, height: number) => void
+  /** 组件交出来的界面状态，看板写给宿主（D5）。 */
+  onState: (id: string, patch: unknown) => void
   controls: CardControls
 }
 
@@ -57,7 +59,7 @@ function reducedMotion(): boolean {
  * 连接只在组件版本变化时重建一次：props、data、state 的更新走各自的消息。把它们放进连接的依赖
  * 里会让每次快照刷新都拆一次端口，正在加载的组件文档就可能错过握手。
  */
-export function WidgetCard({ instance, widget, metrics, placement, onHeight, controls }: WidgetCardProps): ReactNode {
+export function WidgetCard({ instance, widget, metrics, placement, onHeight, onState, controls }: WidgetCardProps): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const portRef = useRef<MessagePort | null>(null)
   const readyRef = useRef(false)
@@ -71,6 +73,8 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
   sizeRef.current = size
   const heightRef = useRef(onHeight)
   heightRef.current = onHeight
+  const stateRef = useRef(onState)
+  stateRef.current = onState
   const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} })
   initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} }
   const src = widgetDocumentPath(widget.hash)
@@ -112,6 +116,7 @@ export function WidgetCard({ instance, widget, metrics, placement, onHeight, con
       }
       if (message.type === 'height') heightRef.current(instance.id, message.height)
       if (message.type === 'error') setFailure(message.message)
+      if (message.type === 'setState') stateRef.current(instance.id, message.patch)
     }
     const connect = (): void => {
       if (!live || readyRef.current) return

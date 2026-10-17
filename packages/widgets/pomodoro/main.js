@@ -1,8 +1,8 @@
 /*
  * 番茄钟的脚本。
  *
- * 组件与外界只有 `window.widget` 这一条路（D7）：文案从 manifest 的 `text` 里按语言取，会话状态
- * 只在这一次会话里有效——宿主还没有把 setState 存下来的路由。
+ * 组件与外界只有 `window.widget` 这一条路（D7）：文案从 manifest 的 `text` 里按语言取，选中的
+ * 时长与结束时刻经 `setState` 交给宿主存下来——切走再切回、页面被重挂之后都接着跑。
  *
  * 计时按结束时刻算，不按每次滴答累加，所以页面被节流也不会走慢。
  */
@@ -137,6 +137,7 @@
     paint()
     clearInterval(timer)
     timer = setInterval(tick, TICK_MS)
+    save()
   }
 
   /** 结束一段，计时停掉。 */
@@ -147,6 +148,41 @@
     timer = 0
     if (finished) setDigits(0)
     paint()
+    save()
+  }
+
+  /** 把这次会话交给宿主存下来：下一次赋值来自它，切页面与重挂都接得上（D5）。 */
+  function save() {
+    if (widget === undefined) return
+    widget.setState({ minutes: state.minutes, endsAt: state.running ? state.endsAt : 0 })
+  }
+
+  /** 接着跑一段已经在走的计时：余额按结束时刻算，切页面不影响。 */
+  function resume(end) {
+    state.running = true
+    state.finished = false
+    state.endsAt = end
+    setDigits(remainingMinutes())
+    paint()
+    clearInterval(timer)
+    timer = setInterval(tick, TICK_MS)
+  }
+
+  /** 第一次拿到的状态就是这张卡存下的会话；之后的回声不再覆盖正在跑的计时。 */
+  var restored = false
+  function restore(value) {
+    if (restored) return
+    restored = true
+    if (value === null || typeof value !== 'object') return
+    var minutes = value.minutes
+    if (typeof minutes === 'number' && minutes >= MINUTES.min && minutes <= MINUTES.max) state.minutes = minutes
+    var end = value.endsAt
+    if (typeof end === 'number' && end > 0) {
+      if (end > Date.now()) resume(end)
+      else stop(true)
+      return
+    }
+    paint()
   }
 
   el.range.addEventListener('input', function () {
@@ -155,6 +191,9 @@
     setDigits(state.minutes)
     paint()
   })
+
+  // 拖动过程中只重画，松手时才交给宿主：免得一次拖动写出几十次状态。
+  el.range.addEventListener('change', save)
 
   el.start.addEventListener('click', function () {
     if (state.running) stop(false)
@@ -174,6 +213,7 @@
       paintLabels()
       paintTicks(state.running ? 1 - remainingMinutes() / state.minutes : selectedFraction())
     })
+    widget.onState(restore)
   }
 
   buildTicks()

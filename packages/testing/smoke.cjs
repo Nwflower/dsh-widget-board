@@ -132,6 +132,30 @@ async function settled(page) {
 }
 
 /**
+ * 把两张卡的会话清回初始值：卡片的状态存在宿主上，上一轮跑剩的计时与选中日期会让这一轮的判定漂。
+ *
+ * @param page - 宿主页面，看板还没打开。
+ */
+async function resetCards(page) {
+  const instances = await page.evaluate(async () => {
+    const snapshot = await (await fetch('api/widget-board/board')).json()
+    return snapshot.board.instances.map((instance) => ({ id: instance.id, widget: instance.widget }))
+  })
+  const patches = { pomodoro: { minutes: 25, endsAt: 0 }, weather: { day: 0 } }
+  for (const instance of instances) {
+    const patch = patches[instance.widget]
+    if (patch === undefined) continue
+    await page.evaluate(async ({ id, patch }) => {
+      await fetch(`api/widget-board/instance/${id}/state`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ patch }),
+      })
+    }, { id: instance.id, patch })
+  }
+}
+
+/**
  * 主路径：入口、信息流、天气卡切预报日、番茄钟开合。
  *
  * @param page - 宿主页面。
@@ -141,6 +165,7 @@ async function mainPass(page, problems) {
   await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
   check('侧栏出现看板入口', true)
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
+  await resetCards(page)
   await openBoard(page)
   check('中栏打开一页看板', await page.evaluate((selector) => document.querySelector(selector) !== null, BOARD_VIEW))
 
@@ -211,9 +236,35 @@ async function mainPass(page, problems) {
   }))
   check('开始时按钮换成结束', running.pressed === 'true' && running.label === '结束这一段', running.label)
   check('运行中不能再改时长', running.disabled === true)
-  await pomodoro.locator('#pomo-start').click()
-  await sleep(200)
-  check('结束之后回到未运行', (await pomodoro.evaluate(() => document.querySelector('#pomo-start')?.getAttribute('aria-pressed'))) === 'false')
+
+  // 卡片重挂、整页重载之后计时接着跑：会话存在宿主上，不随页面丢失（D5）。
+  const pomodoroId = await page.evaluate(() => {
+    const frame = document.querySelector('iframe.dsh-widget-board__frame[title="番茄钟"]')
+    return frame?.closest('[data-instance]')?.getAttribute('data-instance') ?? ''
+  })
+  const stored = await page.evaluate(async (id) => {
+    const snapshot = await (await fetch('api/widget-board/board')).json()
+    return snapshot.board.instances.find((instance) => instance.id === id)?.state ?? null
+  }, pomodoroId)
+  check('宿主存下了结束时刻', typeof stored?.endsAt === 'number' && stored.endsAt > Date.now(), JSON.stringify(stored))
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
+  await openBoard(page)
+  const resumed = await frameOf(page, POMODORO_FRAME)
+  await sleep(900)
+  const back = await resumed.evaluate(() => ({
+    pressed: document.querySelector('#pomo-start')?.getAttribute('aria-pressed'),
+    caption: document.querySelector('#pomo-cap')?.textContent,
+    disabled: document.querySelector('#pomo-range')?.disabled,
+    digits: document.querySelector('#pomo-digits')?.textContent,
+  }))
+  check('重载之后计时还在跑', back.pressed === 'true' && back.disabled === true, `${back.pressed} / ${back.caption}`)
+  check('剩下的时长还在', back.digits === '40', back.digits)
+
+  await resumed.locator('#pomo-start').click()
+  await sleep(400)
+  check('结束之后回到未运行', (await resumed.evaluate(() => document.querySelector('#pomo-start')?.getAttribute('aria-pressed'))) === 'false')
 
   const live = await page.evaluate(async () => {
     const response = await fetch('api/widget-board/events', { headers: { accept: 'text/event-stream' } })
@@ -274,12 +325,14 @@ async function reloadPass(page) {
     check('改了组件文件后卡片按新哈希重挂', after !== '' && after !== before, after === '' ? '一直没换地址' : after.split('/widget/')[1]?.slice(0, 12))
     const frame = await frameOf(page, WEATHER_FRAME)
     check('重挂之后天气卡仍然画出来', await frame.evaluate(() => document.querySelector('.wx') !== null))
-    // 重挂会丢组件自己的界面状态（选中的是哪一天），但语言与数据必须重新接上。
+    // 选中的是哪一天存在宿主上，重挂之后回来；文案与地点也要重新接上。
+    await sleep(600)
     const reloaded = await frame.evaluate(() => ({
       place: document.querySelector('#wx-place')?.textContent,
       day: document.querySelector('#wx-day')?.textContent ?? '',
     }))
-    check('重挂之后文案也接上了', reloaded.place === '旧金山' && reloaded.day.startsWith('星期'), `${reloaded.place} / ${reloaded.day}`)
+    check('重挂之后选中的预报日还在', reloaded.day === '星期四', reloaded.day)
+    check('重挂之后文案也接上了', reloaded.place === '旧金山', reloaded.place)
   } finally {
     await writeFile(target, original)
   }

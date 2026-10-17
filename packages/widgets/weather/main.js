@@ -177,12 +177,13 @@
     moveTo(el.tabs[i], instant !== true)
   }
 
-  /** 选中第 i 天。 */
-  function select(i, focus) {
-    if (i === current) return
+  /** 选中第 i 天；`quiet` 用于从宿主存下的状态恢复，不再回头写一次。 */
+  function select(i, focus, quiet) {
+    if (i === current || i < 0 || i >= el.tabs.length) return
     current = i
     paint(i, false)
     if (focus) el.tabs[i].focus()
+    if (quiet !== true && widget) widget.setState({ day: i })
   }
 
   el.tabs.forEach(function (tab, index) {
@@ -200,12 +201,21 @@
     place = data.place || place
     current = 0
     paint(0, true)
+    // 数据先到、状态后到：状态里选中的那一天盖回来。
+    if (wanted >= 0) select(wanted, false, true)
     return true
   }
 
+  // 选中的是哪一天由宿主存着：切走切回、重挂之后还是那一天。
+  var wanted = -1
   if (widget) {
     widget.onSize(function () { paint(current, true) })
     widget.onData(function (data) { adoptData(data) })
+    widget.onState(function (value) {
+      if (!value || typeof value.day !== 'number') return
+      wanted = value.day
+      select(wanted, false, true)
+    })
   }
 
   paint(0, true)

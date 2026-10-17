@@ -12,6 +12,8 @@ export interface HostRequest {
   url?: string
   headers: Record<string, string | string[] | undefined>
   socket?: { remoteAddress?: string }
+  /** 请求体按块读：`for await` 拿到的每一块，POST 的状态写在里面。 */
+  [Symbol.asyncIterator](): AsyncIterator<string | Uint8Array>
 }
 
 /** 宿主交到路由里的响应。 */

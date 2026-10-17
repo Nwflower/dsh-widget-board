@@ -15,6 +15,8 @@ export interface Live {
   subscribe(response: HostResponse): void
   /** 换一份资产，修订号加一并推给所有观众。 */
   publish(assets: DocumentAssets): void
+  /** 只推一个修订号：看板或卡片状态变了，资产没变（D5）。 */
+  notify(): void
   /** 收掉心跳与全部观众。 */
   close(): void
 }
@@ -56,6 +58,10 @@ export function createLive(assets: DocumentAssets): Live {
     },
     publish(next) {
       current = next
+      revision += 1
+      announce()
+    },
+    notify() {
       revision += 1
       announce()
     },

@@ -240,6 +240,9 @@
   border-top: 1px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 8%, transparent);
 }
 
+/* 组件库的缩略画面只留清单：输入行属于真正的卡片。 */
+:root[data-size="preview"] .todo-add { display: none; }
+
 .todo-input {
   flex: 1;
   min-width: 0;

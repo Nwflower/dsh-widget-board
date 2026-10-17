@@ -6,8 +6,8 @@
  */
 import type { WidgetFamily } from './widget'
 
-/** 组件出现在哪儿：看板上的卡片、会话正文、右侧栏、展开浮层（D16）。 */
-export const WIDGET_PLACEMENTS = ['board', 'inline', 'rail', 'expanded'] as const
+/** 组件出现在哪儿：看板上的卡片、会话正文、右侧栏、展开浮层与组件库里的缩略画面（D16）。 */
+export const WIDGET_PLACEMENTS = ['board', 'inline', 'rail', 'expanded', 'preview'] as const
 
 /** 一个位置。 */
 export type WidgetPlacement = (typeof WIDGET_PLACEMENTS)[number]
@@ -17,8 +17,8 @@ export interface WidgetSize {
   w: number
   h: number
   placement: WidgetPlacement
-  /** 位置族：内联、右侧栏与展开浮层用 manifest 里的族名，看板上是 `board`。 */
-  family: WidgetFamily | 'board'
+  /** 位置族：内联、右侧栏、展开浮层与缩略画面用 manifest 里的族名或 `preview`，看板上是 `board`。 */
+  family: WidgetFamily | 'board' | 'preview'
   /** 看板上的跨列数；其他位置是 1。 */
   cols: number
 }

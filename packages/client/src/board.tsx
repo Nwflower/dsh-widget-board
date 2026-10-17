@@ -678,6 +678,9 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       </div>
       <BoardDock
         entries={snapshot === null ? [] : [FLIP_GROUP_ENTRY, ...snapshot.library]}
+        widgets={snapshot === null ? {} : snapshot.widgets}
+        theme={theme}
+        frames={frames}
         libraryOpen={libraryOpen}
         busy={busy}
         onOpenLibrary={() => setLibraryOpen(true)}

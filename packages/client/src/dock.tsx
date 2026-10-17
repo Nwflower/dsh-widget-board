@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { WidgetLibraryEntry } from '@dsh-widget-board/contracts'
+import type { WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
 import { isChinese, t } from './copy'
+import type { FrameHost } from './frame-host'
 import { LibraryPanel } from './library'
+import type { ShellTheme } from './theme'
 
 /** 弹层与浮窗读同一份动效令牌；它们不在看板根节点下面，自己带一份。 */
 const MOTION = (tokens as { motion: Record<string, string> }).motion
@@ -38,6 +40,12 @@ const DRAG_THRESHOLD = 5
 export interface BoardDockProps {
   /** 组件库的全部类型。 */
   entries: readonly WidgetLibraryEntry[]
+  /** 组件元信息：组件库里的缩略画面按它找组件。 */
+  widgets: Readonly<Record<string, WidgetSummary>>
+  /** 当前主题，缩略画面与卡片用同一份（D10）。 */
+  theme: ShellTheme
+  /** 整页唯一的握手中心（D3）。 */
+  frames: FrameHost
   /** 组件库浮窗是否打开。 */
   libraryOpen: boolean
   /** 正在写宿主：按钮暂时不可按。 */
@@ -275,7 +283,7 @@ function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
 /**
  * 看板下方的浮层：菜单、组件库浮窗与拖放预览。
  *
- * 菜单与浮窗固定在看板内容之上，不参与卡片排版。组件库的一行按下后由这里接收指针移动，预览卡片用
+ * 菜单与浮窗固定在看板内容之上，不参与卡片排版。组件库的一格按下后由这里接收指针移动，预览卡片用
  * 弹簧跟手；松手时把屏幕坐标交给看板，由看板算落点并写宿主（D17、D5）。
  *
  * @param props - 组件库、打开状态与四个动作。
@@ -283,6 +291,9 @@ function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
  */
 export function BoardDock({
   entries,
+  widgets,
+  theme,
+  frames,
   libraryOpen,
   busy,
   onOpenLibrary,
@@ -425,6 +436,9 @@ export function BoardDock({
           <div ref={libraryRef}>
             <LibraryPanel
               entries={entries}
+              widgets={widgets}
+              theme={theme}
+              frames={frames}
               busy={busy}
               onAdd={onAdd}
               onBeginDrag={beginDrag}

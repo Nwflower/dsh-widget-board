@@ -1,0 +1,264 @@
+/*
+ * 组件库浮窗：按来源分组的网格，每格是一张实时缩略画面。
+ *
+ * 浮窗固定在下方菜单之上，不参与卡片排版；颜色读宿主的 --dsw-* 令牌，时长与曲线由 BoardDock
+ * 写在浮层层上的 --w-motion-* 给出（D10、D16、D17）。
+ */
+
+.dsh-widget-board__library {
+  position: fixed;
+  bottom: 166px;
+  left: 50%;
+  z-index: 90;
+  display: flex;
+  box-sizing: border-box;
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(68vh, 560px, calc(100vh - 200px));
+  flex-direction: column;
+  padding: 16px 18px 18px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 82%, transparent);
+  border-radius: 20px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 26%, transparent);
+  transform: translateX(-50%);
+  animation: dsh-widget-board-rise var(--w-motion-base) var(--w-motion-ease-pop) both;
+}
+
+.dsh-widget-board__library-head {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -2px -2px 6px;
+  padding: 2px 2px 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__library-title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dsh-widget-board__library-hint {
+  margin: 4px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dsh-widget-board__library-close {
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dsh-widget-board__library-group { margin-top: 10px; }
+
+.dsh-widget-board__library-source {
+  margin: 0 0 8px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dsh-widget-board__library-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 一格：上面是组件自己的画面，下面一行名字与一句说明。 */
+.dsh-widget-board__library-add {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  text-align: left;
+  transition:
+    border-color var(--w-motion-fast) var(--w-motion-ease-standard),
+    background var(--w-motion-fast) var(--w-motion-ease-standard),
+    transform var(--w-motion-fast) var(--w-motion-ease-standard),
+    box-shadow var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__library-add:hover {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 4%, var(--dsw-alias-bg-base));
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 10%, transparent);
+  transform: translateY(-2px);
+}
+
+.dsh-widget-board__library-add:active {
+  cursor: grabbing;
+  transform: translateY(-1px) scale(0.995);
+}
+
+.dsh-widget-board__library-add:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}
+
+.dsh-widget-board__library-add[data-unavailable] { cursor: not-allowed; }
+
+.dsh-widget-board__library-add[data-unavailable]:hover {
+  border-color: var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-base);
+  box-shadow: none;
+  transform: none;
+}
+
+/* 缩略画面：组件按这一格的像素盒排版；画面本身不接指针，按住整格就是拖动。 */
+.dsh-widget-board__library-preview {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  flex: none;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 1px, transparent 1.2px) 0 0 / 18px 18px,
+    var(--dsw-alias-bg-base);
+  pointer-events: none;
+}
+
+.dsh-widget-board__library-preview-surface {
+  position: absolute;
+  inset: 0;
+}
+
+/* 缩略画面里的原生组件：底色交给缩略格子，没有数据时露出的也是点阵，而不是一张白卡。 */
+.dsh-widget-board__library-preview .dsh-widget-board__native { background: transparent; }
+
+.dsh-widget-board__library-preview--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--dsw-alias-label-tertiary) 22%, transparent) 1px, transparent 1.2px) 0 0 / 12px 12px,
+    var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsh-widget-board__library-preview-id {
+  overflow-wrap: anywhere;
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.dsh-widget-board__library-preview-mark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  place-items: center;
+}
+
+.dsh-widget-board__library-flip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 78%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 1;
+  place-items: center;
+}
+
+.dsh-widget-board__library-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px 11px;
+}
+
+.dsh-widget-board__library-name {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.dsh-widget-board__library-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__library-provider {
+  flex: 0 1 auto;
+  max-width: 45%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__library-desc,
+.dsh-widget-board__library-error {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dsh-widget-board__library-error { color: var(--dsw-alias-state-error-primary); }
+
+@keyframes dsh-widget-board-rise {
+  from { opacity: 0; transform: translate(-50%, 10px) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-widget-board__library { animation: none; }
+}

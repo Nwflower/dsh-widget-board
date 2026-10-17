@@ -1,157 +1,9 @@
 /*
- * 看板下方的浮层：菜单、组件库浮窗、拖放接住层与预览卡。
+ * 看板下方的浮层：菜单、拖放接住层与预览卡。
  *
  * 这些节点固定在看板根节点之外，不参与卡片排版；颜色读宿主的 --dsw-* 令牌，时长与曲线由
  * BoardDock 写在浮层层上的 --w-motion-* 给出（D10、D16）。
  */
-
-/* 组件库浮窗：固定在看板内容之上，按来源分组；一行可以按住拖到看板。 */
-.dsh-widget-board__library {
-  position: fixed;
-  bottom: 166px;
-  left: 50%;
-  z-index: 90;
-  display: flex;
-  box-sizing: border-box;
-  width: min(560px, calc(100vw - 32px));
-  max-height: min(62vh, 520px);
-  flex-direction: column;
-  padding: 16px 18px 18px;
-  overflow: auto;
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 82%, transparent);
-  border-radius: 18px;
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: 0 24px 70px color-mix(in srgb, #000 26%, transparent);
-  transform: translateX(-50%);
-  animation: dsh-widget-board-rise var(--w-motion-base) var(--w-motion-ease-pop) both;
-}
-
-.dsh-widget-board__library-head {
-  position: sticky;
-  top: -16px;
-  z-index: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  margin: -2px -2px 8px;
-  padding: 2px 2px 10px;
-  background: var(--dsw-alias-bg-layer-1);
-}
-
-.dsh-widget-board__library-title {
-  margin: 0;
-  color: var(--dsw-alias-label-primary);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.dsh-widget-board__library-hint {
-  margin: 4px 0 0;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.dsh-widget-board__library-close {
-  padding: 4px 10px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.dsh-widget-board__library-group { margin-top: 10px; }
-
-.dsh-widget-board__library-source {
-  margin: 0 0 8px;
-  color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsh-widget-board-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.dsh-widget-board__library-provider {
-  margin-left: 6px;
-  color: var(--dsw-alias-label-secondary);
-  font-family: var(--dsh-widget-board-mono);
-  font-size: 9px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-}
-
-.dsh-widget-board__library-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.dsh-widget-board__library-add {
-  display: flex;
-  width: 100%;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 12px;
-  background: var(--dsw-alias-bg-base);
-  color: var(--dsw-alias-label-primary);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  text-align: left;
-  transition:
-    border-color var(--w-motion-fast) var(--w-motion-ease-standard),
-    background var(--w-motion-fast) var(--w-motion-ease-standard),
-    transform var(--w-motion-fast) var(--w-motion-ease-standard);
-}
-
-.dsh-widget-board__library-add:hover {
-  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 5%, var(--dsw-alias-bg-base));
-}
-
-.dsh-widget-board__library-add:active { cursor: grabbing; transform: scale(0.99); }
-
-.dsh-widget-board__library-add[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.72;
-}
-
-.dsh-widget-board__library-grip {
-  flex: none;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 14px;
-  line-height: 20px;
-  letter-spacing: -0.1em;
-}
-
-.dsh-widget-board__library-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.dsh-widget-board__library-name { font-size: 13px; font-weight: 600; }
-
-.dsh-widget-board__library-desc,
-.dsh-widget-board__library-error {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.dsh-widget-board__library-error { color: var(--dsw-alias-state-error-primary); }
 
 /* 下方菜单：一张 SVG goo 层画底色、桥接与投影；按钮是压在上面的清晰层。 */
 .dsh-widget-board__dock-layer {
@@ -332,13 +184,7 @@
   line-height: 14px;
 }
 
-@keyframes dsh-widget-board-rise {
-  from { opacity: 0; transform: translate(-50%, 10px) scale(0.98); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .dsh-widget-board__library { animation: none; }
   .dsh-widget-board__goo-circle,
   .dsh-widget-board__dock-action,
   .dsh-widget-board__dock-action svg,
@@ -346,4 +192,3 @@
   .dsh-widget-board__dock.is-anticipating .dsh-widget-board__goo-svg,
   .dsh-widget-board__dock.is-anticipating .dsh-widget-board__dock-trigger { animation: none !important; }
 }
-

@@ -33,6 +33,8 @@ export interface CardSurfaceProps {
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 这一层画面是否暂停：组卡把藏起来的一面停住（D16）。 */
   paused: boolean
+  /** 组件库里的缩略画面：组件据此换一套静态、不可交互的排版。 */
+  preview?: boolean
 }
 
 /** 握手那一刻交给组件的那几样东西。 */
@@ -60,6 +62,7 @@ export function CardSurface({
   onState,
   onNotify,
   paused,
+  preview = false,
 }: CardSurfaceProps): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const portRef = useRef<MessagePort | null>(null)
@@ -71,8 +74,8 @@ export function CardSurface({
   const size = {
     w: Math.round(placement.width),
     h: Math.round(placement.height),
-    placement: 'board' as const,
-    family: 'board' as const,
+    placement: preview ? 'preview' as const : 'board' as const,
+    family: preview ? 'preview' as const : 'board' as const,
     cols: placement.columns,
   }
   const sizeRef = useRef(size)

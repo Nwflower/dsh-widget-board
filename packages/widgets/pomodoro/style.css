@@ -166,6 +166,9 @@
 }
 /* 跑着的时候收起快捷时长：换一段要先结束当前这一段。 */
 .pomo[data-running="true"] .pomo-presets { display: none; }
+/* 组件库的缩略画面不放按钮：留下的标题、读数与刻度就是这张卡的画面。 */
+:root[data-size="preview"] .pomo-presets,
+:root[data-size="preview"] .pomo-start { display: none; }
 
 /* 主按钮用这张卡自己的墨色：白药丸配画面底色的字，深浅两种配色下都一样。 */
 .pomo-start {

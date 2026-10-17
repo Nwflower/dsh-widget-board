@@ -19,6 +19,8 @@ export interface WidgetCardProps {
   placement: GridPlacement
   /** 这张卡正在被拖动或缩放：指针事件归外壳，iframe 不接。 */
   gesture: 'move' | 'resize' | null
+  /** 这张卡正在退场：外壳画删除动画。 */
+  exiting: boolean
   /** 当前的主题；变化时推给组件（D10）。 */
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
@@ -48,6 +50,7 @@ export function WidgetCard({
   widget,
   placement,
   gesture,
+  exiting,
   theme,
   frames,
   onState,
@@ -70,6 +73,7 @@ export function WidgetCard({
       id={instance.id}
       placement={placement}
       gesture={gesture}
+      exiting={exiting}
       onRemove={() => onRemove(instance.id)}
       onDragStart={onDragStart}
       onDragMove={onDragMove}

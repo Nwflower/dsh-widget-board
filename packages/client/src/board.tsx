@@ -16,6 +16,7 @@ import {
 } from '@dsh-widget-board/model'
 import type { CardControls } from './card'
 import { WidgetCard } from './card'
+import { CARD_CLIP_RADIUS } from './card-shell'
 import { t } from './copy'
 import { BoardDock } from './dock'
 import { FlipGroupCard } from './flip-group'
@@ -63,8 +64,13 @@ const SHELL_STYLE = {
   '--w-motion-fast': MOTION.fast,
   '--w-motion-base': MOTION.base,
   '--w-motion-ease-standard': MOTION['ease-standard'],
+  '--w-motion-ease-decel': MOTION['ease-decel'],
   '--w-radius-card': RADIUS,
+  '--w-radius-card-clip': CARD_CLIP_RADIUS,
 } as CSSProperties
+
+/** 卡片删掉的退场时长：与磁贴入场的 250ms 对齐，读令牌（D10）。 */
+const EXIT_MS = Number.parseFloat(MOTION.base)
 
 /** 拖动时卡片跟手，自由宽度不低于这个像素值。 */
 const MIN_FREE_WIDTH = 120
@@ -122,6 +128,8 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const [draft, setDraft] = useState<Record<string, CardLayout> | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** 正在退场的卡片：请求与快照之间留出动画时间。 */
+  const [exiting, setExiting] = useState<ReadonlySet<string>>(() => new Set())
   /** 刷新一次就让每张卡换一个 key：卡片文档重新挂载，组件里的本地画面也跟着重来。 */
   const [refreshGeneration, setRefreshGeneration] = useState(0)
   const flowRef = useRef<HTMLDivElement | null>(null)
@@ -130,6 +138,9 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const busyRef = useRef(false)
   /** 快照请求的序号：先发出、后返回的那一份不能盖掉更新的那一份。 */
   const fetchIdRef = useRef(0)
+  const exitingRef = useRef(new Set<string>())
+  /** 退场期间收到的卡片增删通知：等最后一张退完再重取。 */
+  const queuedRefetchRef = useRef(false)
   const cardControls = useRef(new Map<string, { pause: () => void, resume: () => void }>())
   const frames = useMemo(() => createFrameHost(), [])
 
@@ -154,8 +165,23 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [])
 
+  /** 一张卡退场结束：收起退场标记；退场期间攒下的增删通知这时才去重取（D18）。 */
+  const finishExit = useCallback((id: string): void => {
+    exitingRef.current.delete(id)
+    setExiting(new Set(exitingRef.current))
+    if (exitingRef.current.size === 0 && queuedRefetchRef.current) {
+      queuedRefetchRef.current = false
+      refetch()
+    }
+  }, [refetch])
+
   const onEvent = useCallback((frame: BoardEventFrame) => {
     if (needsSnapshot(frame)) {
+      // 退场动画还在放：等最后一张退完再重取，别让广播把卡片提前抽走。
+      if (exitingRef.current.size > 0) {
+        queuedRefetchRef.current = true
+        return
+      }
       refetch()
       return
     }
@@ -275,21 +301,46 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [refetch])
 
+  /** 移除一张卡：先挂上退场标记，等动画与宿主的答复都到了再换快照，卡片不会闪回。 */
   const onRemove = useCallback((id: string) => {
+    if (exitingRef.current.has(id)) return
+    exitingRef.current.add(id)
+    setExiting(new Set(exitingRef.current))
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const started = performance.now()
     removeInstance(id).then((next) => {
-      cachedSnapshot = next
-      setSnapshot(next)
-      setFailure(null)
-    }, (error: Error) => { setFailure(error.message) })
-  }, [])
+      const wait = reduced ? 0 : Math.max(0, EXIT_MS - (performance.now() - started))
+      window.setTimeout(() => {
+        cachedSnapshot = next
+        setSnapshot(next)
+        setFailure(null)
+        finishExit(id)
+      }, wait)
+    }, (error: Error) => {
+      setFailure(error.message)
+      finishExit(id)
+    })
+  }, [finishExit])
 
   const onRemoveGroup = useCallback((group: string) => {
+    if (exitingRef.current.has(group)) return
+    exitingRef.current.add(group)
+    setExiting(new Set(exitingRef.current))
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const started = performance.now()
     removeGroup(group).then((next) => {
-      cachedSnapshot = next
-      setSnapshot(next)
-      setFailure(null)
-    }, (error: Error) => { setFailure(error.message) })
-  }, [])
+      const wait = reduced ? 0 : Math.max(0, EXIT_MS - (performance.now() - started))
+      window.setTimeout(() => {
+        cachedSnapshot = next
+        setSnapshot(next)
+        setFailure(null)
+        finishExit(group)
+      }, wait)
+    }, (error: Error) => {
+      setFailure(error.message)
+      finishExit(group)
+    })
+  }, [finishExit])
 
   useEffect(() => subscribeLive(onEvent), [onEvent])
 
@@ -549,6 +600,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                     backWidget={backWidget}
                     placement={placement}
                     gesture={drag !== null && drag.id === cardKey ? drag.kind : null}
+                    exiting={exiting.has(card.id)}
                     theme={theme}
                     frames={frames}
                     onState={onState}
@@ -571,6 +623,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                     className="dsh-widget-board__cell dsh-widget-board__cell--missing"
                     data-instance={instance.id}
                     data-unavailable={instance.widget}
+                    data-exiting={exiting.has(instance.id) ? 'true' : undefined}
                     style={{ left: target.x, top: target.y, width: target.width, height: target.height, borderRadius: RADIUS }}
                   >
                     <p className="dsh-widget-board__missing-title">{t('unavailable')}</p>
@@ -590,6 +643,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                   widget={widget}
                   placement={placement}
                   gesture={drag !== null && drag.id === instance.id ? drag.kind : null}
+                  exiting={exiting.has(instance.id)}
                   theme={theme}
                   frames={frames}
                   onState={onState}

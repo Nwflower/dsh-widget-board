@@ -9,8 +9,9 @@ import { t } from './copy'
  * 大一点，组件画出来的边因此完整落在裁剪之内，两个圆角的接缝不会露出画布。
  */
 export const CARD_RADIUS = (tokens as { radius: { card: string } }).radius.card
-/** 裁剪用的圆角：比卡片自己的圆角大一点，接缝因此被组件自己的画面盖住。 */
-export const CARD_CLIP = `inset(0 round calc(${CARD_RADIUS} + 2px))`
+/** 卡片看得见的边缘：iframe 裁在比卡片自己的圆角大 2px 的弧上，缩放手柄也贴着这条弧。 */
+export const CARD_CLIP_RADIUS = `calc(${CARD_RADIUS} + 2px)`
+export const CARD_CLIP = `inset(0 round ${CARD_CLIP_RADIUS})`
 
 /** 卡片外壳要画的东西。 */
 export interface CardShellProps {
@@ -18,6 +19,8 @@ export interface CardShellProps {
   id: string
   placement: GridPlacement
   gesture: 'move' | 'resize' | null
+  /** 这张卡正在退场：外壳只画动画，指针不再接。 */
+  exiting: boolean
   onRemove: () => void
   onDragStart: (event: ReactPointerEvent<HTMLElement>, id: string, kind: 'move' | 'resize') => void
   onDragMove: (event: ReactPointerEvent<HTMLElement>) => void
@@ -38,6 +41,7 @@ export function CardShell({
   id,
   placement,
   gesture,
+  exiting,
   onRemove,
   onDragStart,
   onDragMove,
@@ -51,11 +55,25 @@ export function CardShell({
     onPointerCancel: onDragCancel,
     onLostPointerCapture: onDragCancel,
   }
+  const readout = (
+    <>
+      <span className="dsh-widget-board__measure-size">
+        {Math.round(placement.width)}
+        <i> × </i>
+        {Math.round(placement.height)}
+      </span>
+      <span className="dsh-widget-board__measure-hint">
+        <span className="dsh-widget-board__dot" />
+        {gesture === 'resize' ? t('resizeHint') : t('moveHint')}
+      </span>
+    </>
+  )
   return (
     <div
       className="dsh-widget-board__cell"
       data-instance={id}
       data-gesture={gesture ?? undefined}
+      data-exiting={exiting ? 'true' : undefined}
       style={{ left: placement.x, top: placement.y, width: placement.width, height: placement.height, borderRadius: CARD_RADIUS }}
     >
       {children}
@@ -72,6 +90,7 @@ export function CardShell({
         data-dsh-widget-board-handle="remove"
         title={t('remove')}
         aria-label={t('remove')}
+        disabled={exiting}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={onRemove}
       >
@@ -83,22 +102,24 @@ export function CardShell({
         title={t('resize')}
         onPointerDown={(event) => onDragStart(event, id, 'resize')}
         {...dragProps}
-      />
+      >
+        <svg className="dsh-widget-board__resize-arc" viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M24 48A24 24 0 0 0 48 24" />
+        </svg>
+      </div>
       {gesture === null
         ? null
-        : (
-          <div className="dsh-widget-board__measure" data-dsh-widget-board-measure="" aria-hidden="true">
-            <span className="dsh-widget-board__measure-size">
-              {Math.round(placement.width)}
-              <i> × </i>
-              {Math.round(placement.height)}
-            </span>
-            <span className="dsh-widget-board__measure-hint">
-              <span className="dsh-widget-board__dot" />
-              {gesture === 'resize' ? t('resizeHint') : t('moveHint')}
-            </span>
-          </div>
-        )}
+        : gesture === 'resize'
+          ? (
+            <div className="dsh-widget-board__mask" data-dsh-widget-board-measure="" aria-hidden="true">
+              <div className="dsh-widget-board__mask-readout">{readout}</div>
+            </div>
+          )
+          : (
+            <div className="dsh-widget-board__measure" data-dsh-widget-board-measure="" aria-hidden="true">
+              {readout}
+            </div>
+          )}
     </div>
   )
 }

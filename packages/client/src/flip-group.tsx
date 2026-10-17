@@ -17,6 +17,8 @@ export interface FlipGroupCardProps {
   backWidget: WidgetSummary | undefined
   placement: GridPlacement
   gesture: 'move' | 'resize' | null
+  /** 整组正在退场：外壳画删除动画。 */
+  exiting: boolean
   theme: ShellTheme
   frames: FrameHost
   onState: (id: string, patch: unknown) => void
@@ -55,6 +57,7 @@ export function FlipGroupCard({
   backWidget,
   placement,
   gesture,
+  exiting,
   theme,
   frames,
   onState,
@@ -80,6 +83,7 @@ export function FlipGroupCard({
       id={front.id}
       placement={placement}
       gesture={gesture}
+      exiting={exiting}
       onRemove={onRemoveGroup}
       onDragStart={onDragStart}
       onDragMove={onDragMove}

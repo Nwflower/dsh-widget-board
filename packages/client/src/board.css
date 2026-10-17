@@ -49,7 +49,32 @@
     top var(--w-motion-base) var(--w-motion-ease-standard),
     width var(--w-motion-base) var(--w-motion-ease-standard),
     height var(--w-motion-base) var(--w-motion-ease-standard),
-    box-shadow var(--w-motion-fast) var(--w-motion-ease-standard);
+    box-shadow var(--w-motion-fast) var(--w-motion-ease-standard),
+    opacity var(--w-motion-fast) var(--w-motion-ease-standard),
+    transform var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+/* 删卡：磁贴的入场反过来放一遍——淡出并缩到 0.85。退场期间只画动画，指针不再接。 */
+.dsh-widget-board__cell[data-exiting="true"] {
+  pointer-events: none;
+  animation: dsh-widget-board-card-out var(--w-motion-base) var(--w-motion-ease-decel) both;
+}
+
+@keyframes dsh-widget-board-card-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-widget-board__cell[data-exiting="true"] {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+:root[data-motion="reduced"] .dsh-widget-board__cell[data-exiting="true"] {
+  animation: none;
+  opacity: 0;
 }
 
 .dsh-widget-board__cell:hover {
@@ -95,7 +120,7 @@
   height: 100%;
   overflow: auto;
   border-radius: inherit;
-  clip-path: inset(0 round calc(var(--w-radius-card) + 2px));
+  clip-path: inset(0 round var(--w-radius-card-clip));
   background: var(--dsw-alias-bg-layer-1);
 }
 
@@ -146,38 +171,46 @@
   background: var(--dsw-alias-brand-primary);
 }
 
-/* 右下角的缩放手柄：蓝色角括号加一个圆点，拖动时一直露着。 */
+/* 右下角的缩放手柄：一段贴着卡片圆角的弧，加一个圆点。
+ * 静置时不画，悬停时半透明，拖动时完整露出来。 */
 .dsh-widget-board__resize {
   position: absolute;
   right: 0;
   bottom: 0;
-  z-index: 2;
+  /* 盖在尺寸遮罩上面：拖动时这段弧是唯一还看得见的手柄。 */
+  z-index: 5;
   width: 36px;
   height: 36px;
   cursor: nwse-resize;
-  /* 静置时留一个很淡的角标，悬停或拖动时完整露出来。 */
-  opacity: 0.3;
+  opacity: 0;
   transition: opacity var(--w-motion-fast) var(--w-motion-ease-standard);
   touch-action: none;
 }
 
-.dsh-widget-board__resize::before {
-  content: "";
+/* 弧的方框是看得见的圆角的两倍宽：圆心落在那个圆角的中心，路径半径就是裁剪圆角，
+ * 描边压在卡片看得见的边上，画出来的弧与卡片的边是同一条曲线。 */
+.dsh-widget-board__resize-arc {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 11px;
-  height: 11px;
-  border-right: 2px solid var(--dsw-alias-brand-primary);
-  border-bottom: 2px solid var(--dsw-alias-brand-primary);
-  border-bottom-right-radius: 2px;
+  right: 0;
+  bottom: 0;
+  width: calc(var(--w-radius-card-clip) * 2);
+  height: calc(var(--w-radius-card-clip) * 2);
+  overflow: visible;
+  fill: none;
+  stroke: var(--dsw-alias-brand-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
 }
+
+.dsh-widget-board__resize-arc path { vector-effect: non-scaling-stroke; }
 
 .dsh-widget-board__resize::after {
   content: "";
   position: absolute;
-  right: 7px;
-  bottom: 7px;
+  /* 圆点的圆心落在弧的 45° 处，圆弧从圆点中间穿过去。 */
+  right: calc(var(--w-radius-card-clip) * 0.2929 - 3.5px);
+  bottom: calc(var(--w-radius-card-clip) * 0.2929 - 3.5px);
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -185,15 +218,70 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
 }
 
-.dsh-widget-board__cell:hover .dsh-widget-board__resize,
+.dsh-widget-board__cell:hover .dsh-widget-board__resize {
+  opacity: 0.55;
+}
+
 .dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__resize {
   opacity: 1;
 }
 
-/* 触屏没有悬停：两个把手一直露着，仍然只占很小一块。 */
+/* 改变大小时，尺寸读数铺成盖住整张卡的遮罩：组件被压暗，读数居中。 */
+.dsh-widget-board__mask {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* 与卡片看得见的边缘同一条弧：遮罩连圆角也盖满，不在角上留一条卡片画面。 */
+  border-radius: var(--w-radius-card-clip);
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent), transparent 70%),
+    color-mix(in srgb, var(--dsw-alias-bg-base) 72%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);
+  pointer-events: none;
+  /* 读数的字号跟着遮罩宽度走：卡片缩到一列窄时，数字与提示不会撑出遮罩。 */
+  container-type: inline-size;
+  animation: dsh-widget-board-mask-in var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+@keyframes dsh-widget-board-mask-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dsh-widget-board__mask-readout {
+  display: flex;
+  max-width: calc(100% - 32px);
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: clamp(10px, 3cqi, 16px) clamp(12px, 5cqi, 26px) clamp(9px, 3cqi, 13px);
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 90%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 94%, transparent);
+  box-shadow: 0 18px 50px -22px rgb(0 0 0 / 40%);
+}
+
+.dsh-widget-board__mask-readout .dsh-widget-board__measure-size {
+  font-size: clamp(17px, 7cqi, 34px);
+  line-height: 1.1;
+}
+
+.dsh-widget-board__mask-readout .dsh-widget-board__measure-hint {
+  font-size: clamp(9px, 2.1cqi, 10px);
+  line-height: 1.3;
+}
+
+@container (max-width: 190px) {
+  .dsh-widget-board__mask-readout .dsh-widget-board__measure-hint { display: none; }
+}
+
+/* 触屏没有悬停：拖动把手一直露着；缩放的弧按悬停规则来，在触屏上只在拖动中出现。 */
 @media (hover: none) {
-  .dsh-widget-board__grip,
-  .dsh-widget-board__resize { opacity: 0.85; }
+  .dsh-widget-board__grip { opacity: 0.85; }
 }
 
 /* 尺寸读数：只在外壳拿着指针时出现，压在卡片左下角。 */
@@ -328,6 +416,7 @@
 }
 
 :root[data-motion="reduced"] .dsh-widget-board__flip-inner { transition: none; }
+:root[data-motion="reduced"] .dsh-widget-board__mask { animation: none; }
 
 /* 组件不可用的卡片：保留盒子与位置，写明是哪个组件与为什么。 */
 .dsh-widget-board__cell--missing {
@@ -395,4 +484,12 @@
 .dsh-widget-board__cell:hover .dsh-widget-board__remove,
 .dsh-widget-board__remove:focus-visible {
   opacity: 1;
+}
+
+/* 缩放时遮罩是唯一的前景：拖动与移除的把手收起来，松开后再回来。
+ * 与上面的悬停规则同样具体，所以这条必须排在它们后面。 */
+.dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__grip,
+.dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__remove {
+  opacity: 0;
+  pointer-events: none;
 }

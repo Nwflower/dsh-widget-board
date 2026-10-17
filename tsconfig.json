@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "types": [],
+    "paths": {
+      "@dsh-widget-board/contracts/*": ["./packages/contracts/src/*"],
+      "@dsh-widget-board/model/*": ["./packages/model/src/*"]
+    }
+  },
+  "include": ["packages/client/src", "packages/contracts/src"]
+}

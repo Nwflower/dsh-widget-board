@@ -1,0 +1,43 @@
+/*
+ * 看板页面的样式。
+ *
+ * 颜色与排版读宿主的 --dsw-* 令牌，浅色与深色因此都跟随宿主；令牌改由 contracts/tokens.json
+ * 出具一份、这里改写成它的别名，是 PLAN 步骤 3 之后的事（D10）。
+ */
+
+.dsh-widget-board {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-font-family);
+  overflow: hidden;
+}
+
+.dsh-widget-board__empty {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+
+.dsh-widget-board__title {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsw-font-base-16-font-size);
+  line-height: var(--dsw-font-base-16-line-height);
+}
+
+.dsh-widget-board__hint {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--dsw-font-xs-13-font-size);
+  line-height: var(--dsw-font-xs-13-line-height);
+}

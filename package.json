@@ -1,0 +1,79 @@
+{
+  "name": "dsh-widget-board",
+  "description": "Widget board for the DeepSeek Harness web GUI: a page of draggable cards whose cards are sandboxed small widgets, written by the reader or by the agent in a session.",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "lib/host/index.js",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/dev.mjs",
+    "host": "node packages/testing/dsh-web.cjs",
+    "lint": "node scripts/lint.mjs",
+    "test": "vitest run",
+    "smoke": "node packages/testing/smoke.cjs",
+    "docs:index": "node scripts/decisions-index.mjs",
+    "docs:check": "node scripts/decisions-index.mjs --check",
+    "changelog": "node scripts/changelog.mjs",
+    "changelog:check": "node scripts/changelog.mjs --check",
+    "agents": "node scripts/agents-commands.mjs",
+    "agents:check": "node scripts/agents-commands.mjs --check",
+    "verify": "node scripts/verify.mjs"
+  },
+  "exports": {
+    ".": "./lib/host/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.1-rc.1"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib",
+    "!lib/**/*.map",
+    "cordis.patch.yml",
+    "CHANGELOG.md",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "cordis",
+    "web-ui",
+    "widget",
+    "dashboard",
+    "board"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@types/node": "^24.10.1",
+    "@types/react": "18.3.31",
+    "esbuild": "0.28.2",
+    "jscpd": "5.4.1",
+    "playwright": "1.64.1",
+    "react": "18.3.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

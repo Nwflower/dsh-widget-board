@@ -1,0 +1,6 @@
+# 组件看板的 bundle patch：把双半边的插件行插进 web profile 的名单里（D2）。
+# 这一行只按包名引用：宿主半边在宿主进程里跑（exports "."），package.json 的 dsh.client
+# 让浏览器半边（exports "./client"，由宿主在 /plugins/<id>/client.js 提供）在页面里加载。
+- insert:
+    - id: ui-widget-board
+      name: 'dsh-widget-board'

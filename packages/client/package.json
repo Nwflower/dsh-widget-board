@@ -1,0 +1,10 @@
+{
+  "name": "@dsh-widget-board/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/entry.ts",
+    "./*": "./src/*"
+  }
+}

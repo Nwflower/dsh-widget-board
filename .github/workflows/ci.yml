@@ -1,0 +1,87 @@
+name: CI
+
+# 检查、构建与单元层、真实宿主里的冒烟分三个 job：前一个不读构建产物，后两个各自读自己那份。
+# `required` 汇总上面每个 job 的结果，是分支规则唯一要点名的一道（scripts/ci-required.mjs）。
+#
+# 冒烟要一台装了 Chrome 或 Edge 的机器和一个真实的 dsh：工作流把宿主按本仓库核实时用的版本装进
+# 全局，冒烟自己会在 .debug/ 下起实例并在结束时收掉。
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: CI-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run docs:check
+      - run: npm run changelog:check
+      - run: npm run agents:check
+
+  build-unit:
+    needs: [checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  smoke:
+    needs: [checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # 宿主装进全局：冒烟用 `dsh plugin add` 把本仓库装进临时 profile，再起 `dsh web`。
+      - run: npm install --global pnpm@11 @deepseek-ai/dsh@0.2.1-rc.1
+        timeout-minutes: 10
+      - run: npm run smoke
+        timeout-minutes: 20
+
+  required:
+    if: always()
+    needs: [checks, build-unit, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: node scripts/ci-required.mjs '${{ toJson(needs) }}'

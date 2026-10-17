@@ -1,0 +1,12 @@
+node_modules/
+*.log
+.DS_Store
+
+# Build output: never committed (D2)
+lib/
+
+# Local debugging scratch: probe scripts, screenshots, scratch DSH_HOME
+.debug/
+
+# Editor session state
+.claude/

@@ -1,0 +1,5 @@
+# 仓库里的文本一律 LF：换行不参与比较，检出在哪个平台都一样。
+* text=auto eol=lf
+
+*.png binary
+*.woff2 binary

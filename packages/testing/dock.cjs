@@ -46,6 +46,8 @@ function cardCount(board) {
  * @param check - 记一条判据的函数。
  */
 async function dockPass(page, check) {
+  // 上一段收起菜单后的回弹动画还没走完，等加号停稳再点。
+  await sleep(900)
   // 菜单：固定在下方的加号，点开是三个动作。
   await page.locator(DOCK).click()
   await page.waitForSelector(`${ACTION}[data-dsh-widget-board-dock-action="add"]`, { timeout: 5000 })
@@ -67,24 +69,31 @@ async function dockPass(page, check) {
   check('三个动作都有名字', menu.labels.every((label) => label.length > 0), menu.labels.join(' / '))
   check('菜单固定在屏幕下方居中', menu.centered && menu.bottom)
 
-  // 添加动作打开悬浮的组件库列表。
+  // 添加动作打开悬浮的组件库：按来源分组的网格，每格画着组件自己的缩略画面。
   await page.locator(`${ACTION}[data-dsh-widget-board-dock-action="add"]`).click()
   await page.waitForSelector(LIBRARY, { timeout: 5000 })
+  await page.waitForSelector(`${LIBRARY} iframe`, { timeout: 10000 })
   const library = await page.evaluate((selector) => {
     const node = document.querySelector(selector)
     const style = node === null ? null : getComputedStyle(node)
+    const grid = node?.querySelector('.dsh-widget-board__library-list')
     return {
       position: style?.position ?? '',
-      rows: document.querySelectorAll('[data-dsh-widget-board-add]').length,
+      tiles: document.querySelectorAll('[data-dsh-widget-board-add]').length,
+      display: grid === null ? '' : getComputedStyle(grid).display,
+      columns: grid === null ? '' : getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      previews: document.querySelectorAll(`${selector} iframe`).length,
     }
   }, LIBRARY)
-  check('添加动作打开悬浮组件库', library.position === 'fixed' && library.rows >= 3, `${library.position} / ${library.rows} 行`)
+  check('添加动作打开悬浮组件库', library.position === 'fixed' && library.tiles >= 3, `${library.position} / ${library.tiles} 格`)
+  check('组件库排成网格', library.display === 'grid' && library.columns >= 2, `${library.display} / ${library.columns} 列`)
+  check('每一格画着组件的画面', library.previews >= 3, `${library.previews} 个预览`)
 
-  // 按住一行拖到看板：拖放预览跟着指针，松手后看板多一张卡，且落在右侧一列。
+  // 按住一格拖到看板：拖放预览跟着指针，松手后看板多一张卡，且落在右侧一列。
   const before = await snapshot(page)
-  const row = page.locator('[data-dsh-widget-board-add="stat"]').first()
-  await row.scrollIntoViewIfNeeded()
-  const box = await row.boundingBox()
+  const tile = page.locator('[data-dsh-widget-board-add="stat"]').first()
+  await tile.scrollIntoViewIfNeeded()
+  const box = await tile.boundingBox()
   if (box === null) throw new Error('组件库里的数字组件没有盒子')
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await page.mouse.down()
@@ -120,6 +129,7 @@ async function dockPass(page, check) {
   check('整理之后卡片数量不变', tidied.board.instances.length === after.board.instances.length)
 
   // 主动刷新：宿主重读组件库，页面上的卡片按新的 generation 重新挂载。
+  await sleep(900)
   await page.locator(DOCK).click()
   await sleep(500)
   const frameCount = await page.locator('[data-instance]').count()

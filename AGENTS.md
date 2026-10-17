@@ -97,6 +97,7 @@
 | `npm run lint` | 不需要构建就能查的规则 |
 | `npm test` | 单元层单独跑一遍，也就是云端任务跑它的方式：Vitest，node 环境 |
 | `npm run smoke` | 在真实的临时宿主上走一遍插件自己的表面 |
+| `npm run matrix` | 组件尺寸矩阵：在真实临时宿主里把每个组件放进代表性的盒子，检查排版 |
 | `npm run docs:index` | 从各决策文件生成 docs/adr/README.md |
 | `npm run docs:check` | 提交的 ADR 索引与决策文件不一致时失败；云端任务跑这一条 |
 | `npm run changelog` | 把 docs/changes/ 里待发布的条目组装成 CHANGELOG.md 的 [Unreleased] 段 |

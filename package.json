@@ -14,6 +14,7 @@
     "lint": "node scripts/lint.mjs",
     "test": "vitest run",
     "smoke": "node packages/testing/smoke.cjs",
+    "matrix": "node packages/testing/matrix.cjs",
     "docs:index": "node scripts/decisions-index.mjs",
     "docs:check": "node scripts/decisions-index.mjs --check",
     "changelog": "node scripts/changelog.mjs",

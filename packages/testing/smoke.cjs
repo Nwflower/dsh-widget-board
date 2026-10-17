@@ -15,10 +15,14 @@
 const { readFile, writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
+const { cardBox, centerCard, frameOf } = require('./frames.cjs')
+const { resetCards, resetLayout, setCardHeight } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
 const { markdownPass } = require('./markdown.cjs')
+const { noticePass } = require('./notice.cjs')
+const { openBoard } = require('./panel.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -50,44 +54,6 @@ function check(label, ok, detail) {
 }
 
 /**
- * 关掉宿主自己在首次启动时打开的浮层。
- *
- * 全新的 `$DSH_HOME` 会依次弹出预告与凭据表单，底下压着一层挡住指针的遮罩。每层都用自己的
- * 按钮回答；连续两次都按不到按钮才算关完了，因为关掉一层之后下一层要过一会儿才挂上来。
- *
- * @param page - 临时宿主上的页面。
- */
-async function dismissOverlays(page) {
-  let quiet = 0
-  for (let pass = 0; pass < 10 && quiet < 2; pass += 1) {
-    const pressed = await page.evaluate(() => {
-      const shown = (element) => element.checkVisibility() && element.getBoundingClientRect().width > 0
-      const layer = Array.from(document.querySelectorAll('[role="dialog"], [role="presentation"]')).filter(shown).pop()
-      if (layer === undefined) return false
-      const button = Array.from(layer.querySelectorAll('button')).filter(shown)[0]
-      if (button === undefined) return false
-      button.click()
-      return true
-    })
-    quiet = pressed ? 0 : quiet + 1
-    await sleep(1200)
-  }
-}
-
-/**
- * 打开查看看板。
- *
- * @param page - 宿主页面，侧栏入口已经出现。
- */
-async function openBoard(page) {
-  await dismissOverlays(page)
-  await page.evaluate((selector) => document.querySelector(selector)?.closest('button')?.click(), PANEL_ICON)
-  await page.waitForSelector(BOARD_VIEW, { timeout: 20000 })
-  await page.waitForSelector(POMODORO_FRAME, { timeout: 30000 })
-  await page.waitForSelector(WEATHER_FRAME, { timeout: 30000 })
-}
-
-/**
  * 三个动效模板不自动铺到已有看板上（D17）：缺哪一张就从下方菜单打开组件库加哪一张。
  *
  * @param page - 宿主页面，看板已经打开。
@@ -104,59 +70,6 @@ async function ensureTemplates(page) {
     await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 10000 })
     await page.waitForSelector(`iframe.dsh-widget-board__frame[title="${title}"]`, { timeout: 30000 })
   }
-}
-
-/**
- * 等一张卡片的文档完成握手（令牌进了 iframe 才算接上）。
- *
- * @param page - 宿主页面。
- * @param selector - 那张卡片的 iframe。
- * @returns 卡片的 frame。
- */
-async function frameOf(page, selector) {
-  // 卡片可能正在重挂：iframe 存在但文档还没起来的瞬间要等一等。单次等待要短，
-  // 否则一次卡在空白文档上就会把后面的重试全耗掉。
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const handle = await page.$(selector)
-    if (handle !== null) {
-      const frame = await handle.contentFrame()
-      if (frame !== null) {
-        const wired = await frame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--w-color-bg').trim() !== '', undefined, { timeout: 3000 })
-          .then(() => true, () => false)
-        if (wired) return frame
-      }
-    }
-    await sleep(250)
-  }
-  throw new Error(`卡片的 iframe 一直没有接上：${selector}\n页面里的 frame：\n${page.frames().map((frame) => `  ${frame.url().slice(-60)}`).join('\n')}`)
-}
-
-/**
- * 量一张卡片的盒子与它里面 iframe 的盒子：组件填满卡片，卡片大小由布局给出（D16）。
- *
- * @param page - 宿主页面。
- * @param title - 卡片 iframe 的标题。
- * @returns 两个盒子的像素尺寸。
- */
-async function cardBox(page, title) {
-  await page.waitForSelector(`iframe.dsh-widget-board__frame[title="${title}"]`, { timeout: 20000 })
-  await page.waitForFunction((title) => {
-    const frame = document.querySelector(`iframe.dsh-widget-board__frame[title="${title}"]`)
-    const card = frame?.closest('[data-instance]')
-    return card !== null && card !== undefined && card.getBoundingClientRect().height > 60
-  }, title, { timeout: 20000 })
-  return page.evaluate((title) => {
-    const frame = document.querySelector(`iframe.dsh-widget-board__frame[title="${title}"]`)
-    const card = frame?.closest('[data-instance]')
-    const outer = card.getBoundingClientRect()
-    const inner = frame.getBoundingClientRect()
-    return {
-      width: Math.round(outer.width),
-      height: Math.round(outer.height),
-      frameWidth: Math.round(inner.width),
-      frameHeight: Math.round(inner.height),
-    }
-  }, title)
 }
 
 /**
@@ -186,53 +99,6 @@ async function timeOf(frame) {
   const digits = await frame.evaluate(() => Array.from(document.querySelectorAll('#pomo-time .t-flip'))
     .map((cell) => cell.querySelector(':scope > .t-flip-half[data-half="top"]')?.textContent ?? ''))
   return `${digits.slice(0, 2).join('')}:${digits.slice(2).join('')}`
-}
-
-/**
- * 把两张卡的会话清回初始值：卡片的状态存在宿主上，上一轮跑剩的计时与选中日期会让这一轮的判定漂。
- *
- * @param page - 宿主页面，看板还没打开。
- */
-async function resetCards(page) {
-  const instances = await page.evaluate(async () => {
-    const snapshot = await (await fetch('api/widget-board/board')).json()
-    return snapshot.board.instances.map((instance) => ({ id: instance.id, widget: instance.widget }))
-  })
-  const patches = { pomodoro: { minutes: 25, endsAt: 0 }, weather: { day: 0 }, todo: { items: [] } }
-  for (const instance of instances) {
-    const patch = patches[instance.widget]
-    if (patch === undefined) continue
-    await page.evaluate(async ({ id, patch }) => {
-      await fetch(`api/widget-board/instance/${id}/state`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ patch }),
-      })
-    }, { id: instance.id, patch })
-  }
-}
-
-/**
- * 把卡片盒子清回一排默认大小：上一轮拖动或缩放留下的布局会让几何与点击点漂。
- *
- * @param page - 宿主页面，看板还没打开。
- */
-async function resetLayout(page) {
-  const snapshot = await page.evaluate(async () => (await fetch('api/widget-board/board')).json())
-  const layouts = {}
-  snapshot.board.instances.forEach((instance, index) => {
-    // 天气卡固定在最右一列，拖动测试从 x=2 往左走；其余卡片码在第一列，互不干扰。
-    layouts[instance.id] = instance.widget === 'weather'
-      ? { x: 2, y: 0, w: 1, h: 22 }
-      : { x: 0, y: index * 23, w: 1, h: 22 }
-  })
-  await page.evaluate(async ({ layoutRevision, layouts }) => {
-    await fetch('api/widget-board/board/layout', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ layoutRevision, layouts }),
-    })
-  }, { layoutRevision: snapshot.board.layoutRevision, layouts })
 }
 
 /**
@@ -296,12 +162,65 @@ async function mainPass(page, problems) {
 
   const pomodoro = await frameOf(page, POMODORO_FRAME)
   check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
-  check('刻度铺满一滑动条', (await pomodoro.evaluate(() => document.querySelectorAll('.pomo-tick').length)) === 46)
+  const box = await pomodoro.evaluate(() => ({
+    width: document.documentElement.dataset.boxWidth,
+    height: document.documentElement.dataset.boxHeight,
+    space: getComputedStyle(document.documentElement).getPropertyValue('--w-space-md').trim(),
+  }))
+  check('组件拿到盒子档位与间距令牌', box.width === 'regular' && box.height === 'regular' && box.space !== '', JSON.stringify(box))
+  const shape = await pomodoro.evaluate(() => ({
+    ticks: document.querySelectorAll('.pomo-tick').length,
+    min: document.querySelector('#pomo-range')?.getAttribute('min'),
+    max: document.querySelector('#pomo-range')?.getAttribute('max'),
+  }))
+  check('刻度按 5 到 60 分钟铺满一滑动条', shape.ticks === 56 && shape.min === '5' && shape.max === '60', `${shape.min}–${shape.max} / ${shape.ticks} 格`)
   const labels = await pomodoro.evaluate(() => ({
     title: document.querySelector('#pomo-title')?.textContent,
     caption: document.querySelector('#pomo-cap')?.textContent,
+    presets: Array.from(document.querySelectorAll('.pomo-preset')).map((button) => button.textContent),
   }))
   check('番茄钟的文案接上了', labels.title === '专注时间' && labels.caption === '选一段专注时长', `${labels.title} / ${labels.caption}`)
+  check('开始按钮上方是两个快捷时长', labels.presets.length === 2 && labels.presets[0] === '5分钟' && labels.presets[1] === '25分钟', labels.presets.join(' / '))
+
+  // 矮盒子里的刻度不收起：14rem 高的卡片仍然画进度条，读数与按钮各就各位。
+  const pomodoroId = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame[title="番茄钟"]')?.closest('[data-instance]')?.getAttribute('data-instance') ?? '')
+  await setCardHeight(page, pomodoroId, 14)
+  await sleep(600)
+  const compact = await pomodoro.evaluate(() => {
+    const slider = document.querySelector('#pomo-slider')
+    const rect = slider?.getBoundingClientRect()
+    return { shown: slider !== null && getComputedStyle(slider).display !== 'none' && rect.height > 0, ticks: document.querySelectorAll('.pomo-tick.is-on').length }
+  })
+  check('矮卡片里进度条还在', compact.shown && compact.ticks > 0, JSON.stringify(compact))
+  await setCardHeight(page, pomodoroId, 22)
+  await sleep(600)
+
+  // 快捷时长点一下就换数字并开始；跑着的时候这一排收起来，不能拿来重新计时。
+  await centerCard(page, '番茄钟')
+  await pomodoro.locator('.pomo-preset[data-minutes="5"]').click()
+  await sleep(700)
+  const quickFive = await pomodoro.evaluate(() => ({
+    pressed: document.querySelector('#pomo-start')?.getAttribute('aria-pressed'),
+    active: document.querySelector('.pomo-preset[data-minutes="5"]')?.dataset.active,
+    value: document.querySelector('#pomo-range')?.value,
+    presets: getComputedStyle(document.querySelector('#pomo-presets')).display,
+  }))
+  check('按 5 分钟直接开始倒计时', (await timeOf(pomodoro)) === '05:00' && quickFive.pressed === 'true' && quickFive.active === 'true' && quickFive.value === '5', JSON.stringify(quickFive))
+  check('运行中收起快捷时长', quickFive.presets === 'none', quickFive.presets)
+  await pomodoro.locator('#pomo-start').click()
+  await sleep(300)
+
+  await pomodoro.locator('.pomo-preset[data-minutes="25"]').click()
+  await sleep(700)
+  const quickTwentyFive = await pomodoro.evaluate(() => ({
+    pressed: document.querySelector('#pomo-start')?.getAttribute('aria-pressed'),
+    active: document.querySelector('.pomo-preset[data-minutes="25"]')?.dataset.active,
+    value: document.querySelector('#pomo-range')?.value,
+  }))
+  check('按 25 分钟直接开始倒计时', (await timeOf(pomodoro)) === '25:00' && quickTwentyFive.pressed === 'true' && quickTwentyFive.active === 'true' && quickTwentyFive.value === '25', JSON.stringify(quickTwentyFive))
+  await pomodoro.locator('#pomo-start').click()
+  await sleep(300)
+
   await pomodoro.evaluate(() => {
     const range = document.querySelector('#pomo-range')
     range.value = '40'
@@ -310,6 +229,7 @@ async function mainPass(page, problems) {
   // 翻页半秒之内落定，等它停稳再读。
   await sleep(600)
   check('拖动滑动条换数字', (await timeOf(pomodoro)) === '40:00')
+  await centerCard(page, '番茄钟')
   await pomodoro.locator('#pomo-start').click()
   await sleep(200)
   const running = await pomodoro.evaluate(() => ({
@@ -330,10 +250,6 @@ async function mainPass(page, problems) {
   check('秒数在走', pages === 0 && /^39:5\d$|^40:00$/.test(shown), shown)
 
   // 卡片重挂、整页重载之后计时接着跑：会话存在宿主上，不随页面丢失（D5）。
-  const pomodoroId = await page.evaluate(() => {
-    const frame = document.querySelector('iframe.dsh-widget-board__frame[title="番茄钟"]')
-    return frame?.closest('[data-instance]')?.getAttribute('data-instance') ?? ''
-  })
   const stored = await page.evaluate(async (id) => {
     const snapshot = await (await fetch('api/widget-board/board')).json()
     return snapshot.board.instances.find((instance) => instance.id === id)?.state ?? null
@@ -343,6 +259,7 @@ async function mainPass(page, problems) {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
   await openBoard(page)
+  await settled(page)
   const resumed = await frameOf(page, POMODORO_FRAME)
   await sleep(900)
   const back = await resumed.evaluate(() => ({
@@ -354,8 +271,13 @@ async function mainPass(page, problems) {
   check('重载之后计时还在跑', back.pressed === 'true' && back.disabled === true, `${back.pressed} / ${back.caption}`)
   check('剩下的时长还在', /^39:\d\d$|^40:00$/.test(resumedTime), resumedTime)
 
+  await centerCard(page, '番茄钟')
   await resumed.locator('#pomo-start').click()
-  await sleep(400)
+  await resumed.waitForFunction(
+    () => document.querySelector('#pomo-start')?.getAttribute('aria-pressed') === 'false',
+    undefined,
+    { timeout: 4000 },
+  ).catch(() => {})
   check('结束之后回到未运行', (await resumed.evaluate(() => document.querySelector('#pomo-start')?.getAttribute('aria-pressed'))) === 'false')
 
   // 待办卡片：回车加一条、勾掉它（状态存在宿主上，D5）。
@@ -422,6 +344,14 @@ async function addRemovePass(page) {
   check('组件库列出全部组件', listed >= 3, `${listed} 个`)
   const generic = await page.evaluate((ids) => ids.every((id) => document.querySelector(`[data-dsh-widget-board-add="${id}"]`) !== null), ['stat', 'list', 'table', 'chart', 'progress', 'kv', 'timeline', 'image'])
   check('八个通用数据组件都在组件库里', generic)
+  const preview = await frameOf(page, '.dsh-widget-board__library-preview iframe.dsh-widget-board__frame[title="番茄钟"]')
+  const previewState = await preview.evaluate(() => ({
+    size: document.documentElement.dataset.size,
+    placement: document.documentElement.dataset.placement,
+    presets: getComputedStyle(document.querySelector('.pomo-presets')).display,
+    start: getComputedStyle(document.querySelector('.pomo-start')).display,
+  }))
+  check('缩略画面标明 preview 并收掉按钮', previewState.size === 'preview' && previewState.placement === 'preview' && previewState.presets === 'none' && previewState.start === 'none', JSON.stringify(previewState))
   await page.locator('[data-dsh-widget-board-add="weather"]').click()
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 10000 })
   check('从组件库加了一张卡', true)
@@ -430,6 +360,17 @@ async function addRemovePass(page) {
     return cells.at(-1)?.getAttribute('data-instance') ?? ''
   })
   await page.locator(`[data-instance="${added}"] [data-dsh-widget-board-handle="remove"]`).click()
+  const exit = await page.evaluate((instance) => {
+    const cell = document.querySelector(`[data-instance="${instance}"]`)
+    if (cell === null) return null
+    const style = getComputedStyle(cell)
+    return { exiting: cell.getAttribute('data-exiting'), animation: style.animationName, duration: style.animationDuration }
+  }, added)
+  check(
+    '删卡先播退场动画',
+    exit?.exiting === 'true' && exit.animation === 'dsh-widget-board-card-out' && exit.duration === '0.25s',
+    JSON.stringify(exit),
+  )
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count, before, { timeout: 10000 })
   check('把加进去的卡移掉了', true)
 }
@@ -444,7 +385,8 @@ async function providerPass(page) {
   await page.waitForSelector('[data-dsh-widget-board-add="test-native"]', { timeout: 15000 })
   check('插件提供的组件出现在组件库里', true)
   await page.locator('[data-dsh-widget-board-add="test-native"]').click()
-  const native = '[data-native-widget="dsh-widget-board-test-provider"]'
+  // 只看板上的卡片：组件库里的缩略画面也画着同一个原生组件。
+  const native = '[data-dsh-widget-board-view] [data-native-widget="dsh-widget-board-test-provider"]'
   await page.waitForSelector(native, { timeout: 15000 })
   const count = (await page.locator(native).innerText()).trim()
   check('原生组件拿到数据源的数据', count === '7', count)
@@ -474,6 +416,7 @@ async function templatePass(page) {
 
   const magnetic = await frameOf(page, MAGNETIC_FRAME)
   check('磁吸卡画出来了', await magnetic.evaluate(() => document.querySelector('.magnetic-card') !== null))
+  await centerCard(page, '磁吸卡')
   await magnetic.locator('.magnetic-card').hover({ position: { x: 30, y: 40 } })
   await sleep(250)
   const magnet = await magnetic.evaluate(() => {
@@ -488,8 +431,7 @@ async function templatePass(page) {
   const holo = await frameOf(page, HOLO_FRAME)
   check('全息卡画出来了', await holo.evaluate(() => document.querySelector('.holo-card') !== null))
   // 看板上卡片多时全息卡可能在折叠下面：先把它滚到视口中间，再悬停。
-  await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame[title="全息卡"]')?.scrollIntoView({ block: 'center' }))
-  await sleep(250)
+  await centerCard(page, '全息卡')
   await holo.locator('.holo-card').hover({ position: { x: 24, y: 24 } })
   await sleep(250)
   const sheen = await holo.evaluate(() => {
@@ -579,7 +521,7 @@ async function layoutPass(page) {
       && Math.abs(during.card.left - (startBox.x - metrics.step * 0.7)) <= 2
       && Math.abs(during.card.top - (startBox.y + 70)) <= 2
       && Math.abs(during.ghost.left - (startBox.x - metrics.step)) <= 2
-      && Math.abs(during.ghost.top - (startBox.y + 72)) <= 2,
+      && Math.abs(during.ghost.top - (startBox.y + 64)) <= 2,
     JSON.stringify(during),
   )
   await page.mouse.up()
@@ -596,6 +538,21 @@ async function layoutPass(page) {
   const measure = page.locator(`[data-instance="${weatherId}"] ${MEASURE}`)
   const measured = (await measure.textContent())?.replace(/\s+/g, ' ').trim() ?? ''
   check('缩放时显示实时尺寸', (await measure.count()) === 1 && /\d+ × \d+/.test(measured), measured)
+  const masked = await page.evaluate(({ id, measure }) => {
+    const card = document.querySelector(`[data-instance="${id}"]`)?.getBoundingClientRect()
+    const mask = document.querySelector(`[data-instance="${id}"] ${measure}`)?.getBoundingClientRect()
+    if (card === undefined || mask === undefined) return null
+    return { card, mask }
+  }, { id: weatherId, measure: MEASURE })
+  check(
+    '缩放时尺寸读数铺成覆盖整张卡的遮罩',
+    masked !== null
+      && Math.abs(masked.card.x - masked.mask.x) <= 1
+      && Math.abs(masked.card.y - masked.mask.y) <= 1
+      && Math.abs(masked.card.width - masked.mask.width) <= 1
+      && Math.abs(masked.card.height - masked.mask.height) <= 1,
+    JSON.stringify(masked),
+  )
   await page.mouse.up()
   const resized = await waitLayout(page, weatherId, (layout) => layout.w === 2 && layout.h >= 25)
   check('缩放改写卡片的跨列与高度', resized.w === 2 && resized.h >= 25, JSON.stringify(resized))
@@ -659,7 +616,9 @@ async function reloadPass(page) {
     check('重挂之后天气卡仍然画出来', await frame.evaluate(() => document.querySelector('.wx') !== null))
     // 选中的是哪一天存在宿主上，重挂之后回来；文案与地点也要重新接上。
     await sleep(600)
-    const reloaded = await frame.evaluate(() => ({
+    // 热重载可能让同一张卡再换一次地址：等落定之后重新取一次它的 frame，别握着已经拆掉的那一个。
+    const settledFrame = await frameOf(page, WEATHER_FRAME)
+    const reloaded = await settledFrame.evaluate(() => ({
       place: document.querySelector('#wx-place')?.textContent,
       day: document.querySelector('#wx-day')?.textContent ?? '',
     }))
@@ -696,6 +655,7 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
   try {
     opened = await openPage(host.url)
     await mainPass(opened.page, opened.problems)
+    await noticePass(opened.page, { check, openBoard })
     await templatePass(opened.page)
     await addRemovePass(opened.page)
     await groupPass(opened.page, check)

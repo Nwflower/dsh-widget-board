@@ -8,6 +8,7 @@
  *   构建   类型检查与两个半边的产物；单元层与冒烟都读它写出的东西
  *   单元   vitest 跑一遍
  *   冒烟   在真实的临时宿主里打开看板（慢，`--no-smoke` 跳过）
+ *   矩阵   每个组件的代表性盒子（同样要真实宿主）
  *
  * 用法：node scripts/verify.mjs [--no-smoke | --help]
  */
@@ -36,10 +37,11 @@ const gates = [
   { title: '构建', command: () => node('scripts/build.mjs') },
   { title: '单元层', command: () => vitest },
   { title: '真实宿主里的冒烟', command: () => node('packages/testing/smoke.cjs'), skip: NO_SMOKE },
+  { title: '尺寸矩阵', command: () => node('packages/testing/matrix.cjs'), skip: NO_SMOKE },
 ]
 
 if (process.argv.includes('--help')) {
-  console.log('用法：node scripts/verify.mjs [--no-smoke]\n  --no-smoke  跳过要起真实宿主的冒烟；其余各关照跑。')
+  console.log('用法：node scripts/verify.mjs [--no-smoke]\n  --no-smoke  跳过要起真实宿主的冒烟与尺寸矩阵；其余各关照跑。')
   process.exit(0)
 }
 

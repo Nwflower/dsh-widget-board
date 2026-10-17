@@ -4,17 +4,45 @@
  * 宿主是唯一权威；看板页打开时取一次，之后靠变更通知就地合并，只有卡片增删与组件库变化才重取
  * （D18）。
  */
-import type { BoardLayoutRequest, BoardSnapshot, CardLayout, GroupAddRequest, GroupRemoveRequest, InstanceAddRequest, InstanceStateRequest } from '@dsh-widget-board/contracts'
-import { BOARD_PATH, CLIENT_ROUTE, boardGroupPath, boardGroupRemovePath, boardInstancePath, boardLayoutPath, instanceActionPath, instanceDataPath, instanceRemovePath, instanceStatePath, refreshPath } from '@dsh-widget-board/contracts'
+import type { BoardLayoutRequest, BoardSnapshot, CardLayout, GrantKind, GroupAddRequest, GroupRemoveRequest, InstanceAddRequest, InstanceStateRequest } from '@dsh-widget-board/contracts'
+import { BOARD_PATH, CLIENT_ROUTE, boardGroupPath, boardGroupRemovePath, boardInstancePath, boardLayoutPath, instanceActionPath, instanceDataPath, instanceGrantPath, instanceReadPath, instanceRemovePath, instanceRevokePath, instanceStatePath, refreshPath } from '@dsh-widget-board/contracts'
 
-/** 读一份响应体里的原因。 */
+/** 读一份失败响应里的原因。 */
 async function errorOf(response: Response, subject: string): Promise<string> {
-  try {
-    const body = await response.json() as { error?: string }
-    return body.error === undefined ? `${subject}：HTTP ${response.status}` : `${subject}：${body.error}`
-  } catch {
-    return `${subject}：HTTP ${response.status}`
+  return (await failureOf(response, subject)).message
+}
+
+/**
+ * 宿主因为缺授权而拒绝了一次动作或一次读数据（D6）。
+ *
+ * 卡片据此把「允许」按钮画出来：授权只由人给出，所以界面要能把这件事说清楚并让人点一下。
+ */
+export class GrantRequiredError extends Error {
+  constructor(message: string, readonly kind: GrantKind, readonly id: string, readonly provider: string | undefined) {
+    super(message)
+    this.name = 'GrantRequiredError'
   }
+}
+
+/**
+ * 读一份失败响应：缺授权时给 `GrantRequiredError`，其余给普通错误。
+ *
+ * @param response - 失败的响应。
+ * @param subject - 出错的这件事，写在消息开头。
+ * @returns 抛出去的错误。
+ */
+async function failureOf(response: Response, subject: string): Promise<Error> {
+  let body: { error?: string, code?: string, kind?: GrantKind, id?: string, provider?: string } = {}
+  try {
+    body = await response.json() as typeof body
+  } catch {
+    return new Error(`${subject}：HTTP ${response.status}`)
+  }
+  const message = body.error === undefined ? `${subject}：HTTP ${response.status}` : `${subject}：${body.error}`
+  if (body.code === 'grant-required' && typeof body.id === 'string') {
+    return new GrantRequiredError(message, body.kind ?? 'action', body.id, body.provider)
+  }
+  return new Error(message)
 }
 
 /** 读一份快照；形状不对时抛出来。 */
@@ -83,7 +111,59 @@ export async function sendInstanceAction(id: string, action: string, payload?: u
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id: action, payload }),
   })
-  if (!response.ok) throw new Error(await errorOf(response, '动作没有执行'))
+  if (!response.ok) throw await failureOf(response, '动作没有执行')
+}
+
+/**
+ * 按卡片绑定的（或点名的）数据源读一次数据（D6）。
+ *
+ * @param id - 卡片实例的 id。
+ * @param source - 数据源的名字；省略时用卡片绑定的那个。
+ * @returns 读回来的数据。
+ * @throws {Error | GrantRequiredError} 请求失败，或这个数据源还没有授权。
+ */
+export async function readInstanceData(id: string, source?: string): Promise<unknown> {
+  const response = await fetch(instanceReadPath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(source === undefined ? {} : { source }),
+  })
+  if (!response.ok) throw await failureOf(response, '读不了这张卡的数据')
+  return (await response.json() as { data?: unknown }).data ?? null
+}
+
+/**
+ * 由人给出一份授权（D6）：绑在这张卡当前的组件版本上。
+ *
+ * @param id - 卡片实例的 id。
+ * @param kind - 动作还是数据源。
+ * @param name - 动作或数据源的名字。
+ * @throws {Error} 请求失败。
+ */
+export async function grantInstance(id: string, kind: GrantKind, name: string): Promise<void> {
+  const response = await fetch(instanceGrantPath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind, id: name }),
+  })
+  if (!response.ok) throw await failureOf(response, '授权没有记下')
+}
+
+/**
+ * 撤掉一份授权（D6）。
+ *
+ * @param id - 卡片实例的 id。
+ * @param kind - 动作还是数据源。
+ * @param name - 动作或数据源的名字。
+ * @throws {Error} 请求失败。
+ */
+export async function revokeInstance(id: string, kind: GrantKind, name: string): Promise<void> {
+  const response = await fetch(instanceRevokePath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind, id: name }),
+  })
+  if (!response.ok) throw await failureOf(response, '撤不掉这份授权')
 }
 
 /**

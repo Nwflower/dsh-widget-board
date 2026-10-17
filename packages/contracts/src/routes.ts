@@ -40,7 +40,7 @@ export const EVENTS_PATH = '/events'
 /** 变更通知的地址，文档相对。 */
 export const CLIENT_EVENTS_PATH = `${CLIENT_ROUTE}${EVENTS_PATH}`
 
-/** 单张卡片的路由前缀：状态、数据与移除都挂在它下面（D5、D6）。 */
+/** 单张卡片的路由前缀：状态、数据、动作、授权与移除都挂在它下面（D5、D6）。 */
 export const INSTANCE_ROUTE = '/instance'
 
 /** 某个版本的组件文档：`GET /widget/<hash>/document`（D3）。 */
@@ -69,6 +69,30 @@ export const instanceDataPath = (id: string): string => `${CLIENT_ROUTE}${INSTAN
  * @returns 发出动作的路径。
  */
 export const instanceActionPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/action`
+
+/**
+ * 某张卡读一次数据的地址，文档相对（D6）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 读数据的路径。
+ */
+export const instanceReadPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/read`
+
+/**
+ * 给某张卡的一份授权，文档相对（D6）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 授权的路径。
+ */
+export const instanceGrantPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/grant`
+
+/**
+ * 撤掉某张卡的一份授权，文档相对（D6）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 撤权的路径。
+ */
+export const instanceRevokePath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/revoke`
 
 /**
  * 从看板上移除一张卡的地址，文档相对。

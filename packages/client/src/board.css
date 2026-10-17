@@ -361,6 +361,30 @@
   line-height: var(--dsw-font-xs-13-line-height);
 }
 
+/* 缺授权时卡片上的那一个按钮：授权只由人给出，所以入口画在出错的那张卡上（D6）。 */
+.dsh-widget-board__grant {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: var(--dsw-font-xs-13-font-size);
+  cursor: pointer;
+}
+
+.dsh-widget-board__grant:hover {
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+/* 失败原因与「允许」同时出现时，按钮压在原因条上面。 */
+.dsh-widget-board__failure-strip ~ .dsh-widget-board__grant {
+  bottom: 44px;
+}
+
 /* 翻面组：一个外壳里两层画面，只有内层转，卡片自己的盒子不动（D19）。 */
 .dsh-widget-board__flip-group {
   position: absolute;

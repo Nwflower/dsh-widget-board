@@ -23,6 +23,7 @@
 - 组件在 widget.json 里声明的最小盒子（minBox）现在会生效：新卡片与拖动落点抬到下限，缩放停在下限，载入看板与组件库热重载时把低于下限的卡片抬上来；组卡取正反两面的并集。
 - 组件拿到宽度与高度两个方向的尺寸档（data-box-width、data-box-height）；令牌补上间距与字号阶梯，运行时套件补 .w-frame、.w-actions、.w-scroll 三个布局原语与按档位隐藏的类。
 - 删掉一张卡片时，卡片按附件磁贴入场的反向退场：淡出并缩到 0.85，250ms，曲线与磁贴入场同一条；退场走完才换快照，其它卡片这时才开始收拢。
+- 动作与数据源带上了归属：跨提供方重名时后到的注册被拒绝并说明原因，组件用「提供方:名字」点名；动作可以声明自己需要的权限，声明了权限的动作要有人在卡片上给出授权（绑在这个组件版本上）之后才跑得起来，组件内容一变就要重新授权。提供方的注册现在是一个生命周期把手：撤下时目录、它名下的数据源与动作、它留下的授权与目录监视一并撤下。
 - 组件库的缩略画面标成 preview 位置，组件可以在这里换一套静态排版；番茄钟的缩略画面收掉快捷时长与开始按钮，待办收掉输入行，只留标题、读数与内容。
 
 ### 其他变更
@@ -44,6 +45,7 @@
 - The minimum box a widget declares in widget.json now applies: new cards and drop points are raised to it, resizing stops at it, and cards below it are raised when a board loads or the library hot-reloads; a flip group uses the union of both sides.
 - Widgets now get width and height size classes (data-box-width, data-box-height); the token set gains spacing and type scales, and the runtime suite gains the .w-frame, .w-actions and .w-scroll layout primitives plus size-class hiding helpers.
 - Removing a card now plays the attachment tile's entrance in reverse — fade out and shrink to 0.85 over 250 ms on the same curve — and the board swaps the snapshot only after the exit, so the other cards start closing in afterwards.
+- Actions and data sources now carry an owner: a duplicate name from another provider is refused with a reason and a widget can address one as "provider:name". An action can declare the permissions it needs, and such an action only runs after a person grants it on the card (bound to that widget version); changing the widget asks again. A provider registration is now a lifecycle handle: disposing it removes the directory, the data sources and actions registered under it, its leftover grants and its directory watch.
 - Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content.
 
 ### Chores

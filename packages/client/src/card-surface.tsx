@@ -1,12 +1,12 @@
 import { createElement, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { BoardInstance, ParentMessage, WidgetMessage, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardInstance, GrantKind, ParentMessage, WidgetMessage, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
 import { MESSAGE_RATE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { isChinese, t } from './copy'
 import type { FrameHost } from './frame-host'
 import type { ShellTheme } from './theme'
-import { sendInstanceAction } from './snapshot'
+import { GrantRequiredError, grantInstance, sendInstanceAction } from './snapshot'
 import { useNativeWidget } from './native'
 import { NativeBoundary } from './native-boundary'
 import { CARD_CLIP } from './card-shell'
@@ -70,6 +70,8 @@ export function CardSurface({
   const answeredRef = useRef(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  /** 宿主因为缺授权拒绝了上一次动作或读数据：卡片上画出「允许」按钮（D6）。 */
+  const [asking, setAsking] = useState<{ kind: GrantKind, id: string } | null>(null)
   const native = useNativeWidget(instance.widget)
   const size = {
     w: Math.round(placement.width),
@@ -91,6 +93,21 @@ export function CardSurface({
   const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} })
   initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} }
   const src = widgetDocumentPath(widget.hash, theme.lang)
+
+  /**
+   * 一次动作的结果落到卡片上：成功就收起要授权的那条提示，失败就把原因写出来；缺授权时另画出
+   * 「允许」按钮（D6、D11）。
+   *
+   * @param error - 失败时的错误；成功时是 `undefined`。
+   */
+  const settleAction = (error?: Error): void => {
+    if (error === undefined) {
+      setAsking(null)
+      return
+    }
+    setFailure(error.message)
+    setAsking(error instanceof GrantRequiredError ? { kind: error.kind, id: error.id } : null)
+  }
 
   useEffect(() => {
     const frame = frameRef.current
@@ -141,7 +158,7 @@ export function CardSurface({
       if (message.type === 'setState') stateRef.current(instance.id, message.patch)
       if (message.type === 'notify') notifyRef.current(instance, widget, message)
       if (message.type === 'action') {
-        sendInstanceAction(instance.id, message.id, message.payload).catch((error: Error) => { setFailure(error.message) })
+        sendInstanceAction(instance.id, message.id, message.payload).then(() => { settleAction() }, settleAction)
       }
     }
     const connect = (): void => {
@@ -236,7 +253,7 @@ export function CardSurface({
                 paused,
                 setState: (patch: unknown) => onState(instance.id, patch),
                 action: (id: string, payload?: unknown) => {
-                  sendInstanceAction(instance.id, id, payload).catch((error: Error) => { setFailure(error.message) })
+                  sendInstanceAction(instance.id, id, payload).then(() => { settleAction() }, settleAction)
                 },
                 notify: (notification?: WidgetNotification) => {
                   notifyRef.current(instance, widget, notification ?? {})
@@ -251,6 +268,21 @@ export function CardSurface({
           </div>
         )}
       {failure === null ? null : <p className="dsh-widget-board__failure-strip" role="status">{failure}</p>}
+      {asking === null ? null : (
+        <button
+          type="button"
+          className="dsh-widget-board__grant"
+          data-dsh-widget-board-grant={`${asking.kind}:${asking.id}`}
+          onClick={() => {
+            grantInstance(instance.id, asking.kind, asking.id).then(
+              () => { setAsking(null); setFailure(null) },
+              (error: Error) => { setFailure(error.message) },
+            )
+          }}
+        >
+          {t('allow')}
+        </button>
+      )}
     </>
   )
 }

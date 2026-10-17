@@ -69,13 +69,22 @@ export interface LocalizedText {
   en: string
 }
 
-/** manifest 里声明的动作：组件按下时发出的名字（D6）。 */
+/**
+ * manifest 里声明的动作：组件按下时发出的名字（D6）。
+ *
+ * `id` 是看板自己的动作名，或者 `提供方:名字` 点名某个插件注册的动作。声明过的动作还要有人给出
+ * 授权才能真的跑起来；这一点不由 manifest 决定（D6）。
+ */
 export interface WidgetAction {
   id: string
   label?: LocalizedText
 }
 
-/** 组件声明的权限（D6）：没有声明的动作、主机与命令一律拒绝。 */
+/**
+ * 组件声明的权限（D6）：没有声明的动作、主机与命令一律拒绝。
+ *
+ * 这是组件作者写下来的意图，界面上用它把授权说清楚；真正拦人的是宿主上的授权表。
+ */
 export interface WidgetPermissions {
   hosts?: string[]
   commands?: string[]
@@ -183,7 +192,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
         additionalProperties: false,
         required: ['id'],
         properties: {
-          id: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}$' },
+          id: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
           label: { $ref: '#/$defs/text' },
         },
       },

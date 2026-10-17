@@ -6,10 +6,10 @@
  * 推给在线页面（D18）。
  */
 import { join, resolve } from 'node:path'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
+import type { WidgetMinBox, WidgetRoot, WidgetTypeHandle } from '@dsh-widget-board/contracts'
 import {
   PACKAGE_NAME,
   PLUGIN_ROUTE,
@@ -21,12 +21,15 @@ import {
 } from '@dsh-widget-board/contracts'
 import { createVersionStore } from './blobs'
 import { loadAssets } from './assets'
+import { openGrants } from './grants'
+import type { GrantStore } from './grants'
 import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
 import { createRegistries } from './sources'
+import { createProviderRegistry, widgetIdsIn } from './providers'
 import { StaleRevisionError, loadBoard, withLayouts, writeBoard } from './state'
 import { watchTree } from './watch'
 import { dshHome } from './home'
@@ -80,6 +83,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const runtime = join(lib, 'runtime')
   const home = join(dshHome(), 'widget-board')
   const boardFile = join(home, 'board.json')
+  const grantFile = join(home, 'grants.json')
   const versions = createVersionStore(join(home, 'blobs'))
   // 用户组件目录先建出来：拖进来的组件有地方放，监视也挂得上（D17）。
   await mkdir(join(home, 'widgets'), { recursive: true })
@@ -92,6 +96,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   for (const record of library.records.values()) await versions.remember(record)
   const live = createLive(await loadAssets(runtime))
   const sources = createRegistries()
+  // 授权表：人给出过的那些，绑在组件版本上（D6）。
+  const grants: GrantStore = await openGrants(grantFile)
 
   /**
    * 改一次看板：写到磁盘、换掉内存里的那份、推一条通知。
@@ -133,6 +139,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     connection: connectionOf(ctx),
     refresh: () => refreshLibrary(),
     sources,
+    grants,
   }
 
   // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与
@@ -180,31 +187,38 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   })
   const stopBuiltin = watch(lib)
   const stopUser = watch(join(home, 'widgets'))
+  // 已经挂上监视的目录：插件注册的目录也监视，开发时改一个组件文件就能看到（D17）。
+  const watched = new Set<string>([lib, join(home, 'widgets')])
+  const watchOnce = (dir: string): (() => void) => {
+    if (watched.has(dir)) return () => {}
+    watched.add(dir)
+    const stop = watch(dir)
+    return () => {
+      watched.delete(dir)
+      stop()
+    }
+  }
+
+  // 提供方的注册与生命周期：目录、它名下的数据源与动作、它留下的授权一起管（D12、D17）。
+  const providers = createProviderRegistry({
+    roots,
+    reload,
+    registerDataSource: (source) => sources.registerDataSource(source),
+    registerAction: (action) => sources.registerAction(action),
+    forgetGrants: async (provider) => { await grants.forget({ provider }) },
+    idsIn: async (root) => await widgetIdsIn(root, async (file) => await readFile(file, 'utf8')),
+    watch: watchOnce,
+  })
 
   /** 插件提供的组件目录：注册时加入来源表并读一次，撤下时移出并重读（D17）。 */
   const service = {
     apiVersion: WIDGET_BOARD_API_VERSION,
-    async registerWidgetType(registration: { apiVersion: number, provider: string, directory: string }): Promise<() => Promise<void>> {
+    async registerWidgetType(registration: { apiVersion: number, provider: string, directory: string }): Promise<WidgetTypeHandle> {
       if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
       if (registration.provider.trim() === '' || registration.directory.trim() === '') {
         throw new Error('registerWidgetType 需要 provider 与 directory')
       }
-      const root: WidgetRoot = { dir: registration.directory, source: 'plugin', provider: registration.provider }
-      if (roots.some((existing) => existing.dir === root.dir && existing.provider === root.provider)) {
-        throw new Error(`${registration.provider} 已经注册过 ${registration.directory}`)
-      }
-      roots.push(root)
-      try {
-        await reload()
-      } catch (error) {
-        roots.pop()
-        throw error
-      }
-      return async () => {
-        const index = roots.indexOf(root)
-        if (index !== -1) roots.splice(index, 1)
-        await reload()
-      }
+      return await providers.register(registration)
     },
     registerDataSource(registration: { apiVersion: number } & Parameters<typeof sources.registerDataSource>[0]) {
       if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
@@ -232,6 +246,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   ctx.effect(() => () => {
     stopBuiltin()
     stopUser()
+    providers.disposeAll()
     disposeRoute()
     live.close()
   }, 'widget-board: routes and library watch')

@@ -5,11 +5,11 @@
     "en": "Test native widget"
   },
   "description": {
-    "zh": "插件提供的原生组件，画在父页面里，数据来自插件注册的数据源。",
-    "en": "A native widget provided by a plugin, drawn in the page, with data from the plugin's data source."
+    "zh": "插件提供的原生组件，画在父页面里，数据来自插件注册的数据源，动作来自插件注册的动作。",
+    "en": "A native widget provided by a plugin, drawn in the page, with data from the plugin's data source and actions from the plugin's registered actions."
   },
   "author": "dsh-widget-board-test-provider",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s"],
   "source": "test.count",
   "data": {
@@ -23,6 +23,10 @@
     {
       "id": "bump",
       "label": { "zh": "加一", "en": "Bump" }
+    },
+    {
+      "id": "dsh-widget-board-test-provider:test.run",
+      "label": { "zh": "跑一次（要授权）", "en": "Run (needs a grant)" }
     }
   ]
 }

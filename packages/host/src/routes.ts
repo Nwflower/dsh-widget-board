@@ -13,6 +13,8 @@ import type {
   BoardLayoutRequest,
   BoardSnapshot,
   CardLayout,
+  GrantKind,
+  GrantRequest,
   GroupAddRequest,
   GroupRemoveRequest,
   HostConnection,
@@ -28,11 +30,14 @@ import type {
 import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
+import type { GrantStore } from './grants'
+import { requireGrant, type GrantFacts } from './permissions'
 import type { Live } from './live'
 import type { WidgetRecord } from './library'
 import { dataError } from './schema'
 import type { Registries } from './sources'
 import { isCardLayout } from '@dsh-widget-board/model'
+import { Refusal } from './refusal'
 import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState } from './state'
 
 /** 卡片状态的请求体上限：界面状态只是几张表单的值，几 KB 足够。 */
@@ -70,6 +75,8 @@ export interface RouteContext {
   refresh: () => Promise<void>
   /** 数据源与动作的注册表（D6）。 */
   sources: Registries
+  /** 人给出过的授权，绑在组件版本上（D6）。 */
+  grants: GrantStore
 }
 
 /** 一次写入要带的选项：修订号、要不要动布局修订号、推给页面的是哪条事件。 */
@@ -77,14 +84,6 @@ export interface SaveOptions {
   expectedLayoutRevision?: number
   layoutChanged?: boolean
   event: (next: Board) => BoardEvent
-}
-
-/** 带状态码的拒绝：处理器只挑原因，状态码在这里定一次。 */
-class Refusal extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message)
-    this.name = 'Refusal'
-  }
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */
@@ -116,7 +115,7 @@ function json(response: HostResponse, status: number, body: unknown): void {
   response.end(JSON.stringify(body))
 }
 
-/** 看板快照：看板本身，外加它用到的组件元信息与整个组件库。 */
+/** 看板快照：看板本身，外加它用到的组件元信息、整个组件库与看板上用得到的授权。 */
 export function snapshot(context: RouteContext): BoardSnapshot {
   const widgets: BoardSnapshot['widgets'] = {}
   for (const [id, record] of context.records) {
@@ -130,7 +129,10 @@ export function snapshot(context: RouteContext): BoardSnapshot {
       ...(record.manifest.minBox === undefined ? {} : { minBox: record.manifest.minBox }),
     }
   }
-  return { board: context.board, widgets, library: context.entries }
+  // 只带看板上出现的那些版本：授权表会一直长，页面只关心眼前这几张卡（D6）。
+  const hashes = new Set(context.board.instances.map((instance) => instance.hash))
+  const grants = context.grants.all().filter((grant) => hashes.has(grant.hash))
+  return { board: context.board, widgets, library: context.entries, grants }
 }
 
 /**
@@ -391,9 +393,65 @@ const ROUTES: Route[] = [
       const wanted = body as unknown as InstanceActionRequest
       const declared = context.records.get(face.widget)?.manifest.actions?.some((action) => action.id === wanted.id) === true
       if (!declared) throw new Refusal(400, `组件没有声明动作 ${wanted.id}`)
+      const resolved = context.sources.resolveAction(wanted.id)
+      if (resolved === undefined) throw new Refusal(400, `没有动作 ${wanted.id}，提供它的插件可能没有安装`)
+      requireGrant(grantFacts(context), id, 'action', wanted.id, resolved.registration.permission, resolved.provider)
       // 动作的失败原因原样回给卡片：组件把它显示出来，用户不必去翻日志（D11）。
       const result = await context.sources.runAction(wanted.id, face, wanted.payload)
       json(response, 200, { ok: true, result: result ?? null })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/instance\/([^/]+)\/read$/,
+    limit: EMPTY_LIMIT,
+    async handle(context, request, response, match) {
+      const id = decodeURIComponent(match[1] as string)
+      const face = faceOf(context.board, id)
+      const body = await readJson(request, EMPTY_LIMIT)
+      const asked = isRecord(body) && typeof body.source === 'string' ? body.source : context.board.instances.find((instance) => instance.id === id)?.source
+      if (asked === undefined || asked === '') throw new Refusal(400, `这张卡没有数据源：${id}`)
+      const resolved = context.sources.resolveDataSource(asked)
+      if (resolved === undefined) throw new Refusal(400, `没有数据源 ${asked}，提供它的插件可能没有安装`)
+      requireGrant(grantFacts(context), id, 'source', asked, undefined, resolved.provider)
+      const data = await context.sources.readSource(asked, face)
+      await saveData(context, id, data)
+      json(response, 200, { ok: true, data: data ?? null })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/instance\/([^/]+)\/grant$/,
+    limit: EMPTY_LIMIT,
+    async handle(context, request, response, match) {
+      const id = decodeURIComponent(match[1] as string)
+      const wanted = await grantRequestOf(context, request, id)
+      const record = recordOfCard(context, id)
+      const action = wanted.kind === 'action' ? context.sources.resolveAction(wanted.id) : undefined
+      const source = wanted.kind === 'source' ? context.sources.resolveDataSource(wanted.id) : undefined
+      if (wanted.kind === 'action' && action === undefined) throw new Refusal(400, `没有动作 ${wanted.id}，提供它的插件可能没有安装`)
+      if (wanted.kind === 'source' && source === undefined) throw new Refusal(400, `没有数据源 ${wanted.id}，提供它的插件可能没有安装`)
+      const provider = action?.provider ?? source?.provider
+      const grant = await context.grants.grant({
+        kind: wanted.kind,
+        id: wanted.id,
+        hash: record.hash,
+        widget: record.manifest.id,
+        ...(provider === undefined ? {} : { provider }),
+        ...(action?.registration.permission === undefined ? {} : { permission: action.registration.permission }),
+      })
+      json(response, 200, { ok: true, grant })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/instance\/([^/]+)\/revoke$/,
+    limit: EMPTY_LIMIT,
+    async handle(context, request, response, match) {
+      const id = decodeURIComponent(match[1] as string)
+      const wanted = await grantRequestOf(context, request, id)
+      const removed = await context.grants.revoke(wanted.kind, recordOfCard(context, id).hash, wanted.id)
+      json(response, 200, { ok: true, removed })
     },
   },
   {
@@ -440,6 +498,49 @@ const ROUTES: Route[] = [
 ]
 
 /**
+ * 读一次授权或撤权请求：看板上有这张卡，请求里写明了动作或数据源的名字。
+ *
+ * @param context - 路由上下文。
+ * @param request - 宿主的请求。
+ * @param id - 卡片实例的 id。
+ * @returns 解析出来的那一类与名字。
+ * @throws {Refusal} 看板上没有这张卡（404），或请求里没有名字（400）。
+ */
+async function grantRequestOf(context: RouteContext, request: HostRequest, id: string): Promise<{ kind: GrantKind, id: string }> {
+  faceOf(context.board, id)
+  const body = await readJson(request, EMPTY_LIMIT)
+  if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '授权或撤权要写明 id')
+  return { kind: body.kind === 'source' ? 'source' : 'action', id: body.id }
+}
+
+/**
+ * 一张卡对应的组件记录。
+ *
+ * @param context - 路由上下文。
+ * @param id - 卡片实例的 id。
+ * @returns 组件记录。
+ * @throws {Refusal} 看板上没有这张卡，或它的组件不在组件库里。
+ */
+function recordOfCard(context: RouteContext, id: string): WidgetRecord {
+  const widget = context.board.instances.find((instance) => instance.id === id)?.widget ?? ''
+  const record = context.records.get(widget)
+  if (record === undefined) throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来')
+  return record
+}
+
+/**
+ * 把路由上下文里跟授权有关的那几项收成一份事实（D6）。
+ *
+ * @param context - 路由上下文。
+ * @returns 看板、组件当前的版本哈希与授权表。
+ */
+function grantFacts(context: RouteContext): GrantFacts {
+  const hashes = new Map<string, string>()
+  for (const [id, record] of context.records) hashes.set(id, record.hash)
+  return { board: context.board, hashes, grants: context.grants }
+}
+
+/**
  * 生成前缀路由的处理器。
  *
  * @param context - 组件库、看板、通知器与栅栏；`records` 与 `entries` 会在热重载时被替换。
@@ -473,7 +574,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
       await chosen.route.handle(context, request, response, chosen.match)
     } catch (error) {
       if (error instanceof Refusal) {
-        json(response, error.status, { error: error.message })
+        json(response, error.status, { error: error.message, ...error.extra })
         return
       }
       const message = error instanceof Error ? error.message : String(error)

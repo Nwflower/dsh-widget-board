@@ -4,6 +4,7 @@
  * 两个半边共用这一份，形状只在这里写一次。
  */
 import type { WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetSource } from './widget'
+import type { Grant, GrantKind } from './permission'
 
 /**
  * 一张卡片在看板上的位置与尺寸。
@@ -105,6 +106,8 @@ export interface BoardSnapshot {
   widgets: Record<string, WidgetSummary>
   /** 组件库的全部类型，含读不出来的那些（D17）。 */
   library: WidgetLibraryEntry[]
+  /** 看板上的卡片拿到过的授权（D6）；界面据此决定要不要问人。 */
+  grants: Grant[]
 }
 
 /**
@@ -119,6 +122,29 @@ export interface InstanceStateRequest {
 /** `POST /instance/<id>/data` 的请求体：数据源或 agent 把数据交给这张卡（D6）。 */
 export interface InstanceDataRequest {
   data: unknown
+}
+
+/**
+ * `POST /instance/<id>/read` 的请求体：按卡片绑定的（或点名的）数据源读一次数据（D6）。
+ *
+ * 省略 `source` 时用卡片自己绑定的那个。
+ */
+export interface InstanceReadRequest {
+  source?: string
+}
+
+/** `POST /instance/<id>/grant` 的请求体：人给出一份授权（D6）。 */
+export interface GrantRequest {
+  /** 授权指向的是动作还是数据源；省略时是动作。 */
+  kind?: GrantKind
+  /** 动作或数据源的名字。 */
+  id: string
+}
+
+/** `POST /instance/<id>/revoke` 的请求体：撤掉一份授权（D6）。 */
+export interface RevokeRequest {
+  kind?: GrantKind
+  id: string
 }
 
 /**

@@ -155,12 +155,15 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
       return workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
     })
     const instances = current.instances
+    // 卡片按实例 id 找：精选看板与画廊里同名组件不止一张，按标题会量到另一张。刚加上的卡要到
+    // 它被摆进视口之后才握手，所以先按盒子试一次，连不上就在量它之前重来。
+    const frameSelector = (id) => `.dsh-widget-board__flow[data-active="true"] [data-instance="${id}"] iframe.dsh-widget-board__frame`
     const frames = new Map()
     for (const instance of instances) {
       const widget = snapshot.widgets[instance.widget]
       if (widget === undefined || widget.hash === undefined) continue
-      const title = widget.title.zh || widget.title.en
-      frames.set(instance.id, await frameOf(page, `iframe.dsh-widget-board__frame[title="${title}"]`))
+      const frame = await frameOf(page, frameSelector(instance.id)).catch(() => null)
+      if (frame !== null) frames.set(instance.id, frame)
     }
     mkdirSync(SHOTS, { recursive: true })
     for (const box of BOXES) {
@@ -168,8 +171,8 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
       const height = box.h * metrics.rootFontSize
       for (const instance of instances) {
         const widget = snapshot.widgets[instance.widget]
-        const frame = frames.get(instance.id)
-        if (widget === undefined || frame === undefined) {
+        const cached = frames.get(instance.id)
+        if (widget === undefined) {
           check(`盒子 ${box.w}×${box.h}rem 的 ${instance.widget}`, false, '组件或画面不可用')
           continue
         }
@@ -182,13 +185,20 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
         const label = `${widget.title.zh || widget.title.en} ${Math.min(box.w, metrics.columns)}×${box.h}rem`
         await placeTarget(page, instance.id, box, metrics)
         await sleep(180)
+        // 摆进视口之后再握手：刚加上的卡这时候才加载文档。
+        const frame = cached ?? await frameOf(page, frameSelector(instance.id)).catch(() => null)
+        if (frame === null) {
+          check(label, false, '卡片的 iframe 没有接上')
+          continue
+        }
+        frames.set(instance.id, frame)
         const seen = await waitBox(frame, width, height)
         const state = await measure(frame)
         const sized = Math.abs(seen.w - width) <= 2 && Math.abs(seen.h - height) <= 2
         const ok = sized && state !== null && state.problems.length === 0
-        check(label, ok, state === null ? '组件文档里没有检查器' : JSON.stringify(state.problems))
+        check(label, ok, state === null ? '组件文档里没有检查器' : JSON.stringify({ problems: state.problems, seen, want: { width, height } }))
         if (!ok) {
-          await page.locator(`iframe.dsh-widget-board__frame[title="${widget.title.zh || widget.title.en}"]`)
+          await page.locator(frameSelector(instance.id))
             .screenshot({ path: join(SHOTS, `${instance.widget}-${box.w}x${box.h}.png`) })
             .catch(() => {})
         }

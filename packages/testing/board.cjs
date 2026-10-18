@@ -37,13 +37,16 @@ async function writeLayouts(page, build) {
   const snapshot = await workspace(page)
   const board = activeBoard(snapshot)
   const layouts = build(board.instances)
-  await page.evaluate(async ({ boardId, layoutRevision, layouts }) => {
-    await fetch(`api/widget-board/boards/${encodeURIComponent(boardId)}/layout`, {
+  const status = await page.evaluate(async ({ boardId, layoutRevision, layouts }) => {
+    const response = await fetch(`api/widget-board/boards/${encodeURIComponent(boardId)}/layout`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ layoutRevision, layouts }),
     })
+    return response.status
   }, { boardId: board.id, layoutRevision: board.layoutRevision, layouts })
+  // 修订号过期（409）或盒子不合法（400）都不能继续：后面的几何与点击点全按这份布局算。
+  if (status !== 200) throw new Error(`提交布局失败：${status}`)
 }
 
 /**

@@ -6,7 +6,6 @@
  * 不经过这里（D3）。
  */
 import type { ActionPermission, Board, GrantKind } from '@dsh-widget-board/contracts'
-import { PACKAGE_NAME } from '@dsh-widget-board/contracts'
 import { permissionMatches, type GrantStore } from './grants'
 import { Refusal } from './refusal'
 
@@ -21,11 +20,14 @@ export interface GrantFacts {
 /**
  * 这张卡上有没有跑这个动作、读这个数据源的授权。
  *
+ * 没有声明权限的动作与数据源不必问人：它们只读看板自己的东西（D6）。声明了权限的，要有一份绑在
+ * 这个组件版本与这个名字上的授权，且授权里记下的权限要与现在要的一致。
+ *
  * @param facts - 看板、组件版本与授权表。
  * @param instanceId - 卡片实例的 id。
  * @param kind - 授权指向的是动作还是数据源。
  * @param name - 动作或数据源的名字。
- * @param permission - 动作声明的权限；不需要权限时是 `undefined`。
+ * @param permission - 它声明的权限；不需要权限时是 `undefined`。
  * @param provider - 提供方的包名。
  * @throws {Refusal} 没有这份授权（403），错误里带着缺的那一条与要问的权限。
  */
@@ -37,8 +39,7 @@ export function requireGrant(
   permission: ActionPermission | undefined,
   provider: string,
 ): void {
-  if (kind === 'source' && provider === PACKAGE_NAME) return
-  if (kind === 'action' && permission === undefined) return
+  if (permission === undefined) return
   const instance = facts.board.instances.find((candidate) => candidate.id === instanceId)
   const hash = instance === undefined ? undefined : facts.hashes.get(instance.widget)
   if (hash === undefined) throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来', { code: 'widget-missing' })
@@ -49,10 +50,10 @@ export function requireGrant(
     id: name,
     provider,
     widget: instance?.widget,
-    ...(permission === undefined ? {} : { permission }),
+    permission,
   }
   if (grant === undefined) throw new Refusal(403, `要用 ${name}，先由人给出授权`, ask)
-  if (kind === 'action' && !permissionMatches(permission, grant.permission)) {
+  if (!permissionMatches(permission, grant.permission)) {
     throw new Refusal(403, `${name} 现在要的权限与授权时不一样了，要重新给出授权`, ask)
   }
 }

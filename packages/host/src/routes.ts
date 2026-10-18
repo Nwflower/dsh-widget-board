@@ -412,15 +412,9 @@ const ROUTES: Route[] = [
     limit: EMPTY_LIMIT,
     async handle(context, request, response, match) {
       const id = decodeURIComponent(match[1] as string)
-      const face = faceOf(context.board, id)
       const body = await readJson(request, EMPTY_LIMIT)
-      const asked = isRecord(body) && typeof body.source === 'string' ? body.source : context.board.instances.find((instance) => instance.id === id)?.source
-      if (asked === undefined || asked === '') throw new Refusal(400, `这张卡没有数据源：${id}`)
-      const resolved = context.sources.resolveDataSource(asked)
-      if (resolved === undefined) throw new Refusal(400, `没有数据源 ${asked}，提供它的插件可能没有安装`)
-      requireGrant(grantFacts(context), id, 'source', asked, undefined, resolved.provider)
-      const data = await context.sources.readSource(asked, face)
-      await saveData(context, id, data)
+      const asked = isRecord(body) && typeof body.source === 'string' ? body.source : undefined
+      const data = await readInto(context, id, asked)
       json(response, 200, { ok: true, data: data ?? null })
     },
   },
@@ -437,13 +431,14 @@ const ROUTES: Route[] = [
       if (wanted.kind === 'action' && action === undefined) throw new Refusal(400, `没有动作 ${wanted.id}，提供它的插件可能没有安装`)
       if (wanted.kind === 'source' && source === undefined) throw new Refusal(400, `没有数据源 ${wanted.id}，提供它的插件可能没有安装`)
       const provider = action?.provider ?? source?.provider
+      const permission = action?.registration.permission ?? source?.registration.permission
       const grant = await context.grants.grant({
         kind: wanted.kind,
         id: wanted.id,
         hash: record.hash,
         widget: record.manifest.id,
         ...(provider === undefined ? {} : { provider }),
-        ...(action?.registration.permission === undefined ? {} : { permission: action.registration.permission }),
+        ...(permission === undefined ? {} : { permission }),
       })
       json(response, 200, { ok: true, grant })
     },
@@ -546,7 +541,30 @@ function grantFacts(context: RouteContext): GrantFacts {
 }
 
 /**
- * 生成前缀路由的处理器。
+ * 让一张卡按绑定的数据源读一次，把数据写进卡片（D6、D17）。
+ *
+ * 手动读、工具读与定时刷新都走这一条：校验与写入只有一处。
+ *
+ * @param context - 路由上下文。
+ * @param id - 卡片实例的 id。
+ * @param source - 数据源的名字；省略时用卡片绑定的那个。
+ * @returns 读回来的数据。
+ * @throws {Refusal} 看板上没有这张卡、这张卡没有数据源、数据源不在、或没有授权。
+ */
+export async function readInto(context: RouteContext, id: string, source?: string): Promise<unknown> {
+  const face = faceOf(context.board, id)
+  const asked = source ?? context.board.instances.find((instance) => instance.id === id)?.source
+  if (asked === undefined || asked === '') throw new Refusal(400, `这张卡没有数据源：${id}`)
+  const resolved = context.sources.resolveDataSource(asked)
+  if (resolved === undefined) throw new Refusal(400, `没有数据源 ${asked}，提供它的插件可能没有安装`)
+  requireGrant(grantFacts(context), id, 'source', asked, resolved.registration.permission, resolved.provider)
+  const data = await context.sources.readSource(asked, face)
+  await saveData(context, id, data)
+  return data
+}
+
+/**
+ * 路由表。
  *
  * @param context - 组件库、看板、通知器与栅栏；`records` 与 `entries` 会在热重载时被替换。
  * @returns 交给宿主 web 服务的处理器。

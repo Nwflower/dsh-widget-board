@@ -38,18 +38,26 @@ export interface ProviderRegistration {
   provider: string
 }
 
+/** 一个数据源或一个动作自己声明的权限：它要动的主机与要跑的命令（D6）。 */
+export interface ActionPermission {
+  hosts?: string[]
+  commands?: string[]
+}
+
 /** 一个数据源：卡片的数据由它读出来（D6）。 */
 export interface DataSourceRegistration extends ProviderRegistration {
   /** 数据源的名字；同一时刻全局唯一。 */
   id: string
+  /**
+   * 这个数据源要的权限（D6）。省略表示它只读宿主自己的东西——读一个插件发布的服务、看板自己的
+   * 状态——不必问人。
+   *
+   * 有值时每次读它之前都要有一份绑在这张卡的组件版本与这份权限上的授权：数据源可能去动外部世界
+   * （跑命令、发请求），和动作一样要由人给一次。
+   */
+  permission?: ActionPermission
   /** 读一次数据；结果按组件的 data schema 校验。 */
   read(instance: InstanceFace): unknown | Promise<unknown>
-}
-
-/** 一个动作自己声明的权限：它要动的主机与要跑的命令（D6）。 */
-export interface ActionPermission {
-  hosts?: string[]
-  commands?: string[]
 }
 
 /** 一个动作：组件的按钮由它执行（D6）。 */

@@ -27,9 +27,10 @@ import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
-import { createHandler } from './routes'
+import { createHandler, readInto } from './routes'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
+import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
 import type { ToolRegistration } from './tools'
 import { StaleRevisionError, loadBoard, withLayouts, writeBoard } from './state'
@@ -111,6 +112,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   let writing: Promise<void> = Promise.resolve()
   /** 刷新路由要调的重读：重读函数在下面定义，闭包先接住这个变量。 */
   let refreshLibrary: () => Promise<void> = async () => {}
+  /** 看板变了之后要让调度器重算：调度器在下面定义，这里先接住。 */
+  let syncScheduler: () => void = () => {}
   const save: RouteContext['save'] = (change, options) => {
     const run = writing.then(async () => {
       const current = context.board
@@ -125,6 +128,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       await writeBoard(boardFile, next)
       context.board = next
       live.notify(options.event(next))
+      // 卡片增删、数据源改绑都从这里过：定时刷新的表跟着重算（D6）。
+      syncScheduler()
       return next
     })
     writing = run.then(() => undefined, () => undefined)
@@ -168,6 +173,21 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     return run
   }
   refreshLibrary = reload
+
+  // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读，没人看就停。
+  const scheduler = createScheduler({
+    cards: () => context.board.instances.flatMap((instance) => {
+      const everyMs = intervalOf(context.records.get(instance.widget)?.manifest.refresh)
+      return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
+    }),
+    viewers: () => live.viewers,
+    read: async (id) => { await readInto(context, id) },
+    onError: (id, error) => {
+      console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
+    },
+  })
+  const stopWatchingViewers = live.onViewers(() => { scheduler.sync() })
+  syncScheduler = () => { scheduler.sync() }
 
   const handler = createHandler(context)
   const disposeRoute = webServerOf(ctx).register({
@@ -269,6 +289,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
 
   ctx.effect(() => () => {
     tools?.dispose()
+    stopWatchingViewers()
+    scheduler.stop()
     stopBuiltin()
     stopUser()
     providers.disposeAll()

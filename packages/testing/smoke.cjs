@@ -23,6 +23,7 @@ const { groupPass } = require('./group.cjs')
 const { markdownPass } = require('./markdown.cjs')
 const { noticePass } = require('./notice.cjs')
 const { openBoard } = require('./panel.cjs')
+const { providerPass } = require('./provider.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -375,75 +376,6 @@ async function addRemovePass(page) {
   check('把加进去的卡移掉了', true)
 }
 
-/**
- * 插件提供的组件（D12、D17）：组件库里有它，加进来之后由插件登记的原生组件渲染，数据来自插件的
- * 数据源，动作来自插件注册的动作；要权限的动作在授权前被拦下，由卡片上的按钮授权之后放行。
- *
- * @param page - 宿主页面，看板已经打开。
- */
-async function providerPass(page) {
-  await openLibrary(page)
-  await page.waitForSelector('[data-dsh-widget-board-add="test-native"]', { timeout: 15000 })
-  check('插件提供的组件出现在组件库里', true)
-  const before = await page.evaluate(() => document.querySelectorAll('[data-dsh-widget-board-view] [data-instance]').length)
-  await page.locator('[data-dsh-widget-board-add="test-native"]').click()
-  await page.waitForFunction((count) => document.querySelectorAll('[data-dsh-widget-board-view] [data-instance]').length === count + 1, before, { timeout: 15000 })
-  // 只看这一次加上的那张卡：组件库里的缩略画面也画着同一个原生组件，看板上可能还有别的同款卡片。
-  const id = await page.evaluate(() => {
-    const cards = Array.from(document.querySelectorAll('[data-dsh-widget-board-view] [data-native-widget="dsh-widget-board-test-provider"]'))
-    return cards.at(-1)?.closest('[data-instance]')?.getAttribute('data-instance') ?? ''
-  })
-  check('插件提供的组件加到了看板上', id !== '')
-  const card = `[data-instance="${id}"]`
-  // 卡片先加进来、数据随后由宿主读一次再推给卡片：等数字出现再核对（D17）。
-  await page.waitForFunction(
-    (selector) => (document.querySelector(selector)?.textContent ?? '').trim() !== '',
-    `${card} [data-test-native-count]`,
-    { timeout: 15000 },
-  )
-  const count = (await page.locator(`${card} [data-test-native-count]`).innerText()).trim()
-  check('原生组件拿到数据源的数据', count === '7', count)
-
-  // 要权限的动作：先被拦下，授权之后同一个按钮就通了（D6）。冒烟用的是同一个 `DSH_HOME`，
-  // 上一轮留下的授权要先撤掉，判据才与「刚装上」一致。
-  const strip = `${card} .dsh-widget-board__failure-strip`
-  const ask = `${card} [data-dsh-widget-board-grant]`
-  const run = `${card} [data-test-native-run]`
-  await page.waitForSelector(run, { timeout: 10000 })
-  await page.evaluate(async (instance) => {
-    await fetch(`api/widget-board/instance/${instance}/revoke`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ kind: 'action', id: 'dsh-widget-board-test-provider:test.run' }),
-    })
-  }, id)
-  let asked = false
-  for (let attempt = 0; attempt < 4 && !asked; attempt += 1) {
-    await page.locator(run).click()
-    try {
-      await page.waitForSelector(ask, { timeout: 4000 })
-      asked = true
-    } catch {
-      await sleep(500)
-    }
-  }
-  check('要权限的动作在授权前被拦下并给出授权入口', asked)
-  if (asked) {
-    const reason = (await page.locator(strip).innerText()).trim()
-    check('拦下时说清了原因', reason.includes('先由人给出授权'), reason)
-    await page.locator(ask).click()
-    await page.waitForFunction((selector) => document.querySelector(selector) === null, ask, { timeout: 10000 })
-    check('在卡片上给出授权之后那一条提示收起', true)
-    await page.locator(run).click()
-    await sleep(600)
-    const left = await page.locator(strip).count()
-    check('授权之后同一个动作不再被拦下', left === 0, `${left} 条提示`)
-  }
-
-  await page.locator(`${card} [data-dsh-widget-board-handle="remove"]`).click()
-  await page.waitForFunction((selector) => document.querySelector(selector) === null, card, { timeout: 10000 })
-  check('移除插件提供的卡片', true)
-}
 
 /**
  * 三个通用动效模板：翻转、磁吸、全息都由运行时套件驱动，组件本身不挂事件。
@@ -717,7 +649,7 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await addRemovePass(opened.page)
     await groupPass(opened.page, check)
     await markdownPass(opened.page, check)
-    await providerPass(opened.page)
+    await providerPass(opened.page, check)
     await dockPass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)

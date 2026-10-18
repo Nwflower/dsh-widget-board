@@ -30,6 +30,8 @@ export async function apply(ctx) {
     provider: name,
     directory: join(import.meta.dirname, 'widgets'),
   })
+  // 每读一次加一：冒烟据此核对定时刷新真的在跑（D6）。
+  let count = 7
   // 数据源与动作挂在这次注册名下：组件目录撤下时它们跟着走（D17）。
   const release = handle.register({
     dataSources: [
@@ -37,7 +39,16 @@ export async function apply(ctx) {
         apiVersion: service.apiVersion,
         provider: name,
         id: 'test.count',
-        read: () => ({ count: 7 }),
+        // 只读插件自己的状态，不必问人。
+        read: () => ({ count: count++ }),
+      },
+      {
+        apiVersion: service.apiVersion,
+        provider: name,
+        id: 'test.gated',
+        // 要动外部世界的数据源：读之前要有授权（D6）。
+        permission: { commands: ['echo'] },
+        read: () => ({ count: -1 }),
       },
     ],
     actions: [

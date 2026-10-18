@@ -146,6 +146,25 @@ describe('授权闸门', () => {
     await grants.grant({ kind: 'action', id: 'test.run', hash: 'h1', widget: 'test-native', permission: { hosts: ['a'] } })
     expect(() => { requireGrant({ board: boardWith('test-native'), hashes, grants }, 'card', 'action', 'test.run', { hosts: ['a', 'b'] }, 'p') }).toThrow(/重新给出授权/)
   })
+
+  it('不要权限的数据源不拦', async () => {
+    const grants = await openGrants(join(await scratch(), 'grants.json'))
+    expect(() => { requireGrant({ board: boardWith('test-native'), hashes, grants }, 'card', 'source', 'demo:count', undefined, 'demo') }).not.toThrow()
+  })
+
+  it('要权限的数据源在授权前被拦下，给过之后放行', async () => {
+    const grants = await openGrants(join(await scratch(), 'grants.json'))
+    const permission = { commands: ['python'] }
+    expect(() => { requireGrant({ board: boardWith('test-native'), hashes, grants }, 'card', 'source', 'demo:run', permission, 'demo') }).toThrow(/先由人给出授权/)
+    await grants.grant({ kind: 'source', id: 'demo:run', hash: 'h1', widget: 'test-native', provider: 'demo', permission })
+    expect(() => { requireGrant({ board: boardWith('test-native'), hashes, grants }, 'card', 'source', 'demo:run', permission, 'demo') }).not.toThrow()
+  })
+
+  it('数据源把权限改大之后也要重问', async () => {
+    const grants = await openGrants(join(await scratch(), 'grants.json'))
+    await grants.grant({ kind: 'source', id: 'demo:run', hash: 'h1', widget: 'test-native', provider: 'demo', permission: { commands: ['python'] } })
+    expect(() => { requireGrant({ board: boardWith('test-native'), hashes, grants }, 'card', 'source', 'demo:run', { commands: ['python', 'rm'] }, 'demo') }).toThrow(/重新给出授权/)
+  })
 })
 
 describe('注册表的归属', () => {

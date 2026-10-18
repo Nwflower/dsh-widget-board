@@ -12,6 +12,7 @@
   "version": "0.2.0",
   "sizes": ["s"],
   "source": "test.count",
+  "refresh": { "mode": "interval", "everyMs": 1000 },
   "data": {
     "type": "object",
     "required": ["count"],

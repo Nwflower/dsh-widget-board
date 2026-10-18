@@ -90,6 +90,30 @@ export interface WidgetPermissions {
   commands?: string[]
 }
 
+/** 刷新策略：按需，或按一个固定的间隔（D6）。 */
+export const WIDGET_REFRESH_MODES = ['onDemand', 'interval'] as const
+
+/** 一种刷新策略。 */
+export type WidgetRefreshMode = (typeof WIDGET_REFRESH_MODES)[number]
+
+/**
+ * 组件声明的刷新策略（D6）。
+ *
+ * `onDemand`（省略时就是它）表示只有人按下刷新、或数据源被显式读一次时才读；`interval` 表示看板
+ * 有人看着的时候按 `everyMs` 定时读。没有观众的实例一律不读——宿主上不该有没人看的轮询（D5）。
+ */
+export interface WidgetRefresh {
+  mode: WidgetRefreshMode
+  /** `interval` 时的间隔毫秒数；低于下限时按下限算。 */
+  everyMs?: number
+}
+
+/** 定时刷新允许的最短间隔：再密就是拿组件自己的频率换宿主的读写。 */
+export const REFRESH_MIN_MS = 1000
+
+/** 省略 `everyMs` 时的间隔。 */
+export const REFRESH_DEFAULT_MS = 30_000
+
 /**
  * 看板上这张卡最小能缩到多大：跨列数与根字号的倍数（D16）。
  *
@@ -119,6 +143,8 @@ export interface WidgetManifest {
   source?: string
   actions?: WidgetAction[]
   permissions?: WidgetPermissions
+  /** 刷新策略（D6）；省略时按需。 */
+  refresh?: WidgetRefresh
   libs?: string[]
   text?: Record<string, LocalizedText>
   /** 看板上的最小盒子（D16）。 */
@@ -203,6 +229,15 @@ export const WIDGET_MANIFEST_SCHEMA = {
       properties: {
         hosts: { type: 'array', items: { type: 'string', minLength: 1 } },
         commands: { type: 'array', items: { type: 'string', minLength: 1 } },
+      },
+    },
+    refresh: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['mode'],
+      properties: {
+        mode: { enum: WIDGET_REFRESH_MODES },
+        everyMs: { type: 'integer', minimum: REFRESH_MIN_MS },
       },
     },
     libs: { type: 'array', items: { type: 'string', minLength: 1 } },

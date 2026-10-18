@@ -12,6 +12,7 @@ import type {
   CardSettings,
   CredentialSetting,
   CredentialStatus,
+  GrantKind,
   GroupSide,
   WidgetLibraryEntry,
   WidgetSummary,
@@ -175,6 +176,15 @@ export function CardEditorDialog({
     if (!dirty) setConfirmClose(false)
   }, [dirty])
 
+  // 卡片或组被别处移除、或切到另一块看板时，弹窗跟着收起来（D22）。
+  useEffect(() => {
+    if (board === null) return
+    const exists = target.kind === 'instance'
+      ? board.instances.some((candidate) => candidate.id === target.id)
+      : board.instances.some((candidate) => candidate.group?.id === target.id)
+    if (!exists) onClose()
+  }, [board, onClose, target])
+
   const slotId = slot?.id
   const slotWidget = slot?.widget
   const slotHash = slot?.hash
@@ -273,17 +283,17 @@ export function CardEditorDialog({
       : previous)
   }
 
-  /** 给数据源一次授权；读模型跟着重取。 */
-  const grant = async (): Promise<void> => {
-    if (slot === undefined || settings?.source === undefined) return
-    await grantInstance(slot.id, 'source', settings.source.id)
+  /** 给数据源或宿主能力一次授权；读模型跟着重取（D6、D24）。 */
+  const grant = async (kind: GrantKind, id: string): Promise<void> => {
+    if (slot === undefined) return
+    await grantInstance(slot.id, kind, id)
     setRefreshKey((key) => key + 1)
   }
 
-  /** 撤掉数据源的授权。 */
-  const revoke = async (): Promise<void> => {
-    if (slot === undefined || settings?.source === undefined) return
-    await revokeInstance(slot.id, 'source', settings.source.id)
+  /** 撤掉数据源或宿主能力的一份授权。 */
+  const revoke = async (kind: GrantKind, id: string): Promise<void> => {
+    if (slot === undefined) return
+    await revokeInstance(slot.id, kind, id)
     setRefreshKey((key) => key + 1)
   }
 
@@ -518,7 +528,9 @@ export function CardEditorDialog({
                     className="dsh-widget-board__editor-tab"
                     data-warning={candidate === 'data' && settings !== null
                       && (settings.sourceError !== undefined
-                        || (settings.source !== undefined && settings.source.permission !== undefined && !settings.source.granted))
+                        || (settings.source !== undefined && settings.source.permission !== undefined && !settings.source.granted)
+                        || settings.capabilities.some((capability) => capability.unavailable !== undefined
+                          || (capability.permission !== undefined && !capability.granted)))
                       ? 'true'
                       : undefined}
                     onClick={() => { setTab(candidate) }}

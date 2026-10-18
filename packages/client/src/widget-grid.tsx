@@ -200,6 +200,7 @@ function WidgetTile({
           onBeginDrag?.(entry, event)
         }}
         onClick={() => {
+          // 添加模式的轻点由看板下方的拖放层接住（<5px 松开算轻点）；这里只接换槽的选中。
           if (unavailable || busy || mode !== 'pick') return
           onActivate(entry.id)
         }}
@@ -236,6 +237,7 @@ function WidgetTile({
             href={exportPathOf(entry.id)}
             download={`${entry.id}.dshw`}
             onPointerDown={(event) => { event.stopPropagation() }}
+            onClick={(event) => { event.stopPropagation() }}
             title={t('export')}
           >
             {t('export')}

@@ -24,6 +24,7 @@ const { markdownPass } = require('./markdown.cjs')
 const { noticePass } = require('./notice.cjs')
 const { openBoard } = require('./panel.cjs')
 const { tabsPass } = require('./tabs.cjs')
+const { titlebarPass } = require('./titlebar.cjs')
 const { providerPass } = require('./provider.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
@@ -695,6 +696,7 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await reloadPass(opened.page)
     // 标签条放在最后：它新建一块看板再收掉，中途失败也不会影响前面的场景。
     await tabsPass(opened.page, { check })
+    await titlebarPass(opened.page, { check })
     reduced = await openPage(host.url, { reducedMotion: 'reduce' })
     await reducedPass(reduced.page)
     const errors = reduced.problems.filter((problem) => problem.startsWith('error:') || problem.startsWith('pageerror:'))

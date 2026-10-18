@@ -414,7 +414,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   useEffect(() => { frames.broadcast(theme) }, [frames, theme])
   useEffect(() => () => frames.dispose(), [frames])
 
-  // 全部看板共用一份度量：没选中的那些不参与排版，宽度与选中的那一块相同，卡片因此一直有盒子。
+  // 只挂当前看板：度量按同一块看板的内容区算，切换时新的栅格拿到同一份列宽与根字号。
   useEffect(() => {
     const node = boardsRef.current
     if (node === null) return
@@ -439,7 +439,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     }, { threshold: 0 })
     for (const cell of node.querySelectorAll('[data-instance]')) observer.observe(cell)
     return () => observer.disconnect()
-  }, [metrics, snapshot])
+  }, [activeBoard?.id, metrics, snapshot])
 
   let body: ReactNode = null
   if (failure !== null) body = <div className="dsh-widget-board__notice">{failure}</div>
@@ -463,16 +463,16 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
         />
         {body}
         <div ref={boardsRef} className="dsh-widget-board__boards">
-          {snapshot === null
+          {activeBoard === null
             ? null
-            : snapshot.boards.map((board) => (
+            : (
               <BoardGrid
-                key={board.id}
-                board={board}
-                active={board.id === activeBoard?.id}
+                key={activeBoard.id}
+                board={activeBoard}
+                active
                 metrics={metrics}
-                widgets={snapshot.widgets}
-                library={snapshot.library}
+                widgets={snapshot === null ? {} : snapshot.widgets}
+                library={snapshot === null ? [] : snapshot.library}
                 theme={theme}
                 frames={frames}
                 controls={controls}
@@ -492,7 +492,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                 onRemoveGroup={onRemoveGroup}
                 onRefetch={refetch}
               />
-            ))}
+            )}
         </div>
         {editor === null
           ? null

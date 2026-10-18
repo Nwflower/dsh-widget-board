@@ -37,6 +37,7 @@
 - 定时刷新把同一块看板在同一轮到期的卡片合成一次写入，不再每张卡各写一遍整块看板；读失败的卡只影响自己。
 - Windows 桌面端把看板标签条挂进窗口标题栏：标题栏让出那一条、宽度放得下时，标签条靠左挂在 Desktop 菜单之后，比页内小一号、上下留出空隙，圆角 9999；看板内容从标题栏下方开始。标签条换成 transitions.dev 的 Tabs sliding，活动标签的药丸滑过去，首帧不补间。放不下或不在桌面端时仍留在页面顶部。
 - 会话工具的看板操作扩展到全部看板：widget_board 列出所有看板并可指定读哪一块，widget_place 可把新卡放到指定的看板，widget_push 与 widget_remove 按全工作区唯一的卡片 id 找到那张卡，不必先切换选中的看板。
+- 看板页只挂当前看板的卡片：切换标签时旧的卡片卸载、新的重新挂载，iframe、计时与动画的成本收在一块看板内。组件在切回来时重新初始化，界面状态与数据由宿主恢复。
 - 提供方的服务类型现在有一个只含类型的入口（`dsh-widget-board/service`）：用 `import type` 取类型，运行时只走服务，从 `service.apiVersion` 读版本，不复制常量，也不为绕开规则添加 `dsh.client.external`。客户端产物只依赖平台种子，这一条由构建检查；原生组件的重名注册被拒绝并保留先到的那一个，把手名下的数据源与动作必须与把手同名。插件停用或卸载时，组件、数据源、动作与它留下的授权一起撤下，卡片保留并显示不可用，启用之后恢复。
 
 ### 问题修复
@@ -78,6 +79,7 @@
 - Scheduled refresh batches the cards that are due on the same board into one write instead of rewriting the whole board once per card; a failed read only affects its own card.
 - On the Windows desktop the board tab strip now rides in the window's caption row: when the shell reserves that row and the strip fits, it sits at the left after the desktop menu, a size smaller than in the page with air above and below and 9999px corners, and the board starts below it. The strip now uses transitions.dev's Tabs sliding, with the pill sliding to the active tab and no tween on first paint; when it does not fit, or outside the desktop, it stays at the top of the page.
 - The session tools now work across all boards: widget_board lists every board and reads a chosen one, widget_place can add a card to a chosen board, and widget_push and widget_remove find the card by its workspace-wide instance id without switching the selected board first.
+- The board page mounts only the active board's cards: switching tabs unmounts the old cards and mounts the new ones, so iframe, timer, and animation costs stay within one board. Components initialize again when switched back, with UI state and data restored from the host.
 - Provider service types now have a type-only entry (`dsh-widget-board/service`): import types with `import type`, call through the service at runtime, read the version from `service.apiVersion`, and never add `dsh.client.external` to get around the rule. The client artifact depends only on the platform seeds, and the build checks it; a duplicate native widget id is refused with the first registration kept, and a handle's data sources and actions must carry the handle's provider. Disabling or unloading a provider withdraws its widgets, data sources, actions and leftover grants, leaves its cards in place as unavailable, and restores them when it returns.
 
 ### Bug Fixes

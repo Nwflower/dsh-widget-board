@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 24,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "看板页只挂当前看板的卡片：切换标签时旧的卡片卸载、新的重新挂载，iframe、计时与动画的成本收在一块看板内。组件在切回来时重新初始化，界面状态与数据由宿主恢复。",
+  "en": "The board page mounts only the active board's cards: switching tabs unmounts the old cards and mounts the new ones, so iframe, timer, and animation costs stay within one board. Components initialize again when switched back, with UI state and data restored from the host."
+}

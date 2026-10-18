@@ -35,7 +35,7 @@ function harness(options: { cards?: ScheduledCard[], viewers?: number } = {}) {
   const scheduler = createScheduler({
     cards: () => state.cards,
     viewers: () => state.viewers,
-    read: async (id) => { read.push(id) },
+    read: async (ids) => { read.push(...ids); return ids.map((id) => ({ id })) },
     onError: (id, error) => { errors.push({ id, error }) },
     setTimer: timer.setTimer,
   })
@@ -85,9 +85,10 @@ describe('调度器', () => {
     const scheduler = createScheduler({
       cards: () => [{ id: 'a', everyMs: 1000 }],
       viewers: () => 1,
-      read: async (id) => {
-        read.push(id)
+      read: async (ids) => {
+        read.push(...ids)
         await new Promise<void>((resolve) => { release = resolve })
+        return ids.map((id) => ({ id }))
       },
       setTimer: timer.setTimer,
     })
@@ -101,6 +102,25 @@ describe('调度器', () => {
     release?.()
   })
 
+  it('同一轮到期的卡一次交给读取，写入由实现按看板合批', () => {
+    const timer = manualTimer()
+    const batches: string[][] = []
+    const scheduler = createScheduler({
+      cards: () => [{ id: 'a', everyMs: 1000 }, { id: 'b', everyMs: 1000 }],
+      viewers: () => 1,
+      read: async (ids) => {
+        batches.push([...ids])
+        return ids.map((id) => ({ id }))
+      },
+      setTimer: timer.setTimer,
+    })
+    scheduler.sync()
+    timer.tick()
+    for (const id of ['a', 'b']) (scheduler.due as Map<string, number>).set(id, Date.now() - 1)
+    timer.tick()
+    expect(batches).toEqual([['a', 'b']])
+  })
+
   it('一张卡读不出来不影响别的卡', async () => {
     const timer = manualTimer()
     const errors: string[] = []
@@ -108,9 +128,9 @@ describe('调度器', () => {
     const scheduler = createScheduler({
       cards: () => [{ id: 'bad', everyMs: 1000 }, { id: 'good', everyMs: 1000 }],
       viewers: () => 1,
-      read: async (id) => {
-        read.push(id)
-        if (id === 'bad') throw new Error('读不出来')
+      read: async (ids) => {
+        read.push(...ids)
+        return ids.map((id) => id === 'bad' ? { id, error: new Error('读不出来') } : { id })
       },
       onError: (id) => { errors.push(id) },
       setTimer: timer.setTimer,

@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 22,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "定时刷新把同一块看板在同一轮到期的卡片合成一次写入，不再每张卡各写一遍整块看板；读失败的卡只影响自己。",
+  "en": "Scheduled refresh batches the cards that are due on the same board into one write instead of rewriting the whole board once per card; a failed read only affects its own card."
+}

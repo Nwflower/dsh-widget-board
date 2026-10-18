@@ -13,6 +13,7 @@ import type { Board, BoardEvent, Grant, HostRequest, HostResponse, WidgetLibrary
 import { PLUGIN_ROUTE, grantKey } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
+import { readManyInto } from '../src/batch-reads'
 import type { GrantStore } from '../src/grants'
 import type { WidgetRecord } from '../src/library'
 import { createRegistries } from '../src/sources'
@@ -378,6 +379,30 @@ describe('卡片状态与数据', () => {
       last = (await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { n: index } }))).status
     }
     expect(last).toBe(429)
+  })
+
+  it('同一块看板的到期卡一次读取只写一次看板', async () => {
+    const test = await harness()
+    test.context.sources.registerDataSource({
+      apiVersion: 2,
+      provider: 'test-provider',
+      id: 'weather.now',
+      read: () => ({ n: 3 }),
+    })
+    await test.context.workspace.save('board', (current) => ({
+      ...current,
+      instances: current.instances.map((instance) => ({ ...instance, source: 'weather.now' })),
+    }), { event: () => ({ type: 'board' }) })
+    const original = test.context.workspace.save
+    let saves = 0
+    test.context.workspace.save = async (id, change, options) => {
+      saves += 1
+      return await original.call(test.context.workspace, id, change, options)
+    }
+    const outcomes = await readManyInto(test.context, ['board-first', 'board-second'])
+    expect(outcomes.every((outcome) => outcome.error === undefined)).toBe(true)
+    expect(saves).toBe(1)
+    expect(test.context.workspace.board('board').instances.map((instance) => instance.data)).toEqual([{ n: 3 }, { n: 3 }])
   })
 
   it('卡片在哪块看板上就写哪一块：另一块看板上的卡也找得到', async () => {

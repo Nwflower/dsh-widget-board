@@ -613,17 +613,15 @@ function grantFacts(context: RouteContext, board: Board): GrantFacts {
 }
 
 /**
- * 让一张卡按绑定的数据源读一次，把数据写进卡片（D6、D17）。
- *
- * 手动读、工具读与定时刷新都走这一条：校验与写入只有一处。
+ * 读一张卡的数据，不写进看板：读、校验与写入分开，批量读取才能把同一块看板的几次写合成一次（D6）。
  *
  * @param context - 路由上下文。
  * @param id - 卡片实例的 id。
  * @param source - 数据源的名字；省略时用卡片绑定的那个。
- * @returns 读回来的数据。
+ * @returns 那张卡、它所在的看板与读出来的数据。
  * @throws {Refusal} 看板上没有这张卡、这张卡没有数据源、数据源不在、或没有授权。
  */
-export async function readInto(context: RouteContext, id: string, source?: string): Promise<unknown> {
+export async function loadData(context: RouteContext, id: string, source?: string): Promise<{ board: Board, instance: BoardInstance, data: unknown }> {
   const { board, instance } = locate(context, id)
   const face = faceOf(board, id)
   const asked = source ?? instance.source
@@ -632,6 +630,23 @@ export async function readInto(context: RouteContext, id: string, source?: strin
   if (resolved === undefined) throw new Refusal(400, `没有数据源 ${asked}，提供它的插件可能没有安装`)
   requireGrant(grantFacts(context, board), id, 'source', asked, resolved.registration.permission, resolved.provider)
   const data = await context.sources.readSource(asked, face)
+  return { board, instance, data }
+}
+
+/**
+ * 让一张卡按绑定的数据源读一次，把数据写进卡片（D6、D17）。
+ *
+ * 手动读与工具读走这一条；定时刷新共用同一段读取与校验，再把同一块看板的结果合成一次写入
+ * （`batch-reads.ts`）。
+ *
+ * @param context - 路由上下文。
+ * @param id - 卡片实例的 id。
+ * @param source - 数据源的名字；省略时用卡片绑定的那个。
+ * @returns 读回来的数据。
+ * @throws {Refusal} 看板上没有这张卡、这张卡没有数据源、数据源不在、或没有授权。
+ */
+export async function readInto(context: RouteContext, id: string, source?: string): Promise<unknown> {
+  const { data } = await loadData(context, id, source)
   await saveData(context, id, data)
   return data
 }

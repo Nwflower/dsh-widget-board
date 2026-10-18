@@ -28,7 +28,8 @@ import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
-import { createHandler, readInto } from './routes'
+import { createHandler } from './routes'
+import { readManyInto } from './batch-reads'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
@@ -174,7 +175,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
     })),
     viewers: () => live.viewers,
-    read: async (id) => { await readInto(context, id) },
+    read: async (ids) => await readManyInto(context, ids),
     onError: (id, error) => {
       console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
     },

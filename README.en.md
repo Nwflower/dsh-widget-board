@@ -62,7 +62,9 @@ The host half publishes the cordis service `widgetBoard` (`WIDGET_BOARD_API_VERS
 - `registerDataSource({ apiVersion, provider, id, read, permission? })` registers a data source a card can bind to; one with a `permission` needs a person's grant before it reads.
 - `registerAction({ apiVersion, provider, id, run, permission? })` registers an action, which can declare permissions the same way.
 
-The browser half publishes the same service; `registerWidgetType({ apiVersion, provider, id, component })` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`. A provider never imports this plugin at runtime: declare the same shape in its own package with a `declare module` block and negotiate by `apiVersion`.
+The browser half publishes the same service; `registerWidgetType({ apiVersion, provider, id, component })` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`. Read the version from `service.apiVersion` instead of copying the constant.
+
+A provider imports the type from `dsh-widget-board/service` with `import type { WidgetBoardClientService }` and declares the service on `Context` with `declare module '@deepseek-ai/cordis'`; a plain-JS provider can keep a same-shaped declaration. Runtime goes through the service only: do not value-import this plugin, and do not add `dsh.client.external` to get around the rule; the client artifact depends only on the platform seeds. When a provider is disabled or unloaded, its widgets, data sources, actions and grants are withdrawn; its cards stay in place and show unavailable until it returns.
 
 ## Status
 

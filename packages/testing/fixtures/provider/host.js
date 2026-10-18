@@ -30,6 +30,16 @@ export async function apply(ctx) {
     provider: name,
     directory: join(import.meta.dirname, 'widgets'),
   })
+  // 子注册的 provider 必须与把手相同：不同名字的注册要被拒绝，撤下时才不会清错授权。
+  let refusedProvider = false
+  try {
+    handle.register({
+      dataSources: [{ apiVersion: service.apiVersion, provider: 'someone-else', id: 'test.wrong', read: () => null }],
+    })
+  } catch {
+    refusedProvider = true
+  }
+  if (!refusedProvider) throw new Error('widgetBoard 没有拒绝 provider 与把手不一致的子注册')
   // 每读一次加一：冒烟据此核对定时刷新真的在跑（D6）。
   let count = 7
   // 数据源与动作挂在这次注册名下：组件目录撤下时它们跟着走（D17）。

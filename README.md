@@ -52,13 +52,15 @@ dsh plugin add <本仓库路径>
 
 ## 给插件提供方
 
-宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 1`）：
+宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 2`）：
 
-- `registerWidgetType({ apiVersion, provider, directory })`：注册一个组件目录，返回释放函数。
-- `registerDataSource({ apiVersion, id, read })`：注册一个数据源，卡片可以绑定它取数据。
-- `registerAction({ apiVersion, id, run })`：注册一个动作。
+- `registerWidgetType({ apiVersion, provider, directory })`：注册一个组件目录，返回把手（`provider`、`widgets`、`register`、`dispose`）。
+- `registerDataSource({ apiVersion, provider, id, read })`：注册一个数据源，可以带 `permission`。
+- `registerAction({ apiVersion, provider, id, run })`：注册一个动作，可以带 `permission`。
 
-浏览器半边发布同名服务，`registerWidgetType({ apiVersion, provider, id, component })` 登记一个 React 组件：与组件库里同 id 的组件对上之后，卡片用它渲染，参数与 `window.widget` 同形。提供方不在运行时导入本插件：在自己包里写同形的 `declare module` 类型声明，按 `apiVersion` 协商。
+浏览器半边发布同名服务，`registerWidgetType({ apiVersion, provider, id, component })` 登记一个 React 组件：与组件库里同 id 的组件对上之后，卡片用它渲染，参数与 `window.widget` 同形。版本从 `service.apiVersion` 读，不复制常量。
+
+提供方跨包时按 `import type { WidgetBoardClientService } from 'dsh-widget-board/service'` 取类型，在自己包里 `declare module '@deepseek-ai/cordis'` 把服务挂到 `Context` 上；没有类型检查的纯 JS 提供方仍按同形声明写。运行时只走服务：不要值导入本插件，也不要为绕开这条规则添加 `dsh.client.external`；客户端产物只依赖平台种子。插件停用或卸载时，注册的组件、数据源、动作与它留下的授权一起撤下，已经放着的卡片保留并显示不可用，装回来之后恢复。
 
 ## 状态
 

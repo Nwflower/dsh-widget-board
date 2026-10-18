@@ -687,7 +687,7 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await addRemovePass(opened.page)
     await groupPass(opened.page, check)
     await markdownPass(opened.page, check)
-    await providerPass(opened.page, check)
+    await providerPass(opened.page, check, host.home)
     await sharePass(opened.page)
     await dockPass(opened.page, check)
     await layoutPass(opened.page)

@@ -22,6 +22,26 @@ window.__ModuleLoader__.load({
      */
     exports.apply = (ctx) => {
       const service = ctx.widgetBoard
+      // 客户端服务也拒绝版本对不上的注册。
+      let refusedVersion = false
+      try {
+        service.registerWidgetType({ apiVersion: service.apiVersion + 1, provider: exports.name, id: 'test-version', component: () => null })
+      } catch {
+        refusedVersion = true
+      }
+      if (!refusedVersion) throw new Error('widgetBoard 客户端服务没有拒绝版本对不上的注册')
+
+      // 同 id 的第二次注册要被拒绝，先到的那一个继续画。
+      const probe = service.registerWidgetType({ apiVersion: service.apiVersion, provider: exports.name, id: 'test-duplicate', component: () => null })
+      let refusedDuplicate = false
+      try {
+        service.registerWidgetType({ apiVersion: service.apiVersion, provider: exports.name, id: 'test-duplicate', component: () => null })
+      } catch {
+        refusedDuplicate = true
+      }
+      probe()
+      if (!refusedDuplicate) throw new Error('widgetBoard 客户端服务没有拒绝重复的组件 id')
+
       const dispose = service.registerWidgetType({
         apiVersion: service.apiVersion,
         provider: exports.name,

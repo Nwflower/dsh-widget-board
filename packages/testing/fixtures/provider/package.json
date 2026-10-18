@@ -18,7 +18,6 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "inject": ["widgetBoard"],
       "platform": "web"
     }
   }

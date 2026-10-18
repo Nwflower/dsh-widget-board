@@ -24,9 +24,26 @@ const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const TOKENS = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'contracts', 'tokens.json'), 'utf8'))
 const RUNTIME = path.join(ROOT, 'packages', 'runtime', 'src')
 const WIDGETS = path.join(ROOT, 'packages', 'widgets')
+const TSC = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 
 /** 宿主的模块表交给浏览器半边的包：留在产物里，由加载器的 `require` 解析。 */
 const HOST_CLIENT_PACKAGES = ['react', 'react/jsx-runtime', 'react-dom/client']
+
+/**
+ * 宿主模块表在启动时冻结的平台种子（与宿主 Web shell 的静态表一致）。浏览器半边的产物只能取
+ * 这些模块或本包自己的分块；功能插件不能值导入另一个插件的包。
+ */
+const CLIENT_BASELINE = [
+  'react',
+  'react/jsx-runtime',
+  'react-dom',
+  'react-dom/client',
+  '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-client-store',
+  '@deepseek-ai/dsh-client-ui-slots',
+  '@deepseek-ai/dsh-client-ui-primitives',
+  '@deepseek-ai/dsh-client-ui-dockkit',
+]
 
 /** 宿主进程提供的包：留在产物里，由宿主按自己的 node_modules 解析。 */
 const HOST_NODE_PACKAGES = ['@deepseek-ai/*']
@@ -49,11 +66,42 @@ const FACTORY_CLOSE = `    return module.exports
 
 /** 跑一次 tsc；失败时把它的输出原样抛出。 */
 function typecheck(project) {
-  const tsc = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
   try {
-    execFileSync(process.execPath, [tsc, '-p', path.join(ROOT, project), '--pretty'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
+    execFileSync(process.execPath, [TSC, '-p', path.join(ROOT, project), '--pretty'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
   } catch (error) {
     throw new Error(`build: 类型检查 ${project} 失败：\n${error.stdout ?? ''}${error.stderr ?? ''}`)
+  }
+}
+
+/**
+ * 写出 `./service` 的类型入口：声明从 `contracts` 生成，里面没有运行时代码。
+ *
+ * 提供方用 `import type` 取这份声明，编译时被抹掉；运行时仍只经服务调用。
+ */
+function emitServiceTypes() {
+  try {
+    execFileSync(process.execPath, [TSC, '-p', path.join(ROOT, 'tsconfig.types.json'), '--pretty'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
+  } catch (error) {
+    throw new Error(`build: 写出服务类型入口失败：\n${error.stdout ?? ''}${error.stderr ?? ''}`)
+  }
+}
+
+/**
+ * 浏览器半边的运行边界：功能插件不添加 `dsh.client.external`，产物里的 `require` 只落平台种子
+ * 或本包分块。值导入另一个包会带进第二份实现，或者在模块表上落空。
+ *
+ * @param code - `lib/client.js` 的文本。
+ */
+function checkClientBoundary(code) {
+  const external = PACKAGE.dsh?.client?.external
+  if (Array.isArray(external) && external.length > 0) {
+    throw new Error(`build: dsh.client.external 不能用于功能插件：${external.join('、')}（D2）`)
+  }
+  const allowed = new Set(CLIENT_BASELINE)
+  for (const match of code.matchAll(/\brequire\((["'])([^"']+)\1\)/g)) {
+    const specifier = match[2]
+    if (allowed.has(specifier) || specifier.startsWith('./')) continue
+    throw new Error(`build: lib/client.js require 了 ${specifier}；浏览器半边只能取平台种子或本包分块（D2）`)
   }
 }
 
@@ -102,6 +150,7 @@ async function buildClientHalf() {
     banner: { js: FACTORY_OPEN },
     footer: { js: FACTORY_CLOSE },
   }, '.js')
+  checkClientBoundary(code)
   writeAtomic(path.join(LIB, 'client.js'), code)
   return Buffer.byteLength(code)
 }
@@ -205,9 +254,10 @@ typecheck('tsconfig.json')
 typecheck('tsconfig.host.json')
 fs.rmSync(LIB, { recursive: true, force: true })
 fs.mkdirSync(LIB, { recursive: true })
+emitServiceTypes()
 const client = await buildClientHalf()
 const host = await buildHostHalf()
 const runtime = await buildRuntime()
 writeAssets()
 const libs = await buildLibs()
-console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位`)
+console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位，服务类型入口已写出`)

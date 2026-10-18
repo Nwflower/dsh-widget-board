@@ -13,6 +13,10 @@
 - 浏览器半边外部化 `react`、`react-dom/client`、`@deepseek-ai/dsh-client-ui-primitives`。出处：`D:\DSH\dsh-claude-style\scripts\build.mjs` 的 `HOST_PACKAGES`。
 - **浏览器半边读宿主服务前必须在插件上声明 `inject`**：cordis 只允许读声明过的服务，`apply` 里读未声明的属性会抛 `cannot get property "<名字>" without inject`，插件整条变成 failed，宿主的启动检查只说那一条没起来。声明之后 cordis 等到服务出现才调用 `apply`，服务不出现时插件停在 pending，检查报出在等哪一项。本仓库在 0.2.1-rc.1 上实证：未声明时 `dsh-widget-board: failed`，声明 `inject = ['slots']` 后侧栏入口与中栏页面都出现。出处：宿主启动检查报出的那条错误与 `packages/testing/smoke.cjs`。
 - 浏览器半边的脚本由宿主按内容组合成一条 combo 地址（`/plugins/??<包名>/client.js&rev=<哈希>`），单包的 `/plugins/<包名>/client.js` 不是路由。出处同上。
+- **客户端模块表与平台种子**：`window.__DSH_BOOT__` 是宿主组合的 entry 图；Web shell 启动时建一张冻结的 lazy CJS 模块表，平台种子是 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-store`、`@deepseek-ai/dsh-client-ui-slots`、`@deepseek-ai/dsh-client-ui-primitives`、`@deepseek-ai/dsh-client-ui-dockkit`。`dsh.client.external` 是请求非基线模块行的字段；功能插件不添加它，跨包行为走 cordis 服务，跨包界面走插槽。`import type` 在编译时被抹掉，不产生模块请求。出处：宿主 `dsh-client-modules/README.md`、Web shell 的 `staticModules`、`dsh-package-manifest` 的 `DshClientManifest`；本仓库的 `scripts/build.mjs`、`scripts/lint.mjs` 与 `packages/testing/fixtures/provider-types/`。
+- **两个 `inject` 不是一回事**：`package.json` 的 `dsh.client.inject` 只排模块行的到达次序（包名，供 entry 组合与 factory 到达），不注入任何服务；服务注入写在插件导出的 `inject` 上。把服务名写进前者不会报错，也不会生效。出处：`DshClientManifest` 的注释、`WebBootEntry` 的 `inject`；本仓库的 `packages/testing/fixtures/provider/package.json` 与 `client.js`。
+- **提供方的类型入口只含类型**：根包 `exports["./service"]` 的条件只有 `types`，指向 `tsc --emitDeclarationOnly` 从 `packages/contracts/src` 写出的声明；提供方用 `import type` 取类型，运行时读 `service.apiVersion`，不导入版本常量或 `versionMismatch`。出处：本仓库的 `package.json`、`tsconfig.types.json`、`scripts/check-provider-types.mjs`。
+- **插件页的开关能停用与启用提供方**：插件管理页的 bundle 开关调用 `pluginManager/setBundleEnabled`，行开关调用 `setPluginEnabled`；本仓库的冒烟经行开关停用与启用提供方，核对组件库、数据源、动作与授权的撤下和恢复。出处：`dsh-client-ui-plugin-manager/lib/client.js` 的 `setEnabled`/`setRowEnabled` 与 `data-plugin-package`/`data-plugin-row` 标记；本仓库的 `packages/testing/provider.cjs`。
 
 ### 界面表面
 

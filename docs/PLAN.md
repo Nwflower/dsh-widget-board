@@ -23,7 +23,8 @@
 | 10 右侧栏与独立页面 | 没有 |
 | 11 组件库、分享与导入 | 导出导入（`.dshw`、`.dshboard`）完成；版本历史、回退、`url` 导入、检查更新、blob 清理**没有** |
 | 12 扩展契约与任务看板 | 服务面（版本 2）、原生组件、目录、数据源、动作、提供方生命周期完成；`service:taskBoard` 与任务组件**没有** |
-| 13 端到端与发布 | 冒烟与矩阵在 `verify` 里跑；云端 CI 没跑过（没有 remote 推送之外的触发）；本文件还在 |
+| 13 跨包边界与提供方契约 | 完成 |
+| 14 端到端与发布 | 冒烟与矩阵在 `verify` 里跑；云端 CI 没跑过（没有 remote 推送之外的触发）；本文件还在 |
 
 ## 1. 核实宿主假设
 
@@ -151,12 +152,32 @@
 - `service:taskBoard` 数据源与任务组件（任务列、运行中、计数），动作转给任务看板的 `dispatch`。
 
 完成判据：
-- [ ] 一个测试用的外部插件注册原生组件与数据源，卸载后它们从组件库与看板上撤下。
+- [ ] 一个测试用的外部插件注册原生组件与数据源，卸载后它们从组件库与看板上撤下（步骤 13 的冒烟兑现）。
 - [ ] 装有任务看板时，任务组件实时反映任务状态，从组件里执行任务等同于在任务看板里执行。
 
-## 13. 端到端与发布
+## 13. 跨包边界与提供方契约
 
-- 端到端场景（D13）覆盖步骤 2 到 12 的判据，持续集成里分片运行。
+客户端插件的模块表在启动时冻结：除平台种子外，跨包的值只能经注入的 cordis 服务或宿主声明的插槽到达；`import type` 在编译时被抹掉，不产生模块请求。看板两侧的服务已经是唯一的运行路径；这一步把类型契约、边界检查与提供方卸载补到同一强度，并把步骤 12 的「提供方卸载」从判据变成冒烟里的场景。
+
+- **服务类型独立成只有类型的模块。** `packages/contracts/src/service-types.ts` 放全部接口与类型别名（`InstanceFace`、`ProviderRegistration`、`ActionPermission`、`DataSourceRegistration`、`ActionRegistration`、`WidgetTypeRegistration`、`WidgetTypeHandle`、`WidgetBoardHostService`、`WidgetNativeProps`、`NativeWidgetRegistration`、`WidgetBoardClientService`），`service.ts` 只留 `WIDGET_BOARD_SERVICE_NAME`、`WIDGET_BOARD_API_VERSION`、`versionMismatch`，并再导出这些类型供本包使用；类型模块里不出现运行时代码。
+- **发布只有类型的入口。** 根 `package.json` 增加 `exports["./service"]`，导出条件只有 `types`，指向构建写出的声明（`lib/types/`），没有 `default` 与 `import`；构建用 `tsc --emitDeclarationOnly` 从 `contracts` 写出声明。有类型检查的提供方把本包加进开发依赖，用 `import type { WidgetBoardClientService } from 'dsh-widget-board/service'` 取类型，在自己包里 `declare module '@deepseek-ai/cordis'` 把服务挂到 `Context` 上；版本从 `service.apiVersion` 读，不导入版本常量，也不导入 `versionMismatch`。纯 JS 提供方仍按同形声明写，运行时同样只走服务。
+- **类型入口有编译测试。** `packages/testing/fixtures/provider-types/` 放一个只做类型检查的提供方（不进临时宿主）：它用 `import type` 取服务类型、声明 `Context`、按 `apiVersion` 协商；同一目录里用 `@ts-expect-error` 核对从 `dsh-widget-board/service` 取值导入会报错。`verify` 跑它的 `tsc`；再用 esbuild 打一次，核对产物里没有 `require('dsh-widget-board/service')`。
+- **客户端边界由检查执行。** `scripts/lint.mjs` 增加一条：`packages/client` 里凡是从 `@deepseek-ai/*` 导入，必须是 `import type`；`require('@deepseek-ai/*')` 一律失败。`scripts/build.mjs` 增加一条：根 `package.json` 的 `dsh.client.external` 必须缺失或为空；`lib/client.js` 里 `require` 的字面量只能是平台种子（`react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`）或本包的分块。两条检查都要有反例：往客户端源码里加一个值导入、往 `dsh.client.external` 加一项，各自失败。
+- **提供方卸载进入冒烟。** 提供方 fixture 的 `package.json` 去掉误写在 `dsh.client.inject` 里的 `widgetBoard`（那一项只排模块行，服务注入由 `client.js` 的 `inject` 声明）；冒烟在现有的卡片场景之后，经插件页的行开关（`pluginManager/setPluginEnabled`）停用提供方，核对组件从组件库消失、已经放着的卡片保留并显示不可用、数据源与动作不再解析、这个提供方留下的授权被清掉；再启用之后组件、数据源与动作回来，卡片恢复。停用与启用各核对一次；客户端服务再补一次错版本拒绝。
+- **客户端的重名注册与宿主一致。** `packages/client/src/native.ts` 的注册处遇到已经存在的组件 id 时抛出并说明已有提供方，保留先到的那一个，与宿主组件库「同 id 先到者为准」一致；把手注册的数据源与动作的 `provider` 必须与把手相同，撤下时按同一个名字清授权。提供方 fixture 各用一次重名注册与错 provider 子注册核对拒绝。
+- **文档与决策。** 两份 README 的提供方一节按版本 2 重写：类型入口、`service.apiVersion`、客户端产物只依赖平台种子、功能包不添加 `dsh.client.external`。`docs/host-surfaces.md` 记下模块表、平台种子、`import type` 被抹掉、`dsh.client.external` 的禁令与两个 `inject` 的区别。D12 改写提供方那一条：类型可以经只含类型的入口导入，纯 JS 提供方仍按同形声明写；运行时只走服务，`external` 不用于功能包；运行时只走服务这条方向不变，不另写取代 D12 的 ADR，改完跑 `npm run docs:index`。`docs/changes/` 记一条行为变化，跑 `npm run changelog`。
+
+完成判据：
+- [x] `dsh-widget-board/service` 只导出类型；值导入在 `tsc` 处失败，类型导入的 esbuild 产物里没有 `require('dsh-widget-board/service')`。
+- [x] 提供方类型 fixture 编译通过；现有提供方 fixture 在临时宿主里注册的组件、数据源与动作能用。
+- [x] 客户端源码的值导入与 `dsh.client.external` 各有一个反例被 lint 或构建拦下；`import type` 通过。
+- [x] 提供方停用后组件库、数据源、动作与授权都撤下，卡片保留并显示不可用；启用后恢复。
+- [x] 同 id 的第二次原生组件注册被拒绝，先到的那一个继续画；错 provider 的子注册被把手拒绝。
+- [x] 两份 README、`docs/host-surfaces.md`、D12 与 `docs/changes/` 更新；`npm run verify`、`docs:check`、`changelog:check`、`agents:check` 通过。
+
+## 14. 端到端与发布
+
+- 端到端场景（D13）覆盖步骤 2 到 13 的判据，持续集成里分片运行。
 - 双语 README 与用户文档、`docs/changes/`、发布工作流。
 
 完成判据：

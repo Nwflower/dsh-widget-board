@@ -27,6 +27,9 @@
   "exports": {
     ".": "./lib/host/index.js",
     "./client": "./lib/client.js",
+    "./service": {
+      "types": "./lib/types/service-types.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {

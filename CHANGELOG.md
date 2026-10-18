@@ -6,13 +6,15 @@
 
 ## [Unreleased]
 
-[中文](#cn-unreleased) | [English](#en-unreleased)
+## [0.1.4] - 2026-10-18
 
-<h3 id="cn-unreleased">其他变更</h3>
+[中文](#cn-0.1.4) | [English](#en-0.1.4)
+
+<h3 id="cn-0.1.4">其他变更</h3>
 
 - README 的状态一节写明 npm 上的版本。
 
-<h3 id="en-unreleased">Chores</h3>
+<h3 id="en-0.1.4">Chores</h3>
 
 - The README status section names the version on npm.
 

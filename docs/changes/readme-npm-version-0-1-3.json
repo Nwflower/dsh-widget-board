@@ -1,8 +1,0 @@
-{
-  "group": "chores",
-  "order": 5,
-  "at": "2026-10-18",
-  "external": false,
-  "zh": "README 的状态一节写明 npm 上的版本。",
-  "en": "The README status section names the version on npm."
-}

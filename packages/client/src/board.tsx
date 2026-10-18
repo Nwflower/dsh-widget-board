@@ -24,6 +24,8 @@ import { BoardGrid } from './board-grid'
 import type { CardControls } from './card'
 import { CARD_CLIP_RADIUS } from './card-shell'
 import { isChinese, t } from './copy'
+import { CardEditorDialog } from './editor'
+import type { EditorTarget } from './editor'
 import { BoardDock } from './dock'
 import { createFrameHost } from './frame-host'
 import { FLIP_GROUP_ENTRY } from './group'
@@ -50,14 +52,19 @@ function rootFontSize(): number {
   return Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
 }
 
-/** 卡片移动的过渡读令牌（D10）；外壳没有 `--w-*`，这里把令牌的字面值写在这一页的根上。 */
+/** 卡片移动与设置弹窗读令牌（D10）；外壳没有 `--w-*`，这里把令牌的字面值写在这一页的根上。 */
 const MOTION = (tokens as { motion: Record<string, string> }).motion
+const TYPE = (tokens as { type: Record<string, string> }).type
 const RADIUS = (tokens as { radius: { card: string } }).radius.card
 const SHELL_STYLE = {
   '--w-motion-fast': MOTION.fast,
   '--w-motion-base': MOTION.base,
   '--w-motion-ease-standard': MOTION['ease-standard'],
   '--w-motion-ease-decel': MOTION['ease-decel'],
+  '--w-type-caption': TYPE.caption,
+  '--w-type-body': TYPE.body,
+  '--w-type-title': TYPE.title,
+  '--w-type-heading': TYPE.heading,
   '--w-radius-card': RADIUS,
   '--w-radius-card-clip': CARD_CLIP_RADIUS,
 } as CSSProperties
@@ -94,7 +101,12 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const [exiting, setExiting] = useState<ReadonlySet<string>>(() => new Set())
   /** 刷新一次就让每张卡换一个 key：卡片文档重新挂载，组件里的本地画面也跟着重来。 */
   const [refreshGeneration, setRefreshGeneration] = useState(0)
+  /** 正在编辑的卡片或组；`null` 时弹窗关着（D22）。 */
+  const [editor, setEditor] = useState<EditorTarget | null>(null)
+  const shellRef = useRef<HTMLDivElement | null>(null)
   const boardsRef = useRef<HTMLDivElement | null>(null)
+  /** 打开设置的那枚按钮：关掉弹窗之后把焦点还回去。 */
+  const returnFocusRef = useRef<HTMLButtonElement | null>(null)
   const busyRef = useRef(false)
   /** 快照请求的序号：先发出、后返回的那一份不能盖掉更新的那一份。 */
   const fetchIdRef = useRef(0)
@@ -135,6 +147,21 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     }, (error: Error) => {
       if (id === fetchIdRef.current) setFailure(error.message)
     })
+  }, [])
+
+  /** 打开一张卡或一组的设置；记下按钮，关掉弹窗之后把焦点还回去（D22）。 */
+  const openEditor = useCallback((kind: 'instance' | 'group', id: string, button: HTMLButtonElement | null): void => {
+    returnFocusRef.current = button
+    setLibraryOpen(false)
+    setEditor({ kind, id })
+  }, [])
+
+  /** 关掉设置弹窗并把焦点还给打开它的按钮。 */
+  const closeEditor = useCallback((): void => {
+    setEditor(null)
+    const button = returnFocusRef.current
+    returnFocusRef.current = null
+    window.setTimeout(() => { button?.focus() }, 0)
   }, [])
 
   /** 一张卡退场结束：收起退场标记；退场期间攒下的增删通知这时才去重取（D18）。 */
@@ -200,12 +227,13 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /** 换一块看板：先按本地换过去，宿主的答复到了以它为准（D5）。 */
   const onSelectBoard = useCallback((id: string) => {
     if (snapshot === null || id === snapshot.active || busyRef.current) return
+    if (editor !== null) closeEditor()
     setSnapshot((previous) => previous === null ? previous : { ...previous, active: id })
     activateBoard(id).then((next) => { apply(next) }, (error: Error) => {
       setFailure(error.message)
       refetch()
     })
-  }, [apply, refetch, snapshot])
+  }, [apply, closeEditor, editor, refetch, snapshot])
 
   /** 新建一块看板：宿主起名字并把它选中（D21）。 */
   const onNewBoard = useCallback(() => {
@@ -222,18 +250,20 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       })
   }, [apply])
 
-  /** 加一张固定的翻面组（D19）：两张卡的落点相同，之后整组一起拖动。 */
-  const addGroupCard = useCallback((layout?: CardLayout): Promise<boolean> => {
-    if (busyRef.current || activeBoard === null) return Promise.resolve(false)
+  /** 加一张翻面组（D19）：两张卡的落点相同；加完直接打开槽条，让用户挑两面（D22）。 */
+  const addGroupCard = useCallback((layout?: CardLayout): Promise<string | null> => {
+    if (busyRef.current || activeBoard === null) return Promise.resolve(null)
     busyRef.current = true
     setBusy(true)
-    return addGroup(activeBoard.id, layout).then((next) => {
+    return addGroup(activeBoard.id, layout).then(({ id, snapshot: next }) => {
       apply(next)
       setLibraryOpen(false)
-      return true
+      returnFocusRef.current = null
+      setEditor({ kind: 'group', id })
+      return id
     }, (error: Error) => {
       setFailure(error.message)
-      return false
+      return null
     }).finally(() => {
       busyRef.current = false
       setBusy(false)
@@ -278,7 +308,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     const step = metrics.columnWidth + metrics.gap
     const column = Math.min(metrics.columns - 1, Math.max(0, Math.floor((clientX - rect.left) / step)))
     const y = snapCardY((clientY - rect.top) / metrics.rootFontSize)
-    if (widget === FLIP_GROUP_ID) return await addGroupCard({ x: column, y, w: 1, h: DEFAULT_HEIGHT_REM })
+    if (widget === FLIP_GROUP_ID) return await addGroupCard({ x: column, y, w: 1, h: DEFAULT_HEIGHT_REM }) !== null
     busyRef.current = true
     setBusy(true)
     try {
@@ -316,6 +346,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /** 移除一张卡：先挂上退场标记，等动画与宿主的答复都到了再换快照，卡片不会闪回。 */
   const onRemove = useCallback((id: string) => {
     if (exitingRef.current.has(id)) return
+    if (editor?.kind === 'instance' && editor.id === id) closeEditor()
     exitingRef.current.add(id)
     setExiting(new Set(exitingRef.current))
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -330,10 +361,11 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       setFailure(error.message)
       finishExit(id)
     })
-  }, [apply, finishExit])
+  }, [apply, closeEditor, editor, finishExit])
 
   const onRemoveGroup = useCallback((group: string) => {
     if (exitingRef.current.has(group)) return
+    if (editor?.kind === 'group' && editor.id === group) closeEditor()
     exitingRef.current.add(group)
     setExiting(new Set(exitingRef.current))
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -348,7 +380,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       setFailure(error.message)
       finishExit(group)
     })
-  }, [apply, finishExit])
+  }, [apply, closeEditor, editor, finishExit])
 
   /** 菜单上的「整理」交给当前选中的那块看板：它自己拿着画面上那一份排布。 */
   const onTidy = useCallback(() => { tidyRef.current?.() }, [])
@@ -416,6 +448,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   return (
     <>
       <div
+        ref={shellRef}
         className="dsh-widget-board"
         data-dsh-widget-board-view={WIDGET_BOARD_PANEL_ID}
         data-dsh-widget-board-columns={metrics?.columns ?? 0}
@@ -452,6 +485,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                 onLayouts={onLayouts}
                 onFailure={setFailure}
                 onBusyChange={setBusy}
+                onSettings={openEditor}
                 onState={onState}
                 onNotify={onNotify}
                 onRemove={onRemove}
@@ -460,8 +494,25 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
               />
             ))}
         </div>
+        {editor === null
+          ? null
+          : (
+            <CardEditorDialog
+              key={`${editor.kind}:${editor.id}`}
+              target={editor}
+              board={activeBoard}
+              widgets={snapshot === null ? {} : snapshot.widgets}
+              library={snapshot === null ? [] : snapshot.library}
+              theme={theme}
+              frames={frames}
+              anchor={shellRef.current}
+              onClose={closeEditor}
+              onSnapshot={apply}
+            />
+          )}
       </div>
       <BoardDock
+        anchor={shellRef}
         entries={snapshot === null ? [] : [FLIP_GROUP_ENTRY, ...snapshot.library]}
         widgets={snapshot === null ? {} : snapshot.widgets}
         theme={theme}

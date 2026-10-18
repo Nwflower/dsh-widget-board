@@ -49,7 +49,7 @@ function cardCount(board) {
 async function dockPass(page, check) {
   // 上一段收起菜单后的回弹动画还没走完，等加号停稳再点。
   await sleep(900)
-  // 菜单：固定在下方的加号，点开是三个动作。
+  // 菜单：固定在看板这一栏下方的加号，点开是三个动作。
   await page.locator(DOCK).click()
   await page.waitForSelector(`${ACTION}[data-dsh-widget-board-dock-action="add"]`, { timeout: 5000 })
   // 扇面展开期间动作还在加号中心，等它停住再点。
@@ -58,17 +58,19 @@ async function dockPass(page, check) {
     const plus = document.querySelector(selector)
     const actions = Array.from(document.querySelectorAll('[data-dsh-widget-board-dock-action]'))
     const rect = plus?.getBoundingClientRect()
+    const board = document.querySelector('.dsh-widget-board')
+    const boardCenter = board === null ? null : board.getBoundingClientRect().left + board.clientWidth / 2
     return {
       expanded: plus?.getAttribute('aria-expanded'),
       actions: actions.map((node) => node.getAttribute('data-dsh-widget-board-dock-action')),
       labels: actions.map((node) => node.getAttribute('aria-label') ?? ''),
-      centered: rect === undefined ? false : Math.abs(rect.left + rect.width / 2 - window.innerWidth / 2) < 2,
+      centered: rect === undefined || boardCenter === null ? false : Math.abs(rect.left + rect.width / 2 - boardCenter) < 2,
       bottom: rect === undefined ? false : window.innerHeight - rect.bottom < 60,
     }
   }, DOCK)
   check('下方菜单展开三个动作', menu.expanded === 'true' && menu.actions.join(',') === 'add,tidy,refresh', menu.actions.join(' / '))
   check('三个动作都有名字', menu.labels.every((label) => label.length > 0), menu.labels.join(' / '))
-  check('菜单固定在屏幕下方居中', menu.centered && menu.bottom)
+  check('菜单固定在看板这一栏的下方居中', menu.centered && menu.bottom)
 
   // 添加动作打开悬浮的组件库：按来源分组的网格，每格画着组件自己的缩略画面。
   await page.locator(`${ACTION}[data-dsh-widget-board-dock-action="add"]`).click()
@@ -78,15 +80,20 @@ async function dockPass(page, check) {
     const node = document.querySelector(selector)
     const style = node === null ? null : getComputedStyle(node)
     const grid = node?.querySelector('.dsh-widget-board__library-list')
+    const rect = node?.getBoundingClientRect()
+    const board = document.querySelector('.dsh-widget-board')
+    const boardCenter = board === null ? null : board.getBoundingClientRect().left + board.clientWidth / 2
     return {
       position: style?.position ?? '',
       tiles: document.querySelectorAll('[data-dsh-widget-board-add]').length,
       display: grid === null ? '' : getComputedStyle(grid).display,
       columns: grid === null ? '' : getComputedStyle(grid).gridTemplateColumns.split(' ').length,
       previews: document.querySelectorAll(`${selector} iframe`).length,
+      centered: rect === undefined || boardCenter === null ? false : Math.abs(rect.left + rect.width / 2 - boardCenter) < 2,
     }
   }, LIBRARY)
   check('添加动作打开悬浮组件库', library.position === 'fixed' && library.tiles >= 3, `${library.position} / ${library.tiles} 格`)
+  check('组件库浮窗与菜单同一条中线', library.centered)
   check('组件库排成网格', library.display === 'grid' && library.columns >= 2, `${library.display} / ${library.columns} 列`)
   check('每一格画着组件的画面', library.previews >= 3, `${library.previews} 个预览`)
 
@@ -106,7 +113,8 @@ async function dockPass(page, check) {
     shield: document.querySelector(shield) !== null,
   }), { proxy: PROXY, shield: SHIELD })
   check('拖动时预览卡跟着指针', dragging.proxy && dragging.transform.includes('translate3d') && dragging.shield, dragging.transform)
-  await page.mouse.move(1100, 320, { steps: 18 })
+  // 组件库按看板中线居中之后，浮窗盖住了这块区域的上半；落到浮窗下方，仍在中栏的同一列。
+  await page.mouse.move(1100, 780, { steps: 18 })
   await sleep(120)
   await page.mouse.up()
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, cardCount(before.board), { timeout: 10000 })

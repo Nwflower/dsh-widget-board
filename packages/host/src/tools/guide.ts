@@ -38,9 +38,14 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
   "props": { "type": "object", "properties": { "label": { "type": "string" } } },
   "data": { "type": "object", "required": ["n"], "properties": { "n": { "type": "number" } } },
   "source": "plugin-name:source-id",
+  "credentials": [{ "ref": "DEEPSEEK_API_KEY", "label": { "zh": "DeepSeek 密钥", "en": "DeepSeek key" }, "required": true }],
   "actions": [{ "id": "plugin-name:action-id", "label": { "zh": "跑", "en": "Run" } }],
   "libs": ["marked"],
-  "text": { "hint": { "zh": "提示", "en": "Hint" } },
+  "text": {
+    "hint": { "zh": "提示", "en": "Hint" },
+    "props.title.label": { "zh": "标题", "en": "Title" },
+    "props.title.hint": { "zh": "显示在卡片上", "en": "Shown on the card" }
+  },
   "minBox": { "w": 1, "h": 10 },
   "defaultBox": { "w": 1, "h": 22 }
 }
@@ -49,7 +54,9 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`sizes\`：\`s\`、\`m\`、\`l\`、\`wide\`、\`xl\`、\`hero\`、\`expanded\`、\`inline\`、\`rail\`。看板这一处只用到位置与盒子，尺寸族给会话内联与右侧栏用。
 - \`props\` 与 \`data\` 是 JSON Schema。\`data\` 用来校验数据源读回来的数据，不合格的不会写进卡片。
 - \`source\` 是默认数据源的名字；要别人装的插件提供，写 \`提供方:名字\`。
+- \`credentials\` 声明组件要用的凭据：\`ref\` 是环境变量名，\`label\` 与 \`description\` 显示在设置弹窗里。**密钥只放这里，不写进 props 或 state**；值由宿主的凭据服务保存，组件读不到它。
 - \`actions\` 里写插件动作的全名。**没有声明的动作一律被拒绝**；要权限的动作还要有人在卡片上给出授权之后才跑得起来。
+- 设置弹窗按 \`props\` schema 生成表单。字段标签与提示写进 \`text\` 的 \`props.<字段>.label\` 与 \`props.<字段>.hint\`；字符串、数字、布尔与字符串枚举直接出控件，对象、数组与其他写法用 JSON 编辑。
 - \`libs\`：\`marked\`、\`highlight\` 由宿主内联进这份文档，组件里直接用全局名。
 - \`minBox\` 是这张卡缩到多小还排得下；低于它的缩放会被停在下限。
 
@@ -99,5 +106,6 @@ widget.reportError(err) // 把失败原因写在这张卡上
 - 组件文档只允许 \`index.html\`、\`style.css\`、\`main.js\` 三份文件；图片与字体写 \`{{asset:相对路径}}\`，宿主把它换成 \`data:\` 地址。
 - 消息有长度与频率上限：状态补丁要小，不要每秒发很多条；\`setState\` 本身会被合并，但状态总量有额度。
 - 沙箱里没有 \`fetch\`、没有 \`localStorage\`；状态用 \`widget.setState\`。
+- 密钥放 \`credentials\`，不放 \`props\` 或 \`state\`：后两者会进看板文件、导出包与工具结果，也不会出现在设置弹窗的密码框里。
 - 组件的**内容哈希**就是版本：改一个字符，之前给的授权与固定版本都不再匹配。
 `

@@ -8,7 +8,7 @@
  * 工具的 `parameters` 是给模型看的 JSON Schema（`@deepseek-ai/dsh-llm` 的 `ToolSchema.parameters`），
  * 直接注册时由工具自己校验输入（见 `packages/host/src/tools/`）。
  */
-import type { WidgetFamily, WidgetSource } from './widget'
+import type { WidgetCredential, WidgetFamily, WidgetSource } from './widget'
 /** 工具名（D9）；模型看到的就是这几个。 */
 export const WIDGET_TOOL_NAMES = {
   /** 列出组件库里的组件类型。 */
@@ -194,6 +194,8 @@ export interface CatalogEntry {
   actions?: string[]
   /** props 的 JSON Schema。 */
   props?: Record<string, unknown>
+  /** 设置弹窗要显示的凭据声明（D22）。 */
+  credentials?: WidgetCredential[]
   /** data 的 JSON Schema。 */
   data?: Record<string, unknown>
   /** 看板上的最小盒子与默认盒子。 */

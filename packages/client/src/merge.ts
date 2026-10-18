@@ -29,6 +29,7 @@ export function mergeEvent(snapshot: WorkspaceSnapshot, frame: BoardEventFrame):
         ...instance,
         ...('patch' in event ? { state: mergeState(instance.state, event.patch) } : (event.state === undefined ? {} : { state: event.state })),
         ...(event.data === undefined ? {} : { data: event.data }),
+        ...(event.props === undefined ? {} : { props: event.props }),
       }
       return { ...board, instances }
     })

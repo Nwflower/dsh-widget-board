@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { BoardInstance, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
-import { CLIENT_ROUTE, FLIP_GROUP_BACK, FLIP_GROUP_FRONT, FLIP_GROUP_ID } from '@dsh-widget-board/contracts'
-import type { GridPlacement } from '@dsh-widget-board/model'
-import { CardSurface } from './card-surface'
+/**
+ * 组件库浮窗（D17、D8）：按来源分组的实时缩略画面，按住一格拖到看板，轻点加在末尾。
+ *
+ * 缩略画面与网格本身住在 `widget-grid.tsx`，卡片设置弹窗的换槽也用同一份；这里只剩导入导出、
+ * 头部与关闭。
+ */
+import { useState } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
+import { CLIENT_ROUTE } from '@dsh-widget-board/contracts'
+import { t } from './copy'
 import type { FrameHost } from './frame-host'
 import type { ShellTheme } from './theme'
-import { isChinese, t } from './copy'
+import { WidgetGrid } from './widget-grid'
 
 /** 组件库浮窗要画的东西。 */
 export interface LibraryPanelProps {
@@ -31,16 +36,6 @@ export interface LibraryPanelProps {
 }
 
 /**
- * 一个组件包的下载地址（D8）。
- *
- * @param id - 组件 id。
- * @returns 文档相对的地址；写成 `<a download>` 的 href 就能直接下载。
- */
-function exportPathOf(id: string): string {
-  return `${CLIENT_ROUTE}/library/widget/${encodeURIComponent(id)}/export`
-}
-
-/**
  * 把一个 `.dshw` 交给宿主（D8）。
  *
  * @param file - 用户选的文件。
@@ -58,213 +53,25 @@ async function importWidgetFile(file: File): Promise<string> {
   return body.entry?.id ?? file.name
 }
 
-/** 一个来源的标题。 */
-function sourceLabel(source: WidgetLibraryEntry['source']): string {
-  if (source === 'builtin') return t('builtin')
-  if (source === 'user') return t('user')
-  return t('plugin')
-}
-
-/**
- * 按语言取一段文案。
- *
- * @param text - 双语文案。
- * @returns 当前语言下的那一条。
- */
-function textOf(text: { zh: string, en: string }): string {
-  return isChinese() ? text.zh : text.en
-}
-
-/**
- * 一格缩略画面用哪个组件。
- *
- * 翻面组没有自己的组件文档，缩略画面取正面的那张卡；正面不在时用背面（D19）。
- *
- * @param entry - 组件库里的一个类型。
- * @param widgets - 快照里的组件元信息。
- * @returns 组件 id 与它的元信息；元信息缺席时没有画面。
- */
-function previewOf(entry: WidgetLibraryEntry, widgets: Readonly<Record<string, WidgetSummary>>): { widgetId: string, widget: WidgetSummary | undefined } {
-  if (entry.id !== FLIP_GROUP_ID) return { widgetId: entry.id, widget: widgets[entry.id] }
-  const widgetId = widgets[FLIP_GROUP_FRONT] === undefined ? FLIP_GROUP_BACK : FLIP_GROUP_FRONT
-  return { widgetId, widget: widgets[widgetId] }
-}
-
-/** 缩略画面不写宿主：它没有看板上的实例，组件的 setState 也就没有落点。 */
-const ignoreState = async (): Promise<void> => {}
-
-/** 缩略画面也不发通知：组件库里的一次预览不该在看板栏上记一笔。 */
-const ignoreNotify = (): void => {}
-
-/** 一格缩略图：组件照常渲染，量出格子的像素盒再交给它（D3、D16）。 */
-function WidgetPreview({ entryId, widgetId, widget, theme, frames }: {
-  entryId: string
-  widgetId: string
-  widget: WidgetSummary
-  theme: ShellTheme
-  frames: FrameHost
-}): ReactNode {
-  const boxRef = useRef<HTMLDivElement | null>(null)
-  const inertRef = useRef<HTMLDivElement | null>(null)
-  const [box, setBox] = useState<{ width: number, height: number } | null>(null)
-  const instance = useMemo<BoardInstance>(() => ({
-    id: `library:${entryId}`,
-    widget: widgetId,
-    hash: widget.hash,
-    props: {},
-    data: null,
-    state: null,
-    layout: { x: 0, y: 0, w: 1, h: 1 },
-  }), [entryId, widgetId, widget.hash])
-  const placement = useMemo<GridPlacement | null>(() => box === null
-    ? null
-    : { id: instance.id, x: 0, y: 0, width: box.width, height: box.height, columns: 1 }, [box, instance.id])
-
-  // 格子宽度跟着浮窗走：量一次，组件按真实的盒子排版；只有尺寸变了才重新握手。
-  useEffect(() => {
-    const element = boxRef.current
-    if (element === null) return
-    const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect
-      if (rect === undefined) return
-      const width = Math.round(rect.width)
-      const height = Math.round(rect.height)
-      if (width < 1 || height < 1) return
-      setBox((previous) => previous !== null && previous.width === width && previous.height === height
-        ? previous
-        : { width, height })
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-
-  // 缩略画面只是画面：组件拿不到焦点，也不接指针，按住整格就是拖动。
-  useEffect(() => { inertRef.current?.setAttribute('inert', '') }, [])
-
-  return (
-    <div ref={boxRef} className="dsh-widget-board__library-preview" aria-hidden="true">
-      <div ref={inertRef} className="dsh-widget-board__library-preview-surface">
-        {placement === null
-          ? null
-          : (
-            <CardSurface
-              instance={instance}
-              widget={widget}
-              placement={placement}
-              theme={theme}
-              frames={frames}
-              onState={ignoreState}
-              onNotify={ignoreNotify}
-              paused={false}
-              preview
-            />
-          )}
-      </div>
-      {entryId === FLIP_GROUP_ID ? <span className="dsh-widget-board__library-flip">⇄</span> : null}
-    </div>
-  )
-}
-
-/** 读不出组件时的画面：虚线格子里写它是哪一个。 */
-function EmptyPreview({ entry }: { entry: WidgetLibraryEntry }): ReactNode {
-  return (
-    <div className="dsh-widget-board__library-preview dsh-widget-board__library-preview--empty" aria-hidden="true">
-      <span className="dsh-widget-board__library-preview-id">{entry.id}</span>
-      {entry.error === undefined ? null : <span className="dsh-widget-board__library-preview-mark">!</span>}
-    </div>
-  )
-}
-
-/** 网格里的一格。 */
-interface LibraryTileProps {
-  entry: WidgetLibraryEntry
-  widgetId: string
-  widget: WidgetSummary | undefined
-  theme: ShellTheme
-  frames: FrameHost
-  busy: boolean
-  onAdd: (id: string) => void
-  onBeginDrag: (entry: WidgetLibraryEntry, event: ReactPointerEvent<HTMLElement>) => void
-}
-
-/**
- * 一格组件：一张缩略画面，下面一行名字与一句说明；按住整格拖到看板，轻点加在末尾。
- *
- * @param props - 组件、缩略画面、主题与操作回调。
- * @returns 网格里的一格。
- */
-function LibraryTile({ entry, widgetId, widget, theme, frames, busy, onAdd, onBeginDrag }: LibraryTileProps): ReactNode {
-  const unavailable = entry.error !== undefined || widget === undefined
-  const description = entry.description === undefined ? undefined : textOf(entry.description)
-  const activate = (event: ReactKeyboardEvent<HTMLElement>): void => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    if (!unavailable && !busy) onAdd(entry.id)
-  }
-
-  return (
-    <li className="dsh-widget-board__library-item">
-      <div
-        className="dsh-widget-board__library-add"
-        data-dsh-widget-board-add={entry.id}
-        data-unavailable={unavailable ? '' : undefined}
-        role="button"
-        tabIndex={unavailable || busy ? -1 : 0}
-        aria-disabled={unavailable || busy}
-        title={entry.error ?? description ?? textOf(entry.title)}
-        onPointerDown={(event) => {
-          if (unavailable || busy) return
-          onBeginDrag(entry, event)
-        }}
-        onKeyDown={activate}
-      >
-        {widget === undefined
-          ? <EmptyPreview entry={entry} />
-          : <WidgetPreview entryId={entry.id} widgetId={widgetId} widget={widget} theme={theme} frames={frames} />}
-        <span className="dsh-widget-board__library-copy">
-          <span className="dsh-widget-board__library-name">
-            <span className="dsh-widget-board__library-label">{textOf(entry.title)}</span>
-            {entry.provider === undefined ? null : <span className="dsh-widget-board__library-provider">{entry.provider}</span>}
-          </span>
-          {entry.error === undefined
-            ? description === undefined ? null : <span className="dsh-widget-board__library-desc">{description}</span>
-            : <span className="dsh-widget-board__library-error">{entry.error}</span>}
-        </span>
-      </div>
-      {unavailable || entry.id === FLIP_GROUP_ID
-        ? null
-        : (
-          <a
-            className="dsh-widget-board__library-export"
-            data-dsh-widget-board-export={entry.id}
-            href={exportPathOf(entry.id)}
-            download={`${entry.id}.dshw`}
-            onPointerDown={(event) => { event.stopPropagation() }}
-            title={t('export')}
-          >
-            {t('export')}
-          </a>
-        )}
-    </li>
-  )
-}
-
 /**
  * 添加组件的浮窗：按来源分组，把每个组件画成一格实时缩略画面，按住一格可以拖到看板上。
- *
- * 浮窗固定在看板内容之上，不参与看板的排版；缩略画面是同一份组件照原样渲染出来的，尺寸按格子量出，
- * 格上的指针按下交给 `onBeginDrag`，轻点交给 `onAdd`，两条路都由外层决定什么时候写宿主（D3、D17）。
  *
  * @param props - 组件库、主题、操作回调与关闭。
  * @returns 浮窗。
  */
-export function LibraryPanel({ entries, widgets, theme, frames, busy, onAdd, onBeginDrag, onClose, onImported }: LibraryPanelProps): ReactNode {
+export function LibraryPanel({
+  entries,
+  widgets,
+  theme,
+  frames,
+  busy,
+  onAdd,
+  onBeginDrag,
+  onClose,
+  onImported,
+}: LibraryPanelProps): ReactNode {
   /** 导入的失败原因：画在头部，不把整个浮窗换成错误页。 */
   const [importError, setImportError] = useState<string | null>(null)
-  const groups = ['builtin', 'user', 'plugin'].map((source) => ({
-    source: source as WidgetLibraryEntry['source'],
-    items: entries.filter((entry) => entry.source === source),
-  })).filter((group) => group.items.length > 0)
 
   return (
     <div className="dsh-widget-board__library" data-dsh-widget-board-library="" role="dialog" aria-label={t('library')}>
@@ -293,31 +100,16 @@ export function LibraryPanel({ entries, widgets, theme, frames, busy, onAdd, onB
           <button type="button" className="dsh-widget-board__library-close" onClick={onClose}>{t('close')}</button>
         </div>
       </header>
-      {groups.length === 0
-        ? <p className="dsh-widget-board__notice">{t('libraryEmpty')}</p>
-        : groups.map((group) => (
-          <section key={group.source} className="dsh-widget-board__library-group">
-            <h3 className="dsh-widget-board__library-source">{sourceLabel(group.source)}</h3>
-            <ul className="dsh-widget-board__library-list">
-              {group.items.map((entry) => {
-                const preview = previewOf(entry, widgets)
-                return (
-                  <LibraryTile
-                    key={entry.id}
-                    entry={entry}
-                    widgetId={preview.widgetId}
-                    widget={preview.widget}
-                    theme={theme}
-                    frames={frames}
-                    busy={busy}
-                    onAdd={onAdd}
-                    onBeginDrag={onBeginDrag}
-                  />
-                )
-              })}
-            </ul>
-          </section>
-        ))}
+      <WidgetGrid
+        entries={entries}
+        widgets={widgets}
+        theme={theme}
+        frames={frames}
+        mode="add"
+        busy={busy}
+        onActivate={onAdd}
+        onBeginDrag={onBeginDrag}
+      />
     </div>
   )
 }

@@ -6,13 +6,9 @@
  */
 import type { BoardInstance, CardLayout, PlaceValue, WidgetToolSpec } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
+import { isRecord } from '../guards'
 import { withInstanceAdded, withInstancePatched, withInstanceRemoved } from '../state'
 import type { ToolContext } from './index'
-
-/** 一个参数是不是普通对象。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 /**
  * 读一个盒子的四个数；缺项保持 `undefined`。
@@ -91,6 +87,10 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
         if (existing.widget !== wanted.widget) {
           throw new ToolRefusal(`卡片 ${wanted.id} 是 ${existing.widget}，不能改成 ${wanted.widget}；要换组件就移除再放一张`)
         }
+        if (wanted.props !== undefined) {
+          const problem = context.propsError(context.route.records.get(existing.widget)?.manifest.props, wanted.props)
+          if (problem !== undefined) throw new ToolRefusal(problem)
+        }
         const notes: string[] = []
         const next = await context.save(
           (current) => withInstancePatched(current, wanted.id as string, {
@@ -105,6 +105,10 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
         return placed(instance, notes)
       }
 
+      if (wanted.props !== undefined) {
+        const problem = context.propsError(record.manifest.props, wanted.props)
+        if (problem !== undefined) throw new ToolRefusal(problem)
+      }
       // 调用方没点名数据源时用组件自己声明的那个（D17）；声明的那个现在不在时卡片照样加得进来。
       const declared = record.manifest.source
       const source = wanted.source === undefined ? declared : wanted.source as string

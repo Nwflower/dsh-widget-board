@@ -1,43 +1,49 @@
 /*
  * 顶部的看板标签条（D21）。
  *
- * 颜色与排版读宿主的 --dsw-* 令牌；药丸的时长与曲线由 tabs.tsx 写在根节点上的 --w-motion-* 给出
- * （D10）。标签条粘在页面顶端：卡片滚过去时切换入口一直看得见。
+ * 结构照 transitions.dev 的 Tabs sliding：一条贴着标签的圆角底条，活动标签的药丸在标签下面滑过去；
+ * 药丸的位置与宽度由 tabs.tsx 量出来写在行内，首帧不补间。时长与曲线取 --w-motion-base 与
+ * --w-motion-ease-smooth（250ms，cubic-bezier(0.22, 1, 0.36, 1)），减弱动效时取消（D10）。标签条
+ * 粘在页面顶端；Windows 桌面端让出窗口标题栏时，它靠左挂进那一条（tabs.tsx 量位置）。
  */
 
 .dsh-widget-board__tabs {
   position: sticky;
   top: 0;
   z-index: 6;
-  display: flex;
+  display: inline-flex;
+  box-sizing: border-box;
+  /* 页面是纵向的 flex 列：内容比视口高时标签条不能参与收缩，否则标签被挤出条外、药丸落到文字下方。 */
+  flex: none;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
   align-items: center;
-  gap: 2px;
-  margin: -8px -8px 14px;
-  padding: 8px;
+  gap: 3px;
+  margin: -8px 0 14px -8px;
+  padding: 3px;
   overflow-x: auto;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base) 88%, transparent);
-  backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 6%, var(--dsw-alias-bg-base));
   scrollbar-width: none;
 }
 
 .dsh-widget-board__tabs::-webkit-scrollbar { display: none; }
 
-/* 活动标签底下那枚药丸：位置与宽度由脚本量出来，过渡走令牌。 */
+/* 活动标签底下那枚药丸：位置与宽度由 tabs.tsx 写在行内，切换时从这里过渡。 */
 .dsh-widget-board__tabs-pill {
   position: absolute;
-  top: 8px;
+  top: 3px;
   left: 0;
   z-index: 0;
-  height: 32px;
-  border-radius: 10px;
+  height: 30px;
+  border-radius: 9999px;
   background: var(--dsw-alias-bg-layer-1);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 8%),
-    0 0 0 1px color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  transform: translateX(0);
   transition:
     transform var(--w-motion-base) var(--w-motion-ease-smooth),
     width var(--w-motion-base) var(--w-motion-ease-smooth);
+  will-change: transform, width;
   pointer-events: none;
 }
 
@@ -46,21 +52,21 @@
   z-index: 1;
   flex: none;
   max-width: 220px;
-  height: 32px;
-  padding: 0 14px;
+  height: 30px;
+  padding: 4px 12px;
   overflow: hidden;
   border: 0;
-  border-radius: 10px;
+  border-radius: 9999px;
   background: none;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
   font-size: 13px;
   font-weight: 500;
-  line-height: 32px;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--w-motion-fast) var(--w-motion-ease-smooth);
+  transition: color var(--w-motion-base) var(--w-motion-ease-smooth);
 }
 
 .dsh-widget-board__tab[aria-selected="true"] { color: var(--dsw-alias-label-primary); }
@@ -69,16 +75,17 @@
   .dsh-widget-board__tab:not([aria-selected="true"]):hover { color: var(--dsw-alias-label-primary); }
 }
 
-.dsh-widget-board__tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
+.dsh-widget-board__tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 
 .dsh-widget-board__tab-new {
   position: relative;
   z-index: 1;
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 9999px;
   background: none;
   color: var(--dsw-alias-label-tertiary);
   font: inherit;
@@ -98,9 +105,40 @@
 }
 
 .dsh-widget-board__tab-new:disabled { opacity: 0.45; cursor: not-allowed; }
-.dsh-widget-board__tab-new:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
+.dsh-widget-board__tab-new:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 
 /* 减弱动效：药丸直接换位置（D10）。 */
 @media (prefers-reduced-motion: reduce) {
-  .dsh-widget-board__tabs-pill { transition: none; }
+  .dsh-widget-board__tabs-pill,
+  .dsh-widget-board__tab { transition: none; }
 }
+
+/* Windows 桌面端：宿主把窗口标题栏让给页面时，标签条靠左挂进那一条（tabs.tsx 量位置与宽度）。
+ * 固定定位后不再占用页面高度；窗口标题栏是拖动区，整条标成可点，否则按不动。标题栏里比页内
+ * 小一号，上下各留出空隙，不贴着窗口边。 */
+.dsh-widget-board__tabs[data-titlebar="true"] {
+  position: fixed;
+  top: var(--dsh-widget-board-tabs-top);
+  left: var(--dsh-widget-board-tabs-left);
+  width: max-content;
+  max-width: none;
+  margin: 0;
+  transform: translateY(-50%);
+  z-index: 35;
+  -webkit-app-region: no-drag;
+}
+
+.dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tab {
+  height: 22px;
+  padding: 0 10px;
+  line-height: 22px;
+}
+
+.dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tab-new {
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tabs-pill { height: 22px; }

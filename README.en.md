@@ -5,12 +5,14 @@
 A widget board plugin for DeepSeek Harness. It adds a "Board" entry to the sidebar and a set of card boards you can drag and resize, with a tab strip at the top that switches between them; each card renders one widget from the widget library.
 
 - **Several boards**: a tab strip at the top switches between boards and its pill slides to the active one; the strip holds a single New entry, while renaming, removing and selecting live in a Board section in settings. Every board's cards stay mounted, so switching remounts nothing and the boards you cannot see stay paused; each board keeps its own cards, boxes and revisions, and an older single board is carried over as the first one when it opens.
+- **Windows desktop**: when the window reserves its caption row and the strip fits, it sits at the left of that row, a size smaller than in the page with air above and below; the strip uses transitions.dev's Tabs sliding, where the pill slides to the active tab and the first paint does not tween. The board starts right below; when it does not fit, or outside the desktop, the strip stays at the top of the page.
 - **Free layout**: the board switches between 1 and 4 columns by its own width, and every card keeps its own column span and height; height snaps to 6/10/14/18/22/26/30 rem and vertical positions snap to 2 rem, a card shows its live size while you resize it from the corner, and changing the window width or collapsing the sidebar needs no re-arranging.
 - **The masthead is a card**: the title, tagline and type specimen of a living board live in the built-in `board-hero` widget, so they can be dragged, resized and removed; an older board gets the card once on upgrade, and Add lives in the bottom menu.
-- **Bottom menu**: the centred plus at the bottom splits into a fan of three icon actions for Add, Tidy and Refresh. The fill, bridges and shadow live in one SVG goo filter; the actions spring out 40 ms apart, the plus turns 45°, and closing drops the whole shape 5 px before it settles. Add opens a floating widget library laid out as a grid of live thumbnails; hold a tile and drop it on any column, or tap to add at the end. Tidy compacts every card in reading order. Refresh makes the host re-read the library and remount the cards.
+- **Bottom menu**: the plus centred at the bottom of the board column splits into a fan of three icon actions for Add, Tidy and Refresh. The fill, bridges and shadow live in one SVG goo filter; the actions spring out 40 ms apart, the plus turns 45°, and closing drops the whole shape 5 px before it settles. Add opens a floating widget library laid out as a grid of live thumbnails; hold a tile and drop it on any column, or tap to add at the end. Tidy compacts every card in reading order. Refresh makes the host re-read the library and remount the cards.
+- **Card settings**: the gear beside Remove in the card's top-right corner opens a settings modal with four sections: Widget settings, Credentials, Data and permissions, and About. Props render from the widget's own schema and the host validates them against the same schema on save; credentials are written to the host's credential service and never enter board files, exports or tool output; data sources, permissions and Allow / Revoke live here too.
 - **Generic data cards**: stat, list, table, chart, progress, key-value, timeline and image ship in the library; they share the `.t-data` skeleton, data fills the content, props change the headings, and the board owns the card size.
 - **Markdown and code**: the Markdown card typesets GFM and highlights fenced code by language; marked and highlight ship with the plugin, are inlined into the document, and the widget stays offline.
-- **Flip group (prototype)**: two ordinary cards, one per side, share one card box and flip on hover; fixed to stat and chart for now, added from the library and removed as a group.
+- **Flip group**: two ordinary cards, one per side, share one card box and flip on hover; adding one from the library opens its slot strip, so you choose the widget for each side. Replacing one resets that slot's props, data and state, leaves the other slot alone, and raises the group's minimum box to the larger of the two.
 - **Three motion templates**: flip, magnetic and holographic cards sit in the library; add one and change the copy through props. The runtime suite owns the motion and pointer behaviour, so the template carries no event code.
 - **Three sources of widgets**: the built-in widgets in the package, your own under `$DSH_HOME/widget-board/widgets/`, and widgets that plugins register through the `widgetBoard` service. One format for all of them: a directory with `widget.json` plus `index.html`, `style.css` and an optional `main.js`.
 - **State lives on the host**: a card's interface state and data are kept by the host, so they survive a panel switch, a page reload and a widget hot reload.
@@ -42,6 +44,8 @@ The Add action in the bottom menu opens the library, grouped by source and laid 
 
 To write a widget, create a directory under `$DSH_HOME/widget-board/widgets/<id>/` with `widget.json`, `index.html` and `style.css`, plus `main.js` when it needs a script. The host re-reads the library as the directory changes, and cards on open pages remount at the new version.
 
+`widget.json` can also declare `credentials`: the settings modal shows a key field for each, the host's credential service stores the value, and the widget cannot read it or write it into board files. A `source` of `provider:name` names a data source a plugin registered; props field labels and hints go in `text` under `props.<field>.label` and `props.<field>.hint`.
+
 The board owns the card box. The runtime sorts the content box on two axes: `data-box-width` is `narrow`, `regular` or `wide`, and `data-box-height` is `short`, `regular` or `tall`; it also exposes `--w-w`, `--w-h` and `--w-cols`. Use these to hide or reveal content as the card changes. `minBox` in `widget.json` is the card's lower bound: dragging and resizing stop there. Spacing and type sizes come from `--w-space-*` and `--w-type-*`; the suite adds `.w-frame`, `.w-actions` and `.w-scroll` layout primitives plus `.w-hide-short` and `.w-hide-narrow` for size-based hiding. Library thumbnails carry `data-placement="preview"` and `data-size="preview"`, so a widget can switch to a static layout there.
 
 When a widget has something to announce, it calls `widget.notify({ title, body })`; the title falls back to the widget title, the body is optional, and the two are capped at 120 and 400 characters. Notifications land on the Board entry in the sidebar: hover reads the latest title and body, and clicking the entry marks them read.
@@ -52,13 +56,15 @@ Flip, magnetic and holographic are optional runtime-suite effects; the card shel
 
 ## For plugin providers
 
-The host half publishes the cordis service `widgetBoard` (`WIDGET_BOARD_API_VERSION = 1`):
+The host half publishes the cordis service `widgetBoard` (`WIDGET_BOARD_API_VERSION = 2`):
 
-- `registerWidgetType({ apiVersion, provider, directory })` registers a widget directory and returns a disposer.
-- `registerDataSource({ apiVersion, id, read })` registers a data source a card can bind to.
-- `registerAction({ apiVersion, id, run })` registers an action.
+- `registerWidgetType({ apiVersion, provider, directory })` registers a widget directory and returns a handle with `provider`, `widgets`, `register({ dataSources, actions })` and `dispose()`. Data sources and actions live under that provider's registration and are released with it.
+- `registerDataSource({ apiVersion, provider, id, read, permission? })` registers a data source a card can bind to; one with a `permission` needs a person's grant before it reads.
+- `registerAction({ apiVersion, provider, id, run, permission? })` registers an action, which can declare permissions the same way.
 
-The browser half publishes the same service; `registerWidgetType({ apiVersion, provider, id, component })` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`. A provider never imports this plugin at runtime: declare the same shape in its own package with a `declare module` block and negotiate by `apiVersion`.
+The browser half publishes the same service; `registerWidgetType({ apiVersion, provider, id, component })` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`. Read the version from `service.apiVersion` instead of copying the constant.
+
+A provider imports the type from `dsh-widget-board/service` with `import type { WidgetBoardClientService }` and declares the service on `Context` with `declare module '@deepseek-ai/cordis'`; a plain-JS provider can keep a same-shaped declaration. Runtime goes through the service only: do not value-import this plugin, and do not add `dsh.client.external` to get around the rule; the client artifact depends only on the platform seeds. When a provider is disabled or unloaded, its widgets, data sources, actions and grants are withdrawn; its cards stay in place and show unavailable until it returns.
 
 ## Status
 

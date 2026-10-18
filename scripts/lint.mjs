@@ -16,8 +16,8 @@ const ROOT = path.resolve(import.meta.dirname, '..')
 const DECISIONS = path.join(ROOT, 'docs', 'adr')
 /** 停止线：源文件接近这个行数就拆分，不再往里加功能（D2）。 */
 const MAX_LINES = 750
-/** 不走进去的目录：本地草稿、产物与依赖。 */
-const SKIPPED = new Set(['.git', '.debug', '.claude', 'node_modules', 'lib'])
+/** 不走进去的目录：本地草稿、临时工作树、产物与依赖。 */
+const SKIPPED = new Set(['.git', '.agents', '.debug', '.claude', 'node_modules', 'lib'])
 
 const problems = []
 
@@ -178,7 +178,29 @@ for (const file of sourcesOf('client')) {
   }
 }
 
-// 7. 导入不包在 try/catch 里（D11）：缺依赖就在加载时抛出来，不静默回退。
+// 7. 浏览器半边只拿宿主的类型（D1、D2）：`@deepseek-ai/*` 的值导入会带进第二份实现，或者在模块表
+// 上落空；跨包行为走 cordis 服务，跨包界面走插槽。
+const CLIENT_VALUE_IMPORT = /^\s*import\s+(?!type\b)(?:[^'"]*?)\bfrom\s+'(@deepseek-ai\/[^']+)'/gm
+const CLIENT_SIDE_EFFECT_IMPORT = /^\s*import\s+'(@deepseek-ai\/[^']+)'/gm
+const CLIENT_REQUIRE = /\brequire\(\s*'(@deepseek-ai\/[^']+)'\s*\)/g
+let clientHostValues = 0
+for (const file of sourcesOf('client')) {
+  const text = fs.readFileSync(file, 'utf8')
+  for (const match of text.matchAll(CLIENT_VALUE_IMPORT)) {
+    clientHostValues += 1
+    problems.push(`${relative(file)}: 值导入了 ${match[1]}；浏览器半边对宿主包只写 import type（D1、D2）`)
+  }
+  for (const match of text.matchAll(CLIENT_SIDE_EFFECT_IMPORT)) {
+    clientHostValues += 1
+    problems.push(`${relative(file)}: 副作用导入了 ${match[1]}；浏览器半边对宿主包只写 import type（D1、D2）`)
+  }
+  for (const match of text.matchAll(CLIENT_REQUIRE)) {
+    clientHostValues += 1
+    problems.push(`${relative(file)}: require 了 ${match[1]}；浏览器半边对宿主包只写 import type（D1、D2）`)
+  }
+}
+
+// 8. 导入不包在 try/catch 里（D11）：缺依赖就在加载时抛出来，不静默回退。
 let guarded = 0
 for (const file of sources) {
   const text = fs.readFileSync(file, 'utf8')
@@ -195,7 +217,7 @@ for (const file of sources) {
   })
 }
 
-// 8. 删除工作树只从 scripts/worktree.mjs 里发出（AGENTS.md）：工作树顶层的目录链接会让 git 递归
+// 9. 删除工作树只从 scripts/worktree.mjs 里发出（AGENTS.md）：工作树顶层的目录链接会让 git 递归
 // 删掉链接指向的目录，也就是主树的 node_modules，再下一跳是工作区链接指向的 packages/*。
 let worktreeRemovals = 0
 for (const file of sources) {
@@ -206,7 +228,7 @@ for (const file of sources) {
   else problems.push(`${relative(file)}: 直接删除工作树；用 node scripts/worktree.mjs remove <路径>，它先摘掉链接再交给 git（AGENTS.md）`)
 }
 
-// 9. 安装时构建（D2）：`lib/` 不提交，而发布入口就在它下面，所以从源码装的包（git 依赖、本地
+// 10. 安装时构建（D2）：`lib/` 不提交，而发布入口就在它下面，所以从源码装的包（git 依赖、本地
 // 目录）只有安装时构建一次才有宿主半边；少了 `prepare`，装出来的包里没有 `lib/host/index.js`。
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const entries = []
@@ -223,7 +245,7 @@ if (builtEntries.length === 0) {
   problems.push(`lint: package.json 的 ${builtEntries.join('、')} 是构建产物（lib/ 不提交，D2），安装时必须构建；scripts.prepare 要跑 node scripts/build.mjs`)
 }
 
-// 10. 抄来的代码（jscpd，扫描范围见 .jscpd.json）：同一段逻辑出现第二处，就是它该进共享层的时候。
+// 11. 抄来的代码（jscpd，扫描范围见 .jscpd.json）：同一段逻辑出现第二处，就是它该进共享层的时候。
 const copies = spawnSync(process.execPath, [
   path.join(ROOT, 'node_modules', 'jscpd', 'run-jscpd.js'),
   '--threshold', '0',
@@ -240,11 +262,14 @@ if (links === 0) problems.push('lint: 没有检查到任何文档链接，链接
 if (citations === 0) problems.push('lint: 没有检查到任何决策编号，编号的模式匹配不上')
 if (directions === 0) problems.push('lint: 没有检查到任何包的导入方向')
 if (worktreeRemovals === 0) problems.push('lint: 没有检查到 scripts/worktree.mjs 里的工作树删除，模式匹配不上')
+if (!/^\s*import\s+(?!type\b)(?:[^'"]*?)\bfrom\s+'(@deepseek-ai\/[^']+)'/m.test("import { x } from '@deepseek-ai/y'")) {
+  problems.push('lint: 客户端宿主值导入的规则匹配不上')
+}
 
 if (problems.length > 0) {
   for (const problem of problems) console.error(`lint: ${problem}`)
   console.error(`lint: ${problems.length} 处问题，查了 ${sources.length} 份源码与 ${markdown.length} 份文档`)
   process.exitCode = 1
 } else {
-  console.log(`lint: ${sources.length} 份源码、${markdown.length} 份文档、${links} 条链接、${citations} 处决策引用、${directions} 处包导入、${modelFiles} 份模型源码、${lookups} 处文档查询、${guarded} 处 try，全部通过（停止线 ${MAX_LINES} 行；${builtEntries.length} 条发布入口指向构建产物、安装时构建；没有抄来的代码）`)
+  console.log(`lint: ${sources.length} 份源码、${markdown.length} 份文档、${links} 条链接、${citations} 处决策引用、${directions} 处包导入、${modelFiles} 份模型源码、${lookups} 处文档查询、${guarded} 处 try、${clientHostValues} 处客户端宿主值导入，全部通过（停止线 ${MAX_LINES} 行；${builtEntries.length} 条发布入口指向构建产物、安装时构建；没有抄来的代码）`)
 }

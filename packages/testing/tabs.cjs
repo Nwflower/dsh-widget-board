@@ -23,7 +23,7 @@ const POMODORO_FRAME = 'iframe.dsh-widget-board__frame[title="番茄钟"]'
  * 读一次标签条与卡片的状态。
  *
  * @param page - 宿主页面。
- * @returns 标签数、控件数、选中项、药丸、看得见的卡片数与挂载的卡片总数。
+ * @returns 标签数、控件数、选中项、药丸、看得见的卡片数、挂载的卡片总数，以及标签条、活动标签与药丸的盒子。
  */
 async function stripState(page) {
   return await page.evaluate(({ tabs, tab, pill, flow, card }) => {
@@ -31,17 +31,43 @@ async function stripState(page) {
     const buttons = strip === null ? [] : Array.from(strip.querySelectorAll(tab))
     const flows = Array.from(document.querySelectorAll(flow))
     const visible = flows.filter((element) => getComputedStyle(element).visibility !== 'hidden')
+    const active = buttons.find((button) => button.getAttribute('aria-selected') === 'true')
+    const pillNode = strip === null ? null : strip.querySelector(pill)
+    const motion = pillNode === null ? null : (() => {
+      const style = getComputedStyle(pillNode)
+      return { duration: style.transitionDuration, property: style.transitionProperty, timing: style.transitionTimingFunction }
+    })()
+    const box = (rect) => rect === null ? null : {
+      top: Math.round(rect.top),
+      left: Math.round(rect.left),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      bottom: Math.round(rect.bottom),
+    }
     return {
       tabs: buttons.length,
       controls: strip === null ? 0 : strip.querySelectorAll('button').length,
       selected: buttons.filter((button) => button.getAttribute('aria-selected') === 'true').map((button) => button.getAttribute('data-dsh-widget-board-tab')),
       labels: buttons.map((button) => (button.textContent ?? '').trim()),
-      pill: strip === null ? null : strip.querySelector(pill) !== null,
+      pill: pillNode !== null,
       visibleFlows: visible.length,
       visibleCards: visible.reduce((total, element) => total + element.querySelectorAll(card).length, 0),
       mountedCards: document.querySelectorAll(card).length,
+      strip: box(strip === null ? null : strip.getBoundingClientRect()),
+      active: box(active === undefined ? null : active.getBoundingClientRect()),
+      pillBox: box(pillNode === null ? null : pillNode.getBoundingClientRect()),
+      motion,
     }
   }, { tabs: TABS, tab: TAB, pill: PILL, flow: FLOW, card: CARD })
+}
+
+/** 两个盒子的左、上、宽、高相差都不超过一个像素。 */
+function sameBox(left, right) {
+  return left !== null && right !== null
+    && Math.abs(left.left - right.left) <= 1
+    && Math.abs(left.top - right.top) <= 1
+    && Math.abs(left.width - right.width) <= 1
+    && Math.abs(left.height - right.height) <= 1
 }
 
 /**
@@ -69,6 +95,18 @@ async function tabsPass(page, { check }) {
   const before = await stripState(page)
   check('标签条上只有一个标签与一个新建入口', before.tabs === 1 && before.controls === 2, JSON.stringify(before))
   check('活动标签有一枚药丸', before.pill === true && before.selected.length === 1, JSON.stringify(before.selected))
+  check('标签条把活动标签整个包住',
+    before.strip !== null && before.active !== null
+    && before.active.top >= before.strip.top && before.active.bottom <= before.strip.bottom,
+    `${JSON.stringify(before.active)} / ${JSON.stringify(before.strip)}`)
+  check('药丸与活动标签同宽同高、位置重合', sameBox(before.pillBox, before.active),
+    `${JSON.stringify(before.pillBox)} / ${JSON.stringify(before.active)}`)
+  check('药丸按令牌补间',
+    before.motion !== null
+    && before.motion.property.includes('transform')
+    && before.motion.duration.includes('0.25s')
+    && before.motion.timing.includes('cubic-bezier(0.22, 1, 0.36, 1)'),
+    JSON.stringify(before.motion))
   const firstId = before.selected[0]
   const marker = await markPomodoro(page)
   check('番茄钟的文档已经挂上', marker === 1, String(marker))

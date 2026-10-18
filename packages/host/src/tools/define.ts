@@ -6,16 +6,12 @@
  * `index.html` 与 `style.css` 必须给。不合格的写入不落地。
  */
 import { join } from 'node:path'
-import Ajv from 'ajv'
 import { strToU8 } from 'fflate'
 import type { DefineValue, WidgetManifest, WidgetToolSpec } from '@dsh-widget-board/contracts'
-import { WIDGET_MANIFEST_SCHEMA, WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
-import { writeWidgetDirectory } from '../library'
+import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
+import { isRecord } from '../guards'
+import { manifestProblem, writeWidgetDirectory } from '../library'
 import type { ToolContext } from './index'
-
-/** manifest 的校验器：与读组件库时用的是同一份 schema（D7）。 */
-const ajv = new Ajv({ allErrors: true, strict: true })
-const validateManifest = ajv.compile(WIDGET_MANIFEST_SCHEMA)
 
 /** 组件 id 的形状。 */
 const ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -24,11 +20,6 @@ const ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 interface FileInput {
   path: string
   content: string
-}
-
-/** 一个参数是不是普通对象。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /**
@@ -62,12 +53,9 @@ function filesOf(value: unknown): FileInput[] {
  * @throws {ToolRefusal} 不合格。
  */
 function manifestOf(value: unknown): WidgetManifest {
-  if (!isRecord(value)) throw new ToolRefusal('manifest 要是一个对象')
-  if (!validateManifest(value)) {
-    const reasons = (validateManifest.errors ?? []).map((error) => `${error.instancePath === '' ? '/' : error.instancePath} ${error.message ?? ''}`.trim())
-    throw new ToolRefusal(`manifest 不合格：${reasons.join('；')}`)
-  }
-  return value as unknown as WidgetManifest
+  const problem = manifestProblem(value)
+  if (problem !== undefined) throw new ToolRefusal(problem)
+  return value as WidgetManifest
 }
 
 /**

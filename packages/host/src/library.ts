@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path'
 import Ajv from 'ajv'
 import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
 import { WIDGET_MANIFEST_SCHEMA } from '@dsh-widget-board/contracts'
+import { isRecord } from './guards'
 
 /** 一个可用的组件版本：manifest、来源、目录、内容哈希与目录里的全部文件。 */
 export interface WidgetRecord {
@@ -71,6 +72,27 @@ export function contentHash(files: Map<string, Buffer>): string {
 }
 
 /**
+ * 一份 manifest 的问题（D7、D22）：schema 校验与凭据引用的唯一性。
+ *
+ * 读组件库与 `widget_define` 共用这一条，免得两处对同一份 manifest 给出不同的判定。
+ *
+ * @param value - 解出来的 widget.json。
+ * @returns 不合格时的原因，合格时为 `undefined`。
+ */
+export function manifestProblem(value: unknown): string | undefined {
+  if (!isRecord(value)) return 'manifest 要是一个对象'
+  if (!validate(value)) {
+    const reasons = (validate.errors ?? []).map((error) => `${error.instancePath || '/'} ${error.message ?? ''}`.trim())
+    return `manifest 不合格：${reasons.join('；')}`
+  }
+  const manifest = value as unknown as WidgetManifest
+  const refs = manifest.credentials?.map((credential) => credential.ref) ?? []
+  const duplicate = refs.find((ref, index) => refs.indexOf(ref) !== index)
+  if (duplicate !== undefined) return `manifest 不合格：凭据 ${duplicate} 重复声明`
+  return undefined
+}
+
+/**
  * 读一个组件目录。
  *
  * @param dir - 组件目录。
@@ -83,10 +105,8 @@ export async function readWidget(dir: string, root: Pick<WidgetRoot, 'source' | 
   const manifestFile = files.get('widget.json')
   if (manifestFile === undefined) throw new Error(`${dir} 里没有 widget.json（D7）`)
   const manifest = JSON.parse(manifestFile.toString('utf8')) as WidgetManifest
-  if (!validate(manifest)) {
-    const reasons = (validate.errors ?? []).map((error) => `${error.instancePath || '/'} ${error.message ?? ''}`.trim())
-    throw new Error(`${dir}/widget.json 不合格：${reasons.join('；')}`)
-  }
+  const problem = manifestProblem(manifest)
+  if (problem !== undefined) throw new Error(`${dir}/widget.json：${problem}`)
   for (const required of ['index.html', 'style.css']) {
     if (!files.has(required)) throw new Error(`${dir} 缺少 ${required}（D7）`)
   }

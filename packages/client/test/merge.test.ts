@@ -62,6 +62,14 @@ describe('合并通知', () => {
     expect(next.boards[0]?.instances[0]?.data).toEqual({ n: 1 })
   })
 
+  it('props 通知只换 props', () => {
+    const before = workspace()
+    const next = mergeEvent(before, { revision: 2, event: { type: 'instance', id: 'first', props: { title: 'x' } } })
+    expect(next.boards[0]?.instances[0]?.props).toEqual({ title: 'x' })
+    expect(next.boards[0]?.instances[0]?.data).toEqual({ n: 1 })
+    expect(next.boards[0]?.instances[0]?.state).toEqual({ day: 0 })
+  })
+
   it('状态通知在别的看板里也找得到那张卡', () => {
     const before = workspace()
     const next = mergeEvent(before, { revision: 2, event: { type: 'instance', id: 'third', state: { done: true } } })

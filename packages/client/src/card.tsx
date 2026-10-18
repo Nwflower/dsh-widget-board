@@ -25,6 +25,8 @@ export interface WidgetCardProps {
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
   frames: FrameHost
+  /** 打开这张卡的设置（D22）；没有可配置项时不传。 */
+  onSettings?: (button: HTMLButtonElement) => void
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
   onState: (id: string, patch: unknown) => Promise<void>
   /** 所在的看板没有被选中：整块看板暂停（D21）。 */
@@ -57,6 +59,7 @@ export function WidgetCard({
   exiting,
   theme,
   frames,
+  onSettings,
   onState,
   onNotify,
   onRemove,
@@ -80,6 +83,7 @@ export function WidgetCard({
       placement={placement}
       gesture={gesture}
       exiting={exiting}
+      {...(onSettings === undefined ? {} : { onSettings })}
       onRemove={() => onRemove(instance.id)}
       onDragStart={onDragStart}
       onDragMove={onDragMove}

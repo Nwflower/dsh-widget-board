@@ -35,6 +35,7 @@ const gates = [
   { title: 'CHANGELOG 的 [Unreleased] 段', command: () => node('scripts/changelog.mjs', ['--check']) },
   { title: 'AGENTS.md 的命令表', command: () => node('scripts/agents-commands.mjs', ['--check']) },
   { title: '构建', command: () => node('scripts/build.mjs') },
+  { title: '提供方类型入口', command: () => node('scripts/check-provider-types.mjs') },
   { title: '单元层', command: () => vitest },
   { title: '真实宿主里的冒烟', command: () => node('packages/testing/smoke.cjs'), skip: NO_SMOKE },
   { title: '尺寸矩阵', command: () => node('packages/testing/matrix.cjs'), skip: NO_SMOKE },

@@ -81,6 +81,20 @@ export interface WidgetAction {
 }
 
 /**
+ * 组件声明的一项凭据（D22）：值由宿主的凭据服务保存，组件只拿到它想用到的名字。
+ *
+ * 密钥不写进 props 与 state：设置弹窗按这条声明画输入框，提供方的数据源或动作按同一个 `ref`
+ * 解析。`label` 与 `description` 是设置弹窗里的文案，`required` 决定未配置时要不要醒目提示。
+ */
+export interface WidgetCredential {
+  /** 环境变量形状的名字，例如 `DEEPSEEK_API_KEY`。 */
+  ref: string
+  label: LocalizedText
+  description?: LocalizedText
+  required?: boolean
+}
+
+/**
  * 组件声明的权限（D6）：没有声明的动作、主机与命令一律拒绝。
  *
  * 这是组件作者写下来的意图，界面上用它把授权说清楚；真正拦人的是宿主上的授权表。
@@ -142,6 +156,8 @@ export interface WidgetManifest {
    */
   source?: string
   actions?: WidgetAction[]
+  /** 设置弹窗要显示的凭据（D22）；值由宿主的凭据服务保存，不随卡片走。 */
+  credentials?: WidgetCredential[]
   permissions?: WidgetPermissions
   /** 刷新策略（D6）；省略时按需。 */
   refresh?: WidgetRefresh
@@ -210,7 +226,22 @@ export const WIDGET_MANIFEST_SCHEMA = {
     sizes: { type: 'array', minItems: 1, uniqueItems: true, items: { enum: WIDGET_FAMILIES } },
     props: { type: 'object' },
     data: { type: 'object' },
-    source: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,63}$' },
+    source: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
+    credentials: {
+      type: 'array',
+      maxItems: 8,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['ref', 'label'],
+        properties: {
+          ref: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*$', maxLength: 128 },
+          label: { $ref: '#/$defs/text' },
+          description: { $ref: '#/$defs/text' },
+          required: { type: 'boolean' },
+        },
+      },
+    },
     actions: {
       type: 'array',
       items: {

@@ -1,14 +1,14 @@
 /*
  * 组件库浮窗：按来源分组的网格，每格是一张实时缩略画面。
  *
- * 浮窗固定在下方菜单之上，不参与卡片排版；颜色读宿主的 --dsw-* 令牌，时长与曲线由 BoardDock
- * 写在浮层层上的 --w-motion-* 给出（D10、D16、D17）。
+ * 浮窗固定在下方菜单之上，与它共用浮层层上的 --dsh-widget-board-anchor 中线；颜色读宿主的
+ * --dsw-* 令牌，时长与曲线由同一层上的 --w-motion-* 给出（D10、D16、D17）。
  */
 
 .dsh-widget-board__library {
   position: fixed;
   bottom: 166px;
-  left: 50%;
+  left: var(--dsh-widget-board-anchor, 50%);
   z-index: 90;
   display: flex;
   box-sizing: border-box;
@@ -173,6 +173,23 @@
 .dsh-widget-board__library-add:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: 2px;
+}
+
+/* 换槽的网格里轻点就是选中，没有拖动；当前这个槽里的组件加一圈边框。 */
+.dsh-widget-board__library-add[data-mode="pick"] { cursor: pointer; }
+
+.dsh-widget-board__library-add[data-current="true"] {
+  border-color: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 0 1px var(--dsw-alias-brand-primary);
+}
+
+.dsh-widget-board__library-current {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+  color: var(--dsw-alias-brand-primary);
+  font-size: 10px;
+  line-height: 15px;
 }
 
 .dsh-widget-board__library-add[data-unavailable] { cursor: not-allowed; }

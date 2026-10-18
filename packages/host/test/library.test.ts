@@ -120,6 +120,53 @@ describe('不合格的组件', () => {
     const load = await loadLibrary([{ dir: join(root, 'builtin'), source: 'builtin' }])
     expect(load.errors[0]?.message).toMatch(/缺少 index\.html/)
   })
+
+  it('凭据声明与提供方限定的数据源名都能读进来', async () => {
+    const root = join(ROOT, 'credentials')
+    await widget(join(root, 'builtin'), 'weather', {
+      manifest: JSON.stringify({
+        id: 'weather',
+        title: { zh: '天气', en: 'Weather' },
+        version: '0.1.0',
+        sizes: ['s'],
+        source: 'test-provider:demo',
+        credentials: [{ ref: 'TEST_KEY', label: { zh: '密钥', en: 'Key' }, required: true }],
+      }),
+    })
+    const load = await loadLibrary([{ dir: join(root, 'builtin'), source: 'builtin' }])
+    const record = load.records.get('weather')
+    expect(record?.manifest.source).toBe('test-provider:demo')
+    expect(record?.manifest.credentials?.[0]).toMatchObject({ ref: 'TEST_KEY', required: true })
+  })
+
+  it('凭据 ref 不合法或重复时只让这一个组件不可用', async () => {
+    const root = join(ROOT, 'bad-credentials')
+    await widget(join(root, 'builtin'), 'weather')
+    const base = { version: '0.1.0', sizes: ['s'] }
+    await widget(join(root, 'user'), 'bad-ref', {
+      manifest: JSON.stringify({ ...base, id: 'bad-ref', title: { zh: '坏', en: 'Bad' }, credentials: [{ ref: '1BAD', label: { zh: '密钥', en: 'Key' } }] }),
+    })
+    await widget(join(root, 'user'), 'duplicate', {
+      manifest: JSON.stringify({
+        ...base,
+        id: 'duplicate',
+        title: { zh: '重', en: 'Duplicate' },
+        credentials: [
+          { ref: 'TEST_KEY', label: { zh: '密钥', en: 'Key' } },
+          { ref: 'TEST_KEY', label: { zh: '密钥', en: 'Key' } },
+        ],
+      }),
+    })
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'user'), source: 'user' },
+    ])
+    expect(load.records.has('weather')).toBe(true)
+    expect(load.records.has('bad-ref')).toBe(false)
+    expect(load.records.has('duplicate')).toBe(false)
+    expect(load.errors).toHaveLength(2)
+    expect(load.errors.map((error) => error.message).join('\n')).toMatch(/重复声明/)
+  })
 })
 
 describe('内容哈希', () => {

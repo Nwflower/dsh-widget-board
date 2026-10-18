@@ -11,10 +11,15 @@ import type {
   BoardLayoutSaved,
   BoardRenameRequest,
   CardLayout,
+  CardSettings,
+  CredentialStatus,
   GrantKind,
   GroupAddRequest,
   GroupRemoveRequest,
+  GroupSide,
   InstanceAddRequest,
+  InstanceCredentialRequest,
+  InstancePropsRequest,
   InstanceStateRequest,
   WorkspaceSnapshot,
 } from '@dsh-widget-board/contracts'
@@ -27,12 +32,16 @@ import {
   boardRenamePath,
   boardsPath,
   groupRemovePath,
+  groupSlotPath,
   instanceActionPath,
+  instanceCredentialPath,
   instanceDataPath,
   instanceGrantPath,
+  instancePropsPath,
   instanceReadPath,
   instanceRemovePath,
   instanceRevokePath,
+  instanceSettingsPath,
   instanceStatePath,
   refreshPath,
 } from '@dsh-widget-board/contracts'
@@ -51,6 +60,20 @@ export class GrantRequiredError extends Error {
   constructor(message: string, readonly kind: GrantKind, readonly id: string, readonly provider: string | undefined) {
     super(message)
     this.name = 'GrantRequiredError'
+  }
+}
+
+/** 一条 props 字段错误（D22）。 */
+export interface PropsIssue {
+  path: string
+  message: string
+}
+
+/** 保存 props 被 schema 拒绝：带着逐字段的原因。 */
+export class PropsRejectedError extends Error {
+  constructor(message: string, readonly issues: PropsIssue[]) {
+    super(message)
+    this.name = 'PropsRejectedError'
   }
 }
 
@@ -78,6 +101,15 @@ async function failureOf(response: Response, subject: string): Promise<Error> {
 /** 一份响应体是不是工作区快照。 */
 function isWorkspace(value: unknown): value is WorkspaceSnapshot {
   return Array.isArray((value as WorkspaceSnapshot | undefined)?.boards)
+}
+
+/** 一份响应体是不是卡片设置读模型（D22）。 */
+function isCardSettings(value: unknown): value is CardSettings {
+  const settings = value as CardSettings | undefined
+  return typeof settings?.instance === 'object' && settings.instance !== null
+    && typeof settings.widget === 'object' && settings.widget !== null
+    && Array.isArray(settings.credentials)
+    && Array.isArray(settings.grants)
 }
 
 /** 读一份工作区快照；形状不对时抛出来。 */
@@ -337,21 +369,113 @@ export async function addInstance(boardId: string, widget: string, layout?: Card
 }
 
 /**
- * 往一块看板上加一张固定的翻面组（D19、D21）：宿主建出正面与背面两张普通卡片。
+ * 往一块看板上加一张翻面组（D19、D21）：宿主建出正面与背面两张普通卡片。
  *
  * @param boardId - 看板 id。
  * @param layout - 拖到看板上的落点；省略时宿主放进最矮的一列。
- * @returns 加完之后宿主上的工作区。
+ * @returns 组 id 与加完之后宿主上的工作区。
  * @throws {Error} 请求失败；宿主给出的原因会带在消息里。
  */
-export async function addGroup(boardId: string, layout?: CardLayout): Promise<WorkspaceSnapshot> {
+export async function addGroup(boardId: string, layout?: CardLayout): Promise<{ id: string, snapshot: WorkspaceSnapshot }> {
   const body: GroupAddRequest = layout === undefined ? {} : { layout }
   const response = await fetch(boardGroupPath(boardId), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
-  return (await wrappedOf(response, '加不了翻面组')).snapshot
+  const { id, snapshot } = await wrappedOf(response, '加不了翻面组')
+  if (id === undefined) throw new Error('加不了翻面组：响应里没有组 id')
+  return { id, snapshot }
+}
+
+/**
+ * 读一张卡的设置读模型（D22）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 只含状态与 schema 的设置。
+ * @throws {Error} 请求失败或响应不是设置读模型。
+ */
+export async function fetchInstanceSettings(id: string): Promise<CardSettings> {
+  const response = await fetch(instanceSettingsPath(id), { headers: { accept: 'application/json' } })
+  if (!response.ok) throw new Error(await errorOf(response, '读不了这张卡的设置'))
+  const value: unknown = await response.json()
+  if (!isCardSettings(value)) throw new Error('读不了这张卡的设置：响应不是设置读模型')
+  return value
+}
+
+/**
+ * 保存一张卡的 props（D22）：宿主按组件的 props schema 校验，失败时带逐字段原因。
+ *
+ * @param id - 卡片实例的 id。
+ * @param props - 整份 props。
+ * @returns 宿主存下来的 props。
+ * @throws {PropsRejectedError | Error} schema 不符或请求失败。
+ */
+export async function saveInstanceProps(id: string, props: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const body: InstancePropsRequest = { props }
+  const response = await fetch(instancePropsPath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    let failure: { error?: string, issues?: PropsIssue[] } = {}
+    try {
+      failure = await response.json() as typeof failure
+    } catch {
+      throw new Error(`保存 props 失败：HTTP ${response.status}`)
+    }
+    const message = failure.error ?? `保存 props 失败：HTTP ${response.status}`
+    const issues = Array.isArray(failure.issues) ? failure.issues : undefined
+    if (issues === undefined) throw new Error(message)
+    throw new PropsRejectedError(message, issues)
+  }
+  return (await response.json() as { props: Record<string, unknown> }).props
+}
+
+/**
+ * 写一张卡的一项凭据（D22）：值只往宿主走，返回值没有密钥。
+ *
+ * @param id - 卡片实例的 id。
+ * @param ref - 凭据名，必须在组件的 manifest 里声明过。
+ * @param action - `set` 或 `unset`。
+ * @param value - `set` 时的非空密钥。
+ * @returns 写完之后的凭据状态。
+ * @throws {Error} 请求失败，宿主的拒绝会带在消息里。
+ */
+export async function setInstanceCredential(
+  id: string,
+  ref: string,
+  action: 'set' | 'unset',
+  value?: string,
+): Promise<CredentialStatus> {
+  const body: InstanceCredentialRequest = { ref, action, ...(action === 'set' ? { value } : {}) }
+  const response = await fetch(instanceCredentialPath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(await errorOf(response, '改不了这项凭据'))
+  return (await response.json() as { info: CredentialStatus }).info
+}
+
+/**
+ * 把组卡的一个槽换成另一个组件（D22）。
+ *
+ * @param groupId - 组 id。
+ * @param side - 换哪一侧。
+ * @param widget - 新组件的 id。
+ * @returns 换完之后宿主上的工作区。
+ * @throws {Error} 请求失败。
+ */
+export async function changeGroupSlot(groupId: string, side: GroupSide, widget: string): Promise<WorkspaceSnapshot> {
+  const body = { side, widget } satisfies { side: GroupSide, widget: string }
+  const response = await fetch(groupSlotPath(groupId), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return (await wrappedOf(response, '换不了这个槽')).snapshot
 }
 
 /**

@@ -68,6 +68,11 @@ export function createClientService(): WidgetBoardClientService {
       if (typeof component !== 'function' && (typeof component !== 'object' || component === null)) {
         throw new Error(`${registration.id} 的 component 要是 React 组件`)
       }
+      // 与宿主组件库同一条规则：同 id 先到者为准，后到的注册抛出并说明已有提供方。
+      const existing = registry.get(registration.id)
+      if (existing !== undefined) {
+        throw new Error(`组件 ${registration.id} 已经由 ${existing.provider} 注册；先到的那一个继续用`)
+      }
       const entry: NativeWidget = { provider: registration.provider, component: component as ComponentType<WidgetNativeProps> }
       registry.set(registration.id, entry)
       notify()

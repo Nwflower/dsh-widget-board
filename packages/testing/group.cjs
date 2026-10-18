@@ -25,6 +25,10 @@ async function groupPass(page, check) {
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 15000 })
   const id = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).at(-1)?.getAttribute('data-instance') ?? '')
   check('翻面组占一个卡片盒子', id !== '')
+  // 加组之后设置弹窗直接打开：先关掉，再验翻面与移除。
+  await page.waitForSelector('[data-dsh-widget-board-editor]', { timeout: 10000 })
+  await page.locator('[data-dsh-widget-board-editor-done]').click()
+  await page.waitForSelector('[data-dsh-widget-board-editor]', { state: 'detached', timeout: 10000 })
   const group = `[data-instance="${id}"] [data-dsh-widget-board-flip-group]`
   await page.waitForSelector(group, { timeout: 10000 })
   await page.waitForSelector(`${group} iframe[title="数字"]`, { timeout: 30000 })

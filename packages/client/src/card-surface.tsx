@@ -28,8 +28,8 @@ export interface CardSurfaceProps {
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
   frames: FrameHost
-  /** 组件交出来的界面状态，看板写给宿主（D5）。 */
-  onState: (id: string, patch: unknown) => Promise<void>
+  /** 组件交出来的界面状态，看板写给宿主（D5）；缩略画面给一个空实现。 */
+  onState: (id: string, patch: unknown) => void | Promise<void>
   /** 组件发到看板栏上的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 这一层画面是否暂停：组卡把藏起来的一面停住（D16）。 */
@@ -98,7 +98,7 @@ export function CardSurface({
   const src = widgetDocumentPath(widget.hash, theme.lang)
   // 组件连续 setState 时由队列合并；暂停、页面隐藏与卸载时立即发送（D23）。
   const [queue] = useState(() => createStateQueue({
-    send: async (patch) => { await stateRef.current(instance.id, patch) },
+    send: async (patch) => { await Promise.resolve(stateRef.current(instance.id, patch)) },
     onError: (error) => { setSaveFailure(error.message) },
     onSaved: () => { setSaveFailure(null) },
   }))

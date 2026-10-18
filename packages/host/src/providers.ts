@@ -116,8 +116,19 @@ export function createProviderRegistry(deps: ProviderDeps): ProviderRegistry {
         register(registrations = {}) {
           const added = new Set<() => void>()
           try {
-            for (const source of registrations.dataSources ?? []) added.add(deps.registerDataSource(source))
-            for (const action of registrations.actions ?? []) added.add(deps.registerAction(action))
+            for (const source of registrations.dataSources ?? []) {
+              // 子注册归这次注册的提供方：撤下时按把手上的名字清授权，另一个名字会留下指错人的残留。
+              if (source.provider !== handle.provider) {
+                throw new Error(`数据源 ${source.id} 的 provider 是 ${source.provider}，这次注册的提供方是 ${handle.provider}`)
+              }
+              added.add(deps.registerDataSource(source))
+            }
+            for (const action of registrations.actions ?? []) {
+              if (action.provider !== handle.provider) {
+                throw new Error(`动作 ${action.id} 的 provider 是 ${action.provider}，这次注册的提供方是 ${handle.provider}`)
+              }
+              added.add(deps.registerAction(action))
+            }
           } catch (error) {
             for (const dispose of added) dispose()
             throw error

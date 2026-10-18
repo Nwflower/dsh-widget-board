@@ -56,6 +56,30 @@ export function webServerOf(context: unknown): HostWebServer {
 }
 
 /**
+ * 宿主凭据服务里设置弹窗要用的那一面（D22）：查状态、写值、移除值。
+ *
+ * 形状按 `dsh-credentials` 的 `CredentialProvider` 记一次；值的品牌只在宿主侧编译期存在，这里用
+ * 字符串接收，运行时按普通字符串传。`describe` 永远不回值。
+ */
+export interface HostCredentials {
+  describe(ref: string): Promise<{ configured: boolean, source?: string, writable: boolean }>
+  set(ref: string, value: string): Promise<void>
+  unset(ref: string): Promise<void>
+}
+
+/**
+ * 宿主的凭据服务；部署里没有安装它时是 `undefined`，设置弹窗据此给出可见的说法（D11）。
+ *
+ * @param context - 宿主交给插件 `apply` 的上下文。
+ * @returns 凭据服务，或 `undefined`。
+ */
+export function credentialsOf(context: unknown): HostCredentials | undefined {
+  const get = (context as { get?: (name: string) => unknown }).get
+  if (get === undefined) return undefined
+  return get.call(context, 'credentials') as HostCredentials | undefined
+}
+
+/**
  * 宿主的请求栅栏；部署里没有这项服务时是 `undefined`，此时只放行本机回环（D3）。
  *
  * 读服务属性要在插件上声明过 `inject`，所以走 `get` 这条「可能没有」的路。

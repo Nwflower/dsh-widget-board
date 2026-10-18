@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 1,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "看板页顶部的标签条不再被内容压短：它保持自己的高度，药丸套住活动标签，文字不会再跑到条外、药丸落到文字下方。",
+  "en": "The tab strip at the top of the board page no longer collapses under tall content: it keeps its height and the pill stays on the active tab, so labels no longer sit outside the strip with the pill below them."
+}

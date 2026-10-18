@@ -36,8 +36,11 @@ export const GROUP_ADD_ROUTE = 'group'
 /** 卡片布局：`POST /boards/<id>/layout`，一次提交整块看板的卡片盒子（D16）。 */
 export const LAYOUT_ROUTE = 'layout'
 
+/** 按组 id 操作整组：移除与换槽都挂在它下面（D19、D22）。 */
+export const GROUP_ROUTE = '/group'
+
 /** 按组 id 移除整组：`POST /group/remove`（D19）。 */
-export const GROUP_REMOVE_PATH = '/group/remove'
+export const GROUP_REMOVE_PATH = `${GROUP_ROUTE}/remove`
 
 /** 主动热刷新：`POST /refresh`，宿主重读组件库与运行时（D17）。 */
 export const REFRESH_PATH = '/refresh'
@@ -110,6 +113,30 @@ export const instanceRevokePath = (id: string): string => `${CLIENT_ROUTE}${INST
  */
 export const instanceRemovePath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/remove`
 
+/**
+ * 一张卡的设置读模型地址，文档相对（D22）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 读设置的路径。
+ */
+export const instanceSettingsPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/settings`
+
+/**
+ * 保存一张卡的 props 的地址，文档相对（D22）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 写 props 的路径。
+ */
+export const instancePropsPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/props`
+
+/**
+ * 写一张卡的一项凭据的地址，文档相对（D22）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 写凭据的路径。
+ */
+export const instanceCredentialPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/credential`
+
 /** 工作区快照与新建看板的地址，文档相对。 */
 export const boardsPath = (): string => `${CLIENT_ROUTE}${BOARDS_PATH}`
 
@@ -154,6 +181,14 @@ export const boardImportPath = (): string => `${CLIENT_ROUTE}${BOARD_ROUTE}/impo
 
 /** 按组 id 移除整组的地址，文档相对。 */
 export const groupRemovePath = (): string => `${CLIENT_ROUTE}${GROUP_REMOVE_PATH}`
+
+/**
+ * 把一个组槽换成另一个组件的地址，文档相对（D22）。
+ *
+ * @param id - 组 id。
+ * @returns 换槽的路径。
+ */
+export const groupSlotPath = (id: string): string => `${CLIENT_ROUTE}${GROUP_ROUTE}/${encodeURIComponent(id)}/slot`
 
 /** 主动热刷新的地址，文档相对。 */
 export const refreshPath = (): string => `${CLIENT_ROUTE}${REFRESH_PATH}`

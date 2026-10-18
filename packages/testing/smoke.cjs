@@ -12,6 +12,7 @@
  * 用法：node packages/testing/smoke.cjs
  */
 'use strict'
+const { mkdtempSync } = require('node:fs')
 const { readFile, writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
@@ -20,10 +21,12 @@ const { resetCards, resetLayout, setCardHeight } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
+const { editorPass } = require('./editor.cjs')
 const { markdownPass } = require('./markdown.cjs')
 const { noticePass } = require('./notice.cjs')
 const { openBoard } = require('./panel.cjs')
 const { tabsPass } = require('./tabs.cjs')
+const { titlebarPass } = require('./titlebar.cjs')
 const { providerPass } = require('./provider.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
@@ -668,7 +671,9 @@ async function reducedPass(page) {
   check('切换栏不做过渡', still.tabTransition === '0s', still.tabTransition)
 }
 
-start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
+// 每轮一个自己的临时 home：不要跟并行跑的检查或手工调好的 `.debug/host` 抢同一个宿主。
+const home = mkdtempSync(join(__dirname, '..', '..', '.debug', 'smoke-'))
+start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
   // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
   // 在地址打印之后，所以等一会儿再看。
   let log = host.log()
@@ -686,8 +691,9 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await templatePass(opened.page)
     await addRemovePass(opened.page)
     await groupPass(opened.page, check)
+    await editorPass(opened.page, check)
     await markdownPass(opened.page, check)
-    await providerPass(opened.page, check)
+    await providerPass(opened.page, check, host.home)
     await sharePass(opened.page)
     await dockPass(opened.page, check)
     await layoutPass(opened.page)
@@ -695,6 +701,7 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await reloadPass(opened.page)
     // 标签条放在最后：它新建一块看板再收掉，中途失败也不会影响前面的场景。
     await tabsPass(opened.page, { check })
+    await titlebarPass(opened.page, { check })
     reduced = await openPage(host.url, { reducedMotion: 'reduce' })
     await reducedPass(reduced.page)
     const errors = reduced.problems.filter((problem) => problem.startsWith('error:') || problem.startsWith('pageerror:'))

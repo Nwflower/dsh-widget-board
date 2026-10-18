@@ -12,6 +12,8 @@
     "prepare": "node scripts/build.mjs",
     "dev": "node scripts/dev.mjs",
     "host": "node packages/testing/dsh-web.cjs",
+    "demo": "node scripts/demo.mjs",
+    "demo:check": "node packages/testing/demo.cjs",
     "lint": "node scripts/lint.mjs",
     "test": "vitest run",
     "smoke": "node packages/testing/smoke.cjs",
@@ -78,6 +80,7 @@
     "@deepseek-ai/cordis": "4.0.5",
     "@types/node": "^24.10.1",
     "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
     "ajv": "^8.20.0",
     "esbuild": "0.28.2",
     "fflate": "^0.8.3",
@@ -86,6 +89,7 @@
     "marked": "^18.1.1",
     "playwright": "1.64.1",
     "react": "18.3.1",
+    "react-dom": "18.3.1",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }

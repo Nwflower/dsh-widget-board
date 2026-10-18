@@ -17,6 +17,7 @@ const { readFile, writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
+const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
 const { keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
@@ -76,23 +77,6 @@ async function ensureTemplates(page) {
     await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 10000 })
     await page.waitForSelector(`iframe.dsh-widget-board__frame[title="${title}"]`, { timeout: 30000 })
   }
-}
-
-/**
- * 等看板的几何稳定下来：卡片的高度刚上报时位置还在移位，点击会打在正在移动的节点上。
- *
- * @param page - 宿主页面。
- */
-async function settled(page) {
-  await page.waitForFunction(() => {
-    const key = Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
-      const rect = node.getBoundingClientRect()
-      return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`
-    }).join('|')
-    const seen = window.__smokeGeometry
-    window.__smokeGeometry = key
-    return seen !== undefined && seen === key
-  }, undefined, { timeout: 10000, polling: 300 })
 }
 
 /**
@@ -470,38 +454,6 @@ async function templatePass(page) {
 }
 
 /**
- * 读一张卡片在宿主上的布局。
- *
- * @param page - 宿主页面。
- * @param id - 卡片实例的 id。
- * @returns 卡片布局，找不到时为 undefined。
- */
-async function layoutOf(page, id) {
-  return page.evaluate(async (id) => {
-    const workspace = await (await fetch('api/widget-board/boards')).json()
-    const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
-    return board.instances.find((instance) => instance.id === id)?.layout
-  }, id)
-}
-
-/**
- * 等宿主上的布局满足条件：松手之后写入要经过一次往返。
- *
- * @param page - 宿主页面。
- * @param id - 卡片实例的 id。
- * @param done - 判断条件。
- * @returns 满足条件时的布局。
- */
-async function waitLayout(page, id, done) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const layout = await layoutOf(page, id)
-    if (layout !== undefined && done(layout)) return layout
-    await sleep(200)
-  }
-  throw new Error(`卡片 ${id} 的布局一直没有变成预期的样子：${JSON.stringify(await layoutOf(page, id))}`)
-}
-
-/**
  * 拖动与缩放：卡片盒子由用户改，松手写入宿主，刷新之后还在（D16）。
  *
  * @param page - 宿主页面。
@@ -512,14 +464,7 @@ async function layoutPass(page) {
   await settled(page)
 
   const weatherId = await page.evaluate(() => document.querySelector('iframe.dsh-widget-board__frame[title="天气"]')?.closest('[data-instance]')?.getAttribute('data-instance') ?? '')
-  const metrics = await page.evaluate(() => {
-    const view = document.querySelector('[data-dsh-widget-board-view]')
-    const flow = document.querySelector('.dsh-widget-board__flow')
-    const columns = Number(view?.getAttribute('data-dsh-widget-board-columns') ?? 0)
-    const gap = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.75
-    const columnWidth = (flow.getBoundingClientRect().width - gap * (columns - 1)) / columns
-    return { step: columnWidth + gap }
-  })
+  const metrics = { step: await columnStep(page) }
 
   const weatherCard = page.locator(`[data-instance="${weatherId}"]`)
   const startBox = await weatherCard.boundingBox()

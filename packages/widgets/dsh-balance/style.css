@@ -1,53 +1,81 @@
 /*
  * DSH 余额卡的样式。
  *
- * 骨架（底色、边框、标题区）来自套件的 `.t-data`；这里只放大金额、收窄赠送与说明，并给刷新按钮
- * 一个右上角的位置。颜色与字号从套件令牌读（D10）。
+ * 骨架（底色、边框、标题区）来自套件的 `.t-data`；这里排读数、赠送与说明三块，并给刷新按钮
+ * 一个右上角的位置。颜色、间距与动效从套件令牌读（D10）。
+ *
+ * 金额写成「上千位分组、小数降一档字号」的两段，靠 `em` 让整串随容器放缩：字号取容器的
+ * `cqi`，行宽按字宽算——套件给卡片设了 `container-type: inline-size`，组件读它的宽度，不读
+ * 视口。读不到容器单位时 `clamp()` 里那一段就是无效声明，回落到第一档字号。
  */
 .balance__body {
   justify-content: center;
+  gap: var(--w-space-sm, 8px);
+  container-type: inline-size;
 }
 
-.balance__amount {
+.balance__readout {
   display: flex;
   min-width: 0;
   align-items: baseline;
-  gap: 6px;
-  margin: 0;
-  color: var(--w-color-fg, #0b1016);
-  font-size: clamp(32px, 20vmin, 72px);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: -0.05em;
-  line-height: 1;
-  overflow-wrap: anywhere;
+  justify-content: space-between;
+  gap: var(--w-space-md, 12px);
 }
 
-.balance__currency {
+.balance__amount {
+  min-width: 0;
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: 28px;
+  font-size: clamp(28px, 9.5cqi, 88px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  white-space: nowrap;
+  transition: color var(--w-motion-base, 250ms) linear;
+}
+
+.balance__fraction {
+  margin-left: 0.06em;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 0.46em;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: 0.3em;
+}
+
+.balance__aside {
   flex: none;
+  margin: 0;
   color: var(--w-color-muted, #6b7684);
   font-size: var(--w-type-caption, 12px);
   font-weight: 500;
   letter-spacing: 0;
-}
-
-.balance__bonus {
-  margin: var(--w-space-sm, 8px) 0 0;
-  color: var(--w-color-fg, #0b1016);
-  font-size: var(--w-type-caption, 12px);
-  font-variant-numeric: tabular-nums;
   line-height: 16px;
 }
 
-.balance__bonus:empty { display: none; }
+.balance__details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+}
 
+.balance__bonus,
 .balance__note {
-  margin: var(--w-space-xs, 4px) 0 0;
-  color: var(--w-color-muted, #6b7684);
+  margin: 0;
   font-size: var(--w-type-caption, 12px);
   line-height: 16px;
   overflow-wrap: anywhere;
 }
+
+.balance__bonus {
+  color: var(--w-color-fg, #0b1016);
+  font-variant-numeric: tabular-nums;
+}
+
+.balance__note { color: var(--w-color-muted, #6b7684); }
 
 .balance__refresh {
   display: grid;
@@ -61,6 +89,7 @@
   background: transparent;
   color: var(--w-color-muted, #6b7684);
   cursor: pointer;
+  transition: color var(--w-motion-fast, 150ms) linear, border-color var(--w-motion-fast, 150ms) linear;
 }
 
 .balance__refresh svg {
@@ -69,21 +98,53 @@
   display: block;
 }
 
+.balance__refresh:hover {
+  border-color: var(--w-color-border, #d5dae1);
+  color: var(--w-color-fg, #0b1016);
+}
+
+.balance__refresh:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: 2px;
+}
+
 .balance__refresh:disabled { opacity: 0.45; cursor: default; }
 
-/* 缩略画面是静态样例：刷新按钮收起来，也不接指针（与套件的 preview 排法一致）。 */
+/* 读取中：图标转一圈。减弱动效时停住，靠文字说明表示正在读。 */
+.balance[data-state="loading"] .balance__refresh svg {
+  animation: balance-spin var(--w-motion-spin, 30s) linear infinite;
+}
+
+.balance[data-state="loading"] .balance__refresh svg path { opacity: 0.4; }
+
+@keyframes balance-spin {
+  to { transform: rotate(360deg); }
+}
+
+:root[data-motion="reduced"] .balance[data-state="loading"] .balance__refresh svg { animation: none; }
+
+/* 缩略画面是静态样例：刷新按钮收起来（与套件的 preview 排法一致）。 */
 :root[data-placement="preview"] .balance__refresh { display: none; }
 
-.balance[data-state="ready"] .balance__amount { color: var(--w-color-fg, #0b1016); }
-.balance[data-state="loading"] .balance__amount,
-.balance[data-state="failed"] .balance__amount { color: var(--w-color-muted, #6b7684); }
-.balance:not([data-state="ready"]) .balance__amount { font-size: clamp(28px, 10vmin, 44px); }
+.balance:not([data-state="ready"]) .balance__amount {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-heading, 20px);
+  font-weight: 600;
+}
+
 /* 只有真正读取失败才用错误色，且落在原因那一行，不染大号读数。 */
 .balance[data-state="failed"][data-tone="error"] .balance__note { color: var(--w-tone-danger); }
 
-/* 档位：高盒子把金额放大一档，说明与赠送长到正文字号。 */
-:root[data-box-height="tall"] .balance[data-state="ready"] .balance__amount { font-size: clamp(48px, 24vmin, 112px); }
+/* 窄盒子：货币代码放不下读数右边，随说明落到下面；刷新按钮与标题挤在一行时收成 20px。 */
+:root[data-box-width="narrow"] .balance__readout { flex-wrap: wrap; }
+:root[data-box-width="narrow"] .balance__aside { order: 2; }
+:root[data-box-width="narrow"] .balance__refresh { width: 20px; height: 20px; }
+
+/* 矮盒子：收掉账号说明，读数让出位置给赠送。 */
+:root[data-box-height="short"] .balance[data-state="ready"] .balance__note { display: none; }
+:root[data-box-height="short"] .balance__body { gap: var(--w-space-xs, 4px); }
+
+/* 高盒子：说明与赠送长到正文字号。 */
 :root[data-box-height="tall"] .balance__bonus,
 :root[data-box-height="tall"] .balance__note,
-:root[data-box-height="tall"] .balance__currency { font-size: var(--w-type-body, 14px); line-height: 20px; }
-:root[data-box-height="short"] .balance[data-state="ready"] .balance__note { display: none; }
+:root[data-box-height="tall"] .balance__aside { font-size: var(--w-type-body, 14px); line-height: 20px; }

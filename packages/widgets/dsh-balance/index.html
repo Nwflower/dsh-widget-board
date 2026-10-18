@@ -1,6 +1,7 @@
 <div class="t-data balance" data-state="loading">
   <header class="t-data__head">
     <div>
+      <p class="t-data__kicker" data-field="kicker"></p>
       <h2 class="t-data__title" data-field="title">DSH 余额</h2>
     </div>
     <button class="balance__refresh t-pressable" type="button" data-field="refresh" title="刷新余额" aria-label="刷新余额">
@@ -10,8 +11,14 @@
     </button>
   </header>
   <div class="t-data__body balance__body">
-    <p class="balance__amount"><span data-field="amount">—</span><span class="balance__currency" data-field="currency"></span></p>
-    <p class="balance__bonus" data-field="bonus"></p>
-    <p class="balance__note" data-field="note">当前登录的 DSH 账号</p>
+    <div class="balance__readout">
+      <p class="balance__amount" data-field="amount" title="">—</p>
+      <p class="balance__aside" data-field="aside" hidden></p>
+    </div>
+    <div class="balance__details">
+      <p class="balance__bonus" data-field="bonus" hidden></p>
+      <p class="balance__note" data-field="note">当前登录的 DSH 账号</p>
+    </div>
+    <p class="w-sr balance__sr" data-field="sr" aria-live="polite"></p>
   </div>
 </div>

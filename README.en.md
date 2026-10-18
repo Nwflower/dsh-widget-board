@@ -2,28 +2,31 @@
 
 [中文](README.md)
 
-A widget board plugin for DeepSeek Harness. It adds a "Board" entry to the sidebar and a set of card boards you can drag and resize, with a tab strip at the top that switches between them; each card renders one widget from the widget library.
+A widget board plugin for DeepSeek Harness: a "Board" entry in the sidebar and a set of card boards you can drag and resize, where every card is a small widget. You or the agent in a session write a widget as three files, and other plugins can provide widgets too.
 
-- **Several boards**: a tab strip at the top switches between boards and its pill slides to the active one; the strip holds a single New entry, while renaming, removing and selecting live in a Board section in settings. Every board's cards stay mounted, so switching remounts nothing and the boards you cannot see stay paused; each board keeps its own cards, boxes and revisions, and an older single board is carried over as the first one when it opens.
-- **Windows desktop**: when the window reserves its caption row and the strip fits, it sits at the left of that row, a size smaller than in the page with air above and below; the strip uses transitions.dev's Tabs sliding, where the pill slides to the active tab and the first paint does not tween. The board starts right below; when it does not fit, or outside the desktop, the strip stays at the top of the page.
-- **Free layout**: the board switches between 1 and 4 columns by its own width, and every card keeps its own column span and height; height snaps to 6/10/14/18/22/26/30 rem and vertical positions snap to 2 rem, a card shows its live size while you resize it from the corner, and changing the window width or collapsing the sidebar needs no re-arranging.
-- **The masthead is a card**: the title, tagline and type specimen of a living board live in the built-in `board-hero` widget, so they can be dragged, resized and removed; an older board gets the card once on upgrade, and Add lives in the bottom menu.
-- **Bottom menu**: the plus centred at the bottom of the board column splits into a fan of three icon actions for Add, Tidy and Refresh. The fill, bridges and shadow live in one SVG goo filter; the actions spring out 40 ms apart, the plus turns 45°, and closing drops the whole shape 5 px before it settles. Add opens a floating widget library laid out as a grid of live thumbnails; hold a tile and drop it on any column, or tap to add at the end. Tidy compacts every card in reading order. Refresh makes the host re-read the library and remount the cards.
-- **Card settings**: the gear beside Remove in the card's top-right corner opens a settings modal with four sections: Widget settings, Credentials, Data and permissions, and About. Props render from the widget's own schema and the host validates them against the same schema on save; credentials are written to the host's credential service and never enter board files, exports or tool output; data sources, permissions and Allow / Revoke live here too.
-- **Host capabilities**: a widget declares the capabilities it uses in its manifest and calls them with `widget.call`; plugins register capabilities, the host validates arguments and results against JSON Schema, and one with a permission needs a person's grant first. The built-in DSH balance card declares `dsh.account.balance` and reads the recharge and bonus wallets of the signed-in DSH account; no API key needed.
-- **Generic data cards**: stat, list, table, chart, progress, key-value, timeline and image ship in the library; they share the `.t-data` skeleton, data fills the content, props change the headings, and the board owns the card size.
-- **Time and density**: a flip clock, ring gauges and a heatmap ship in the library; the clock flips hours and minutes cell by cell with running seconds alongside, the gauges show quotas and goals as rings, and the heatmap lays out daily cells with totals, active days and a streak.
-- **Calendar and diff**: the calendar lays a month out in seven columns, dots the days that have plans, and steps to another month or back to today; the diff card prints a unified diff line by line with add and remove signs, and file paths stand on their own line.
-- **Bookmarks, JSON and year progress**: the links card lists addresses with a letter mark and the host taken from each address; the JSON card draws a value as a tree you fold level by level; the year-progress card shows the percentage of the year, a bar split into quarters and the days left.
-- **Markdown and code**: the Markdown card typesets GFM and highlights fenced code by language; marked and highlight ship with the plugin, are inlined into the document, and the widget stays offline.
-- **Flip group**: two ordinary cards, one per side, share one card box and flip on hover; adding one from the library opens its slot strip, so you choose the widget for each side. Replacing one resets that slot's props, data and state, leaves the other slot alone, and raises the group's minimum box to the larger of the two.
-- **Three motion templates**: flip, magnetic and holographic cards sit in the library; add one and change the copy through props. The runtime suite owns the motion and pointer behaviour, so the template carries no event code.
-- **Three sources of widgets**: the built-in widgets in the package, your own under `$DSH_HOME/widget-board/widgets/`, and widgets that plugins register through the `widgetBoard` service. One format for all of them: a directory with `widget.json` plus `index.html`, `style.css` and an optional `main.js`.
-- **State lives on the host**: a card's interface state and data are kept by the host, so they survive a panel switch, a page reload and a widget hot reload.
-- **Notifications and unread count**: a widget calls `widget.notify(...)`; the Board entry in the sidebar slides in an unread count with the notification-badge transition, and clicking the entry clears it.
-- **Follows the host's look**: colors, radii, durations and curves come from the host's tokens; switching light and dark or changing the skin updates the cards in place, together with the interface language.
-- **Read, write and show inline from a session**: the agent in a session uses tools to list widgets, write or change one, read the board, place a card and push data; `widget_show` draws a widget in the answer itself, with no panel switch. A card already on the board stays connected to it, sharing state and actions both ways; passing a widget id with props draws a one-off snapshot instead — it is on no board and keeps its state only on the page.
-- **Isolated**: every widget runs in its own sandboxed iframe with no access to your sessions, cookies or the network; widget documents carry a strict CSP, and images and fonts are inlined as `data:` addresses.
+**[Live demo](https://nwflower.github.io/dsh-widget-board/)** · [Install](#install) · [Get started](#get-started) · [Write a widget](#widget-library) · [For plugin providers](#for-plugin-providers)
+
+<p align="center">
+  <img src="docs/images/board-light.png" alt="The widget board in light mode" width="49%">
+  <img src="docs/images/board-dark.png" alt="The widget board in dark mode" width="49%">
+</p>
+
+## Three things to know
+
+1. **A widget is three files.** `widget.json` names it and sizes it, next to `index.html` and `style.css`, plus `main.js` when it needs a script. Built-in widgets, your own and agent-written ones share one format, so once the agent has written the files the card appears in the library.
+2. **A sandbox, with permissions bound to content.** Every widget runs in its own sandboxed iframe with a strict CSP: no network, and it talks to the host only over a MessagePort bridge. A grant is bound to the hash of the widget's content, so changing one byte drops every earlier grant until a person allows it again.
+3. **Other plugins can provide widgets.** Plugins register widget directories, data sources, actions and host capabilities through the `widgetBoard` service, and each registration carries an `apiVersion` for negotiation. When a provider is unplugged, its cards stay in place and show a placeholder.
+
+## Live demo
+
+The first screen of the [demo page](https://nwflower.github.io/dsh-widget-board/) is the plugin's real browser half, with every card running in a sandboxed iframe. Things to try:
+
+- Drag the handle at the top of a card to move it, drag the corner to resize it.
+- Hover a flip card to turn it.
+- Switch between light and dark with the button at the top right, and between Chinese and English with the language switch.
+- Reload the page; the layout is still there, because it is stored in your browser.
+
+The demo host is read-only and has no data sources or host capabilities, so the Weather and DSH balance cards are left out; with the plugin installed they are in the library. Further down the page there is a recording, a diagram for each of the three points above and the install command.
 
 ## Install
 
@@ -42,6 +45,51 @@ npm install
 npm run build
 dsh plugin add <path to this repository>
 ```
+
+## Get started
+
+1. After installing, open Board in the sidebar. The first launch shows a default board that is already filled with cards.
+2. Click the plus at the bottom centre and choose Add to open the library: hold a tile and drop it on any column, or tap it to add at the shortest column.
+3. Click the gear in a card's top-right corner to change the widget's props, fill in credentials, and review and grant data sources and permissions.
+4. Write your own widget under `$DSH_HOME/widget-board/widgets/<id>/`; cards on open pages switch to the new version when you save. See the [widget library](#widget-library) for the format.
+
+## Features
+
+### Board
+
+- **Several boards**: a tab strip at the top switches between boards and its pill slides to the active one; the strip holds a single New entry, while renaming, removing and selecting live in a Board section in settings. Only the active board's cards are mounted: switching tabs unmounts the old ones and mounts the new, the host restores their interface state and data, and cards out of view stay paused; each board keeps its own cards, boxes and revisions, and an older single board is carried over as the first one when it opens.
+- **Free layout**: the board switches between 1 and 4 columns by its own width, and every card keeps its own column span and height; height snaps to 6/10/14/18/22/26/30 rem and vertical positions snap to 2 rem, a card shows its live size while you resize it from the corner, and changing the window width or collapsing the sidebar needs no re-arranging.
+- **The masthead is a card**: the title, tagline and type specimen of a living board live in the built-in `board-hero` widget, so they can be dragged, resized and removed; an older board gets the card once on upgrade, and Add lives in the bottom menu.
+- **Bottom menu**: the plus centred at the bottom of the board column splits into a fan of three icon actions for Add, Tidy and Refresh. Add opens a floating widget library; Tidy compacts every card in reading order; Refresh makes the host re-read the library and remount the cards.
+- **Windows desktop**: when the window reserves its caption row and the strip fits, it sits at the left of that row, a size smaller than in the page with air above and below, and the board starts right below; when it does not fit, or outside the desktop, the strip stays at the top of the page.
+- **State lives on the host**: a card's interface state and data are kept by the host, so they survive a panel switch, a page reload and a widget hot reload.
+- **Notifications and unread count**: a widget calls `widget.notify(...)`; the Board entry in the sidebar slides in an unread count, and clicking the entry clears it.
+
+### Built-in widgets
+
+- **Generic data cards**: stat, list, table, chart, progress, key-value, timeline and image ship in the library; they share the `.t-data` skeleton, data fills the content, props change the headings, and the board owns the card size.
+- **Time and density**: a flip clock, ring gauges and a heatmap; the clock flips hours and minutes cell by cell with running seconds alongside, the gauges show quotas and goals as rings, and the heatmap lays out daily cells with totals, active days and a streak.
+- **Calendar and diff**: the calendar lays a month out in seven columns, dots the days that have plans, and steps to another month or back to today; the diff card prints a unified diff line by line with add and remove signs, and file paths stand on their own line.
+- **Bookmarks, JSON and year progress**: the links card lists addresses with a letter mark and the host taken from each address; the JSON card draws a value as a tree you fold level by level; the year-progress card shows the percentage of the year, a bar split into quarters and the days left.
+- **Markdown and code**: the Markdown card typesets GFM and highlights fenced code by language; marked and highlight ship with the plugin, are inlined into the document, and the widget stays offline.
+- **Flip group**: two ordinary cards, one per side, share one card box and flip on hover; adding one from the library opens its slot strip, so you choose the widget for each side. Replacing one resets that slot's props, data and state, leaves the other slot alone, and raises the group's minimum box to the larger of the two.
+- **Three motion templates**: flip, magnetic and holographic cards; add one and change the copy through props. The runtime suite owns the motion and pointer behaviour, so the template carries no event code.
+
+### Settings, data and capabilities
+
+- **Card settings**: the gear beside Remove in the card's top-right corner opens a settings modal with four sections: Widget settings, Credentials, Data and permissions, and About. Props render from the widget's own schema and the host validates them against the same schema on save; credentials are written to the host's credential service and never enter board files, exports or tool output; data sources, permissions and Allow / Revoke live here too.
+- **Host capabilities**: a widget declares the capabilities it uses in its manifest and calls them with `widget.call`; plugins register capabilities, the host validates arguments and results against JSON Schema, and one with a permission needs a person's grant first. The built-in DSH balance card declares `dsh.account.balance` and reads the recharge and bonus wallets of the signed-in DSH account; no API key needed.
+- **Three sources of widgets**: the built-in widgets in the package, your own under `$DSH_HOME/widget-board/widgets/`, and widgets that plugins register through the `widgetBoard` service. One format for all of them: a directory with `widget.json` plus `index.html`, `style.css` and an optional `main.js`.
+
+### Sessions
+
+- **Read, write and show inline from a session**: the agent in a session uses tools to list widgets, write or change one, read the board, place a card and push data; `widget_show` draws a widget in the answer itself, with no panel switch. A card already on the board stays connected to it, sharing state and actions both ways; passing a widget id with props draws a one-off snapshot that is on no board and keeps its state only on the page.
+- **Measured before you see it**: after `widget_define` writes a widget, a page showing that conversation lays it out in a few representative boxes, and overflow, clipping, blank output and script errors go back into the tool result so the agent can fix them right away.
+
+### Look and safety
+
+- **Follows the host's look**: colors, radii, durations and curves come from the host's tokens; switching light and dark or changing the skin updates the cards in place, together with the interface language.
+- **Isolated**: every widget runs in its own sandboxed iframe with no access to your sessions, cookies or the network; widget documents carry a strict CSP, and images and fonts are inlined as `data:` addresses.
 
 ## Widget library
 
@@ -71,6 +119,10 @@ The host half publishes the cordis service `widgetBoard` (`WIDGET_BOARD_API_VERS
 The browser half publishes the same service; `registerWidgetType({ apiVersion, provider, id, component })` registers a React component, and once it matches a library widget by id the card renders it with the same parameters as `window.widget`. Read the version from `service.apiVersion` instead of copying the constant.
 
 A provider imports the type from `dsh-widget-board/service` with `import type { WidgetBoardClientService }` and declares the service on `Context` with `declare module '@deepseek-ai/cordis'`; a plain-JS provider can keep a same-shaped declaration. Runtime goes through the service only: do not value-import this plugin, and do not add `dsh.client.external` to get around the rule; the client artifact depends only on the platform seeds. When a provider is disabled or unloaded, its widgets, data sources, actions, capabilities and grants are withdrawn; its cards stay in place and show unavailable until it returns.
+
+## Building the demo page
+
+`npm run demo` builds the page behind the [live demo](#live-demo): a directory you can drop onto static hosting such as GitHub Pages. It writes to `.debug/demo/` by default; `--out <dir>` or the `DEMO_OUT` environment variable picks another place. The board on the page is driven by a read-only host that runs in the browser: the snapshot is the default board generated at build time, and layout and card state live in the browser's IndexedDB. Put the recording in `media/` of the output directory and set its relative path in the `demo-recording` tag of `index.html`, or pass `--recording <file>` at build time. `npm run demo:check` walks the whole page on a static server under a sub-path. The demo page is not part of the published package.
 
 ## Status
 

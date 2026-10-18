@@ -6,8 +6,16 @@
  */
 import type { WidgetManifest, WidgetSummary, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
+import type { GrantStore } from './grants'
 import type { WidgetRecord } from './library'
 import type { RouteContext } from './routes'
+import type { Workspace } from './workspace'
+
+/** 拼快照要读的那几样：组件库、看板与授权表。路由上下文满足它，演示页的构建步骤也只提供这几样。 */
+export type SnapshotContext = Pick<RouteContext, 'records' | 'entries'> & {
+  workspace: Pick<Workspace, 'list' | 'activeId'>
+  grants: Pick<GrantStore, 'all'>
+}
 
 /**
  * 一个组件有没有设置弹窗要展示的项（D22）：非空 props 表单或凭据声明。
@@ -48,7 +56,7 @@ export function widgetSummaryOf(record: WidgetRecord): WidgetSummary {
  * @param context - 路由上下文。
  * @returns 工作区快照。
  */
-export function workspaceSnapshot(context: RouteContext): WorkspaceSnapshot {
+export function workspaceSnapshot(context: SnapshotContext): WorkspaceSnapshot {
   const widgets: WorkspaceSnapshot['widgets'] = {}
   for (const [id, record] of context.records) {
     widgets[id] = widgetSummaryOf(record)

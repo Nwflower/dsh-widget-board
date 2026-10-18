@@ -118,9 +118,32 @@ export function seedBoard(records: Map<string, WidgetRecord>, title: string): Bo
   const instances: BoardInstance[] = []
   const builtin = [...records.values()].filter((record) => record.source === 'builtin')
   for (const record of builtin.sort((left, right) => left.manifest.id.localeCompare(right.manifest.id))) {
-    instances.push(instanceOf(record, instances))
+    const source = record.manifest.source
+    instances.push(instanceOf(record, instances, source === undefined ? {} : { source }))
   }
   return { ...board, instances }
+}
+
+/**
+ * 给没有绑数据源的卡片补上组件声明的默认数据源（D17）。
+ *
+ * 卡片可以显式绑一个别的源，也可以显式解绑——后一种在当前的写入面上表达不出来，所以没有源的卡片
+ * 一律按「还没绑过」算。组件的新版本声明了默认源之后，旧卡片在这一次读盘时接上它。
+ *
+ * @param board - 从磁盘读出来的看板。
+ * @param records - 已校验的组件。
+ * @returns 补齐后的看板，以及有没有改动。
+ */
+export function withDefaultSources(board: Board, records: Map<string, WidgetRecord>): { board: Board, changed: boolean } {
+  let changed = false
+  const instances = board.instances.map((instance) => {
+    if (instance.source !== undefined) return instance
+    const source = records.get(instance.widget)?.manifest.source
+    if (source === undefined) return instance
+    changed = true
+    return { ...instance, source }
+  })
+  return { board: changed ? { ...board, instances } : board, changed }
 }
 
 /**
@@ -202,9 +225,10 @@ export async function readBoard(file: string, records: Map<string, WidgetRecord>
   }
   const upgraded = parsed.version === 1 ? upgradeV1(parsed, records) : parsed
   const filled = withLayouts(upgraded, (widget) => records.get(widget)?.manifest.minBox)
-  const changed = parsed.version === 1 || filled.changed
-  if (changed) await writeBoard(file, filled.board)
-  return filled.board
+  const sourced = withDefaultSources(filled.board, records)
+  const changed = parsed.version === 1 || filled.changed || sourced.changed
+  if (changed) await writeBoard(file, sourced.board)
+  return sourced.board
 }
 
 /**

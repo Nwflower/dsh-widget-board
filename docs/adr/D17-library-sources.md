@@ -12,7 +12,7 @@
 - 出现过的每个版本存成 `$DSH_HOME/widget-board/blobs/<hash>.json`（来源、提供方与 base64 文件表），跨重启保留；内存只留最近用到的 32 份，其余从磁盘读，读回来先核对内容哈希。
 - 宿主发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 1`）：`registerWidgetType`（目录，注册时读一次，目录不合格这一次注册抛出）、`registerDataSource`、`registerAction`。浏览器侧发布同名服务，`registerWidgetType` 收一个原生 React 组件，与宿主组件库里同 id 的组件对上（D3 的原生级）。每个注册返回释放函数，提供方卸载时随之撤下；提供方带来的版本与服务不一致时可见地拒绝（D12）。
 - 原生组件收到的参数与 `window.widget` 同形（尺寸与位置、props、data、state、暂停状态、`setState`、`action`、`t`），一个组件从沙箱级换成原生级写法不必改；每个原生组件包一层错误边界，它抛错只废掉那一张卡。
-- 卡片可以绑定一个数据源（`BoardInstance.source`）：组件可以在 manifest 里声明默认的数据源，加卡片时按它读第一次；`POST /instance/<id>/data` 可以再推一次；数据按组件的 `data` schema 校验，不符时拒绝写入并说明原因。组件的动作经 `POST /instance/<id>/action` 交给注册的动作，manifest 没声明的动作一律拒绝。
+- 卡片可以绑定一个数据源（`BoardInstance.source`）：组件可以在 manifest 里声明默认的数据源，加卡片时按它读第一次，组件后来才声明默认源的旧卡片在读盘时补上；`POST /instance/<id>/data` 可以再推一次；数据按组件的 `data` schema 校验，不符时拒绝写入并说明原因。组件的动作经 `POST /instance/<id>/action` 交给注册的动作，manifest 没声明的动作一律拒绝。
 - 看板不再给组件库里的新组件自动补卡：新组件从下方菜单的添加动作打开组件库加入，卡片可以从卡片的移除按钮或组件不可用的占位里移除。第一次启动只给内置组件铺卡——装了插件不该顺带改变别人的看板。版本 1 的看板升级到版本 2 时补一张 `board-hero` 题头卡，这是替换被移除的固定题头，不是给新组件补卡；版本号跟着加一，之后不再补。
 - 组件库浮窗按来源分组，每个类型画成一格缩略画面：组件照它原本的方式渲染（沙箱 iframe 或原生登记），缩略画面只读不写宿主；按住一格拖到看板时，松手处的列与纵向位置作为新卡片的 `layout` 随 `POST /board/instance` 提交，轻点一格加在最矮的一列。两条路都只让宿主写入；拖动期间的预览卡与接住层归浏览器半边，不进宿主。
 - 下方菜单的刷新动作调用 `POST /refresh`：宿主重读组件库、运行时与插件目录，返回最新快照；浏览器半边按新的快照重挂卡片。监视目录的热重载继续存在，刷新只是给用户一个主动触发点。

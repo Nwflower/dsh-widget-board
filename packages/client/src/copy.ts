@@ -128,6 +128,18 @@ const COPY = {
   discard: { zh: '放弃修改', en: 'Discard' },
   keepEditing: { zh: '继续编辑', en: 'Keep editing' },
   groupWidgetMissing: { zh: '组件不在库里', en: 'Widget is missing' },
+  // 会话里的工具视图（D9）。
+  showSnapshot: { zh: '会话里的快照 · 只读', en: 'Inline snapshot · read-only' },
+  showMissing: { zh: '这次显示的版本取不回来了', en: 'The version shown here is no longer available' },
+  showName: { zh: '显示组件', en: 'Show widget' },
+  checkTitle: { zh: '自检', en: 'Self-check' },
+  checkPassed: { zh: '排版正常', en: 'Layout fine' },
+  checkFailed: { zh: '有问题', en: 'Problems' },
+  checkUnverified: { zh: '没有页面接手自检', en: 'No page took the check' },
+  checkWaiting: { zh: '等一个看得到这个会话的页面接手自检…', en: 'Waiting for a page showing this conversation…' },
+  checkRunning: { zh: '正在量盒子…', en: 'Measuring boxes…' },
+  checkFinished: { zh: '自检做完了', en: 'Self-check done' },
+  defineName: { zh: '写组件', en: 'Define widget' },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

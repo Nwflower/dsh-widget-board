@@ -1,0 +1,68 @@
+/*
+ * 会话里的工具视图（D9）：只读快照与 `widget_define` 的结论。
+ *
+ * 画面本身由组件的样式决定；这里只管外面那层盒子与几行字，配色从宿主令牌读，浅色深色都成立（D10）。
+ */
+
+.dsh-widget-board-tool {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 0.75rem;
+  border: 1px solid var(--dsw-border-subtle, color-mix(in oklab, currentColor 12%, transparent));
+  border-radius: var(--dsw-radius-card, 12px);
+  background: var(--dsw-surface-raised, transparent);
+}
+
+.dsh-widget-board-tool__note,
+.dsh-widget-board-tool__foot {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--dsw-text-muted, color-mix(in oklab, currentColor 62%, transparent));
+}
+
+.dsh-widget-board-tool__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.dsh-widget-board-tool__head code {
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+
+.dsh-widget-board-tool__problems {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--dsw-text-danger, #b4231d);
+}
+
+.dsh-widget-board__snapshot-frame {
+  display: block;
+  border: 0;
+  max-width: 100%;
+  background: transparent;
+}
+
+.dsh-widget-board__snapshot-failure {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--dsw-text-danger, #b4231d);
+}
+
+/* 自检的画廊：画在屏幕之外，只为了量排版，不进入朗读与制表顺序。 */
+.dsh-widget-board-tool__gallery {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: -10000px;
+  display: grid;
+  gap: 0.75rem;
+  pointer-events: none;
+}

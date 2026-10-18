@@ -22,9 +22,7 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'STAT · 01',
         title: '本周专注',
-        meta: '周一 — 周五',
         value: 128,
         unit: '分钟',
         delta: 12,
@@ -33,9 +31,7 @@
       }
     }
     return {
-      kicker: 'STAT · 01',
       title: 'Focus this week',
-      meta: 'MON — FRI',
       value: 128,
       unit: 'min',
       delta: 12,
@@ -51,9 +47,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(fields.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(fields.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(fields.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    write(fields.meta, typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : base.meta)
+    write(fields.meta, typeof props.meta === 'string' ? props.meta : '')
   }
 
   function applyData(source) {

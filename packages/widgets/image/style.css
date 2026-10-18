@@ -2,7 +2,7 @@
  * 图片卡的样式：画面占满剩余高度，说明压在下面；没有图时露出一块点阵占位。
  */
 .image-card__body {
-  gap: 8px;
+  gap: var(--w-space-sm, 8px);
 }
 
 .image-card__frame {
@@ -32,12 +32,12 @@
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--w-space-sm, 8px);
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
 .image-card__mark {
@@ -52,8 +52,8 @@
 .image-card__caption {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
   overflow-wrap: anywhere;
 }
 

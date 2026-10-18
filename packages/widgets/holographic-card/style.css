@@ -23,6 +23,19 @@
 
 .holo-card > * { position: relative; z-index: 1; }
 
+/*
+ * 彩虹会经过文字所在的区域，颜色的位置和亮度都不受控。压一层从上下两端收进来的暗底，
+ * 让文字始终落在足够暗的一面上；彩虹的中间一段仍然露出来。
+ */
+.holo-card__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(10 14 22 / 46%) 0%, rgb(10 14 22 / 12%) 38%, rgb(10 14 22 / 52%) 100%);
+  pointer-events: none;
+}
+
 .holo-card__top {
   display: flex;
   align-items: center;
@@ -31,13 +44,14 @@
 }
 
 .holo-card__kicker {
-  color: rgb(248 250 252 / 68%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  line-height: 14px;
-  text-transform: uppercase;
+  color: rgb(248 250 252 / 78%);
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
+
+.holo-card__kicker:empty { display: none; }
 
 .holo-card__dot {
   width: 7px;
@@ -58,10 +72,10 @@
 }
 
 .holo-card__text {
-  margin: 10px 0 0;
-  color: rgb(248 250 252 / 72%);
-  font-size: 13px;
-  line-height: 20px;
+  margin: var(--w-space-sm, 8px) 0 0;
+  color: rgb(248 250 252 / 78%);
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
   overflow-wrap: anywhere;
 }
 
@@ -69,24 +83,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--w-space-md, 12px);
   margin-top: auto;
-  padding-top: 16px;
-  color: rgb(248 250 252 / 52%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  line-height: 12px;
-  text-transform: uppercase;
-}
-
-.holo-card__badge {
-  padding: 4px 7px;
-  border: 1px solid rgb(255 255 255 / 22%);
-  border-radius: 999px;
-  color: rgb(248 250 252 / 86%);
-  font-size: 8px;
-  letter-spacing: 0.16em;
+  padding-top: var(--w-space-lg, 16px);
+  color: rgb(248 250 252 / 62%);
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
 @media (max-width: 260px) {

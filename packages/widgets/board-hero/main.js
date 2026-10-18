@@ -17,6 +17,12 @@ function paint() {
   for (const node of document.querySelectorAll('[data-hero-part]')) {
     const key = node.getAttribute('data-hero-part')
     if (key === null) continue
+    // 题头的标签默认不出现；用户显式填了 props.kicker 才显示。
+    if (key === 'kicker') {
+      const override = widget.props?.kicker
+      node.textContent = typeof override === 'string' ? override : ''
+      continue
+    }
     node.textContent = value(key)
   }
 }

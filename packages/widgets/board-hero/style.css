@@ -25,35 +25,40 @@
 }
 
 .hero-kicker {
-  margin: 0 0 12px;
+  margin: 0 0 var(--w-space-sm, 8px);
   color: var(--w-color-muted, #6c6c6c);
-  font-family: var(--t-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 10px;
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
-  letter-spacing: 0.14em;
-  line-height: 14px;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
+
+.hero-kicker:empty { display: none; }
 
 .hero-title {
   margin: 0;
   color: var(--w-color-fg, #0b1016);
   font-size: clamp(28px, 7.2vw, 52px);
   font-weight: 700;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.035em;
   line-height: 1.03;
 }
 
-.hero-accent { color: var(--w-color-accent, #2563eb); }
+/* 强调词用同色高亮，不靠第二个色相；浅色与深色下都能看出这一块被标出来。 */
+.hero-accent {
+  padding: 0 0.04em;
+  background: linear-gradient(transparent 60%, color-mix(in srgb, var(--w-color-accent, #2563eb) 22%, transparent) 60%);
+}
 
 .hero-tagline {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 16px 0 0;
+  gap: var(--w-space-sm, 8px);
+  margin: var(--w-space-lg, 16px) 0 0;
   color: var(--w-color-muted, #6c6c6c);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
 }
 
 .hero-dot {

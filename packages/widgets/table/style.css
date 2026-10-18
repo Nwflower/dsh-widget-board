@@ -12,8 +12,8 @@
 .table-card__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
   table-layout: auto;
 }
 
@@ -21,16 +21,15 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 6px 8px 6px 0;
+  padding: 8px 8px 8px 0;
   border-bottom: 1px solid var(--w-color-border, #e5e7eb);
   background: var(--w-color-surface, #fff);
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 8px;
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   text-align: left;
-  text-transform: uppercase;
+  text-transform: none;
   white-space: nowrap;
 }
 

@@ -1,0 +1,125 @@
+/*
+ * 表盘卡的样式：每个指标一个环，环心是百分比，环下是标签与说明。
+ *
+ * 环的轨道与弧只用两条 SVG 圆，弧长由脚本写成 stroke-dashoffset；比例变化时的过渡时长来自套件令牌，
+ * 减弱动效时直接换值（D10）。
+ */
+.gauge-card__body {
+  gap: 0;
+}
+
+.gauge-card__grid {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  align-content: center;
+  justify-items: center;
+  gap: 14px 10px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.gauge-card__item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 168px;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+}
+
+.gauge-card__item:only-child {
+  grid-column: 1 / -1;
+  max-width: 190px;
+}
+
+.gauge-card__ring {
+  position: relative;
+  width: 100%;
+  max-width: 124px;
+  aspect-ratio: 1;
+  container-type: inline-size;
+}
+
+.gauge-card__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.gauge-card__track {
+  stroke: color-mix(in srgb, var(--w-color-fg, #0b1016) 8%, transparent);
+}
+
+.gauge-card__arc {
+  stroke: var(--w-color-accent, #2563eb);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--w-motion-base) var(--w-motion-ease-smooth);
+}
+
+.gauge-card__item[data-tone="warn"] .gauge-card__arc { stroke: #b45309; }
+.gauge-card__item[data-tone="danger"] .gauge-card__arc { stroke: #b91c1c; }
+.gauge-card__item[data-tone="muted"] .gauge-card__arc { stroke: var(--w-color-muted, #6b7684); }
+
+.gauge-card__value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--w-color-fg, #0b1016);
+  font-size: 22cqw;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.gauge-card__caption {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.gauge-card__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--w-color-fg, #0b1016);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gauge-card__note {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 12px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 320px) {
+  .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px 8px; }
+  .gauge-card__label { font-size: 11px; }
+}
+
+@media (max-height: 260px) {
+  .gauge-card__note { display: none; }
+  .gauge-card__grid { gap: 8px; }
+}
+
+:root[data-motion="reduced"] .gauge-card__arc { transition: none; }

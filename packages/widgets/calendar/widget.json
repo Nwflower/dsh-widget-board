@@ -1,0 +1,55 @@
+{
+  "id": "calendar",
+  "title": {
+    "zh": "月历",
+    "en": "Calendar"
+  },
+  "description": {
+    "zh": "一个月的日期网格，有安排的日期带点，可以翻到前后月份或回到今天。",
+    "en": "A month grid with a dot on days that have something planned, and steps to the previous or next month or back to today."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "events": {
+        "type": "array",
+        "maxItems": 200,
+        "items": {
+          "type": "object",
+          "required": ["date"],
+          "properties": {
+            "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+            "title": { "type": "string", "maxLength": 120 },
+            "tone": { "enum": ["accent", "warn", "danger"] }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "previous": {
+      "zh": "上个月",
+      "en": "Previous month"
+    },
+    "next": {
+      "zh": "下个月",
+      "en": "Next month"
+    },
+    "today": {
+      "zh": "今天",
+      "en": "Today"
+    }
+  }
+}

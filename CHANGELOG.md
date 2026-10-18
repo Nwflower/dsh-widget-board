@@ -16,6 +16,8 @@
 - 组件可以在 widget.json 里声明刷新策略：按需（默认），或「看着的时候按间隔读」。宿主上只有一条定时链，按有哪些卡片要刷新、现在有几个看板页在看算出跑不跑、跑多快；没有观众时一律不读。数据源也能声明自己需要的权限，要权限的数据源与动作一样，读之前要有人在卡片上给出授权。
 - 组件可以导出成 .dshw 再导入回来，看板可以导出成 .dshboard（带上它用到的全部组件；数据与状态默不带，带 ?data=true 才带）。解包前校验路径、扩展名、文件数与大小；同 id 不同内容先回 409 并给出两边的哈希，带上 replace 才覆盖，内置与插件提供的组件永远不被覆盖。组件库浮窗里每一格有「导出」，头部有「导入」。
 - 卡片右上角多了设置弹窗：组件设置、凭据、数据与权限、关于四节；props 由组件自己的 schema 生成表单，保存时宿主按同一个 schema 校验；凭据写进宿主的凭据服务，不进看板文件、导出包与工具结果。翻面组也在弹窗里挑两个槽的组件，换一个槽会重置它自己的设置，另一个槽不动。
+- 新增三个内置组件：翻页时钟、表盘与热力图。时钟把时与分逐格翻页、秒用数字滚动，可按 IANA 时区名显示；表盘用环形比例表示配额与目标，支持四种色调；热力图按日铺格子，按盒子宽度显示 16、26 或 53 周，并给出总数、有记录的天数与连续天数。
+- 新增两个内置组件：月历与改动。月历按周一起头铺出一个月的日期网格，有安排的日期带点，可以翻到前后月份或回到今天，翻月的位置经 state 存在宿主上；改动卡把统一的 diff 按行铺开，新增与删除标出加减号，文件路径作为分节标题。
 
 ### 体验优化
 
@@ -31,6 +33,7 @@
 - 动作与数据源带上了归属：跨提供方重名时后到的注册被拒绝并说明原因，组件用「提供方:名字」点名；动作可以声明自己需要的权限，声明了权限的动作要有人在卡片上给出授权（绑在这个组件版本上）之后才跑得起来，组件内容一变就要重新授权。提供方的注册现在是一个生命周期把手：撤下时目录、它名下的数据源与动作、它留下的授权与目录监视一并撤下。
 - 组件库的缩略画面标成 preview 位置，组件可以在这里换一套静态排版；番茄钟的缩略画面收掉快捷时长与开始按钮，待办收掉输入行，只留标题、读数与内容。
 - 看板页顶部多了一条标签：每块看板一个标签，活动标签的药丸滑过去；标签条上只放一个新建入口，切换标签时不重挂任何组件——所有看板的卡片同时挂载，看不见的那些照旧暂停。
+- 内置组件的视觉收了一遍：数据卡的标题区只留标题与一条有事实的右上信息，12px 以下的等宽全大写标签、编号 kicker 与「7 POINTS」这类计数默认不再出现；字号与间距改读类型、间距令牌，数字统一等宽。状态色收进套件的 --w-tone-* 四个变量，列表与时间线再加一行读屏文字，不再只靠颜色。图表补了峰值、最新值与读屏摘要，表格补了 aria 标签与列作用域，进度条的动画从 width 改成 transform。全息卡加了一层压暗文字区的 scrim，磁吸卡把舞台收回成卡片自己的表面、去掉重复的点阵底，翻转卡背面改成前景与底色对调，浅色与深色下都从令牌来。每个内置组件补了与内容量相称的 defaultBox 与 minBox；题头去掉 kicker，说明改成一句具体的用途。
 - 看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。
 - 看板下方的加号菜单与组件库浮窗改成按看板这一栏的中线定位：左右侧栏收放、拖宽时它们跟着卡片区走，不再按整扇窗口居中。
 - 组件状态写入由父页面按 250 毫秒窗口合并，宿主按卡 64KB、按看板 1MB 与每秒次数限额拒绝超出的写入并显示原因；状态事件在对象合并时只带补丁；布局提交成功只回这次落定的盒子；定时刷新覆盖全部看板；看板没有选中时卡片也暂停，运行时新增 `paused` 与 `onPause`；同一份组件版本库在启动时不再重写已存在的文件。
@@ -58,6 +61,8 @@
 - A widget can declare a refresh policy in widget.json: on demand (the default) or "read on an interval while watched". One timer on the host decides whether and how fast to run from which cards ask for it and how many board pages are watching; nothing is read without a viewer. A data source can also declare the permissions it needs, and a gated source is granted on the card before it can be read, exactly like a gated action.
 - A widget can be exported as .dshw and imported back, and a board as .dshboard with every widget it uses embedded (data and state are left out unless ?data=true). Packages are checked for paths, extensions, file count and size before they are unpacked; the same id with different content answers 409 and names both hashes, and only replace overwrites — built-in and plugin-provided widgets are never overwritten. Each tile in the library panel has an Export, and its header has an Import.
 - Cards gain a settings modal with four sections: widget settings, credentials, data and permissions, and about. Props render from the widget's own schema and the host validates them against the same schema on save; credentials go to the host's credential service and never enter board files, exports or tool output. A flip group also picks its two slot widgets in the modal: replacing one resets that slot's own settings and leaves the other alone.
+- Adds three built-in widgets: a flip clock, ring gauges and a heatmap. The clock flips hours and minutes cell by cell and rolls the seconds, and takes an IANA time zone; the gauges show quotas and goals as rings in four tones; the heatmap lays out daily cells across 16, 26 or 53 weeks by box width and reports totals, active days and a streak.
+- Adds two built-in widgets: a calendar and a diff. The calendar lays a month out from Monday with a dot on days that have plans, steps to the previous or next month or back to today, and keeps the shown month in host state; the diff card prints a unified diff line by line with add and remove signs and file paths as section headings.
 
 ### Improvements
 
@@ -73,6 +78,7 @@
 - Actions and data sources now carry an owner: a duplicate name from another provider is refused with a reason and a widget can address one as "provider:name". An action can declare the permissions it needs, and such an action only runs after a person grants it on the card (bound to that widget version); changing the widget asks again. A provider registration is now a lifecycle handle: disposing it removes the directory, the data sources and actions registered under it, its leftover grants and its directory watch.
 - Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content.
 - The board page gains a tab strip: one tab per board with a pill that slides to the active one, a single New entry on the strip, and no widget is remounted when you switch — every board's cards stay mounted, and the ones you cannot see stay paused.
+- The built-in widgets had a visual pass. Data cards now show a title plus one factual meta line: the sub-12px uppercase mono labels, numbered kickers and counts such as '7 POINTS' are gone by default, type and spacing read from tokens, and numbers share tabular figures. Status colors live in four suite-level --w-tone-* variables, and list and timeline rows carry a screen-reader status line so color is not the only signal. The chart gains peak and latest values plus a spoken summary; the table gains an aria label and column scopes; the progress bar animates transform instead of width. The holographic card gets a text-side scrim, the magnetic card turns its stage back into the card surface and drops the duplicate dot pattern, and the flip card's back swaps foreground and background, both from tokens in either theme. Every built-in widget declares a defaultBox and minBox suited to its content; the board hero loses its kicker and gains a concrete tagline.
 - Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed.
 - The bottom plus menu and the widget library now centre on the board column: collapsing, expanding or dragging the sidebars keeps them on the card area's midline instead of the window's.
 - Widget state writes are coalesced in a 250 ms window in the parent page; the host rejects writes over 64 KB per card, 1 MB per board or the per-second write limits and shows the reason. State events carry an object patch, a successful layout commit returns only the boxes it stored, scheduled refresh covers every board, cards pause when their board is not selected, the runtime gains `paused` and `onPause`, and the version store no longer rewrites blobs that already exist at startup.

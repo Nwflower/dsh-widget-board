@@ -16,12 +16,12 @@
   }
 
   var defaults = {
-    frontKicker: 'FLIP · 01',
+    frontKicker: '',
     frontTitle: '一张会翻面的卡片',
-    frontText: '正面放一句结论，背面放细节。内容由 props 填进来，模板本身不认主题。',
-    backKicker: 'BACK · 02',
-    backTitle: '背面',
-    backText: '背面适合放解释、清单或下一件事。再翻一次回到正面。'
+    frontText: '正面写结论，背面写理由。',
+    backKicker: '',
+    backTitle: '为什么',
+    backText: '细节、清单或下一步，都放在这一面。'
   }
 
   /** 一条 prop 是字符串且不为空白时用它，否则用模板里的默认文案。 */

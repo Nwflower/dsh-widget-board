@@ -28,7 +28,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'TIMELINE · 07',
         title: '最近活动',
         items: [
           { time: '09:12', title: '同步看板快照', detail: '卡片与组件库一起更新', status: 'ok' },
@@ -38,7 +37,6 @@
       }
     }
     return {
-      kicker: 'TIMELINE · 07',
       title: 'Recent activity',
       items: [
         { time: '09:12', title: 'Board snapshot synced', detail: 'Cards and library updated together', status: 'ok' },
@@ -48,6 +46,11 @@
     }
   }
 
+  function statusLabel(status) {
+    if (isZh()) return status === 'ok' ? '正常' : status === 'warn' ? '注意' : status === 'error' ? '异常' : '空闲'
+    return status === 'ok' ? 'OK' : status === 'warn' ? 'Warning' : status === 'error' ? 'Error' : 'Idle'
+  }
+
   function write(node, value) {
     if (node !== undefined && node !== null) node.textContent = value === null || value === undefined ? '' : String(value)
   }
@@ -55,7 +58,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }
@@ -67,14 +70,18 @@
       if (item === null || typeof item !== 'object' || typeof item.title !== 'string') continue
       var row = document.createElement('div')
       row.className = 'timeline-card__row'
-      row.dataset.status = item.status === 'ok' || item.status === 'warn' || item.status === 'error' ? item.status : 'idle'
+      var status = item.status === 'ok' || item.status === 'warn' || item.status === 'error' ? item.status : 'idle'
+      row.dataset.status = status
       var time = document.createElement('p')
       time.className = 'timeline-card__time'
       time.textContent = typeof item.time === 'string' ? item.time : ''
       var title = document.createElement('p')
       title.className = 'timeline-card__title'
       title.textContent = item.title
-      row.append(time, title)
+      var state = document.createElement('span')
+      state.className = 'w-sr'
+      state.textContent = statusLabel(status)
+      row.append(time, title, state)
       if (typeof item.detail === 'string' && item.detail.trim() !== '') {
         var detail = document.createElement('p')
         detail.className = 'timeline-card__detail'
@@ -96,7 +103,7 @@
     var items = Array.isArray(data.items) ? data.items : base.items
     var count = render(items)
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : count + ' EVENTS')
+    write(el.meta, meta !== '' ? meta : isZh() ? count + ' 个事件' : count + (count === 1 ? ' event' : ' events'))
   }
 
   applyProps(widget === undefined ? {} : widget.props)

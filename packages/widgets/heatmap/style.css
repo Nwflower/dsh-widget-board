@@ -1,0 +1,116 @@
+/*
+ * 热力图的样式：一周一列、一天一格，颜色深浅表示当天的多少。
+ *
+ * 格子按列宽取正方形的比例，窗口的周数由脚本按盒子宽度挑（窄 16 周、常规 26 周、宽 53 周），
+ * 所以这套样式只负责网格与配色，不写死列数。
+ */
+.heatmap-card__body {
+  gap: 12px;
+  justify-content: center;
+}
+
+.heatmap-card__grid {
+  display: flex;
+  flex: none;
+  gap: 3px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.heatmap-card__week {
+  display: grid;
+  flex: 1 1 0;
+  min-width: 0;
+  grid-template-rows: repeat(7, auto);
+  gap: 3px;
+}
+
+.heatmap-card__cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--w-color-surface, #fff);
+}
+
+.heatmap-card__cell[data-level="0"],
+.heatmap-card__swatch[data-level="0"] {
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 8%, var(--w-color-surface, #fff));
+}
+
+.heatmap-card__cell[data-level="1"],
+.heatmap-card__swatch[data-level="1"] {
+  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 22%, var(--w-color-surface, #fff));
+}
+
+.heatmap-card__cell[data-level="2"],
+.heatmap-card__swatch[data-level="2"] {
+  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 44%, var(--w-color-surface, #fff));
+}
+
+.heatmap-card__cell[data-level="3"],
+.heatmap-card__swatch[data-level="3"] {
+  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 68%, var(--w-color-surface, #fff));
+}
+
+.heatmap-card__cell[data-level="4"],
+.heatmap-card__swatch[data-level="4"] {
+  background: var(--w-color-accent, #2563eb);
+}
+
+.heatmap-card__cell[data-today] {
+  outline: 1px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.heatmap-card__cell[data-future] {
+  background: transparent;
+}
+
+.heatmap-card__foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 10px;
+}
+
+.heatmap-card__caption {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.heatmap-card__legend {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+}
+
+.heatmap-card__legend-label {
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  line-height: 10px;
+}
+
+.heatmap-card__swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+@media (max-width: 320px) {
+  .heatmap-card__body { gap: 9px; }
+  .heatmap-card__grid { gap: 2px; }
+  .heatmap-card__week { gap: 2px; }
+  .heatmap-card__caption { font-size: 10px; line-height: 14px; }
+}
+
+@media (max-height: 260px) {
+  .heatmap-card__caption { display: none; }
+}

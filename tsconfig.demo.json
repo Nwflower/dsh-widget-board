@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["packages/client/src", "packages/contracts/src", "packages/model/src", "packages/demo/src/page", "packages/demo/src/data.ts", "packages/demo/src/storage.ts"]
+}

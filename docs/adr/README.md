@@ -28,6 +28,7 @@
 | [D22](D22-card-editor.md) | 卡片设置弹窗与组槽选择 | — |
 | [D23](D23-write-budget.md) | 状态写入的预算与合并 | — |
 | [D24](D24-host-capabilities.md) | 宿主能力：一条通用调用与能力注册表 | — |
+| [D25](D25-demo-host.md) | 演示页与只读的浏览器端宿主 | — |
 
 ## 作废的编号
 

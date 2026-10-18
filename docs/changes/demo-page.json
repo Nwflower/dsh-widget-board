@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 20,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "新增 `npm run demo`：构建一个可以直接放上静态托管的演示页。页面第一屏是插件真实的看板（可以拖动、缩放、翻面、切浅色深色，布局存在浏览器里），其后是录屏位、三个设计要点与安装命令，中英双语；看板由一个只读的浏览器端宿主驱动，需要数据源与宿主能力的组件不放进来。演示页不进发布包。",
+  "en": "New `npm run demo` builds a demo page you can drop onto static hosting. The first screen is the plugin's real board (drag, resize, flip, light and dark, with the layout kept in the browser), followed by a slot for a recording, three design points and the install command, in Chinese and English. A read-only host running in the browser drives the board; widgets that need data sources or host capabilities are left out. The demo page is not part of the published package."
+}

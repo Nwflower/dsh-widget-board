@@ -10,14 +10,14 @@
 
 .diff-card__scroll {
   font-family: var(--t-mono);
-  font-size: 11px;
-  line-height: 17px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
 }
 
 .diff-card__line {
   display: grid;
   grid-template-columns: 1.1em minmax(0, 1fr);
-  gap: 6px;
+  gap: var(--w-space-sm, 8px);
   padding: 1px 6px;
   border-radius: 3px;
   color: var(--w-color-fg, #0b1016);
@@ -56,9 +56,9 @@
   background: color-mix(in srgb, #dc2626 14%, transparent);
 }
 
-.diff-card__line[data-type="add"] .diff-card__sign { color: #15803d; }
-.diff-card__line[data-type="remove"] .diff-card__sign { color: #b91c1c; }
+.diff-card__line[data-type="add"] .diff-card__sign { color: color-mix(in srgb, #15803d 74%, var(--w-color-fg, #0b1016)); }
+.diff-card__line[data-type="remove"] .diff-card__sign { color: color-mix(in srgb, #b42318 76%, var(--w-color-fg, #0b1016)); }
 
 @media (max-width: 320px) {
-  .diff-card__scroll { font-size: 10px; line-height: 15px; }
+  .diff-card__scroll { font-size: var(--w-type-caption, 12px); line-height: 18px; }
 }

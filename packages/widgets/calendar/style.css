@@ -5,7 +5,7 @@
  * 小圆里。按钮与今天标记用套件的令牌，动效只走时长与曲线（D10）。
  */
 .calendar-card__body {
-  gap: 8px;
+  gap: var(--w-space-sm, 8px);
 }
 
 .calendar-card__bar {
@@ -13,17 +13,17 @@
   flex: none;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--w-space-sm, 8px);
 }
 
 .calendar-card__month {
   min-width: 0;
   overflow: hidden;
   color: var(--w-color-fg, #0b1016);
-  font-size: 13px;
+  font-size: var(--w-type-body, 14px);
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 18px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -38,8 +38,8 @@
 .calendar-card__step,
 .calendar-card__today {
   display: grid;
-  min-width: 24px;
-  height: 24px;
+  min-width: 32px;
+  height: 32px;
   padding: 0 8px;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
@@ -47,7 +47,7 @@
   background: none;
   color: var(--w-color-muted, #6b7684);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--w-type-caption, 12px);
   line-height: 1;
   cursor: pointer;
   transition:
@@ -85,10 +85,9 @@
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  line-height: 14px;
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
   text-align: center;
 }
 
@@ -144,20 +143,20 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--w-color-accent, #2563eb);
+  background: var(--w-tone-ok);
 }
 
-.calendar-card__dot[data-tone="warn"] { background: #b45309; }
-.calendar-card__dot[data-tone="danger"] { background: #b91c1c; }
+.calendar-card__dot[data-tone="warn"] { background: var(--w-tone-warn); }
+.calendar-card__dot[data-tone="danger"] { background: var(--w-tone-danger); }
 
 @media (max-width: 320px) {
-  .calendar-card__month { font-size: 12px; }
-  .calendar-card__day { font-size: 11px; line-height: 14px; }
+  .calendar-card__month { font-size: var(--w-type-caption, 12px); }
+  .calendar-card__day { font-size: var(--w-type-caption, 12px); line-height: 16px; }
   .calendar-card__number { width: 19px; height: 19px; }
 }
 
 @media (max-height: 260px) {
-  .calendar-card__body { gap: 5px; }
+  .calendar-card__body { gap: var(--w-space-xs, 4px); }
   .calendar-card__dots { display: none; }
 }
 

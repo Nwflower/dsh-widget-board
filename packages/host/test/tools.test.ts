@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import Ajv from 'ajv'
-import type { Board, BoardEvent, BoardValue, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, BoardValue, ShowValue, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import type { WidgetRecord } from '../src/library'
@@ -147,7 +147,7 @@ function toolOf(harnessed: ReturnType<typeof harness>, name: string): WidgetTool
 }
 
 describe('工具的定义', () => {
-  it('六个工具的名字与描述齐全', () => {
+  it('七个工具的名字与描述齐全', () => {
     const harnessed = harness()
     expect([...harnessed.tools.keys()].sort()).toEqual(Object.values(WIDGET_TOOL_NAMES).sort())
     for (const tool of harnessed.tools.values()) {
@@ -331,6 +331,78 @@ describe('widget_push 与 widget_remove', () => {
     expect(harnessed.context.board.instances).toHaveLength(0)
     await toolOf(harnessed, WIDGET_TOOL_NAMES.remove).execute({ id })
     expect(harnessed.context.workspace.board('second').instances).toHaveLength(0)
+  })
+})
+
+describe('widget_show', () => {
+  it('显示看板上已有的卡：带上它的 props、data、state 与所在看板', async () => {
+    const harnessed = harness({ records: [record('stat', { sizes: ['s', 'l'] })] })
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat' })
+    const id = (placed as { id: string }).id
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ id }) as ShowValue
+    expect(value).toMatchObject({
+      id,
+      widget: 'stat',
+      hash: (harnessed.context.board.instances[0] as { hash: string }).hash,
+      family: 'l',
+      board: { id: 'board', title: '看板' },
+      props: {},
+      state: null,
+    })
+    expect(value.summary.title).toEqual({ zh: 'stat', en: 'stat' })
+    expect(value.summary.hash).toBe(value.hash)
+  })
+
+  it('显示看板上没有的卡时拒绝', async () => {
+    await expect(toolOf(harness(), WIDGET_TOOL_NAMES.show).execute({ id: 'nope' })).rejects.toThrow(/没有这张卡/)
+  })
+
+  it('一次性快照：不在看板上、不改看板，id 由宿主起', async () => {
+    const harnessed = harness({ records: [record('stat', { sizes: ['s', 'l'] })] })
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat', props: {} }) as ShowValue
+    expect(value.id.startsWith('inline-')).toBe(true)
+    expect(value.board).toBeUndefined()
+    expect(value.family).toBe('l')
+    expect(harnessed.context.board.instances).toHaveLength(0)
+    expect(value.summary.hash).toBe(value.hash)
+  })
+
+  it('一次性快照按组件声明的数据源读一次，数据与 schema 不符时拒绝', async () => {
+    const harnessed = harness({ records: [record('stat', { source: 'demo:count' })] })
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat' }) as ShowValue
+    expect(value.data).toEqual({ n: 7 })
+    expect(value.source).toBe('demo:count')
+    // 直接给的数据先过 schema。
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat', data: { n: 'x' } }))
+      .rejects.toThrow(/data schema/)
+    harnessed.context.sources.readSource = async () => ({ n: 'seven' })
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat' }))
+      .rejects.toThrow(/data schema/)
+  })
+
+  it('props、size 与参数组合不合规时拒绝', async () => {
+    const schema = { type: 'object', additionalProperties: false, properties: { title: { type: 'string' } } }
+    const harnessed = harness({ records: [record('stat', { props: schema, sizes: ['s'] })] })
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat', props: { title: 1 } }))
+      .rejects.toThrow(/props schema/)
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat', size: 'xl' }))
+      .rejects.toThrow(/没有 xl 这个尺寸族/)
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({}))
+      .rejects.toThrow(/要写明 id/)
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ id: 'a', widget: 'stat' }))
+      .rejects.toThrow(/只能给一个/)
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'ghost' }))
+      .rejects.toThrow(ToolRefusal)
+  })
+
+  it('返回值同时是工具视图的载荷', async () => {
+    const harnessed = harness({ records: [record('stat', { sizes: ['s'] })] })
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.show)
+    const value = await tool.execute({ widget: 'stat' })
+    expect(tool.output.presentationMeta).toBeTypeOf('function')
+    expect(tool.output.presentationMeta?.(undefined, value)).toEqual(value)
+    // 没有视图的工具不声明载荷。
+    expect(toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).output.presentationMeta).toBeUndefined()
   })
 })
 

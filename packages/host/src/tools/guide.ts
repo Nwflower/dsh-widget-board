@@ -95,7 +95,8 @@ widget.reportError(err) // 把失败原因写在这张卡上
 
 - 根节点上有 \`data-box-width\`：\`narrow\`（<320px）、\`regular\`、\`wide\`（≥600px）。
 - 根节点上有 \`data-box-height\`：\`short\`（<260px）、\`regular\`、\`tall\`（≥360px）。
-- 还有 \`data-placement\`（\`board\` 或 \`preview\`）与 \`data-size\`。
+- 还有 \`data-placement\`（\`board\`、\`inline\`、\`rail\`、\`expanded\` 或 \`preview\`）与 \`data-size\`。
+- 内联显示（会话里的 \`widget_show\`）按内容给高度：用 \`widget.fit()\` 把内容高度报上去，回答里就占那么高；看板上的卡片高度由用户给，这条消息不参与。
 
 矮盒子里收掉次要信息，窄盒子里换排版。用套件里的 \`.w-hide-short\`、\`.w-hide-narrow\` 更省事。
 

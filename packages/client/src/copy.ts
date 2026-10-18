@@ -128,6 +128,12 @@ const COPY = {
   discard: { zh: '放弃修改', en: 'Discard' },
   keepEditing: { zh: '继续编辑', en: 'Keep editing' },
   groupWidgetMissing: { zh: '组件不在库里', en: 'Widget is missing' },
+  inlinePreparing: { zh: '组件正在准备…', en: 'Preparing the widget…' },
+  inlineEmpty: { zh: '这次调用没有可显示的组件', en: 'This call has no widget to show' },
+  inlineDetached: {
+    zh: '这是一次性预览，动作没有去处；把它放上看板之后就能按。',
+    en: 'This is a one-off preview, so actions have nowhere to go; place it on the board to use them.',
+  },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

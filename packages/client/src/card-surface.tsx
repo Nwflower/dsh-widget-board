@@ -1,6 +1,6 @@
 import { createElement, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { BoardInstance, GrantKind, ParentMessage, WidgetMessage, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardInstance, GrantKind, ParentMessage, WidgetFamily, WidgetMessage, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
 import { MESSAGE_RATE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { isChinese, t } from './copy'
@@ -36,6 +36,14 @@ export interface CardSurfaceProps {
   paused: boolean
   /** 组件库里的缩略画面：组件据此换一套静态、不可交互的排版。 */
   preview?: boolean
+  /**
+   * 会话里内联显示（D9）：位置算作 `inline`，盒子高度不按卡片算，等组件报上来。
+   *
+   * `detached` 是一次性快照——它不在看板上，动作没有去处，按下时把原因写在画面上。
+   */
+  inline?: { family: WidgetFamily, detached?: boolean }
+  /** 组件报上来的内容高度；内联显示按它决定占多高（D16）。 */
+  onHeight?: (height: number) => void
 }
 
 /** 握手那一刻交给组件的那几样东西。 */
@@ -64,6 +72,8 @@ export function CardSurface({
   onNotify,
   paused,
   preview = false,
+  inline,
+  onHeight,
 }: CardSurfaceProps): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const portRef = useRef<MessagePort | null>(null)
@@ -78,12 +88,13 @@ export function CardSurface({
   /** 宿主因为缺授权拒绝了上一次动作或读数据：卡片上画出「允许」按钮（D6）。 */
   const [asking, setAsking] = useState<{ kind: GrantKind, id: string } | null>(null)
   const native = useNativeWidget(instance.widget)
+  const framePlacement = inline === undefined ? (preview ? 'preview' as const : 'board' as const) : 'inline' as const
   const size = {
     w: Math.round(placement.width),
     h: Math.round(placement.height),
-    placement: preview ? 'preview' as const : 'board' as const,
-    family: preview ? 'preview' as const : 'board' as const,
-    cols: placement.columns,
+    placement: framePlacement,
+    family: inline === undefined ? (preview ? 'preview' as const : 'board' as const) : inline.family,
+    cols: inline === undefined ? placement.columns : 1,
   }
   const sizeRef = useRef(size)
   sizeRef.current = size
@@ -95,6 +106,10 @@ export function CardSurface({
   themeRef.current = theme
   const pausedRef = useRef(paused)
   pausedRef.current = paused
+  const detachedRef = useRef(inline?.detached === true)
+  detachedRef.current = inline?.detached === true
+  const onHeightRef = useRef(onHeight)
+  onHeightRef.current = onHeight
   const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} })
   initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} }
   const src = widgetDocumentPath(widget.hash, theme.lang)
@@ -192,11 +207,20 @@ export function CardSurface({
         window.clearTimeout(watchdog)
         setFailure(null)
       }
-      // 高度由看板布局给出，组件上报的内容高度不参与（D16）；消息仍然合法，只是不用。
+      // 高度由看板布局给出，组件上报的内容高度不参与（D16）；内联显示时正好相反，按它占位（D9）。
+      if (message.type === 'height') {
+        if (onHeightRef.current !== undefined) onHeightRef.current(message.height)
+        return
+      }
       if (message.type === 'error') setFailure(message.message)
       if (message.type === 'setState') queue.push(message.patch)
       if (message.type === 'notify') notifyRef.current(instance, widget, message)
       if (message.type === 'action') {
+        // 一次性快照不在看板上，动作没有去处：把这件事写在画面上（D11）。
+        if (detachedRef.current) {
+          setFailure(t('inlineDetached'))
+          return
+        }
         sendInstanceAction(instance.id, message.id, message.payload).then(() => { settleAction() }, settleAction)
       }
       if (message.type === 'call') handleCall(message.requestId, message.capability, message.args)

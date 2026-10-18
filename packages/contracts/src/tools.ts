@@ -8,6 +8,7 @@
  * 工具的 `parameters` 是给模型看的 JSON Schema（`@deepseek-ai/dsh-llm` 的 `ToolSchema.parameters`），
  * 直接注册时由工具自己校验输入（见 `packages/host/src/tools/`）。
  */
+import type { WidgetSummary } from './board'
 import type { WidgetCredential, WidgetFamily, WidgetSource } from './widget'
 import type { ActionPermission } from './service'
 /** 工具名（D9）；模型看到的就是这几个。 */
@@ -16,6 +17,8 @@ export const WIDGET_TOOL_NAMES = {
   catalog: 'widget_catalog',
   /** 新建或更新一个组件类型。 */
   define: 'widget_define',
+  /** 把一个组件内联显示在当前会话的回答里。 */
+  show: 'widget_show',
   /** 读一块看板上的卡片，并列出全部看板。 */
   board: 'widget_board',
   /** 往看板上放一张卡、挪它、改它的大小或 props；可以指定看板。 */
@@ -59,6 +62,16 @@ export interface WidgetToolSpec {
    */
   execute(args: unknown): Promise<unknown>
   /**
+   * 把规范值投影成客户端工具视图要的载荷（D9）。
+   *
+   * 只有带视图的工具写这一项；返回的是一份能画出来的最小快照，宿主编进这次结果的 `meta`，
+   * 视图从那里读它。不写时视图看不到这次调用。
+   *
+   * @param value - `execute` 返回的规范值。
+   * @returns 视图要的载荷。
+   */
+  view?(value: unknown): unknown
+  /**
    * 把规范值渲染成模型看到的内容。
    *
    * @param value - `execute` 返回的规范值。
@@ -80,6 +93,11 @@ export interface WidgetToolRegistration {
   output: {
     schema: Record<string, unknown>
     render(args: unknown, value: unknown): ToolContentBlock[]
+    /**
+     * 这次调用交给客户端视图的载荷（D9）。宿主把它存进结果的 `meta`；`WidgetToolSpec.view`
+     * 是它在这里的来源。
+     */
+    presentationMeta?(args: unknown, value: unknown): unknown
   }
   execute(args: unknown): Promise<unknown>
 }
@@ -270,6 +288,30 @@ export interface PlaceValue {
   layout: { x: number, y: number, w: number, h: number }
   /** 换了组件、或参数被宿主改过时写原因。 */
   notes?: string[]
+}
+
+/**
+ * `widget_show` 的返回值：内联视图按这一份快照画一张组件（D9）。
+ *
+ * 看板上的卡片用它的 id，内联视图与看板上的那一张写同一份状态；一次性快照的 id 由宿主起，
+ * 它不在任何看板上，写状态与发动作都会被宿主拒绝，视图只把状态留在本地。
+ */
+export interface ShowValue {
+  /** 卡片 id。 */
+  id: string
+  widget: string
+  /** 要渲染的那一份组件版本（D7）；看板上的卡用卡片钉住的那一份。 */
+  hash: string
+  source?: string
+  props: Record<string, unknown>
+  data: unknown
+  state: unknown
+  /** 内联盒子的尺寸族（D16）：组件在 manifest 声明过的族里换排版。 */
+  family: WidgetFamily
+  /** 组件元信息，与工作区快照里的同一份（D5）。 */
+  summary: WidgetSummary
+  /** 卡片在看板上的位置；一次性快照没有这一项。 */
+  board?: { id: string, title: string }
 }
 
 /** `widget_define` 写下的一个组件。 */

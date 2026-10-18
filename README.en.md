@@ -21,6 +21,7 @@ A widget board plugin for DeepSeek Harness. It adds a "Board" entry to the sideb
 - **State lives on the host**: a card's interface state and data are kept by the host, so they survive a panel switch, a page reload and a widget hot reload.
 - **Notifications and unread count**: a widget calls `widget.notify(...)`; the Board entry in the sidebar slides in an unread count with the notification-badge transition, and clicking the entry clears it.
 - **Follows the host's look**: colors, radii, durations and curves come from the host's tokens; switching light and dark or changing the skin updates the cards in place, together with the interface language.
+- **Read, write and show inline from a session**: the agent in a session uses tools to list widgets, write or change one, read the board, place a card and push data; `widget_show` draws a widget in the answer itself, with no panel switch. A card already on the board stays connected to it, sharing state and actions both ways; passing a widget id with props draws a one-off snapshot instead — it is on no board and keeps its state only on the page.
 - **Isolated**: every widget runs in its own sandboxed iframe with no access to your sessions, cookies or the network; widget documents carry a strict CSP, and images and fonts are inlined as `data:` addresses.
 
 ## Install
@@ -72,7 +73,7 @@ A provider imports the type from `dsh-widget-board/service` with `import type { 
 
 ## Status
 
-In development, not yet released. Session tools, inline display, the right sidebar and widget sharing are still to come.
+In development, not yet released. The right sidebar, the widget library page and widget version history are still to come.
 
 ## License
 

@@ -20,6 +20,7 @@
 - 新增三个内置组件：翻页时钟、表盘与热力图。时钟把时与分逐格翻页、秒用数字滚动，可按 IANA 时区名显示；表盘用环形比例表示配额与目标，支持四种色调；热力图按日铺格子，按盒子宽度显示 16、26 或 53 周，并给出总数、有记录的天数与连续天数。
 - 组件桥多了一条通用的宿主能力调用：组件在 manifest 里声明能力名，用 widget.call 传参数并拿返回值，可以取消、有超时；能力由插件注册，输入与输出按 JSON Schema 校验，要权限的能力先由人授权。内置的 DSH 余额卡声明 dsh.account.balance，直接读当前登录的 DSH 账号充值钱包与赠送钱包，不需要 API key。
 - 新增两个内置组件：月历与改动。月历按周一起头铺出一个月的日期网格，有安排的日期带点，可以翻到前后月份或回到今天，翻月的位置经 state 存在宿主上；改动卡把统一的 diff 按行铺开，新增与删除标出加减号，文件路径作为分节标题。
+- 会话里的 agent 多了一个工具 widget_show：把一个组件内联显示在回答里，不必切到看板。给 id 时显示看板上已有的那张卡，状态与动作双向同步；给 widget 与 props 时画一份一次性快照，它不在看板上，状态只留在页面上。视图按线上工具名注册在 tool.call.toolview 上，这次调用的载荷由工具经 presentationMeta 投影进结果的 meta，视图只读它。
 
 ### 体验优化
 
@@ -71,6 +72,7 @@
 - Adds three built-in widgets: a flip clock, ring gauges and a heatmap. The clock flips hours and minutes cell by cell and rolls the seconds, and takes an IANA time zone; the gauges show quotas and goals as rings in four tones; the heatmap lays out daily cells across 16, 26 or 53 weeks by box width and reports totals, active days and a streak.
 - The widget bridge gains a generic host-capability call: a widget declares capability names in its manifest and uses widget.call with arguments and a return value, with cancellation and a timeout; plugins register capabilities, arguments and results are checked against JSON Schema, and one with a permission needs a person's grant first. The built-in DSH balance card declares dsh.account.balance and reads the recharge and bonus wallets of the signed-in DSH account, with no API key.
 - Adds two built-in widgets: a calendar and a diff. The calendar lays a month out from Monday with a dot on days that have plans, steps to the previous or next month or back to today, and keeps the shown month in host state; the diff card prints a unified diff line by line with add and remove signs and file paths as section headings.
+- A session agent gains widget_show: it draws a widget inline in the answer itself, with no panel switch. Passing an id shows that card from the board, sharing state and actions both ways; passing a widget with props draws a one-off snapshot that is on no board and keeps its state only on the page. The view registers on tool.call.toolview by wire tool name, and the tool projects this call's payload into the result meta through presentationMeta, which is all the view reads.
 
 ### Improvements
 

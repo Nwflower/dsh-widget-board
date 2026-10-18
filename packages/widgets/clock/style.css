@@ -14,7 +14,7 @@
   width: 100%;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--w-space-md, 12px);
 }
 
 .clock-card__time {
@@ -60,9 +60,8 @@
   margin: 0;
   color: var(--w-color-muted, #6b7684);
   font-family: var(--t-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  line-height: 14px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
   text-align: center;
 }
 

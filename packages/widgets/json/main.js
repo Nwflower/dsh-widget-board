@@ -29,7 +29,6 @@
 
   function defaults() {
     return {
-      kicker: 'JSON · 12',
       title: isZh() ? '配置' : 'Config',
       value: {
         name: 'widget-board',
@@ -51,9 +50,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    return typeof props.meta === 'string' ? props.meta : ''
   }
 
   function truncate(text) {
@@ -161,7 +160,9 @@
     if (meta === '') {
       var isArray = Array.isArray(value)
       var size = value !== null && typeof value === 'object' ? (isArray ? value.length : Object.keys(value).length) : 1
-      meta = size + ' ' + (isArray ? 'ITEMS' : 'KEYS')
+      meta = isArray
+        ? size + (isZh() ? ' 项' : ' items')
+        : size + (isZh() ? ' 个键' : ' keys')
     }
     write(el.meta, meta)
     if (state.caption !== '') {

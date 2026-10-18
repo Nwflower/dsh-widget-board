@@ -10,8 +10,8 @@
 
 .diff-card__scroll {
   font-family: var(--t-mono);
-  font-size: 11px;
-  line-height: 17px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
 }
 
 .diff-card__line {
@@ -60,5 +60,5 @@
 .diff-card__line[data-type="remove"] .diff-card__sign { color: #b91c1c; }
 
 @media (max-width: 320px) {
-  .diff-card__scroll { font-size: 10px; line-height: 15px; }
+  .diff-card__scroll { font-size: var(--w-type-caption, 12px); line-height: 17px; }
 }

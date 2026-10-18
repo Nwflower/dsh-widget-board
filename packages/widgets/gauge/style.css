@@ -15,7 +15,7 @@
   grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   align-content: center;
   justify-items: center;
-  gap: 14px 10px;
+  gap: var(--w-space-md, 12px) var(--w-space-sm, 8px);
   overflow: auto;
   scrollbar-width: thin;
 }
@@ -27,7 +27,7 @@
   max-width: 168px;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: var(--w-space-sm, 8px);
   margin: 0;
 }
 
@@ -62,9 +62,9 @@
   transition: stroke-dashoffset var(--w-motion-base) var(--w-motion-ease-smooth);
 }
 
-.gauge-card__item[data-tone="warn"] .gauge-card__arc { stroke: #b45309; }
-.gauge-card__item[data-tone="danger"] .gauge-card__arc { stroke: #b91c1c; }
-.gauge-card__item[data-tone="muted"] .gauge-card__arc { stroke: var(--w-color-muted, #6b7684); }
+.gauge-card__item[data-tone="warn"] .gauge-card__arc { stroke: var(--w-tone-warn); }
+.gauge-card__item[data-tone="danger"] .gauge-card__arc { stroke: var(--w-tone-danger); }
+.gauge-card__item[data-tone="muted"] .gauge-card__arc { stroke: var(--w-tone-idle); }
 
 .gauge-card__value {
   position: absolute;
@@ -92,8 +92,8 @@
   max-width: 100%;
   overflow: hidden;
   color: var(--w-color-fg, #0b1016);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -104,22 +104,21 @@
   overflow: hidden;
   color: var(--w-color-muted, #6b7684);
   font-family: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  line-height: 12px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 @media (max-width: 320px) {
-  .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px 8px; }
-  .gauge-card__label { font-size: 11px; }
+  .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: var(--w-space-sm, 8px); }
+  .gauge-card__label { font-size: var(--w-type-caption, 12px); }
 }
 
 @media (max-height: 260px) {
   .gauge-card__note { display: none; }
-  .gauge-card__grid { gap: 8px; }
+  .gauge-card__grid { gap: var(--w-space-sm, 8px); }
 }
 
 :root[data-motion="reduced"] .gauge-card__arc { transition: none; }

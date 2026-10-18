@@ -32,7 +32,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'LINKS · 11',
         title: '书签',
         items: [
           { title: 'DeepSeek Harness', url: 'https://github.com/deepseek-ai/dsh', note: '宿主' },
@@ -43,7 +42,6 @@
       }
     }
     return {
-      kicker: 'LINKS · 11',
       title: 'Bookmarks',
       items: [
         { title: 'DeepSeek Harness', url: 'https://github.com/deepseek-ai/dsh', note: 'Host' },
@@ -61,9 +59,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    return typeof props.meta === 'string' ? props.meta : ''
   }
 
   /** 从地址里取域名；读不出来时退回原串，去掉协议头。 */
@@ -117,7 +115,7 @@
     el.list.hidden = rows.length === 0
     el.empty.hidden = rows.length > 0
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : rows.length + ' LINKS')
+    write(el.meta, meta !== '' ? meta : rows.length + (isZh() ? ' 条' : ' links'))
     return rows.length
   }
 

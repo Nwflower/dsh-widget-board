@@ -23,6 +23,7 @@
   }
 
   var state = { shown: -1 }
+  var timer = 0
 
   function isZh() {
     return widget === undefined || String(widget.lang || 'zh').toLowerCase().indexOf('zh') === 0
@@ -36,9 +37,9 @@
 
   function defaults() {
     if (isZh()) {
-      return { kicker: 'YEAR · 13', title: '年度进度' }
+      return { title: '年度进度' }
     }
-    return { kicker: 'YEAR · 13', title: 'Year progress' }
+    return { title: 'Year progress' }
   }
 
   function write(node, value) {
@@ -48,9 +49,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    return typeof props.meta === 'string' ? props.meta : ''
   }
 
   function dayOfYear(date) {
@@ -83,6 +84,16 @@
     group.classList.add('is-animating')
   }
 
+  function start() {
+    if (timer === 0) timer = setInterval(render, TICK_MS)
+  }
+
+  function stop() {
+    if (timer === 0) return
+    clearInterval(timer)
+    timer = 0
+  }
+
   function render() {
     var now = new Date()
     var year = now.getFullYear()
@@ -111,6 +122,11 @@
       applyProps(props)
       render()
     })
+    widget.onPause(function (paused) {
+      if (paused) { stop(); return }
+      render()
+      start()
+    })
   }
-  setInterval(render, TICK_MS)
+  if (widget === undefined || widget.paused !== true) start()
 })()

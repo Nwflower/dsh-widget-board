@@ -6,7 +6,7 @@
 .year-card__body {
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--w-space-lg, 16px);
 }
 
 .year-card__face {
@@ -15,7 +15,7 @@
   max-width: 420px;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: var(--w-space-sm, 8px);
 }
 
 .year-card__percent {
@@ -68,19 +68,16 @@
   display: flex;
   justify-content: space-between;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  line-height: 10px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
 }
 
 .year-card__note {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
   font-family: var(--t-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  line-height: 14px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
   text-align: center;
 }
 

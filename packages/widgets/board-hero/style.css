@@ -21,7 +21,7 @@
 .hero-copy {
   position: relative;
   z-index: 2;
-  max-width: 58%;
+  max-width: 54%;
 }
 
 .hero-kicker {
@@ -39,17 +39,14 @@
 .hero-title {
   margin: 0;
   color: var(--w-color-fg, #0b1016);
-  font-size: clamp(28px, 7.2vw, 52px);
+  font-size: clamp(28px, min(7.2vw, 11vh), 72px);
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.03;
 }
 
-/* 强调词用同色高亮，不靠第二个色相；浅色与深色下都能看出这一块被标出来。 */
-.hero-accent {
-  padding: 0 0.04em;
-  background: linear-gradient(transparent 60%, color-mix(in srgb, var(--w-color-accent, #2563eb) 22%, transparent) 60%);
-}
+/* 强调词只换字色：跟随宿主强调色，不画底块。 */
+.hero-accent { color: var(--w-color-accent, #2563eb); }
 
 .hero-tagline {
   display: flex;
@@ -73,36 +70,86 @@
 .hero-art {
   position: absolute;
   inset: 0 0 0 auto;
-  width: 56%;
-  overflow: hidden;
+  display: flex;
+  width: 46%;
+  align-items: center;
+  justify-content: flex-end;
+  padding: clamp(14px, 4vw, 26px);
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22%);
-  mask-image: linear-gradient(to right, transparent 0, #000 22%);
 }
 
-.hero-art-field {
-  position: absolute;
-  top: 50%;
-  right: -8px;
-  margin: 0;
-  color: color-mix(in srgb, var(--w-color-accent, #2563eb) 62%, transparent);
-  font-family: var(--t-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 10px;
-  letter-spacing: 1.4px;
-  line-height: 12px;
-  white-space: pre;
-  user-select: none;
-  transform: translateY(-50%);
+/*
+ * 右侧图案是一块缩小的看板：五张抽象卡片排在同一张栅格里，形状静止时也读得出来。颜色只来自令牌，
+ * 浅色与深色各自可读（D10）。
+ */
+.hero-tiles {
+  display: grid;
+  width: 100%;
+  max-width: 340px;
+  max-height: 100%;
+  aspect-ratio: 5 / 4;
+  grid-template: repeat(4, 1fr) / repeat(5, 1fr);
+  gap: clamp(6px, 1.2vw, 10px);
 }
 
-.hero-art-cloud {
-  position: absolute;
-  top: 16%;
-  left: 6%;
-  width: 72%;
-  height: 68%;
-  fill: var(--w-color-surface, #fff);
+.hero-tile {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 14%, transparent);
+  border-radius: clamp(8px, 1.6vw, 14px);
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 3%, var(--w-color-surface, #fff));
 }
+
+.hero-tile--chart { grid-area: 1 / 1 / 3 / 4; align-items: flex-end; }
+.hero-tile--ring { grid-area: 1 / 4 / 3 / 6; align-items: center; justify-content: center; background: color-mix(in srgb, var(--w-color-accent, #2563eb) 12%, var(--w-color-surface, #fff)); }
+.hero-tile--bars { grid-area: 3 / 1 / 5 / 3; flex-direction: column; justify-content: center; gap: 12%; padding: 0 14%; }
+.hero-tile--solid { grid-area: 3 / 3 / 5 / 4; background: color-mix(in srgb, var(--w-color-fg, #0b1016) 9%, var(--w-color-surface, #fff)); }
+.hero-tile--dots { grid-area: 3 / 4 / 5 / 6; flex-wrap: wrap; align-content: center; justify-content: center; gap: 14%; padding: 0 14%; }
+
+.hero-tile svg { display: block; width: 100%; height: 70%; overflow: visible; }
+.hero-tile__fill { fill: color-mix(in srgb, var(--w-color-accent, #2563eb) 16%, transparent); }
+.hero-tile__line {
+  fill: none;
+  stroke: var(--w-color-accent, #2563eb);
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.hero-ring {
+  width: 58%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, color-mix(in srgb, var(--w-color-fg, #0b1016) 3%, var(--w-color-surface, #fff)) 74%, transparent 76%),
+    conic-gradient(var(--w-color-accent, #2563eb) 0 68%, color-mix(in srgb, var(--w-color-fg, #0b1016) 12%, transparent) 0);
+}
+
+.hero-tile--bars span {
+  display: block;
+  width: var(--v);
+  height: 14%;
+  border-radius: 999px;
+  background: var(--w-color-accent, #2563eb);
+  opacity: 0.8;
+}
+
+.hero-tile--bars span:nth-child(2) { opacity: 0.5; }
+.hero-tile--bars span:nth-child(3) { opacity: 0.3; }
+
+.hero-tile--dots i {
+  display: block;
+  width: 16%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 24%, transparent);
+}
+
+.hero-tile--dots i:nth-child(2) { background: var(--w-color-accent, #2563eb); }
 
 @media (max-width: 560px) {
   .hero-copy { max-width: 100%; }

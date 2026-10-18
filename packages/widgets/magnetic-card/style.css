@@ -27,9 +27,14 @@
   box-sizing: border-box;
   padding: clamp(16px, 4.5vw, 24px);
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--w-color-bg, #fff) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 18%, transparent);
   border-radius: var(--w-radius-card, 24px);
-  background: linear-gradient(145deg, #1e293b, #0f172a);
+  /* 色相固定的靛蓝，明度从看板底色推出来：浅色看板上深，深色看板上抬亮一档，对比才够。 */
+  background: linear-gradient(
+    145deg,
+    oklch(from var(--w-color-bg, #fff) calc(0.34 + (1 - l) * 0.18) 0.13 268),
+    oklch(from var(--w-color-bg, #fff) calc(0.24 + (1 - l) * 0.16) 0.11 268)
+  );
   color: #e2e8f0;
   box-shadow: 0 24px 60px -30px rgb(2 6 23 / 80%);
   text-align: center;
@@ -38,7 +43,7 @@
 }
 
 .magnetic-kicker {
-  color: #7dd3fc;
+  color: oklch(0.86 0.09 235);
   font-size: var(--w-type-caption, 12px);
   letter-spacing: 0;
   line-height: 16px;

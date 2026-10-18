@@ -44,9 +44,9 @@
 
   function defaults() {
     if (isZh()) {
-      return { kicker: 'HEATMAP · 07', title: '活动', caption: '' }
+      return { title: '活动', caption: '' }
     }
-    return { kicker: 'HEATMAP · 07', title: 'Activity', caption: '' }
+    return { title: 'Activity', caption: '' }
   }
 
   function write(node, value) {
@@ -56,7 +56,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     state.meta = typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }
@@ -175,7 +175,7 @@
     write(el.caption, state.caption !== '' ? state.caption : summary.join(' · '))
     write(el.less, label('less', '少'))
     write(el.more, label('more', '多'))
-    write(el.meta, state.meta !== '' ? state.meta : weeks + ' WEEKS')
+    write(el.meta, state.meta !== '' ? state.meta : weeks + (isZh() ? ' 周' : ' weeks'))
 
     var empty = Object.keys(days).length === 0
     el.grid.hidden = empty

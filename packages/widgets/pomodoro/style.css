@@ -1,8 +1,8 @@
 /*
  * 番茄钟的样式。
  *
- * 这张卡的底色是它自己的画面：一层品红的径向渐变，压在上面的文字因此固定用白色；主题令牌管
- * 边框、投影、主按钮与焦点框（D10）。动效原语（数字、文字切换、按压）来自运行时套件。
+ * 底色、边框、字色都走主题令牌，与其他数据卡同一个基调；强调色只用在刻度的进度、滑块与主按钮上。
+ * 动效原语（数字、文字切换、按压）来自运行时套件。
  *
  * 卡片填满看板给的盒子：标题在上、读数在剩下的空间里居中、刻度、快捷时长与按钮贴底；盒子变矮
  * 时依次收字号、间距与刻度高度，刻度本身一直留着；盒子变大时读数与控制收进居中的一列，数字随
@@ -10,26 +10,27 @@
  */
 
 .pomo {
-  --pomo-ink: #fff;
-  --pomo-ink-muted: color-mix(in srgb, #fff 78%, transparent);
-  --pomo-chip: color-mix(in srgb, #fff 14%, transparent);
-  --pomo-chip-hover: color-mix(in srgb, #fff 20%, transparent);
-  --pomo-chip-active: color-mix(in srgb, #fff 28%, transparent);
+  --pomo-ink: var(--w-color-fg, #0b1016);
+  --pomo-ink-muted: var(--w-color-muted, #6b7684);
+  --pomo-chip: color-mix(in srgb, var(--w-color-fg, #0b1016) 7%, transparent);
+  --pomo-chip-hover: color-mix(in srgb, var(--w-color-fg, #0b1016) 11%, transparent);
+  --pomo-chip-active: color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
   --pomo-slider-h: 40px;
   --pomo-tick-h: 20px;
   --pomo-thumb-h: 36px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--w-space-lg, 16px);
   box-sizing: border-box;
   width: 100%;
   /* iframe 的视口就是卡片的内容盒；撑满它，高度由看板给的盒子决定（D16）。 */
   height: 100vh;
   min-height: 0;
   overflow: hidden;
-  padding: 24px;
+  padding: var(--w-space-lg, 16px);
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
   border-radius: var(--w-radius-card, 24px);
-  background: radial-gradient(circle at 50% 38%, #2a0319 0%, #7a0a48 22%, #c3157a 52%, #6b1148 100%);
+  background: var(--w-color-surface, #fff);
   color: var(--pomo-ink);
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -48,8 +49,8 @@
 }
 
 .pomo-head { display: flex; flex-direction: column; }
-.pomo-title { margin: 0; color: var(--pomo-ink); font-size: 16px; font-weight: 500; line-height: 22px; }
-.pomo-cap { margin: 0; color: var(--pomo-ink-muted); font-size: 12px; line-height: 16px; }
+.pomo-title { margin: 0; color: var(--pomo-ink); font-size: var(--w-type-title, 16px); font-weight: 600; letter-spacing: -0.01em; line-height: 22px; }
+.pomo-cap { margin: 0; color: var(--pomo-ink-muted); font-size: var(--w-type-caption, 12px); line-height: 16px; }
 
 /* 读数占掉标题与控件之间的全部空间，数字因此在盒子里居中，不贴着标题。 */
 .pomo-readout {
@@ -60,9 +61,9 @@
   min-height: 0;
   font-variant-numeric: tabular-nums;
 }
-/* 剩余时间：分与秒各两位。翻页的半页画同一个渐变，位置由脚本按半页在卡片里的位置对齐。 */
+/* 剩余时间：分与秒各两位。翻页的半页用卡片的表面色盖住后面的数字。 */
 .pomo-time {
-  --t-flip-page: radial-gradient(circle at 50% 38%, #2a0319 0%, #7a0a48 22%, #c3157a 52%, #6b1148 100%);
+  --t-flip-page: linear-gradient(var(--w-color-surface, #fff), var(--w-color-surface, #fff));
   --t-flip-page-filter: none;
   display: flex;
   align-items: center;
@@ -92,10 +93,10 @@
   width: 2px;
   height: 100%;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--pomo-ink) 35%, transparent);
+  background: color-mix(in srgb, var(--pomo-ink) 22%, transparent);
   transition: background-color var(--w-motion-fast) var(--w-motion-ease-smooth);
 }
-.pomo-tick.is-on { background: color-mix(in srgb, var(--pomo-ink) 90%, transparent); }
+.pomo-tick.is-on { background: var(--w-color-accent, #2563eb); }
 
 .pomo-range {
   position: absolute;
@@ -121,7 +122,7 @@
   margin-top: calc((var(--pomo-slider-h) - var(--pomo-thumb-h)) / 2);
   border: 0;
   border-radius: 2px;
-  background: var(--pomo-ink);
+  background: var(--w-color-accent, #2563eb);
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 20%);
   transition: transform var(--w-motion-fast) var(--w-motion-ease-smooth);
 }
@@ -130,14 +131,14 @@
   height: var(--pomo-thumb-h);
   border: 0;
   border-radius: 2px;
-  background: var(--pomo-ink);
+  background: var(--w-color-accent, #2563eb);
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 20%);
   transition: transform var(--w-motion-fast) var(--w-motion-ease-smooth);
 }
 .pomo-range:is(:active, .is-pressed)::-webkit-slider-thumb { transform: scale(var(--w-motion-thumb-scale)); }
 .pomo-range:is(:active, .is-pressed)::-moz-range-thumb { transform: scale(var(--w-motion-thumb-scale)); }
-.pomo-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px rgb(0 0 0 / 20%), 0 0 0 4px var(--pomo-ink); }
-.pomo-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px rgb(0 0 0 / 20%), 0 0 0 4px var(--pomo-ink); }
+.pomo-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--w-color-surface, #fff), 0 0 0 4px var(--pomo-ink); }
+.pomo-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--w-color-surface, #fff), 0 0 0 4px var(--pomo-ink); }
 /* 运行中不能再改时长：刻度只剩进度可读。 */
 .pomo-range:disabled { cursor: default; opacity: 0.55; }
 
@@ -150,7 +151,7 @@
   border-radius: 40px;
   background: var(--pomo-chip);
   color: var(--pomo-ink);
-  font-size: 12px;
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
   line-height: 20px;
   transition:
@@ -170,7 +171,7 @@
 :root[data-size="preview"] .pomo-presets,
 :root[data-size="preview"] .pomo-start { display: none; }
 
-/* 主按钮用这张卡自己的墨色：白药丸配画面底色的字，深浅两种配色下都一样。 */
+/* 主按钮用强调色底与对应的反色字，浅色与深色下都是卡片上最重的一块。 */
 .pomo-start {
   display: inline-flex;
   width: 100%;
@@ -179,28 +180,25 @@
   justify-content: center;
   padding: 0 12px;
   border-radius: 40px;
-  background: var(--pomo-ink);
-  color: #2a0319;
+  background: var(--w-color-accent, #2563eb);
+  color: var(--w-color-on-accent, #fff);
   font-size: 13px;
   font-weight: 500;
   line-height: 20px;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 20%);
   transition:
     transform var(--w-motion-press) var(--w-motion-ease-smooth),
     background-color var(--w-motion-press) var(--w-motion-ease-smooth),
-    color var(--w-motion-press) var(--w-motion-ease-smooth),
-    box-shadow var(--w-motion-press) var(--w-motion-ease-smooth);
+    color var(--w-motion-press) var(--w-motion-ease-smooth);
 }
 .pomo-start:is(:active, .is-pressed) { transform: scale(var(--w-motion-press-scale)); }
 .pomo-start:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--pomo-chip), 0 0 0 4px var(--pomo-ink); }
-.pomo-start[aria-pressed="true"] { background: var(--pomo-chip); color: var(--pomo-ink); box-shadow: none; }
+.pomo-start[aria-pressed="true"] { background: var(--pomo-chip-active); color: var(--pomo-ink); }
 @media (hover: hover) and (pointer: fine) {
   .pomo-start[aria-pressed="true"]:hover { background: var(--pomo-chip-hover); }
 }
 
 /* 窄列：左右各收一点，读数仍然放得下。 */
 @media (max-width: 320px) {
-  .pomo { padding-inline: 16px; }
   .pomo-time { font-size: 48px; line-height: 56px; }
 }
 
@@ -211,7 +209,7 @@
     --pomo-tick-h: 16px;
     --pomo-thumb-h: 28px;
     gap: 12px;
-    padding: 16px;
+    padding: 14px 16px;
   }
   .pomo-time { font-size: 42px; line-height: 50px; }
   .pomo-preset { height: 28px; }

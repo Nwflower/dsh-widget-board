@@ -147,8 +147,8 @@
   background: var(--w-color-accent, #2563eb);
 }
 
-.calendar-card__dot[data-tone="warn"] { background: #b45309; }
-.calendar-card__dot[data-tone="danger"] { background: #b91c1c; }
+.calendar-card__dot[data-tone="warn"] { background: var(--w-tone-warn); }
+.calendar-card__dot[data-tone="danger"] { background: var(--w-tone-danger); }
 
 @media (max-width: 320px) {
   .calendar-card__month { font-size: 12px; }

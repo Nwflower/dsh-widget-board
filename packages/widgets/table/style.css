@@ -55,3 +55,14 @@
 
 .table-card__table th:first-child,
 .table-card__table td:first-child { padding-left: 0; }
+
+/* 档位：行距与字号跟着盒子长一档；矮盒子收紧，数据多时由滚动区承接。 */
+:root[data-box-height="short"] .table-card__table th,
+:root[data-box-height="short"] .table-card__table td { padding-block: 6px; }
+:root[data-box-height="tall"] .table-card__table { font-size: var(--w-type-title, 16px); line-height: 24px; }
+:root[data-box-height="tall"] .table-card__table th { padding-block: 12px; }
+:root[data-box-height="tall"] .table-card__table td { padding-block: 14px; }
+:root[data-box-width="wide"] .table-card__table th,
+:root[data-box-width="wide"] .table-card__table td { padding-right: var(--w-space-xl, 24px); }
+:root[data-box-width="wide"] .table-card__table th[data-align="right"],
+:root[data-box-width="wide"] .table-card__table td[data-align="right"] { padding-right: 0; padding-left: var(--w-space-xl, 24px); }

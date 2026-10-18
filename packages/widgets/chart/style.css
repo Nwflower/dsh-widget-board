@@ -5,10 +5,35 @@
   gap: var(--w-space-sm, 8px);
 }
 
+/*
+ * 图表区是一块两列两行的栅格：左列刻度值、右列绘图区，下一行是时间轴。刻度值的行高与绘图区的
+ * 三条网格线对齐（顶、中、底各一条），所以上下各留出半个字高。
+ */
+.chart-card__chart {
+  display: grid;
+  min-height: 72px;
+  flex: 1;
+  grid-template: minmax(0, 1fr) auto / auto minmax(0, 1fr);
+  column-gap: var(--w-space-sm, 8px);
+  row-gap: var(--w-space-xs, 4px);
+}
+
+.chart-card__yaxis {
+  display: flex;
+  margin-block: -8px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
 .chart-card__plot {
   position: relative;
-  min-height: 56px;
-  flex: 1;
+  min-height: 0;
 }
 
 .chart-card__svg {
@@ -20,7 +45,7 @@
 
 .chart-card__grid line {
   stroke: color-mix(in srgb, var(--w-color-border, #e5e7eb) 78%, transparent);
-  stroke-width: 0.5;
+  stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
@@ -33,23 +58,36 @@
   vector-effect: non-scaling-stroke;
 }
 
-.chart-card__area {
-  fill: color-mix(in srgb, var(--w-color-accent, #2563eb) 14%, transparent);
-}
+.chart-card__stop { stop-color: var(--w-color-accent, #2563eb); }
+.chart-card__stop--top { stop-opacity: 0.26; }
+.chart-card__stop--bottom { stop-opacity: 0; }
+.chart-card[data-kind="area"] .chart-card__stop--top { stop-opacity: 0.4; }
+
+.chart-card__area { fill: url(#chart-fill); }
 
 .chart-card__bar {
   fill: var(--w-color-accent, #2563eb);
   opacity: 0.82;
 }
 
-.chart-card__dot {
-  fill: var(--w-color-accent, #2563eb);
+/* 末端数据点：用 HTML 圆点按百分比摆放，SVG 随盒子拉伸时它仍是正圆。 */
+.chart-card__end {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid var(--w-color-surface, #fff);
+  border-radius: 50%;
+  background: var(--w-color-accent, #2563eb);
+  box-shadow: 0 0 0 1px var(--w-color-accent, #2563eb);
+  transform: translate(-50%, -50%);
 }
 
-.chart-card[data-kind="line"] .chart-card__area,
+.chart-card__end[hidden] { display: none; }
+
 .chart-card[data-kind="bar"] .chart-card__line,
 .chart-card[data-kind="bar"] .chart-card__area,
-.chart-card[data-kind="bar"] .chart-card__dot,
+.chart-card[data-kind="bar"] .chart-card__end,
 .chart-card[data-kind="line"] .chart-card__bars,
 .chart-card[data-kind="area"] .chart-card__bars {
   display: none;
@@ -57,7 +95,8 @@
 
 .chart-card__axis {
   display: flex;
-  flex: none;
+  grid-column: 2;
+  min-width: 0;
   justify-content: space-between;
   gap: var(--w-space-md, 12px);
   overflow: hidden;
@@ -84,6 +123,10 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-height: 260px) {
-  .chart-card__caption { display: none; }
-}
+:root[data-box-height="short"] .chart-card__caption { display: none; }
+:root[data-box-height="tall"] .chart-card__yaxis,
+:root[data-box-height="tall"] .chart-card__axis,
+:root[data-box-height="tall"] .chart-card__caption { font-size: var(--w-type-body, 14px); }
+:root[data-box-height="tall"] .chart-card__line { stroke-width: 3; }
+:root[data-box-height="tall"] .chart-card__end { width: 12px; height: 12px; }
+:root[data-box-width="narrow"] .chart-card__yaxis { font-size: 11px; }

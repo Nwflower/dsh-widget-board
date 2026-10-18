@@ -51,6 +51,7 @@
     "type": "object",
     "required": ["current", "daily"],
     "properties": {
+      "timezone": { "type": "string" },
       "current": {
         "type": "object",
         "required": ["temperature_2m", "weather_code"],

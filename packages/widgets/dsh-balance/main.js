@@ -2,6 +2,10 @@
  * DSH 余额卡的脚本：经 `widget.call('dsh.account.balance')` 读当前账号的充值钱包与赠送钱包（D24）。
  *
  * 组件库的缩略画面不调用宿主：没有观众，也不该在预览里弹授权；那里画一份静态样例。
+ *
+ * 能力回 `status: 'failed'` 表示宿主这时没有可读的账号（账户服务缺席、没有登录、查询期间账号变了），
+ * 这是一个正常的空态：`data-state` 仍是 `failed`，`data-tone` 取 `neutral`，显示中性的「登录后显示余额」；
+ * 只有调用本身被拒绝或出错才是故障，`data-tone` 取 `error`，用错误色并给出原因（D11、D24）。
  */
 (function () {
   var card = document.querySelector('.balance')
@@ -47,8 +51,9 @@
     return any ? total.toFixed(2) : ''
   }
 
-  function paint(state, amount, currency, bonus, note) {
+  function paint(state, amount, currency, bonus, note, tone) {
     card.dataset.state = state
+    card.dataset.tone = tone === undefined ? 'neutral' : tone
     write(fields.amount, amount)
     write(fields.currency, currency)
     write(fields.bonus, bonus)
@@ -61,7 +66,7 @@
 
   function render(balance) {
     if (balance === null || typeof balance !== 'object' || balance.status !== 'ready') {
-      paint('failed', '—', '', '', tr('读不到余额', 'failed'))
+      paint('failed', '—', '', '', tr('登录后显示余额', 'signedOut'))
       return
     }
     var recharge = wallets(balance.value)
@@ -78,13 +83,13 @@
 
   function failed(error) {
     var message = error !== null && error !== undefined && error.message ? error.message : tr('读不到余额', 'failed')
-    paint('failed', '—', '', '', message)
+    paint('failed', '—', '', '', message, 'error')
   }
 
   var pending = null
   function load() {
     if (widget === undefined || typeof widget.call !== 'function') {
-      failed({ message: '组件运行时没有能力调用接口' })
+      paint('failed', '—', '', '', tr('登录后显示余额', 'signedOut'))
       return
     }
     if (pending !== null) return

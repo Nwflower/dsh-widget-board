@@ -30,49 +30,29 @@
       return [
         '## 发布前检查',
         '',
-        '这一页要能在一眼内读完。先删掉不回答任何问题的卡片。',
-        '',
-        '- 尺寸矩阵在 1×6 到 4×30 都通过',
-        '- 浅色与深色都核对过',
-        '- 空态、加载与错误都能看见',
-        '',
         '| 项目 | 状态 |',
         '| --- | --- |',
-        '| 组件 | 已就绪 |',
-        '| 文档 | 已更新 |',
+        '| 尺寸矩阵 | 已通过 |',
+        '| 浅色与深色 | 已核对 |',
         '',
         '```ts',
         'const size = widget.size',
-        'if (size !== null) {',
-        '  console.log(size.w, size.h)',
-        '}',
-        '```',
-        '',
-        '> 改动一次只做一件事，方便回头核对。'
+        'console.log(size.w, size.h)',
+        '```'
       ].join('\n')
     }
     return [
       '## Pre-ship check',
       '',
-      'The page should read in one pass. Delete any card that answers no question.',
-      '',
-      '- Size matrix passes from 1×6 to 4×30',
-      '- Light and dark checked',
-      '- Empty, loading and error states are visible',
-      '',
       '| Item | State |',
       '| --- | --- |',
-      '| Components | Ready |',
-      '| Docs | Updated |',
+      '| Size matrix | Passed |',
+      '| Light and dark | Checked |',
       '',
       '```ts',
       'const size = widget.size',
-      'if (size !== null) {',
-      '  console.log(size.w, size.h)',
-      '}',
-      '```',
-      '',
-      '> One change at a time, so it is easy to check afterwards.'
+      'console.log(size.w, size.h)',
+      '```'
     ].join('\n')
   }
 

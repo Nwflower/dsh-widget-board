@@ -12,6 +12,7 @@
   "version": "0.1.0",
   "sizes": ["s", "l"],
   "capabilities": ["dsh.account.balance"],
+  "defaultBox": { "w": 1, "h": 14 },
   "minBox": { "w": 1, "h": 10 },
   "text": {
     "title": {
@@ -33,6 +34,10 @@
     "bonus": {
       "zh": "赠送",
       "en": "bonus"
+    },
+    "signedOut": {
+      "zh": "登录后显示余额",
+      "en": "Sign in to see your balance"
     },
     "failed": {
       "zh": "读不到余额",

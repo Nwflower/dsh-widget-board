@@ -132,6 +132,26 @@
     return isNaN(date.getTime()) ? new Date() : date
   }
 
+  /**
+   * 预报所在地今天的日期（`YYYY-MM-DD`）。
+   *
+   * Open-Meteo 的 `daily.time` 是地点当地的日期，不是看板所在机器的日期；两地跨过零点的时间不同，
+   * 直接拿第一项当「今天」会把星期与同屏时钟错开一天。响应里带地点的时区名时按它取，没有时按
+   * 本机时区。
+   */
+  function todayAt(zone) {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    } catch (error) {
+      return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    }
+  }
+
+  /** 卡片上方那一行：预报所在地这一天的月日与星期，与看板所在机器的日期可以不同。 */
+  function longDate(date, locale) {
+    return new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', weekday: 'long' }).format(date)
+  }
+
   /** 某一天的中文或英文星期名。 */
   function weekday(date, locale, style) {
     return new Intl.DateTimeFormat(locale, { weekday: style }).format(date)
@@ -262,7 +282,8 @@
     el.lo.textContent = '--'
     el.tabs.forEach(function (tab, index) {
       tabIcon(tab, 'cloud')
-      tab.querySelector('span').textContent = '—'
+      tab.querySelector('.wx-tab-day').textContent = '—'
+      tab.querySelector('.wx-tab-temp').textContent = '--'
       tab.disabled = true
       tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false')
       tab.setAttribute('tabindex', index === 0 ? '0' : '-1')
@@ -296,7 +317,8 @@
       var entry = days[index]
       if (entry !== undefined) tabIcon(tab, entry.icon)
       tab.disabled = entry === undefined
-      tab.querySelector('span').textContent = entry === undefined ? '—' : pick(entry.short)
+      tab.querySelector('.wx-tab-day').textContent = entry === undefined ? '—' : pick(entry.short)
+      tab.querySelector('.wx-tab-temp').textContent = entry === undefined ? '--' : entry.mean + '°'
       tab.setAttribute('aria-selected', index === i ? 'true' : 'false')
       tab.setAttribute('tabindex', index === i ? '0' : '-1')
     })
@@ -327,23 +349,31 @@
     if (!data || !data.daily || !Array.isArray(data.daily.time)) return false
     var daily = data.daily
     var currentReading = data.current || {}
-    var count = Math.min(daily.time.length, SLOTS, el.tabs.length)
+    // 缓存的响应可能已经跨过地点的零点：丢掉过去的日子，从今天起算；全是过去的日子时原样显示。
+    var today = todayAt(typeof data.timezone === 'string' ? data.timezone : '')
+    var first = 0
+    while (first < daily.time.length && String(daily.time[first]) < today) first += 1
+    if (first >= daily.time.length) first = 0
+    var count = Math.min(daily.time.length - first, SLOTS, el.tabs.length)
     if (count === 0) return false
     var next = []
-    for (var i = 0; i < count; i += 1) {
+    for (var n = 0; n < count; n += 1) {
+      var i = first + n
       var high = daily.temperature_2m_max[i]
       var low = daily.temperature_2m_min[i]
       if (typeof high !== 'number' || typeof low !== 'number') return false
       var mean = daily.temperature_2m_mean[i]
-      var code = i === 0 && typeof currentReading.weather_code === 'number' ? currentReading.weather_code : daily.weather_code[i]
+      var isToday = String(daily.time[i]) === today
+      var code = isToday && typeof currentReading.weather_code === 'number' ? currentReading.weather_code : daily.weather_code[i]
       var weather = describe(code)
       var date = dayOf(daily.time[i])
-      var temp = i === 0 && typeof currentReading.temperature_2m === 'number'
+      var temp = isToday && typeof currentReading.temperature_2m === 'number'
         ? Math.round(currentReading.temperature_2m)
         : Math.round(typeof mean === 'number' ? mean : (high + low) / 2)
       next.push({
-        name: { zh: weekday(date, 'zh-CN', 'long'), en: weekday(date, 'en-US', 'long') },
-        short: { zh: weekday(date, 'zh-CN', 'short'), en: weekday(date, 'en-US', 'short') },
+        name: { zh: longDate(date, 'zh-CN'), en: longDate(date, 'en-US') },
+        short: isToday ? { zh: '今天', en: 'Today' } : { zh: weekday(date, 'zh-CN', 'short'), en: weekday(date, 'en-US', 'short') },
+        mean: Math.round(typeof mean === 'number' ? mean : (high + low) / 2),
         icon: weather.icon,
         sky: weather.sky,
         condition: { zh: weather.zh, en: weather.en },

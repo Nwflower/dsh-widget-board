@@ -46,6 +46,7 @@
 - 组件在 widget.json 里声明默认数据源之后，看板上没有绑定数据源的旧卡片在加载时接上它，不必重新加卡。
 - 会话工具的看板操作扩展到全部看板：widget_board 列出所有看板并可指定读哪一块，widget_place 可把新卡放到指定的看板，widget_push 与 widget_remove 按全工作区唯一的卡片 id 找到那张卡，不必先切换选中的看板。
 - 提供方的服务类型现在有一个只含类型的入口（`dsh-widget-board/service`）：用 `import type` 取类型，运行时只走服务，从 `service.apiVersion` 读版本，不复制常量，也不为绕开规则添加 `dsh.client.external`。客户端产物只依赖平台种子，这一条由构建检查；原生组件的重名注册被拒绝并保留先到的那一个，把手名下的数据源与动作必须与把手同名。插件停用或卸载时，组件、数据源、动作与它留下的授权一起撤下，卡片保留并显示不可用，启用之后恢复。
+- 内置组件的视觉统一：标题区不再带英文眉标与编号，右上角的统计随界面语言显示；番茄钟与天气回到单色基调，强调色只留给进度、当前项与主按钮，饱和色只留给图片、全息与磁吸卡，这几张在深色下各有一套从看板底色推出来的明度；翻转卡用令牌的正反两面；数字、表盘、时钟、翻转卡、表格、待办空态与余额按高度档位放大读数；图表补上面积填充、刻度值与末端数据点；天气预报每天带温度，「今天」按预报所在地的日期判定，缓存跨零点后自动丢掉过去的日子；题头右侧改成一块缩小的看板图案；键值卡与 Markdown 卡的示例收短，滚动区在行首吸附，Markdown 卡的最小高度抬到 18rem 以放下默认内容；余额卡没有登录时显示「登录后显示余额」，只有调用出错才用错误色；月历、时钟、改动、表盘与热力图补上默认盒子与最小盒子。
 
 ### 问题修复
 
@@ -97,6 +98,7 @@
 - Once a widget declares a default data source in widget.json, existing cards on a board that have none are bound to it when the board loads, without re-adding them.
 - The session tools now work across all boards: widget_board lists every board and reads a chosen one, widget_place can add a card to a chosen board, and widget_push and widget_remove find the card by its workspace-wide instance id without switching the selected board first.
 - Provider service types now have a type-only entry (`dsh-widget-board/service`): import types with `import type`, call through the service at runtime, read the version from `service.apiVersion`, and never add `dsh.client.external` to get around the rule. The client artifact depends only on the platform seeds, and the build checks it; a duplicate native widget id is refused with the first registration kept, and a handle's data sources and actions must carry the handle's provider. Disabling or unloading a provider withdraws its widgets, data sources, actions and leftover grants, leaves its cards in place as unavailable, and restores them when it returns.
+- Built-in widget visuals are unified. Title areas no longer carry English eyebrows or numbers, and the top-right counts follow the interface language. Pomodoro and weather return to the monochrome base with the accent reserved for progress, the current item and the primary button; saturated color stays on the image, holographic and magnetic cards, each with a dark-scheme value derived from the board background, while the flip card uses the token pair on its two faces. Stat, gauge, clock, flip card, table, the todo empty state and balance scale their readouts by height tier. The chart gains an area fill, tick values and an end dot. Each weather forecast day shows its temperature, and "today" follows the forecast location's date, dropping past days from a cached response. The board hero art becomes a miniature board. The key-value and Markdown samples are shorter, scroll areas snap to row starts and the Markdown card's minimum height is raised to 18rem so its default content fits. The balance card shows "Sign in to see your balance" when no account is signed in and uses the error color only when the call fails. Calendar, clock, diff, gauge and heatmap now declare a default box and a minimum box.
 
 ### Bug Fixes
 

@@ -15,7 +15,7 @@
   gap: 6px;
   margin: 0;
   color: var(--w-color-fg, #0b1016);
-  font-size: clamp(26px, 17vw, 46px);
+  font-size: clamp(32px, 20vmin, 72px);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.05em;
@@ -26,24 +26,25 @@
 .balance__currency {
   flex: none;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 11px;
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
   letter-spacing: 0;
 }
 
 .balance__bonus {
-  margin: 8px 0 0;
-  color: var(--w-color-accent, #2563eb);
-  font-family: var(--t-mono);
-  font-size: 11px;
+  margin: var(--w-space-sm, 8px) 0 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
   line-height: 16px;
 }
 
+.balance__bonus:empty { display: none; }
+
 .balance__note {
-  margin: 6px 0 0;
+  margin: var(--w-space-xs, 4px) 0 0;
   color: var(--w-color-muted, #6b7684);
-  font-size: 11px;
+  font-size: var(--w-type-caption, 12px);
   line-height: 16px;
   overflow-wrap: anywhere;
 }
@@ -73,6 +74,16 @@
 /* 缩略画面是静态样例：刷新按钮收起来，也不接指针（与套件的 preview 排法一致）。 */
 :root[data-placement="preview"] .balance__refresh { display: none; }
 
-.balance[data-state="failed"] .balance__amount { color: var(--w-color-danger, #b91c1c); }
 .balance[data-state="ready"] .balance__amount { color: var(--w-color-fg, #0b1016); }
-.balance[data-state="loading"] .balance__amount { color: var(--w-color-muted, #6b7684); }
+.balance[data-state="loading"] .balance__amount,
+.balance[data-state="failed"] .balance__amount { color: var(--w-color-muted, #6b7684); }
+.balance:not([data-state="ready"]) .balance__amount { font-size: clamp(28px, 10vmin, 44px); }
+/* 只有真正读取失败才用错误色，且落在原因那一行，不染大号读数。 */
+.balance[data-state="failed"][data-tone="error"] .balance__note { color: var(--w-tone-danger); }
+
+/* 档位：高盒子把金额放大一档，说明与赠送长到正文字号。 */
+:root[data-box-height="tall"] .balance[data-state="ready"] .balance__amount { font-size: clamp(48px, 24vmin, 112px); }
+:root[data-box-height="tall"] .balance__bonus,
+:root[data-box-height="tall"] .balance__note,
+:root[data-box-height="tall"] .balance__currency { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-height="short"] .balance[data-state="ready"] .balance__note { display: none; }

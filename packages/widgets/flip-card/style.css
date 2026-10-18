@@ -29,7 +29,8 @@
 
 .flip-card__front {
   border: 1px solid color-mix(in srgb, var(--w-color-border, #dfe4ea) 80%, transparent);
-  background: var(--w-color-surface, #fff);
+  background-color: var(--w-color-surface, #fff);
+  background-image: radial-gradient(circle at 82% 14%, color-mix(in srgb, var(--w-color-fg, #0b1016) 7%, transparent), transparent 56%);
 }
 
 /*
@@ -54,9 +55,9 @@
 .flip-card__kicker:empty { display: none; }
 
 .flip-card__title {
-  margin: var(--w-space-xl, 24px) 0 0;
+  margin: auto 0 0;
   color: inherit;
-  font-size: clamp(24px, 8vw, 40px);
+  font-size: clamp(24px, min(9vw, 14vh), 64px);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.04;
@@ -92,6 +93,11 @@
   .flip-card__back { padding: 16px; }
   .flip-card__title { font-size: 24px; }
 }
+
+/* 高盒子：说明长一档字号；两面的标题与说明在中段居中，提示贴底。 */
+:root[data-box-height="tall"] .flip-card__text { font-size: var(--w-type-title, 16px); line-height: 24px; }
+:root[data-box-height="tall"] .flip-card__front,
+:root[data-box-height="tall"] .flip-card__back { padding: var(--w-space-xl, 24px); }
 
 @media (max-height: 260px) {
   .flip-card__text { display: none; }

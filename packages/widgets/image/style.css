@@ -25,6 +25,24 @@
   object-fit: cover;
 }
 
+/*
+ * 默认封面：色相固定，亮度从卡片底色混出。浅色下是淡色底，深色下是同色相的暗底，
+ * 不会在深色卡片里亮成一块白。
+ */
+.image-card__cover {
+  --cover-hue: #3b6fe0;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 76% 34%, color-mix(in srgb, var(--cover-hue) 8%, var(--w-color-surface, #fff)) 0 14%, transparent 14.4%),
+    radial-gradient(circle at 88% 56%, color-mix(in srgb, var(--cover-hue) 14%, var(--w-color-surface, #fff)) 0 8%, transparent 8.4%),
+    radial-gradient(circle, color-mix(in srgb, var(--cover-hue) 52%, transparent) 1.2px, transparent 1.6px) 0 0 / 18px 18px,
+    linear-gradient(145deg, color-mix(in srgb, var(--cover-hue) 20%, var(--w-color-surface, #fff)), color-mix(in srgb, var(--cover-hue) 38%, var(--w-color-surface, #fff)));
+}
+
+.image-card__cover[hidden] { display: none; }
+
 .image-card__placeholder {
   position: absolute;
   inset: 0;

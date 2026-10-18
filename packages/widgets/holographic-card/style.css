@@ -2,10 +2,12 @@
  * 全息卡的样式。
  *
  * 彩虹与高光的几何在运行时套件里（.t-holo）；这里写底色、边框与文案排版。
- * 底色足够暗，彩虹只当光泽，浅色与深色下文字都保持可读（D10）。
+ * 底色足够暗，彩虹只当光泽，浅色与深色下文字都保持可读（D10）。底色的明度从看板底色推出来：
+ * 浅色看板上是深海军蓝；深色看板上抬亮一档、边框加亮，卡片才从深灰的底上分得出来。
  */
 
 .holo-card {
+  --holo-base: oklch(from var(--w-color-bg, #fff) calc(0.2 + (1 - l) * 0.16) 0.04 265);
   position: relative;
   z-index: 0;
   display: flex;
@@ -13,9 +15,9 @@
   box-sizing: border-box;
   flex-direction: column;
   padding: clamp(18px, 5vw, 30px);
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid color-mix(in srgb, #fff 16%, transparent);
   border-radius: var(--w-radius-card, 24px);
-  background: #0a0e16;
+  background: var(--holo-base);
   color: #f8fafc;
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -32,7 +34,7 @@
   inset: 0;
   z-index: 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgb(10 14 22 / 46%) 0%, rgb(10 14 22 / 12%) 38%, rgb(10 14 22 / 52%) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--holo-base) 46%, transparent) 0%, color-mix(in srgb, var(--holo-base) 12%, transparent) 38%, color-mix(in srgb, var(--holo-base) 52%, transparent) 100%);
   pointer-events: none;
 }
 

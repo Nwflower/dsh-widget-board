@@ -24,7 +24,7 @@
   display: flex;
   width: 100%;
   min-width: 0;
-  max-width: 168px;
+  max-width: 240px;
   flex-direction: column;
   align-items: center;
   gap: var(--w-space-sm, 8px);
@@ -33,13 +33,13 @@
 
 .gauge-card__item:only-child {
   grid-column: 1 / -1;
-  max-width: 190px;
+  max-width: 280px;
 }
 
 .gauge-card__ring {
   position: relative;
   width: 100%;
-  max-width: 124px;
+  max-width: 120px;
   aspect-ratio: 1;
   container-type: inline-size;
 }
@@ -103,22 +103,26 @@
   max-width: 100%;
   overflow: hidden;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
   font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
   line-height: 16px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-@media (max-width: 320px) {
-  .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: var(--w-space-sm, 8px); }
-  .gauge-card__label { font-size: var(--w-type-caption, 12px); }
-}
-
-@media (max-height: 260px) {
-  .gauge-card__note { display: none; }
-  .gauge-card__grid { gap: var(--w-space-sm, 8px); }
-}
+/*
+ * 档位：环的最大直径跟盒子高度走。窄盒子收到一行能放下三个环；矮盒子去掉说明；高盒子把环放大，
+ * 标签与说明升一档字号，不在大盒子里缩成一小撮。
+ */
+:root[data-box-width="narrow"] .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px 8px; }
+:root[data-box-width="narrow"] .gauge-card__label { font-size: 11px; }
+:root[data-box-height="short"] .gauge-card__note { display: none; }
+:root[data-box-height="short"] .gauge-card__grid { gap: 8px; }
+:root[data-box-height="tall"] .gauge-card__ring { max-width: 200px; }
+:root[data-box-height="tall"] .gauge-card__label { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-height="tall"] .gauge-card__note { font-size: var(--w-type-caption, 12px); }
+:root[data-box-height="tall"] .gauge-card__grid { gap: var(--w-space-xl, 24px) var(--w-space-md, 12px); }
 
 :root[data-motion="reduced"] .gauge-card__arc { transition: none; }

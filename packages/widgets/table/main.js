@@ -41,8 +41,10 @@
         rows: [
           { name: '宿主', state: '在线', latency: '12 ms' },
           { name: '组件库', state: '在线', latency: '4 ms' },
-          { name: '事件推送', state: '重连中', latency: '—' },
-          { name: '数据源', state: '未绑定', latency: '—' }
+          { name: '事件推送', state: '在线', latency: '9 ms' },
+          { name: '数据源', state: '在线', latency: '31 ms' },
+          { name: '凭据服务', state: '在线', latency: '6 ms' },
+          { name: '文档路由', state: '在线', latency: '3 ms' }
         ]
       }
     }
@@ -56,8 +58,10 @@
       rows: [
         { name: 'Host', state: 'Online', latency: '12 ms' },
         { name: 'Library', state: 'Online', latency: '4 ms' },
-        { name: 'Events', state: 'Reconnecting', latency: '—' },
-        { name: 'Data source', state: 'Not bound', latency: '—' }
+        { name: 'Events', state: 'Online', latency: '9 ms' },
+        { name: 'Data source', state: 'Online', latency: '31 ms' },
+        { name: 'Credentials', state: 'Online', latency: '6 ms' },
+        { name: 'Documents', state: 'Online', latency: '3 ms' }
       ]
     }
   }

@@ -206,3 +206,15 @@
 
 .md-card__body .hljs-meta,
 .md-card__body .hljs-tag { color: var(--w-color-muted, #6b7684); }
+
+/* 档位：高盒子与宽盒子里正文长一档，标题随之放大；窄盒子收紧缩进。 */
+:root[data-box-height="tall"] .md-card__body,
+:root[data-box-width="wide"] .md-card__body { font-size: var(--w-type-title, 16px); line-height: 26px; }
+:root[data-box-height="tall"] .md-card__body h1,
+:root[data-box-width="wide"] .md-card__body h1 { font-size: var(--w-type-heading, 20px); }
+:root[data-box-height="tall"] .md-card__body h2,
+:root[data-box-width="wide"] .md-card__body h2 { font-size: var(--w-type-title, 16px); }
+:root[data-box-height="tall"] .md-card__body pre,
+:root[data-box-width="wide"] .md-card__body pre { font-size: var(--w-type-body, 14px); line-height: 22px; }
+:root[data-box-width="narrow"] .md-card__body ul,
+:root[data-box-width="narrow"] .md-card__body ol { padding-left: 16px; }

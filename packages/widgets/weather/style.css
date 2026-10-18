@@ -1,35 +1,37 @@
 /*
  * 天气卡的样式。
  *
- * 天空是这张卡自己的画面：渐变、光斑、雨与闪电的颜色属于天气，不随主题走，压在上面的文字因此
- * 固定用白色。主题令牌只管这张卡的边框、投影与底部那条预报切换栏（D10）。
+ * 底色、字色与边框走主题令牌，与其他数据卡同一个基调；天空只是压在表面色上的一层淡色渐变，
+ * 浅色与深色下都从表面色混出，不会满铺饱和色。强调色只用在预报栏当前选中的那一天上（D10）。
  *
  * 卡片填满看板给的盒子：天空铺满，文字按盒子的宽高重新排版，盒子变矮时收掉次要信息（D16）。
  * 动效原语（数字、文字、图标、切换栏）来自运行时套件；这里只有天气自己的排版与天空。
  */
 
 .wx {
-  --wx-ink: #fff;
-  --wx-ink-muted: color-mix(in srgb, #fff 78%, transparent);
-  --wx-sun: #ffd75e;
+  --wx-ink: var(--w-color-fg, #0b1016);
+  --wx-ink-muted: var(--w-color-muted, #6b7684);
+  --wx-sun: color-mix(in srgb, #f59e0b 86%, var(--w-color-fg, #0b1016));
   --wx-icon: 48px;
   --wx-radius: var(--w-radius-card, 24px);
-  /* 切换栏压在天空上：一层暗色玻璃，药丸与选中文字用画面自己的墨色，不跟宿主的强调色。 */
-  --tabs-bar: color-mix(in srgb, #000 16%, transparent);
-  --tabs-pill: color-mix(in srgb, #fff 22%, transparent);
+  /* 预报栏：一条淡底，药丸是强调色，选中的字用它的反色。 */
+  --tabs-bar: color-mix(in srgb, var(--w-color-fg, #0b1016) 6%, transparent);
+  --tabs-pill: var(--w-color-accent, #2563eb);
   --tabs-label: var(--wx-ink-muted);
-  --tabs-label-active: var(--wx-ink);
+  --tabs-label-active: var(--w-color-on-accent, #fff);
   position: relative;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   width: 100%;
   /* iframe 的视口就是卡片的内容盒；撑满它，高度由看板给的盒子决定（D16）。 */
   height: 100vh;
   min-height: 0;
   overflow: hidden;
   isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
   border-radius: var(--wx-radius);
-  background: var(--w-color-bg, #0b1016);
+  background: var(--w-color-surface, #fff);
   color: var(--wx-ink);
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -47,12 +49,12 @@
 .wx-bg[data-wx="clear"] .wx-sky[data-key="clear"],
 .wx-bg[data-wx="cloudy"] .wx-sky[data-key="cloudy"],
 .wx-bg[data-wx="rain"] .wx-sky[data-key="rain"],
-.wx-bg[data-wx="storm"] .wx-sky[data-key="storm"] { opacity: 1; }
+.wx-bg[data-wx="storm"] .wx-sky[data-key="storm"] { background: linear-gradient(180deg, color-mix(in srgb, #334155 24%, var(--w-color-surface, #fff)) 0%, var(--w-color-surface, #fff) 78%); }
 
-.wx-sky[data-key="clear"] { background: linear-gradient(180deg, #1f6fd1 0%, #2f7fdb 55%, #3b8ae0 100%); }
-.wx-sky[data-key="cloudy"] { background: linear-gradient(180deg, #4e6a85 0%, #7a91a8 100%); }
-.wx-sky[data-key="rain"] { background: linear-gradient(180deg, #3f5266 0%, #5f7388 100%); }
-.wx-sky[data-key="storm"] { background: linear-gradient(180deg, #323b47 0%, #56616e 100%); }
+.wx-sky[data-key="clear"] { background: linear-gradient(180deg, color-mix(in srgb, #3b82f6 13%, var(--w-color-surface, #fff)) 0%, var(--w-color-surface, #fff) 78%); }
+.wx-sky[data-key="cloudy"] { background: linear-gradient(180deg, color-mix(in srgb, #64748b 14%, var(--w-color-surface, #fff)) 0%, var(--w-color-surface, #fff) 78%); }
+.wx-sky[data-key="rain"] { background: linear-gradient(180deg, color-mix(in srgb, #475569 18%, var(--w-color-surface, #fff)) 0%, var(--w-color-surface, #fff) 78%); }
+.wx-sky[data-key="storm"] { background: linear-gradient(180deg, color-mix(in srgb, #334155 24%, var(--w-color-surface, #fff)) 0%, var(--w-color-surface, #fff) 78%); }
 
 .wx-blob {
   position: absolute;
@@ -64,14 +66,14 @@
   bottom: -110px;
   width: 240px;
   height: 240px;
-  background: radial-gradient(circle, rgba(255, 200, 120, 0.34), rgba(255, 200, 120, 0) 65%);
+  background: radial-gradient(circle, rgba(255, 190, 90, 0.2), rgba(255, 200, 120, 0) 65%);
 }
 .wx-blob--cool {
   left: -130px;
   top: 70px;
   width: 280px;
   height: 280px;
-  background: radial-gradient(circle, rgba(110, 190, 255, 0.32), rgba(110, 190, 255, 0) 68%);
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.16), rgba(110, 190, 255, 0) 68%);
   animation-duration: calc(var(--w-motion-drift) * 1.3);
   animation-direction: alternate-reverse;
 }
@@ -80,14 +82,14 @@
   top: 110px;
   width: 300px;
   height: 170px;
-  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 68%);
+  background: radial-gradient(ellipse, rgba(148, 163, 184, 0.16), rgba(148, 163, 184, 0) 68%);
 }
 .wx-blob--cloud2 {
   right: -90px;
   bottom: 30px;
   width: 240px;
   height: 150px;
-  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 68%);
+  background: radial-gradient(ellipse, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0) 68%);
   animation-duration: calc(var(--w-motion-drift) * 1.25);
   animation-direction: alternate-reverse;
 }
@@ -96,14 +98,14 @@
   bottom: -40px;
   width: 320px;
   height: 200px;
-  background: radial-gradient(ellipse, rgba(170, 200, 230, 0.22), rgba(170, 200, 230, 0) 68%);
+  background: radial-gradient(ellipse, rgba(100, 130, 170, 0.16), rgba(100, 130, 170, 0) 68%);
 }
 .wx-blob--storm {
   right: -100px;
   top: 40px;
   width: 300px;
   height: 200px;
-  background: radial-gradient(ellipse, rgba(140, 160, 190, 0.2), rgba(140, 160, 190, 0) 68%);
+  background: radial-gradient(ellipse, rgba(100, 116, 139, 0.18), rgba(100, 116, 139, 0) 68%);
 }
 @keyframes wx-drift {
   from { transform: translate(0, 0) scale(1); }
@@ -118,7 +120,7 @@
   width: 1.5px;
   height: var(--len, 16px);
   border-radius: 1px;
-  background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42));
+  background: linear-gradient(transparent, color-mix(in srgb, var(--w-color-fg, #0b1016) 38%, transparent));
   animation: wx-fall var(--w-motion-rain) linear infinite;
   animation-delay: calc(var(--w-motion-rain) * var(--d) * -1);
 }
@@ -130,7 +132,7 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: radial-gradient(ellipse at 70% 0%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(ellipse at 70% 0%, color-mix(in srgb, var(--w-color-fg, #0b1016) 18%, transparent), transparent 70%);
   animation: wx-flash var(--w-motion-flash) ease-out infinite;
 }
 @keyframes wx-flash {
@@ -141,16 +143,17 @@
 }
 
 /* 内容 */
-.wx-body { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 24px 24px 0; }
+.wx-body { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: var(--w-space-lg, 16px) var(--w-space-lg, 16px) 0; }
 .wx-place {
   overflow: hidden;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: var(--w-type-title, 16px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 22px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.wx-day { font-size: 12px; line-height: 16px; color: var(--wx-ink-muted); }
+.wx-day { font-size: var(--w-type-caption, 12px); line-height: 16px; color: var(--wx-ink-muted); }
 .wx-hero {
   display: flex;
   align-items: center;
@@ -163,25 +166,26 @@
   flex: 1;
   align-items: baseline;
   min-width: 0;
-  font-size: 60px;
+  font-size: clamp(56px, min(22vw, 20vh), 120px);
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  line-height: 70px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
-.wx-cond { margin-top: 4px; font-size: 13px; line-height: 20px; }
+.wx-cond { margin-top: var(--w-space-xs, 4px); font-size: var(--w-type-body, 14px); font-weight: 500; line-height: 20px; }
 .wx-hl {
   color: var(--wx-ink-muted);
-  font-size: 12px;
+  font-size: var(--w-type-caption, 12px);
   font-variant-numeric: tabular-nums;
   line-height: 16px;
   white-space: nowrap;
 }
 
 /* 大图标 */
-.wx-big { flex: none; display: grid; width: 64px; height: 64px; place-items: center; }
+.wx-big { flex: none; display: grid; width: calc(var(--wx-icon) + 16px); height: calc(var(--wx-icon) + 16px); place-items: center; }
 .wx-big svg { width: var(--wx-icon); height: var(--wx-icon); stroke-width: 2.1; }
 .wx-big .t-icon[data-key="sun"], .wx-big .t-icon[data-key="bolt"] { color: var(--wx-sun); }
-.wx-big .t-icon[data-key="cloud"], .wx-big .t-icon[data-key="rain"] { color: var(--wx-ink); }
+.wx-big .t-icon[data-key="cloud"], .wx-big .t-icon[data-key="rain"] { color: var(--wx-ink-muted); }
 .wx-idle { display: grid; place-items: center; }
 .wx-idle--spin { animation: wx-spin var(--w-motion-spin) linear infinite; }
 .wx-idle--float { animation: wx-float var(--w-motion-float) var(--w-motion-ease-standard) infinite alternate; }
@@ -209,7 +213,7 @@
   width: 2.5px;
   height: 7px;
   border-radius: 2px;
-  background: var(--wx-ink);
+  background: var(--wx-ink-muted);
   opacity: 0;
   animation: wx-drop var(--w-motion-drop) ease-in infinite;
 }
@@ -221,27 +225,40 @@
   100% { transform: translateY(10px); opacity: 0; }
 }
 
-/* 切换栏：套件给滑动药丸与文字过渡，这里只定它在这张卡里的位置与墨色。 */
-.wx-tabs { margin: 16px 12px 12px; }
+/*
+ * 预报栏：套件给滑动药丸与文字过渡；每一格从上到下是星期、天气图标与当天的平均温度。星期与温度
+ * 都不大于正文的说明字号，读数的层级由大温度、天气文字、高低温逐级往下。
+ */
+.wx-tabs { margin: var(--w-space-md, 12px); }
+.wx-tabs .t-tab,
+.wx-tabs .t-tabs-pill { height: 64px; }
+.wx-tabs .t-tab { gap: 3px; font-size: var(--w-type-caption, 12px); line-height: 16px; }
 .wx-tabs .t-tab:focus-visible { outline-color: var(--wx-ink); }
+.wx-tab-day { order: -1; font-weight: 500; }
+.wx-tab-temp { font-size: var(--w-type-caption, 12px); font-variant-numeric: tabular-nums; font-weight: 600; }
 
 /* 窄列：字号收一号，切换栏的图标缩小，内容仍然放得进一屏。 */
 @media (max-width: 340px) {
-  .wx-body { padding: 18px 18px 0; }
-  .wx-temp { font-size: 52px; line-height: 62px; }
-  .wx-tabs { margin: 12px 10px 10px; }
-  .wx-tabs .t-tab { height: 42px; }
-  .wx-tabs .t-tabs-pill { height: 42px; }
+  .wx-body { padding: var(--w-space-md, 12px) var(--w-space-md, 12px) 0; }
+  .wx-tabs { margin: var(--w-space-sm, 8px); }
+  .wx-tabs .t-tab,
+  .wx-tabs .t-tabs-pill { height: 58px; }
 }
 
 /* 矮盒子：先收字号与内边距；再矮就把预报切换栏与次要信息收掉，留下天气本身。 */
 @media (max-height: 360px) {
-  .wx-body { padding: 16px 18px 0; }
+  .wx-body { padding: var(--w-space-md, 12px) var(--w-space-lg, 16px) 0; }
   .wx-temp { font-size: 46px; line-height: 54px; }
-  .wx-cond { font-size: 12px; line-height: 18px; }
-  .wx-tabs { margin: 10px 8px 8px; }
+  .wx-cond { font-size: var(--w-type-caption, 12px); line-height: 18px; }
+  .wx-tabs { margin: var(--w-space-sm, 8px); }
   .wx-tabs .t-tab,
-  .wx-tabs .t-tabs-pill { height: 36px; }
+  .wx-tabs .t-tabs-pill { height: 56px; }
+}
+
+@media (max-height: 300px) {
+  .wx-tab-temp { display: none; }
+  .wx-tabs .t-tab,
+  .wx-tabs .t-tabs-pill { height: 44px; }
 }
 
 @media (max-height: 260px) {

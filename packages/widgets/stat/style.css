@@ -14,7 +14,7 @@
   gap: var(--w-space-sm, 8px);
   margin: 0;
   color: var(--w-color-fg, #0b1016);
-  font-size: clamp(40px, 16vw, 72px);
+  font-size: clamp(48px, 22vmin, 96px);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.035em;
@@ -59,8 +59,15 @@
 .stat[data-trend="down"] .stat__delta { color: var(--w-tone-danger); }
 .stat[data-trend="flat"] .stat__delta { color: var(--w-color-muted, #6b7684); }
 
-@media (max-height: 260px) {
-  .stat__value { font-size: 40px; }
-  .stat__trend { margin-top: var(--w-space-sm, 8px); }
-  .stat__caption { display: none; }
-}
+/* 高度档：矮盒子收字号并隐去说明；高盒子把读数放大到占满主体，趋势与说明跟着长一档。 */
+:root[data-box-height="short"] .stat__value { font-size: 40px; }
+:root[data-box-height="short"] .stat__trend { margin-top: var(--w-space-sm, 8px); }
+:root[data-box-height="short"] .stat__caption { display: none; }
+:root[data-box-height="tall"] .stat__value { font-size: clamp(72px, 30vmin, 160px); }
+:root[data-box-height="tall"] .stat__unit { font-size: var(--w-type-title, 16px); line-height: 24px; }
+:root[data-box-height="tall"] .stat__trend,
+:root[data-box-height="tall"] .stat__caption { font-size: var(--w-type-body, 14px); line-height: 22px; }
+:root[data-box-height="tall"] .stat__trend { margin-top: var(--w-space-lg, 16px); }
+
+/* 窄盒子：数字按宽度收，单位落到数字下面时不再顶出盒子。 */
+:root[data-box-width="narrow"] .stat__value { font-size: clamp(40px, 22vmin, 64px); }

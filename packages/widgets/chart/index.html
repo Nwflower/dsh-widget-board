@@ -7,16 +7,25 @@
     <span class="t-data__meta" data-field="meta"></span>
   </header>
   <div class="t-data__body chart-card__body">
-    <div class="chart-card__plot" data-role="plot" role="img">
-      <svg class="chart-card__svg" viewBox="0 0 100 52" preserveAspectRatio="none" aria-hidden="true">
-        <g class="chart-card__grid" data-role="grid"></g>
-        <path class="chart-card__area" data-role="area" d=""></path>
-        <path class="chart-card__line" data-role="line" d=""></path>
-        <g class="chart-card__bars" data-role="bars"></g>
-        <circle class="chart-card__dot" data-role="dot" r="1.6" cx="0" cy="0" hidden></circle>
-      </svg>
+    <div class="chart-card__chart">
+      <div class="chart-card__yaxis" data-role="yaxis" aria-hidden="true"></div>
+      <div class="chart-card__plot" data-role="plot" role="img">
+        <svg class="chart-card__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop class="chart-card__stop chart-card__stop--top" offset="0"></stop>
+              <stop class="chart-card__stop chart-card__stop--bottom" offset="1"></stop>
+            </linearGradient>
+          </defs>
+          <g class="chart-card__grid" data-role="grid"></g>
+          <path class="chart-card__area" data-role="area" d=""></path>
+          <path class="chart-card__line" data-role="line" d=""></path>
+          <g class="chart-card__bars" data-role="bars"></g>
+        </svg>
+        <span class="chart-card__end" data-role="end" hidden></span>
+      </div>
+      <div class="chart-card__axis" data-role="axis"></div>
     </div>
-    <div class="chart-card__axis" data-role="axis"></div>
     <p class="chart-card__caption" data-field="caption"></p>
     <p class="t-data__empty" data-role="empty" hidden>暂无采样点</p>
   </div>

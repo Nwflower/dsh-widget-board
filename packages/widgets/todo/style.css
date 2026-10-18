@@ -210,6 +210,13 @@
 }
 
 .todo-empty {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--w-space-md, 12px);
   margin: 0;
   padding: var(--w-space-lg, 16px) var(--w-space-md, 12px);
   border: 1px dashed color-mix(in srgb, var(--w-color-fg, #0b1016) 18%, transparent);
@@ -220,15 +227,30 @@
   text-align: center;
 }
 
+/* 空清单的图形：一个空心圆里一个勾，用边框画，随盒子放大。 */
+.todo-empty::before {
+  content: "";
+  width: clamp(28px, 12vmin, 64px);
+  height: clamp(28px, 12vmin, 64px);
+  border: 2px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 22%, transparent);
+  border-radius: 50%;
+  background:
+    linear-gradient(135deg, transparent 44%, color-mix(in srgb, var(--w-color-fg, #0b1016) 22%, transparent) 45% 55%, transparent 56%) 50% 56% / 34% 34% no-repeat;
+}
+
 .todo-empty[hidden] { display: none; }
 
-/* 矮盒子：收掉内边距与间距，清单先让出高度。 */
-@media (max-height: 300px) {
-  .todo { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
-  .todo-add { padding-top: var(--w-space-sm, 8px); }
-  .todo-input,
-  .todo-submit { height: 32px; }
-}
+/* 矮盒子：收掉内边距与间距，清单先让出高度，空态只留文字。 */
+:root[data-box-height="short"] .todo { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
+:root[data-box-height="short"] .todo-add { padding-top: var(--w-space-sm, 8px); }
+:root[data-box-height="short"] .todo-input,
+:root[data-box-height="short"] .todo-submit { height: 32px; }
+:root[data-box-height="short"] .todo-empty::before { display: none; }
+
+/* 高盒子：字号与行距长一档，空态的说明跟着放大。 */
+:root[data-box-height="tall"] .todo-text { font-size: var(--w-type-title, 16px); line-height: 24px; }
+:root[data-box-height="tall"] .todo-empty { font-size: var(--w-type-body, 14px); line-height: 22px; }
+:root[data-box-height="tall"] .todo-row { padding-block: 4px; }
 
 /* 加一条：底下一道分隔，输入框占满，右边一个加号。 */
 .todo-add {

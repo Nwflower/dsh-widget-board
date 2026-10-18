@@ -64,7 +64,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
+    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     return typeof props.meta === 'string' ? props.meta : ''
   }

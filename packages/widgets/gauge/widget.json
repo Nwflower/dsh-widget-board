@@ -11,7 +11,7 @@
   "author": "dsh-widget-board",
   "version": "0.1.0",
   "sizes": ["s", "l"],
-  "defaultBox": { "w": 1, "h": 22 },
+  "defaultBox": { "w": 1, "h": 18 },
   "minBox": { "w": 1, "h": 10 },
   "props": {
     "type": "object",

@@ -219,10 +219,10 @@
     var props = source !== null && typeof source === 'object' ? source : {}
     var found = zoneOf(props)
     state.showSeconds = props.showSeconds !== false
-    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
+    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : label('zone', isZh() ? '本地时间' : 'Local time'))
-    var meta = typeof props.meta === 'string' ? props.meta : ''
-    write(el.meta, meta !== '' ? meta : (found.zone !== '' ? shortZone(found.zone) : (isZh() ? '本地' : 'Local')))
+    var meta = typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    write(el.meta, meta !== '' ? meta : (found.invalid ? label('invalidZoneShort', isZh() ? '时区无效' : 'Invalid zone') : (found.zone !== '' ? shortZone(found.zone) : '')))
     el.meta.title = found.invalid ? label('invalidZone', '') : ''
     state.zone = found.zone
     state.drawn = ''

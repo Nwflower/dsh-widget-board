@@ -11,7 +11,7 @@
   "author": "dsh-widget-board",
   "version": "0.1.0",
   "sizes": ["s", "l"],
-  "defaultBox": { "w": 1, "h": 16 },
+  "defaultBox": { "w": 1, "h": 14 },
   "minBox": { "w": 1, "h": 10 },
   "props": {
     "type": "object",
@@ -28,6 +28,10 @@
     "zone": {
       "zh": "本地时间",
       "en": "Local time"
+    },
+    "invalidZoneShort": {
+      "zh": "时区无效",
+      "en": "Invalid zone"
     },
     "invalidZone": {
       "zh": "这个时区名读不出来，按本地时间显示",

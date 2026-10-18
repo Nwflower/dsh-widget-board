@@ -41,12 +41,17 @@
   line-height: 16px;
 }
 
-@media (max-width: 320px) {
-  .kv-card__body { grid-template-columns: minmax(0, 1fr); }
-  .kv-card__value { font-size: var(--w-type-body, 14px); line-height: 20px; }
-}
-
-@media (max-height: 260px) {
-  .kv-card__body { gap: var(--w-space-sm, 8px) var(--w-space-md, 12px); }
-  .kv-card__note { display: none; }
-}
+/*
+ * 档位：滚动区在行首吸附，停下时不会把一行切成两半；矮盒子收掉说明并保持两列，窄而不矮的盒子退成
+ * 一列；高盒子把数值放大，行在主体里居中。
+ */
+.kv-card__body { scroll-snap-type: y proximity; scroll-padding-block: var(--w-space-xs, 4px); }
+.kv-card__item { scroll-snap-align: start; }
+:root[data-box-width="narrow"]:not([data-box-height="short"]) .kv-card__body { grid-template-columns: minmax(0, 1fr); }
+:root[data-box-width="narrow"] .kv-card__value { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-height="short"] .kv-card__body { gap: var(--w-space-sm, 8px) var(--w-space-md, 12px); }
+:root[data-box-height="short"] .kv-card__note { display: none; }
+:root[data-box-height="tall"] .kv-card__body { align-content: center; gap: var(--w-space-xl, 24px) var(--w-space-lg, 16px); }
+:root[data-box-height="tall"] .kv-card__key,
+:root[data-box-height="tall"] .kv-card__note { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-height="tall"] .kv-card__value { font-size: clamp(24px, 7vmin, 40px); line-height: 1.15; }

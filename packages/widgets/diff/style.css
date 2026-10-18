@@ -56,8 +56,8 @@
   background: color-mix(in srgb, #dc2626 14%, transparent);
 }
 
-.diff-card__line[data-type="add"] .diff-card__sign { color: color-mix(in srgb, #15803d 74%, var(--w-color-fg, #0b1016)); }
-.diff-card__line[data-type="remove"] .diff-card__sign { color: color-mix(in srgb, #b42318 76%, var(--w-color-fg, #0b1016)); }
+.diff-card__line[data-type="add"] .diff-card__sign { color: color-mix(in srgb, #15803d 76%, var(--w-color-fg, #0b1016)); }
+.diff-card__line[data-type="remove"] .diff-card__sign { color: var(--w-tone-danger); }
 
 @media (max-width: 320px) {
   .diff-card__scroll { font-size: var(--w-type-caption, 12px); line-height: 18px; }

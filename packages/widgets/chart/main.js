@@ -1,8 +1,8 @@
 /*
  * 图表卡的脚本：把 data.points 画成折线、面积或柱状，props 的 kind 切换画法。
  *
- * 只有采样点与一条时间轴，不引第三方图表库；坐标在 100×52 的 viewBox 里算，SVG 按卡片拉伸，
- * 线宽用 vector-effect 保持像素宽度。
+ * 只有采样点、一条时间轴与三个刻度值，不引第三方图表库；坐标在 100×100 的 viewBox 里算，SVG 按
+ * 卡片拉伸，线宽用 vector-effect 保持像素宽度；刻度值与末端数据点是 HTML，不随拉伸变形。
  */
 (function () {
   var card = document.querySelector('.chart-card')
@@ -19,7 +19,8 @@
     area: card.querySelector('[data-role="area"]'),
     line: card.querySelector('[data-role="line"]'),
     bars: card.querySelector('[data-role="bars"]'),
-    dot: card.querySelector('[data-role="dot"]'),
+    end: card.querySelector('[data-role="end"]'),
+    yaxis: card.querySelector('[data-role="yaxis"]'),
     axis: card.querySelector('[data-role="axis"]'),
     caption: card.querySelector('[data-field="caption"]'),
     empty: card.querySelector('[data-role="empty"]')
@@ -32,6 +33,11 @@
 
   function format(value) {
     return new Intl.NumberFormat(isZh() ? 'zh-CN' : 'en-US').format(value)
+  }
+
+  /** 刻度值用紧凑写法，窄的刻度列放得下四位以上的数。 */
+  function tick(value) {
+    return new Intl.NumberFormat(isZh() ? 'zh-CN' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
   }
 
   /** 图表对读屏器的一句话：标题、采样点数与最新值。 */
@@ -103,48 +109,54 @@
     var count = points.length
     var coordinates = points.map(function (point, index) {
       var x = count === 1 ? 50 : (index / (count - 1)) * 100
-      var y = 46 - ((point.value - minimum) / span) * 42
+      var y = 100 - ((point.value - minimum) / span) * 100
       return { x: x, y: y }
     })
     var grid = []
-    ;[4, 18, 32, 46].forEach(function (y) {
+    ;[0, 50, 100].forEach(function (y) {
       grid.push(svg('line', { x1: 0, y1: y, x2: 100, y2: y }))
     })
     el.grid.replaceChildren.apply(el.grid, grid)
+
+    var ticks = [maximum, minimum + span / 2, minimum].map(function (value) {
+      var label = document.createElement('span')
+      label.textContent = tick(value)
+      return label
+    })
+    el.yaxis.replaceChildren.apply(el.yaxis, ticks)
+
+    el.plot.setAttribute('aria-label', describe(points))
 
     if (count === 0) {
       el.line.setAttribute('d', '')
       el.area.setAttribute('d', '')
       el.bars.replaceChildren()
-      el.dot.hidden = true
+      el.end.hidden = true
       el.axis.replaceChildren()
-      el.plot.setAttribute('aria-label', describe(points))
       return
     }
-
-    el.plot.setAttribute('aria-label', describe(points))
 
     var line = coordinates.map(function (point, index) {
       return (index === 0 ? 'M' : 'L') + point.x.toFixed(2) + ' ' + point.y.toFixed(2)
     }).join(' ')
-    var area = line + ' L' + coordinates[coordinates.length - 1].x.toFixed(2) + ' 46 L' + coordinates[0].x.toFixed(2) + ' 46 Z'
+    var last = coordinates[coordinates.length - 1]
+    var area = line + ' L' + last.x.toFixed(2) + ' 100 L' + coordinates[0].x.toFixed(2) + ' 100 Z'
     el.line.setAttribute('d', line)
     el.area.setAttribute('d', area)
-    el.dot.hidden = count !== 1
-    if (count === 1) {
-      el.dot.setAttribute('cx', String(coordinates[0].x))
-      el.dot.setAttribute('cy', String(coordinates[0].y))
-    }
+    el.end.hidden = false
+    el.end.style.left = last.x.toFixed(2) + '%'
+    el.end.style.top = last.y.toFixed(2) + '%'
 
     var step = 100 / Math.max(1, count)
-    var bars = coordinates.map(function (point) {
+    var bars = points.map(function (point, index) {
       var width = step * 0.56
+      var y = 100 - ((point.value - minimum) / span) * 100
       return svg('rect', {
         class: 'chart-card__bar',
-        x: (point.x - width / 2).toFixed(2),
-        y: point.y.toFixed(2),
+        x: ((index + 0.5) * step - width / 2).toFixed(2),
+        y: y.toFixed(2),
         width: width.toFixed(2),
-        height: Math.max(0, 46 - point.y).toFixed(2),
+        height: Math.max(0, 100 - y).toFixed(2),
         rx: 1
       })
     })
@@ -156,9 +168,9 @@
     labels.forEach(function (index) {
       if (seen[index]) return
       seen[index] = true
-      var span = document.createElement('span')
-      span.textContent = points[index].label
-      axis.push(span)
+      var item = document.createElement('span')
+      item.textContent = points[index].label
+      axis.push(item)
     })
     el.axis.replaceChildren.apply(el.axis, axis)
   }
@@ -188,6 +200,7 @@
     el.area.hidden = empty
     el.bars.hidden = empty
     el.axis.hidden = empty
+    el.yaxis.hidden = empty
     var meta = applyProps(widget === undefined ? {} : widget.props)
     write(el.meta, meta !== '' ? meta : summary(points))
   }

@@ -32,8 +32,6 @@ export interface TitlebarReading {
   controlsLeft: number
   /** 标签条的自然宽度。 */
   stripWidth: number
-  /** 页面是不是 Windows 桌面端。 */
-  windows: boolean
 }
 
 /** 标题栏里给标签条的一块位置。 */
@@ -53,7 +51,6 @@ export interface TitlebarSeat {
  * @returns 放得下时靠左的位置；宿主没有让出标题栏或宽度不够时是 `null`。
  */
 export function seatInTitlebar(reading: TitlebarReading): TitlebarSeat | null {
-  if (!reading.windows) return null
   const height = Math.round(reading.height)
   if (height <= 0 || reading.stripWidth <= 0) return null
   // 看板这一栏的顶边在标题栏下沿时，宿主已经把那条让出来了；否则挂上去会压住内容。
@@ -87,6 +84,5 @@ export function titlebarSeat(container: HTMLElement, stripWidth: number): Titleb
     height: band !== null && band.height > 0 ? band.height : FALLBACK_HEIGHT,
     controlsLeft: band !== null && band.width > 0 && band.right > 0 ? band.right : window.innerWidth - FALLBACK_CONTROLS,
     stripWidth,
-    windows: navigator.userAgent.includes('Windows'),
   })
 }

@@ -7,16 +7,11 @@ const WINDOW = {
   height: 40,
   controlsLeft: 1300,
   stripWidth: 100,
-  windows: true,
 }
 
 describe('标题栏里的标签条位置', () => {
-  it('Windows 桌面端让出标题栏时，标签条靠左放在菜单之后', () => {
+  it('桌面端让出标题栏时，标签条靠左放在菜单之后', () => {
     expect(seatInTitlebar(WINDOW)).toEqual({ height: 40, left: 300, right: 1288 })
-  })
-
-  it('其他平台没有这种标题栏', () => {
-    expect(seatInTitlebar({ ...WINDOW, windows: false })).toBeNull()
   })
 
   it('宿主没有让出标题栏时不挂', () => {

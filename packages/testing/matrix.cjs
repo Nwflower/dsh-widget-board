@@ -16,7 +16,7 @@ const { mkdirSync, mkdtempSync, rmSync } = require('node:fs')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
 const { frameOf } = require('./frames.cjs')
-const { writeLayouts, addInstance } = require('./board.cjs')
+const { keepOnlyGallery, writeLayouts, addInstance } = require('./board.cjs')
 const { openBoard } = require('./panel.cjs')
 const { openLibrary } = require('./library.cjs')
 
@@ -131,6 +131,8 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
     opened = await openPage(host.url, { width: 1600, height: 1000 })
     const page = opened.page
     await page.waitForSelector('svg.dsh-widget-board__icon', { timeout: 120000 })
+    // 只留画廊：精选看板上的翻面组两面共用一个盒子，单独摆其中一面量不出它自己的排版。
+    await keepOnlyGallery(page)
     await openBoard(page)
     const snapshot = await page.evaluate(async () => {
       const workspace = await (await fetch('api/widget-board/boards')).json()
@@ -138,11 +140,12 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
     })
     const metrics = await boardMetrics(page)
     // 矩阵铺满组件库里的每个组件，不跟着默认看板的组成走：默认看板只放一部分卡（D17）。
-    const missing = Object.values(snapshot.widgets)
-      .filter((widget) => widget.hash !== undefined && !snapshot.board.instances.some((instance) => instance.widget === widget.id))
-      .map((widget) => widget.id)
+    // 快照的组件元信息按 id 做键，值里没有 id。
+    const missing = Object.entries(snapshot.widgets)
+      .filter(([id, widget]) => widget.hash !== undefined && !snapshot.board.instances.some((instance) => instance.widget === id))
+      .map(([id]) => id)
     for (const widget of missing) {
-      await addInstance(page, widget)
+      check(`把 ${widget} 加到看板上`, await addInstance(page, widget) !== '')
     }
     await page.waitForFunction(
       (count) => document.querySelectorAll('.dsh-widget-board__flow[data-active="true"] [data-instance]').length >= count,

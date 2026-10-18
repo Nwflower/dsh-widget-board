@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">问题修复</h3>
+
+- 月历与翻页时钟在矮盒子里不再被截断：盒子落到 6rem 高时，月历收掉导航按钮与星期行、把日期数字收小，翻页时钟的字号下界跟着盒子高度收小。尺寸矩阵的纵向截断判据下全部组件通过。DSH 余额卡的读数改成始终保留两位小数、十亿起只留整数并标近似号，窄盒子放不下时依次收货币代码、收紧一档、折行；卡片多一个可选的标签（kicker）。
+
+<h3 id="en-unreleased">Bug Fixes</h3>
+
+- The calendar and the flip clock are no longer clipped in short boxes: at 6rem the calendar drops its nav buttons and weekday row and shrinks the day numbers, and the flip clock's minimum font size follows the box height. Every widget now passes the size matrix's vertical-clipping check. The DSH balance card keeps two decimals up to a billion and shows whole numbers with an approximation mark above that; in narrow boxes it drops the currency code, tightens a step, then wraps. The card gains an optional kicker label.
+
 ## [0.1.4] - 2026-10-18
 
 [中文](#cn-0.1.4) | [English](#en-0.1.4)

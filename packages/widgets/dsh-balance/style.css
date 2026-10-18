@@ -4,13 +4,13 @@
  * 骨架（底色、边框、标题区）来自套件的 `.t-data`；这里排读数、赠送与说明三块，并给刷新按钮
  * 一个右上角的位置。颜色、间距与动效从套件令牌读（D10）。
  *
- * 金额写成「上千位分组、小数降一档字号」的两段，靠 `em` 让整串随容器放缩：字号取容器的
- * `cqi`，行宽按字宽算——套件给卡片设了 `container-type: inline-size`，组件读它的宽度，不读
- * 视口。读不到容器单位时 `clamp()` 里那一段就是无效声明，回落到第一档字号。
+ * 读数是这一张卡的主体，字号按正文宽度取（正文自己是查询容器，`cqi` 读它），宽度与高度两个
+ * 档位各给一档；量出读数放不下一行时，脚本给读数加上收紧的类名。
  */
 .balance__body {
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--w-space-sm, 8px);
+  padding-top: var(--w-space-xs, 4px);
   container-type: inline-size;
 }
 
@@ -22,31 +22,41 @@
   gap: var(--w-space-md, 12px);
 }
 
+/*
+ * 金额写成两段：整数上千位分组，小数降一档字号，脚本按金额给出。整串不折行，放不下时由脚本
+ * 收紧一档，还放不下才允许折行。
+ */
 .balance__amount {
+  --balance-amount-font: clamp(30px, 15cqi, 96px);
   min-width: 0;
   margin: 0;
   color: var(--w-color-fg, #0b1016);
-  font-size: 28px;
-  font-size: clamp(28px, 9.5cqi, 88px);
+  font-size: var(--balance-amount-font);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   white-space: nowrap;
   transition: color var(--w-motion-base, 250ms) linear;
 }
 
+/* 只有收紧后仍放不下才加这个类：整串数字这时才允许折行。 */
+.balance__amount--wrapped {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .balance__fraction {
-  margin-left: 0.06em;
+  margin-left: 0.05em;
   color: var(--w-color-muted, #6b7684);
-  font-size: 0.46em;
+  font-size: 0.55em;
   font-weight: 500;
   letter-spacing: 0;
-  vertical-align: 0.3em;
 }
 
 .balance__aside {
   flex: none;
+  align-self: baseline;
   margin: 0;
   color: var(--w-color-muted, #6b7684);
   font-size: var(--w-type-caption, 12px);
@@ -117,7 +127,9 @@
 
 .balance[data-state="loading"] .balance__refresh svg path { opacity: 0.4; }
 
+/* 转一整圈再回到同一处：从 0 转到 360 度时浏览器在起止两帧之间会反着补一帧，看着像抖了一下。 */
 @keyframes balance-spin {
+  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
@@ -129,7 +141,8 @@
 .balance:not([data-state="ready"]) .balance__amount {
   color: var(--w-color-muted, #6b7684);
   font-size: var(--w-type-heading, 20px);
-  font-weight: 600;
+  line-height: 24px;
+  overflow-wrap: break-word;
 }
 
 /* 只有真正读取失败才用错误色，且落在原因那一行，不染大号读数。 */
@@ -140,11 +153,30 @@
 :root[data-box-width="narrow"] .balance__aside { order: 2; }
 :root[data-box-width="narrow"] .balance__refresh { width: 20px; height: 20px; }
 
-/* 矮盒子：收掉账号说明，读数让出位置给赠送。 */
-:root[data-box-height="short"] .balance[data-state="ready"] .balance__note { display: none; }
-:root[data-box-height="short"] .balance__body { gap: var(--w-space-xs, 4px); }
+/* 矮盒子：收掉账号说明，间距收一档，读数让出位置给赠送。 */
+:root[data-box-height="short"] .balance__body {
+  gap: var(--w-space-xs, 4px);
+  padding-top: 0;
+}
 
-/* 高盒子：说明与赠送长到正文字号。 */
-:root[data-box-height="tall"] .balance__bonus,
-:root[data-box-height="tall"] .balance__note,
-:root[data-box-height="tall"] .balance__aside { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-height="short"] .balance[data-state="ready"] .balance__note { display: none; }
+
+/*
+ * 字号档：宽度取正文（`cqi`），高盒子放大一档，短盒子收一档。读数一行放不下时先换成收紧的
+ * 一档，换档后还放不下才允许折行，由脚本把正文改成从上往下排。
+ */
+:root[data-box-height="regular"] .balance__amount { --balance-amount-font: clamp(30px, 15cqi, 96px); }
+:root[data-box-height="tall"] .balance__amount { --balance-amount-font: clamp(40px, 16.5cqi, 144px); }
+:root[data-box-height="short"] .balance__amount { --balance-amount-font: clamp(26px, 10.4cqi, 64px); }
+
+/*
+ * 收紧档：窄盒子（正文约 285px）里八位整数带千位逗号与两位小数放得下一行。有中间宽度的盒子
+ * （正文约 400px 以上）与宽盒子各放大一档。这一档直接写像素：卡片的隔离文档里 `cqi` 的换算
+ * 不可靠，收紧档要的是能稳住的大小。
+ */
+:root .balance__amount--tight { font-size: 22px; }
+:root[data-box-height="short"] .balance__amount--tight { font-size: 21px; }
+:root[data-box-height="tall"] .balance__amount--tight { font-size: 26px; }
+
+:root[data-box-width="regular"] .balance__amount--tight { font-size: 26px; }
+:root[data-box-width="wide"] .balance__amount--tight { font-size: 36px; }

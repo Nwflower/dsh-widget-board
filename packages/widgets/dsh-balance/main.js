@@ -7,8 +7,8 @@
  * 这是一个正常的空态：`data-state` 仍是 `failed`，`data-tone` 取 `neutral`，显示中性的「登录后显示余额」；
  * 只有调用本身被拒绝或出错才是故障，`data-tone` 取 `error`，用错误色并给出原因（D11、D24）。
  *
- * 读数按金额分三档排：零头收成两位、亿元降到整数，整数部分上千位分组，小数部分降一档字号。
- * 字号按容器宽度在样式里取（`cqi`）；盒子变了重排一次，全值写进读数的提示框。
+ * 读数保留两位小数、整数部分上千位分组、小数部分降一档字号；金额到十亿就只留整数并标近似号。
+ * 字号按容器宽度取（样式里的 `cqi`），一行放不下时依次让位：收货币代码、收紧一档、折行。
  */
 ;(function () {
   var card = document.querySelector('.balance')
@@ -20,16 +20,13 @@
   var fields = {}
   for (var index = 0; index < NAMES.length; index += 1) fields[NAMES[index]] = card.querySelector('[data-field="' + NAMES[index] + '"]')
 
-  /** 金额从细到粗试的几种排法。 */
-  var STYLES = [
-    { digits: 2, approx: false },
-    { digits: 0, approx: true },
-  ]
+  /** 金额的两种精度：到分，或只留整数并标上近似号。 */
+  var CENTS = { digits: 2, approx: false }
+  var WHOLE = { digits: 0, approx: true }
 
   var shown = null
   var started = false
   var pending = null
-  var queued = false
 
   function tr(fallback, key) {
     var value = widget !== undefined && typeof widget.t === 'function' ? widget.t(key) : key
@@ -56,9 +53,10 @@
   function total(list, currency) {
     var sum = 0
     var any = false
-    for (var i = 0; i < list.length; i += 1) {
-      if (list[i].currency !== currency) continue
-      var parsed = parseFloat(list[i].balance)
+    var entries = wallets(list)
+    for (var i = 0; i < entries.length; i += 1) {
+      if (entries[i] === null || typeof entries[i] !== 'object' || entries[i].currency !== currency) continue
+      var parsed = parseFloat(entries[i].balance)
       if (!isFinite(parsed)) continue
       sum += parsed
       any = true
@@ -70,8 +68,13 @@
     return text.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   }
 
+  /** 金额越大留的小数越少：十亿元以下到分，再往上只留整数。 */
+  function styleFor(amount) {
+    return Math.abs(amount) >= 1e8 ? WHOLE : CENTS
+  }
+
   function money(amount, currency) {
-    var text = parts(amount, currency, STYLES[0])
+    var text = parts(amount, currency, styleFor(amount))
     return text.head + text.tail
   }
 
@@ -89,16 +92,11 @@
     }
   }
 
-  /** 金额越大留的小数越少：万元以下到分，亿元以下保留两位，再往上只留整数。 */
-  function styleFor(amount) {
-    return Math.abs(amount) >= 1e8 ? STYLES[STYLES.length - 1] : STYLES[0]
-  }
-
   function renderAmount() {
     var amount = fields.amount
     if (amount === null) return
     amount.textContent = ''
-    if (shown === null || shown.amount === undefined) {
+    if (shown === null || typeof shown.amount !== 'number' || !isFinite(shown.amount)) {
       amount.textContent = '—'
       amount.title = ''
       return
@@ -111,11 +109,66 @@
       tail.textContent = chosen.tail
       amount.appendChild(tail)
     }
+    // 提示框写全值：大额只留整数并标近似号时，分位仍看得到。
     amount.title = chosen.full
   }
 
+  /** 读数占了几行：按高度与行高算，字号还没生效时当作一行。 */
+  function lines(amount) {
+    var lineHeight = parseFloat(getComputedStyle(amount).lineHeight)
+    if (!(lineHeight > 0)) return 1
+    return Math.max(1, Math.round(amount.getBoundingClientRect().height / lineHeight))
+  }
+
+  /** 一行里放不下整串读数：货币代码与它前面的间距占去的那部分不算给读数。 */
+  function tooWide(amount) {
+    var readout = amount.parentElement
+    var room = readout.clientWidth
+    var aside = fields.aside
+    if (aside !== null && !aside.hidden) room -= aside.getBoundingClientRect().width + (parseFloat(getComputedStyle(readout).gap) || 0)
+    return room > 0 && amount.scrollWidth > room
+  }
+
+  /** 读数一行放得下且只有一行。 */
+  function fits(amount) {
+    return !tooWide(amount) && lines(amount) === 1
+  }
+
+  /**
+   * 按当前盒子量一次排版，放不下时按顺序让位：先收货币代码，再收紧读数一档，最后才允许整串
+   * 折行、正文改成从上往下排。货币代码与全值都还在读屏文字与提示框里，收掉的只是看得见的那一份。
+   */
+  function fit() {
+    var amount = fields.amount
+    if (amount === null || shown === null) return
+    var body = amount.parentElement.parentElement
+    var aside = fields.aside
+    amount.classList.remove('balance__amount--tight', 'balance__amount--wrapped')
+    body.style.justifyContent = ''
+    if (aside !== null) aside.hidden = false
+    // 没有读数可量时（读取中、没登录、出错）只把货币代码放回去。
+    if (typeof shown.amount !== 'number' || amount.clientWidth <= 0 || fits(amount)) return
+    if (aside !== null) aside.hidden = true
+    if (fits(amount)) return
+    amount.classList.add('balance__amount--tight')
+    if (fits(amount)) return
+    amount.classList.add('balance__amount--wrapped')
+    body.style.justifyContent = 'flex-start'
+  }
+
+  // 一次布局里连着来的几条尺寸事件、几次画面更新，只在下一帧量一次。
+  var queued = false
+  function schedule() {
+    if (queued) return
+    queued = true
+    requestAnimationFrame(function () {
+      queued = false
+      fit()
+    })
+  }
+
   function render() {
-    var state = shown === null ? 'loading' : shown.state
+    var state = shown === null || shown.quiet === true ? 'ready' : shown.state
     card.dataset.state = state
     card.dataset.tone = shown === null || shown.tone === undefined ? 'neutral' : shown.tone
     renderAmount()
@@ -128,6 +181,12 @@
     show(fields.bonus, bonus !== '')
     put(fields.note, note)
     put(fields.sr, shown === null ? '' : shown.sr)
+    schedule()
+  }
+
+  function start() {
+    if (widget !== undefined && typeof widget.onSize === 'function') widget.onSize(function () { schedule() })
+    if (typeof ResizeObserver === 'function') new ResizeObserver(function () { schedule() }).observe(card)
   }
 
   function paint(next) {
@@ -140,21 +199,25 @@
       bonus: next.bonus === undefined ? '' : next.bonus,
       note: next.note === undefined ? '' : next.note,
       sr: next.sr === undefined ? '' : next.sr,
+      // 缩略画面只是样例：没有按钮可点，也不该转圈。
+      quiet: next.quiet === true,
     }
     if (fields.refresh !== null) fields.refresh.disabled = pending !== null
     render()
   }
 
   function renderPreview() {
+    // 金额取一位登录后常见的小额余额：缩略画面里既不空，也不会长到被收紧。
     var value = 1280.5
     paint({
       state: 'ready',
       amount: value,
       currency: 'CNY',
       aside: 'CNY',
-      bonus: tr('赠送', 'bonus') + ' ¥20.00',
-      note: tr('当前登录的 DSH 账号', 'note'),
+      bonus: tr('bonus', 'bonus') + ' ' + money(20, 'CNY'),
+      note: tr('note', 'note'),
       sr: money(value, 'CNY') + ' CNY',
+      quiet: true,
     })
   }
 
@@ -166,7 +229,9 @@
     var recharge = wallets(balance.value)
     var currencies = []
     for (var i = 0; i < recharge.length; i += 1) {
-      if (total(recharge, recharge[i].currency) !== undefined && currencies.indexOf(recharge[i].currency) < 0) currencies.push(recharge[i].currency)
+      var wallet = recharge[i]
+      if (wallet === null || typeof wallet !== 'object') continue
+      if (total(recharge, wallet.currency) !== undefined && currencies.indexOf(wallet.currency) < 0) currencies.push(wallet.currency)
     }
     if (currencies.length === 0) {
       paint({ state: 'ready', amount: '—', note: tr('账号没有钱包记录', 'empty'), sr: tr('账号没有钱包记录', 'empty') })
@@ -215,27 +280,13 @@
     })
   }
 
-  // 盒子换了，字数能不能放下跟着变；一次布局里连着来的几条尺寸事件只重排一次。
-  function remeasure() {
-    if (shown === null) return
-    if (queued) return
-    queued = true
-    requestAnimationFrame(function () {
-      queued = false
-      render()
-    })
-  }
-
   function consider(size) {
     if (size === null || size === undefined) return
     if (size.placement === 'preview') {
       renderPreview()
       return
     }
-    if (started) {
-      remeasure()
-      return
-    }
+    if (started) return
     started = true
     load()
   }
@@ -248,6 +299,7 @@
       if (pending === null) load()
     })
   }
+  start()
   if (widget !== undefined) {
     consider(widget.size)
     widget.onSize(consider)

@@ -9,11 +9,18 @@
     "en": "Reads the recharge and bonus wallets of the signed-in DeepSeek Harness account; no API key needed."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "capabilities": ["dsh.account.balance"],
   "defaultBox": { "w": 1, "h": 14 },
   "minBox": { "w": 1, "h": 10 },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 }
+    }
+  },
   "text": {
     "title": {
       "zh": "DSH 余额",
@@ -46,6 +53,14 @@
     "empty": {
       "zh": "账号没有钱包记录",
       "en": "No wallet on this account"
+    },
+    "props.kicker.label": {
+      "zh": "标签",
+      "en": "Label"
+    },
+    "props.kicker.hint": {
+      "zh": "显示在标题上方，例如「工作账号」",
+      "en": "Shown above the title, for example “Work account”"
     }
   }
 }

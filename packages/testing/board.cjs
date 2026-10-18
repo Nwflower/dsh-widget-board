@@ -122,4 +122,28 @@ async function resetCards(page) {
   }
 }
 
-module.exports = { activeBoard, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+/**
+ * 往选中的那块看板上加一张卡。
+ *
+ * 地址与客户端同一条：`api/widget-board/boards/<id>/instance`（D17）。矩阵用它把组件库里没在看板上的
+ * 组件也铺上，覆盖不跟着默认看板的组成走（D13）。
+ *
+ * @param page - 宿主页面。
+ * @param widget - 组件 id。
+ * @returns 新卡片的实例 id；加不进来时是空串。
+ */
+async function addInstance(page, widget) {
+  return page.evaluate(async (id) => {
+    const workspaceBody = await (await fetch('api/widget-board/boards')).json()
+    const board = workspaceBody.boards.find((entry) => entry.id === workspaceBody.active) ?? workspaceBody.boards[0]
+    const response = await fetch(`api/widget-board/boards/${encodeURIComponent(board.id)}/instance`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ widget: id }),
+    })
+    if (!response.ok) return ''
+    return (await response.json()).id ?? ''
+  }, widget)
+}
+
+module.exports = { activeBoard, addInstance, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

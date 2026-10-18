@@ -72,7 +72,7 @@ A provider imports the type from `dsh-widget-board/service` with `import type { 
 
 ## Status
 
-In development, not yet released. Session tools, inline display, the right sidebar and widget sharing are still to come.
+In development, not yet released. The right sidebar and widget sharing/import are still to come. The seven session tools (including `widget_show`) work: a widget an agent writes is drawn inline in the conversation, and after `widget_define` a page showing that conversation lays the new widget out in representative boxes and reports problems back in the tool result.
 
 ## License
 

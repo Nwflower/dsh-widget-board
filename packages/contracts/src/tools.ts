@@ -8,6 +8,7 @@
  * 工具的 `parameters` 是给模型看的 JSON Schema（`@deepseek-ai/dsh-llm` 的 `ToolSchema.parameters`），
  * 直接注册时由工具自己校验输入（见 `packages/host/src/tools/`）。
  */
+import type { SelfCheckResult } from './inspect'
 import type { WidgetCredential, WidgetFamily, WidgetSource } from './widget'
 import type { ActionPermission } from './service'
 /** 工具名（D9）；模型看到的就是这几个。 */
@@ -24,6 +25,8 @@ export const WIDGET_TOOL_NAMES = {
   remove: 'widget_remove',
   /** 把数据推给一张卡。 */
   push: 'widget_push',
+  /** 把一张卡或一份一次性的 props 与 data 画进当前会话。 */
+  show: 'widget_show',
 } as const
 
 /** 一个工具名。 */
@@ -55,9 +58,10 @@ export interface WidgetToolSpec {
    * 跑一次工具，返回规范 JSON 值。
    *
    * @param args - 模型给的参数，原样传进来（由实现校验）。
+   * @param call - 这次调用的 id 与取消信号；自检按 id 与会话里的工具视图对上（D9）。
    * @returns 规范值。
    */
-  execute(args: unknown): Promise<unknown>
+  execute(args: unknown, call: ToolCall): Promise<unknown>
   /**
    * 把规范值渲染成模型看到的内容。
    *
@@ -65,13 +69,28 @@ export interface WidgetToolSpec {
    * @returns 模型可见的内容块。
    */
   render(value: unknown): ToolContentBlock[]
+  /**
+   * 给会话里的工具视图留的一份数据：宿主把它随工具结果存进会话日志，会话重新打开时视图按它
+   * 重画（D9）。没有视图的工具不写。
+   *
+   * @param value - `execute` 返回的规范值。
+   * @returns 视图读的 JSON。
+   */
+  meta?(value: unknown): unknown
+}
+
+/** 一次工具调用的身份：宿主注册表交给 `execute` 的那几项里本插件用到的。 */
+export interface ToolCall {
+  callId: string
+  signal: AbortSignal
 }
 
 /**
  * 一个工具的注册项：宿主注册表读的形状。
  *
  * `output.schema` 会被用来校验 `execute` 的返回值，所以写成宽松的 `{}`——真正的形状由各自的
- * `render` 与单元测试盯着。
+ * `render` 与单元测试盯着。`presentationMeta` 的结果随 `tool/result` 存进会话日志，工具视图在
+ * 实时与重放两条路上读到的都是它（`@deepseek-ai/dsh-tools` 的 `ToolOutputDefinition`）。
  */
 export interface WidgetToolRegistration {
   name: string
@@ -80,8 +99,9 @@ export interface WidgetToolRegistration {
   output: {
     schema: Record<string, unknown>
     render(args: unknown, value: unknown): ToolContentBlock[]
+    presentationMeta?(args: unknown, value: unknown): unknown
   }
-  execute(args: unknown): Promise<unknown>
+  execute(args: unknown, exec: ToolCall): Promise<unknown>
 }
 
 /** 工具注册表：宿主发布 `ctx.tools` 的那几项里，本插件用到的两个方法。 */
@@ -282,6 +302,32 @@ export interface DefineValue {
   replaced: boolean
   /** 校验留下的说明：写下的文件、被改过的字段。 */
   notes: string[]
+  /** 自检的结论：在线页面把新版本放进代表性的盒子量过一遍（D9、D13）。 */
+  check: SelfCheckResult
+  /** 会话里预览这个组件用的 props 与 data（自检用的也是这一份）。 */
+  preview: { props: Record<string, unknown>, data: unknown }
+  title: { zh: string, en: string }
+  /** 预览的高度（rem）：组件的默认盒子，没有时按看板的默认高度。 */
+  height: number
+}
+
+/**
+ * `widget_show` 的返回值，也是工具视图重画所需的全部数据（D9）。
+ *
+ * 画的是调用那一刻的版本与数据：会话重新打开时按 `hash` 取回当时的组件文档（D7 的版本库），
+ * 不随看板上那张卡后来的变化而变。
+ */
+export interface ShowValue {
+  widget: string
+  title: { zh: string, en: string }
+  hash: string
+  props: Record<string, unknown>
+  data: unknown
+  state: unknown
+  /** 画在会话里的高度（rem）。 */
+  height: number
+  /** 来自看板上的哪张卡；一次性的快照没有。 */
+  card?: string
 }
 
 /** 一次工具调用失败的原因：抛出去，宿主把它收敛成 `isError`。 */

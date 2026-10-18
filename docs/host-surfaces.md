@@ -35,6 +35,8 @@
 - **`ctx.inject` 是读可选服务的唯一路子**：上下文是代理，读未声明的服务会抛；`ctx.inject(['tools'], cb)` 在服务出现时回调，服务缺席时插件照常起来。同一个上下文上可以再 `inject` 别的服务（本仓库用它把 `systemPrompt` 与 `skills` 挂成可选）。出处：`@deepseek-ai/cordis` 的 `RegistryService.inject`；本仓库的 `packages/host/src/tools/index.ts`。
 - **系统提示**：`ctx.systemPrompt.section({ name, order, text })` 返回释放函数；同名重复注册会抛出，所以要先释放旧的。出处：任务看板 `src/index.ts`。
 - **skill**：`ctx.skills.register(SkillRegistration)` 注册运行时 skill。出处：`dsh-skill/lib/types/index.d.ts`。
+- **虚拟 skill 会被列出来、模型能加载**（D9）：注册的 `widget-authoring` 在一个空的临时会话里输入 `/` 之后出现在「技能」一节；`invocation.modelInvocable` 与 `userInvocable` 都为真。出处：本仓库的 `packages/host/src/tools/index.ts`，在 0.2.1-rc.2 的真实临时宿主里核实（`packages/testing/dsh-web.cjs` 起的实例，打开新会话输入 `/`）。
+- **工具视图在 `result` 阶段读得到工具写的那一份数据**（D9）：工具注册项可以用 `output.presentationMeta(args, value)` 把一份 JSON 交给 `tool/result` 的 `meta`，视图的 `result` 阶段从 `block.meta` 读到同一份（`ToolResultNode` 的 `meta`）。出处：`dsh-tools/lib/types/index.d.ts` 的 `ToolOutputDefinition.presentationMeta` 与 `dsh-client-ui-conversation/lib/types/client/contract/records.d.ts` 的 `ToolResultNode`（0.2.1-rc.2，按类型声明核实）。会话重新打开时按同一份重画与视图在真实会话里的样子，还没有人在场的端到端核对（D9 的完成判据）。
 - **路由**：`ctx.webServer.register(route)`（`WebRoute` 来自 `@deepseek-ai/dsh-host-webserver`）交给插件原始请求，宿主的 `/api` 栅栏不覆盖插件路由。插件自己调用 `ctx.get('connection')?.requestRejection(req)` 借用宿主的栅栏与认证；没有这项服务时只放行本机回环。出处：`D:\DSH\dsh-claude-style\packages\engine\node\http.ts`。
 - **组件文档路由与 CSP 在真实宿主里跑通**（D3）：`kind: 'prefix'` 的一条路由交给插件整棵子树；`sandbox="allow-scripts"` 的 iframe 指向按哈希寻址的文档，文档里的运行时与组件脚本以内联 `<script nonce=…>` 运行，响应头的 CSP 是 `default-src 'none'`、`connect-src 'none'`；iframe 的导航请求带着会话 cookie，`requestRejection({ headers })` 放行。出处：本仓库的 `packages/host/src/routes.ts` 与 `packages/testing/smoke.cjs`（在 0.2.1-rc.1 上实证）。
 - **插件的私有路由必须放在 `/api/` 下，浏览器半边用文档相对的地址**（D1）：桌面外壳的页面来源是 `dsh-app://app`，它的协议处理器只把 `/api/*` 转给宿主的 web 服务——`api/task-board/state` 回 200，`plugins/…` 回 404，随包发布的客户端脚本地址也是文档相对的（`plugins/??<包名>/client.js` 没有开头斜杠）。前缀因此定成 `/api/widget-board`，客户端只从 `CLIENT_ROUTE` 拼地址。同一协议下的沙箱 iframe 指向 `api/…` 能正常加载（`load` 事件与 `contentWindow` 都正常）。出处：任务看板 `src/protocol.ts` 与 `src/client/host-api.ts` 的「DOCUMENT-RELATIVE」注释；本仓库在桌面外壳的页面里实测。
@@ -70,7 +72,6 @@
 每一项写明它影响哪个决定，以及怎么核实。核实之后移到上一节，或者按结果改写对应的 ADR。
 
 - **右侧栏标签页类型的注册入口**（D1）：类型声明里只看到外壳读取的 `tabTypes`，注册类型定义的方法要在 `dsh-client-ui-sidebar-right` 的 `client/service.d.ts` 与实现里找到，并在页面上打开一个自定义类型的标签页。
-- **`ctx.skills.register` 的虚拟 skill 能被模型列出并加载**（D9）。
-- **工具视图能否在会话重新打开后按工具结果重画**（D9）：`result` 阶段的 `block` 里能否读到工具返回的完整 JSON。
+- **工具视图在真实会话里的样子与会话重新打开后的重画**（D9）：`presentationMeta` → `tool/result.meta` → `block.meta` 的类型链已经核对；还缺有人在场的一次端到端（让模型调一次 `widget_define` 与 `widget_show`，看视图画出来，刷新之后还在）。
 - **`theme/change` 与 `--dsw-*` 计算值**（D10）：切换浅色、深色与皮肤时事件是否触发，从页面根节点读到的值是否已经是皮肤改写后的值。
 - **iframe 的进程与内存成本**（D16）：一页放 30 张卡片时的内存占用，以及暂停与卸载策略的效果。

@@ -47,6 +47,42 @@ export interface PanelPageRegistration {
   key: string
 }
 
+/**
+ * 会话里的工具视图（D9）：`kind: 'keyed'`、`scope: 'session'`，按线上工具名分派。
+ *
+ * 出处：`dsh-client-ui-tool/lib/types/client/contract/slots.d.ts`。注册已占用的键会替换原视图；
+ * 没有注册视图的工具用宿主的通用行。
+ */
+export const TOOL_VIEW_SLOT = 'tool.call.toolview'
+
+/** 工具视图的注册选项：键就是工具名。 */
+export interface ToolViewRegistration {
+  name: typeof TOOL_VIEW_SLOT
+  key: string
+}
+
+/**
+ * 工具视图收到的那几项（`ToolCallOwnerProps` 里本插件读的部分）。
+ *
+ * `preparing` 时参数可能还不完整；`start` 时调用已经发出、结果未到；`result` 时 `block` 带着
+ * 渲染给模型的内容、失败状态与工具存进会话日志的 `meta`——实时与重放两条路上都是同一份。
+ */
+export type ToolViewProps = {
+  callId: string
+  toolName: string
+} & (
+  | { phase: 'preparing', block: unknown }
+  | { phase: 'start', block: unknown }
+  | {
+    phase: 'result'
+    block: {
+      isError: boolean
+      content: readonly { type: string, text?: string }[]
+      meta?: unknown
+    }
+  }
+)
+
 /** 设置页里一节收到的宿主能力：关掉设置面板。 */
 export interface SettingsSectionProps {
   close: () => void
@@ -63,6 +99,7 @@ export interface SlotsService {
   register(options: PanelRowRegistration, component: unknown): () => void
   register(options: PanelPageRegistration, component: unknown): () => void
   register(options: SettingsSectionRegistration, component: unknown): () => void
+  register(options: ToolViewRegistration, component: unknown): () => void
 }
 
 /**

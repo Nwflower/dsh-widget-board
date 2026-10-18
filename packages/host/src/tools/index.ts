@@ -22,6 +22,7 @@ import { WIDGET_AUTHORING_GUIDE } from './guide'
 import { boardTool, catalogTool } from './read'
 import { placeTool, pushTool, removeTool } from './write'
 import { defineTool } from './define'
+import { showTool } from './show'
 
 /** 一次工具调用要动的东西：都在宿主这一侧，工具只经这里读写。 */
 export interface ToolContext {
@@ -153,13 +154,21 @@ const SKILL = {
  * @returns 工具的注册项。
  */
 export function toolRegistrations(context: ToolContext): WidgetToolRegistration[] {
-  return toolSpecs(context).map((spec) => ({
-    name: spec.name,
-    description: spec.description,
-    parameters: spec.parameters,
-    output: { schema: {}, render: (_args, value) => spec.render(value) },
-    execute: async (args) => await spec.execute(args),
-  }))
+  return toolSpecs(context).map((spec) => {
+    const meta = spec.meta
+    return {
+      name: spec.name,
+      description: spec.description,
+      parameters: spec.parameters,
+      output: {
+        schema: {},
+        render: (_args, value) => spec.render(value),
+        // 有视图的工具才写会话日志里的那一份；没有视图的工具不占日志（D9）。
+        ...(meta === undefined ? {} : { presentationMeta: (_args: unknown, value: unknown) => meta(value) }),
+      },
+      execute: async (args, exec) => await spec.execute(args, { callId: exec.callId, signal: exec.signal }),
+    }
+  })
 }
 
 /**
@@ -176,5 +185,6 @@ export function toolSpecs(context: ToolContext): WidgetToolSpec[] {
     placeTool(context),
     removeTool(context),
     pushTool(context),
+    showTool(context),
   ]
 }

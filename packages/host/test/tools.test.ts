@@ -9,9 +9,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import Ajv from 'ajv'
-import type { Board, BoardEvent, BoardValue, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, BoardValue, DefineValue, ShowValue, ToolCall, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
+import { createSelfChecks } from '../src/selfcheck'
 import type { WidgetRecord } from '../src/library'
 import { createToolContext, toolRegistrations } from '../src/tools'
 import { dataError } from '../src/schema'
@@ -129,6 +130,8 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[], boar
       revoke: async () => false,
       forget: async () => 0,
     },
+    // 自检要等在线页面交回报告；这一层没有页面，等一小会儿就给出 unverified。
+    selfChecks: createSelfChecks(20),
   } as unknown as RouteContext
   const save = async (
     change: (current: Board) => Board,
@@ -139,15 +142,20 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[], boar
   return { context, events, tools, toolContext }
 }
 
-/** 取一个工具；没有时抛出。 */
-function toolOf(harnessed: ReturnType<typeof harness>, name: string): WidgetToolRegistration {
+/** 一次调用的身份：自检按它对上会话页面（D9）。 */
+const CALL = { callId: 'call-1', signal: new AbortController().signal }
+
+/** 取一个工具；没有时抛出。调用身份省略时用 {@link CALL}。 */
+function toolOf(harnessed: ReturnType<typeof harness>, name: string): Omit<WidgetToolRegistration, 'execute'> & {
+  execute(args: unknown, exec?: ToolCall): Promise<unknown>
+} {
   const tool = harnessed.tools.get(name)
   if (tool === undefined) throw new Error(`没有工具 ${name}`)
-  return tool
+  return { ...tool, execute: async (args, exec = CALL) => await tool.execute(args, exec) }
 }
 
 describe('工具的定义', () => {
-  it('六个工具的名字与描述齐全', () => {
+  it('七个工具的名字与描述齐全', () => {
     const harnessed = harness()
     expect([...harnessed.tools.keys()].sort()).toEqual(Object.values(WIDGET_TOOL_NAMES).sort())
     for (const tool of harnessed.tools.values()) {
@@ -362,6 +370,58 @@ describe('widget_define', () => {
     expect(await readFile(join(root.dir, 'mine', 'main.js'), 'utf8')).toBe('void 0')
   })
 
+  it('自检把任务交给会话页面，页面交回的报告写进结果与模型看到的文字', async () => {
+    const harnessed = harness({ roots: [await userRoot()] })
+    harnessed.toolContext.reload = async () => {
+      harnessed.context.records.set('mine', record('mine', { minBox: { w: 2, h: 14 } }))
+    }
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.define)
+    const running = tool.execute({
+      id: 'mine',
+      manifest: { id: 'mine', title: { zh: '我的', en: 'Mine' }, version: '0.1.0', sizes: ['s'], data: { type: 'object', properties: { n: { type: 'number' } } } },
+      files: { 'index.html': '<p>hi</p>', 'style.css': 'p{}' },
+      preview: { props: {}, data: { n: 3 } },
+    }, { callId: 'define-1', signal: new AbortController().signal })
+    // 会话页面：轮询到任务，量完交回一个有问题的盒子。
+    let job = harnessed.context.selfChecks.take('define-1')
+    for (let attempt = 0; attempt < 50 && job === 'pending'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1))
+      job = harnessed.context.selfChecks.take('define-1')
+    }
+    expect(job).toMatchObject({ widget: 'mine', data: { n: 3 }, boxes: [{ cols: 2, h: 14 }, { cols: 4, h: 30 }] })
+    harnessed.context.selfChecks.settle('define-1', [{ box: { cols: 2, h: 14 }, problems: ['脚本错误：boom'] }])
+    const value = await running as DefineValue
+    expect(value.check).toMatchObject({ status: 'failed', problems: ['脚本错误：boom'] })
+    expect(value.preview).toEqual({ props: {}, data: { n: 3 } })
+    const text = tool.output.render({}, value)[0]?.text ?? ''
+    expect(text).toMatch(/自检发现问题[\s\S]*boom[\s\S]*replace: true/)
+    expect(tool.output.presentationMeta?.({}, value)).toEqual(value)
+  })
+
+  it('没有页面接手时结果写明 unverified', async () => {
+    const harnessed = harness({ roots: [await userRoot()] })
+    harnessed.toolContext.reload = async () => { harnessed.context.records.set('mine', record('mine')) }
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.define).execute({
+      id: 'mine',
+      manifest: { id: 'mine', title: { zh: '我的', en: 'Mine' }, version: '0.1.0', sizes: ['s'] },
+      files: { 'index.html': '<p>hi</p>', 'style.css': 'p{}' },
+    }) as DefineValue
+    expect(value.check.status).toBe('unverified')
+    expect(value.preview).toEqual({ props: {}, data: null })
+  })
+
+  it('preview 不符合组件自己的 schema 时在写盘之前拒绝', async () => {
+    const root = await userRoot()
+    const harnessed = harness({ roots: [root] })
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.define).execute({
+      id: 'mine',
+      manifest: { id: 'mine', title: { zh: '我的', en: 'Mine' }, version: '0.1.0', sizes: ['s'], data: { type: 'object', required: ['n'] } },
+      files: { 'index.html': '<p></p>', 'style.css': 'p{}' },
+      preview: { data: {} },
+    })).rejects.toThrow(/preview\.data/)
+    await expect(readFile(join(root.dir, 'mine', 'widget.json'), 'utf8')).rejects.toThrow()
+  })
+
   it('缺 index.html 或 style.css 时拒绝', async () => {
     const harnessed = harness({ roots: [await userRoot()] })
     await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.define).execute({
@@ -407,5 +467,63 @@ describe('widget_define', () => {
 describe('数据校验的接缝', () => {
   it('没有 schema 时任何数据都放行', () => {
     expect(dataError(undefined, { anything: true })).toBeUndefined()
+  })
+})
+
+describe('widget_show', () => {
+  /** 一块放着一张 stat 卡的看板。 */
+  function boardWithCard(): Board {
+    return {
+      ...emptyBoard(),
+      instances: [{
+        id: 'card-1',
+        widget: 'stat',
+        hash: 'b'.repeat(64),
+        props: { label: '请求' },
+        data: { n: 9 },
+        state: { open: true },
+        layout: { x: 0, y: 0, w: 1, h: 14 },
+      }],
+    }
+  }
+
+  it('画看板上的一张卡：带上它的版本、props、data、state 与高度', async () => {
+    const harnessed = harness({ boards: [boardWithCard()] })
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.show)
+    const value = await tool.execute({ card: 'card-1' }) as ShowValue
+    expect(value).toEqual({
+      widget: 'stat',
+      title: { zh: 'stat', en: 'stat' },
+      hash: 'b'.repeat(64),
+      props: { label: '请求' },
+      data: { n: 9 },
+      state: { open: true },
+      height: 14,
+      card: 'card-1',
+    })
+    // 视图在会话重新打开后按这一份重画：它要原样进会话日志。
+    expect(tool.output.presentationMeta?.({}, value)).toEqual(value)
+    expect(tool.output.render({}, value)[0]?.text).toMatch(/只读的快照/)
+  })
+
+  it('一次性快照按组件的 schema 校验 props 与 data，高度收进档位', async () => {
+    const harnessed = harness()
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.show)
+    const value = await tool.execute({ widget: 'chart', data: { n: 1 }, height: 13 }) as ShowValue
+    expect(value).toMatchObject({ widget: 'chart', hash: record('chart').hash, data: { n: 1 }, state: null, height: 14 })
+    expect(value.card).toBeUndefined()
+    await expect(tool.execute({ widget: 'chart', data: { n: 'x' } })).rejects.toThrow(/data schema/)
+  })
+
+  it('找不到卡或组件、什么都没写时拒绝', async () => {
+    const tool = toolOf(harness(), WIDGET_TOOL_NAMES.show)
+    await expect(tool.execute({ card: 'missing' })).rejects.toThrow(/没有这张卡/)
+    await expect(tool.execute({ widget: 'missing' })).rejects.toThrow(/没有可用的组件/)
+    await expect(tool.execute({})).rejects.toThrow(/写明 card/)
+  })
+
+  it('超过桥的长度上限的快照被拒绝', async () => {
+    const tool = toolOf(harness(), WIDGET_TOOL_NAMES.show)
+    await expect(tool.execute({ widget: 'chart', data: { n: 1, pad: 'x'.repeat(70 * 1024) } })).rejects.toThrow(/64 KiB/)
   })
 })

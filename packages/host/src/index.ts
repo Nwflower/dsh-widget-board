@@ -37,6 +37,7 @@ import { createProviderRegistry, widgetIdsIn } from './providers'
 import { registerDshAccount } from './dsh-account'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
+import { createSelfChecks } from './selfcheck'
 import type { ToolRegistration } from './tools'
 import { openWorkspace } from './workspace'
 import { watchTree } from './watch'
@@ -146,6 +147,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
     },
     credentials: () => credentialsOf(ctx),
+    selfChecks: createSelfChecks(),
   }
   // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责。
   const disposeHttpSource = sources.registerDataSource(

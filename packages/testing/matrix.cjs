@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
- * matrix.cjs — 组件尺寸矩阵：在真实临时宿主里把每个组件放进代表性的盒子，检查排版。
+ * matrix.cjs — 组件尺寸矩阵：在真实临时宿主里把每个组件放进代表性的盒子，检查排版（D13）。
  *
- * 只判定用户能观察到的结果：卡片没有横向滚出去、组件画出了内容、可见的交互控件没有被裁掉、
- * 控制台没有错误。失败时把那一格的截图写到 `.debug/matrix/`，供人工核对。
+ * 判定只走组件运行时里的检查器：横向溢出、被盒子截掉的文字与可见控件、空白画面、脚本错误与
+ * CSP 违规，与 `widget_define` 的自检是同一份判据。失败时把那一格的截图写到 `.debug/matrix/`，
+ * 供人工核对。
  *
  * 盒子取高度档位的两端与中段、宽度的一列、两列与四列；看板当前列数不足时按当前列数截断。
+ * 默认看板只铺一部分组件（D17），矩阵把组件库里其余的都加到看板上，覆盖不跟着默认看板的组成走。
  *
  * 用法：node packages/testing/matrix.cjs
  */
@@ -14,12 +16,14 @@ const { mkdirSync, mkdtempSync, rmSync } = require('node:fs')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
 const { frameOf } = require('./frames.cjs')
-const { keepOnlyGallery, writeLayouts } = require('./board.cjs')
+const { writeLayouts, addInstance } = require('./board.cjs')
 const { openBoard } = require('./panel.cjs')
 const { openLibrary } = require('./library.cjs')
 
 const ROOT = join(__dirname, '..', '..')
 const SHOTS = join(ROOT, '.debug', 'matrix')
+/** 检查器在组件文档里的全局名（`contracts` 的 `INSPECT_GLOBAL`）。 */
+const INSPECT_GLOBAL = '__dshWidgetInspect'
 const BOXES = [
   { w: 1, h: 6 },
   { w: 1, h: 10 },
@@ -100,46 +104,25 @@ async function waitBox(frame, width, height) {
 }
 
 /**
- * 量一个盒子里的排版：横向溢出、内容与可见控件。
+ * 量一个盒子里的排版：调用组件运行时里的检查器（D13），判定与自检用同一份。
  *
  * @param frame - 组件 iframe。
- * @returns 判定要用的状态。
+ * @returns 报告与它读出的问题；运行时没装检查器时是 `null`。
  */
 async function measure(frame) {
-  return frame.evaluate(() => {
-    const root = document.documentElement
-    const body = document.body
-    const controls = Array.from(document.querySelectorAll('button, input, select, textarea, a[href], [role="button"]'))
-      .filter((element) => {
-        const style = getComputedStyle(element)
-        return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0
-      })
-    /** 控件在可滚动区域里时，滚出去不算裁掉。 */
-    const scrollable = (element) => {
-      for (let node = element.parentElement; node !== null; node = node.parentElement) {
-        const style = getComputedStyle(node)
-        if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflow === 'auto' || style.overflow === 'scroll') return true
-      }
-      return false
-    }
-    const clipped = controls
-      .filter((element) => !scrollable(element))
-      .filter((element) => {
-        const box = element.getBoundingClientRect()
-        return box.left < -1 || box.top < -1 || box.right > innerWidth + 1 || box.bottom > innerHeight + 1
-      })
-      .slice(0, 3)
-      .map((element) => `${element.tagName.toLowerCase()}.${element.className}`.slice(0, 48))
-    const media = document.querySelectorAll('canvas, img, svg').length
-    return {
-      w: innerWidth,
-      h: innerHeight,
-      scrollX: root.scrollWidth > root.clientWidth + 1 || body.scrollWidth > root.clientWidth + 1,
-      content: `${body.innerText ?? ''}${''}`.trim().length + media,
-      controls: controls.length,
-      clipped,
-    }
-  })
+  return frame.evaluate((name) => {
+    const inspect = window[name]
+    if (typeof inspect !== 'function') return null
+    const report = inspect()
+    const problems = []
+    if (report.overflowX) problems.push('内容横向超出了盒子')
+    if (report.clippedText.length > 0) problems.push(`文字被截掉：${report.clippedText.join('、')}`)
+    if (report.clippedControls.length > 0) problems.push(`控件被截掉：${report.clippedControls.join('、')}`)
+    if (report.blank) problems.push('画面是空白的')
+    for (const error of report.errors) problems.push(`脚本错误：${error}`)
+    for (const blocked of report.csp) problems.push(`CSP 拦下了：${blocked}`)
+    return { report, problems }
+  }, INSPECT_GLOBAL)
 }
 
 start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) => {
@@ -148,14 +131,30 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
     opened = await openPage(host.url, { width: 1600, height: 1000 })
     const page = opened.page
     await page.waitForSelector('svg.dsh-widget-board__icon', { timeout: 120000 })
-    await keepOnlyGallery(page)
     await openBoard(page)
     const snapshot = await page.evaluate(async () => {
       const workspace = await (await fetch('api/widget-board/boards')).json()
       return { ...workspace, board: workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0] }
     })
     const metrics = await boardMetrics(page)
-    const instances = snapshot.board.instances
+    // 矩阵铺满组件库里的每个组件，不跟着默认看板的组成走：默认看板只放一部分卡（D17）。
+    const missing = Object.values(snapshot.widgets)
+      .filter((widget) => widget.hash !== undefined && !snapshot.board.instances.some((instance) => instance.widget === widget.id))
+      .map((widget) => widget.id)
+    for (const widget of missing) {
+      await addInstance(page, widget)
+    }
+    await page.waitForFunction(
+      (count) => document.querySelectorAll('.dsh-widget-board__flow[data-active="true"] [data-instance]').length >= count,
+      snapshot.board.instances.length + missing.length,
+      { timeout: 30000 },
+    ).catch(() => {})
+    await sleep(500)
+    const current = await page.evaluate(async () => {
+      const workspace = await (await fetch('api/widget-board/boards')).json()
+      return workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
+    })
+    const instances = current.instances
     const frames = new Map()
     for (const instance of instances) {
       const widget = snapshot.widgets[instance.widget]
@@ -186,8 +185,8 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
         const seen = await waitBox(frame, width, height)
         const state = await measure(frame)
         const sized = Math.abs(seen.w - width) <= 2 && Math.abs(seen.h - height) <= 2
-        const ok = sized && !state.scrollX && state.content > 0 && state.clipped.length === 0
-        check(label, ok, JSON.stringify(state))
+        const ok = sized && state !== null && state.problems.length === 0
+        check(label, ok, state === null ? '组件文档里没有检查器' : JSON.stringify(state.problems))
         if (!ok) {
           await page.locator(`iframe.dsh-widget-board__frame[title="${widget.title.zh || widget.title.en}"]`)
             .screenshot({ path: join(SHOTS, `${instance.widget}-${box.w}x${box.h}.png`) })
@@ -212,8 +211,8 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
       }))
       check(
         `缩略画面 ${title}`,
-        marker.size === 'preview' && marker.placement === 'preview' && !state.scrollX && state.content > 0,
-        JSON.stringify({ ...state, ...marker }),
+        marker.size === 'preview' && marker.placement === 'preview' && state !== null && state.problems.length === 0,
+        state === null ? '组件文档里没有检查器' : JSON.stringify(state.problems),
       )
     }
   } finally {

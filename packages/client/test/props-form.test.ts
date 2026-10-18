@@ -3,8 +3,22 @@
  *
  * 这里不画 React，只判字段表；保存时的宿主校验由宿主测试覆盖。
  */
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { fieldsOf, humanizeKey } from '../src/props-form'
+
+/**
+ * 文案按文档语言取（`copy.ts` 的 `currentLang`）；node 环境里没有 `document`，会退到
+ * `navigator.language`，那个值跟着机器走。用例要的是中文，所以这一层临时借一份最小的 `document`。
+ */
+type Globals = Record<string, unknown>
+const globals = globalThis as Globals
+const hadDocument = 'document' in globals
+beforeAll(() => {
+  if (!hadDocument) globals.document = { documentElement: { lang: 'zh-CN' } }
+})
+afterAll(() => {
+  if (!hadDocument) delete globals.document
+})
 
 const SCHEMA = {
   type: 'object',

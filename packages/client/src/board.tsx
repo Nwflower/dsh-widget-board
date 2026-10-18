@@ -27,7 +27,7 @@ import { isChinese, t } from './copy'
 import { CardEditorDialog } from './editor'
 import type { EditorTarget } from './editor'
 import { BoardDock } from './dock'
-import { createFrameHost } from './frame-host'
+import { frameHostOf } from './page-frames'
 import { FLIP_GROUP_ENTRY } from './group'
 import { subscribeLive } from './live'
 import { mergeEvent, mergeLayout, needsSnapshot } from './merge'
@@ -118,7 +118,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const flowRefs = useRef(new Map<string, HTMLDivElement>())
   /** 当前选中那块看板的「整理」：菜单上的按钮按它走。 */
   const tidyRef = useRef<(() => void) | null>(null)
-  const frames = useMemo(() => createFrameHost(), [])
+  const frames = useMemo(() => frameHostOf(), [])
 
   const controls = useMemo<CardControls>(() => ({
     register(id, handlers) {
@@ -412,9 +412,9 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     return () => { dispose() }
   }, [context])
 
-  // 主题一变就推给每张已握手的卡片：切浅色深色、换皮肤都不用重新加载（D10）。
+  // 主题一变就推给每张已握手的卡片：切浅色深色、换皮肤都不用重新加载（D10）。握手中心整页共用，
+  // 它比这一页活得久，离开看板时不能摘掉它（D3）。
   useEffect(() => { frames.broadcast(theme) }, [frames, theme])
-  useEffect(() => () => frames.dispose(), [frames])
 
   // 全部看板共用一份度量：没选中的那些不参与排版，宽度与选中的那一块相同，卡片因此一直有盒子。
   useEffect(() => {

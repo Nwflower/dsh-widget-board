@@ -5,6 +5,7 @@
  * 自己的交互。消息按 `contracts` 里的形状判定，认不出的类型与超长的载荷丢弃并报告。
  */
 import type {
+  InspectionReport,
   MotionLevel,
   ParentMessage,
   WidgetHandles,
@@ -12,6 +13,7 @@ import type {
   WidgetSize,
 } from '@dsh-widget-board/contracts'
 import { MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
+import { installInspector, problemsOf } from './inspect'
 import { installMotionTemplates } from './motion'
 
 /** 组件的公共接口，写在编写指南里的那一份。 */
@@ -192,6 +194,9 @@ function receive(message: ParentMessage): void {
     case 'call-error':
       settleCall(message)
       return
+    case 'inspect':
+      reportInspection(message.requestId)
+      return
   }
 }
 
@@ -301,22 +306,38 @@ function adoptPort(next: MessagePort): void {
 /**
  * 组件自己抛出来的异常也要让外壳知道：卡片上显示原因，用户不必去翻开发者工具（D11）。
  *
- * 同一条失败只报一次：未捕获的异常会同时走 `error` 与 `unhandledrejection` 两条路。
+ * 收集归检查器（D13）：同一条失败只报一次，因为它同时走 `error` 与 `unhandledrejection` 两条路。
  */
 let reported: string | null = null
+/** 检查器量一次的函数；运行时启动时装上（D13）。 */
+let inspect: () => InspectionReport = () => ({
+  w: innerWidth,
+  h: innerHeight,
+  overflowX: false,
+  clippedText: [],
+  clippedControls: [],
+  blank: false,
+  errors: [],
+  csp: [],
+})
+
 function installFailureReports(): void {
   const report = (message: string): void => {
     if (reported === message) return
     reported = message
     send({ type: 'error', message })
   }
-  window.addEventListener('error', (event) => {
-    report(event.message || `${event.error instanceof Error ? event.error.message : '脚本出错'}`)
-  })
-  window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason
-    report(reason instanceof Error ? reason.message : String(reason))
-  })
+  inspect = installInspector(report)
+}
+
+/**
+ * 父页面要一次检查（D9、D13）：量当前画面，连同问题一起回给它。
+ *
+ * @param requestId - 这次检查的 id，原样带回去。
+ */
+function reportInspection(requestId: string): void {
+  const report = inspect()
+  send({ type: 'report', requestId, report, problems: problemsOf(report) })
 }
 
 /**

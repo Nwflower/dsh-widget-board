@@ -448,6 +448,38 @@ describe('加卡片与移除卡片', () => {
     expect(test.context.workspace.board('board').instances.at(-1)?.data).toBeNull()
   })
 
+  it('第一次读失败时卡片照样加得进来，数据留空', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, source: 'weather.now' } })
+    test.context.sources.registerDataSource({
+      apiVersion: 2,
+      provider: 'test-provider',
+      id: 'weather.now',
+      read: () => { throw new Error('网络断了') },
+    })
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
+    expect(response.status).toBe(201)
+    const created = test.context.workspace.board('board').instances.at(-1)
+    expect(created?.source).toBe('weather.now')
+    expect(created?.data).toBeNull()
+  })
+
+  it('数据源要授权时加卡回 403，卡片留在看板上', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, source: 'weather.gated' } })
+    test.context.sources.registerDataSource({
+      apiVersion: 2,
+      provider: 'test-provider',
+      id: 'weather.gated',
+      permission: { hosts: ['api.open-meteo.com'] },
+      read: () => ({ n: 1 }),
+    })
+    const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
+    expect(response.status).toBe(403)
+    expect(JSON.parse(response.body).code).toBe('grant-required')
+    expect(test.context.workspace.board('board').instances.at(-1)?.source).toBe('weather.gated')
+  })
+
   it('刷新路由触发一次重读并回快照', async () => {
     const test = await harness()
     let calls = 0

@@ -121,6 +121,8 @@ async function start(options = {}) {
     if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
     else child.kill('SIGTERM')
   }
+  /** 宿主进程到目前为止的输出：插件登记了什么、有没有报错都写在这里。 */
+  let log = ''
   const url = await new Promise((resolve, reject) => {
     let output = ''
     const timer = setTimeout(() => {
@@ -129,6 +131,7 @@ async function start(options = {}) {
     }, timeoutMs)
     const watch = (chunk) => {
       output += chunk.toString()
+      log = output
       const match = output.match(/dsh web: (http\S+)/)
       if (match === null) return
       clearTimeout(timer)
@@ -141,7 +144,7 @@ async function start(options = {}) {
       reject(new Error(`宿主在打印地址之前以 ${code} 退出：\n${output}`))
     })
   })
-  return { url, home, stop }
+  return { url, home, stop, log: () => log }
 }
 
 /**

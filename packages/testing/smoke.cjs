@@ -24,6 +24,7 @@ const { markdownPass } = require('./markdown.cjs')
 const { noticePass } = require('./notice.cjs')
 const { openBoard } = require('./panel.cjs')
 const { tabsPass } = require('./tabs.cjs')
+const { providerPass } = require('./provider.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -378,24 +379,38 @@ async function addRemovePass(page) {
 }
 
 /**
- * 插件提供的组件（D17）：组件库里有它，加进来之后由插件登记的原生组件渲染，数据来自插件的数据源。
+ * 分享与导入（D8）：组件库里有导出入口，导出得到的字节能再导入回来；看板导出的包里带着它用到的
+ * 组件。
  *
  * @param page - 宿主页面，看板已经打开。
  */
-async function providerPass(page) {
+async function sharePass(page) {
   await openLibrary(page)
-  await page.waitForSelector('[data-dsh-widget-board-add="test-native"]', { timeout: 15000 })
-  check('插件提供的组件出现在组件库里', true)
-  await page.locator('[data-dsh-widget-board-add="test-native"]').click()
-  // 只看板上的卡片：组件库里的缩略画面也画着同一个原生组件。
-  const native = '[data-dsh-widget-board-view] [data-native-widget="dsh-widget-board-test-provider"]'
-  await page.waitForSelector(native, { timeout: 15000 })
-  const count = (await page.locator(native).innerText()).trim()
-  check('原生组件拿到数据源的数据', count === '7', count)
-  const id = await page.evaluate((selector) => document.querySelector(selector)?.closest('[data-instance]')?.getAttribute('data-instance') ?? '', native)
-  await page.locator(`[data-instance="${id}"] [data-dsh-widget-board-handle="remove"]`).click()
-  await page.waitForFunction((selector) => document.querySelector(selector) === null, native, { timeout: 10000 })
-  check('移除插件提供的卡片', true)
+  const link = await page.waitForSelector('[data-dsh-widget-board-export]', { timeout: 15000 })
+  const id = await link.getAttribute('data-dsh-widget-board-export')
+  check('组件库里有导出入口', typeof id === 'string' && id !== '', String(id))
+  const roundTrip = await page.evaluate(async (widget) => {
+    const exported = await fetch(`api/widget-board/library/widget/${encodeURIComponent(widget)}/export`)
+    const bytes = await exported.arrayBuffer()
+    const imported = await fetch('api/widget-board/library/import?replace=true', {
+      method: 'POST',
+      headers: { 'content-type': 'application/zip' },
+      body: bytes,
+    })
+    return { exportStatus: exported.status, type: exported.headers.get('content-type'), bytes: bytes.byteLength, importStatus: imported.status, body: await imported.json() }
+  }, id)
+  check('导出的响应是 zip', roundTrip.exportStatus === 200 && roundTrip.type === 'application/zip' && roundTrip.bytes > 0, `${roundTrip.exportStatus} ${roundTrip.type} ${roundTrip.bytes}`)
+  // 导出的是内置组件：包能解开（否则报的是「不是有效的组件包」），但内置组件不许被覆盖（D8、D17）。
+  check('内置组件的包能解开但不会被覆盖', roundTrip.importStatus === 400 && String(roundTrip.body.error).includes('是内置的'), `${roundTrip.importStatus} ${JSON.stringify(roundTrip.body).slice(0, 80)}`)
+
+  const board = await page.evaluate(async () => {
+    const snapshot = await (await fetch('api/widget-board/boards')).json()
+    const exported = await fetch(`api/widget-board/boards/${encodeURIComponent(snapshot.active)}/export`)
+    const pkg = await exported.json()
+    return { status: exported.status, cards: Array.isArray(pkg.cards) ? pkg.cards.length : -1, widgets: Array.isArray(pkg.widgets) ? pkg.widgets.length : -1 }
+  })
+  check('看板导出带着卡片与用到的组件', board.status === 200 && board.cards > 0 && board.widgets > 0, JSON.stringify(board))
+  await page.keyboard.press('Escape')
 }
 
 /**
@@ -654,6 +669,14 @@ async function reducedPass(page) {
 }
 
 start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
+  // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
+  // 在地址打印之后，所以等一会儿再看。
+  let log = host.log()
+  for (let attempt = 0; attempt < 40 && !log.includes('widget-board:'); attempt += 1) {
+    await sleep(500)
+    log = host.log()
+  }
+  check('宿主里注册了面向会话的工具', log.includes('widget-board: 注册了 widget_catalog'), log.split('\n').filter((line) => line.includes('widget-board')).join(' / '))
   let opened
   let reduced
   try {
@@ -664,7 +687,8 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await addRemovePass(opened.page)
     await groupPass(opened.page, check)
     await markdownPass(opened.page, check)
-    await providerPass(opened.page)
+    await providerPass(opened.page, check)
+    await sharePass(opened.page)
     await dockPass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)

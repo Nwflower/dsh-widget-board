@@ -11,6 +11,15 @@ import type { DocumentAssets } from './document'
 export interface Live {
   readonly assets: DocumentAssets
   readonly revision: number
+  /** 现在有几个看板页接着这条通知（D6 的刷新调度按它启停）。 */
+  readonly viewers: number
+  /**
+   * 观众人数变化时调一次。
+   *
+   * @param listener - 收到当前人数。
+   * @returns 取消订阅的函数。
+   */
+  onViewers(listener: (viewers: number) => void): () => void
   /** 接一个 SSE 连接：先补一条重取快照的通知，之后跟着变化推。 */
   subscribe(response: HostResponse): void
   /** 换一份资产，修订号加一并让页面重取快照。 */
@@ -34,6 +43,17 @@ export function createLive(assets: DocumentAssets): Live {
   let current = assets
   let revision = 0
   const audience = new Set<HostResponse>()
+  const watchers = new Set<(viewers: number) => void>()
+  /** 人数变了就告诉等它的人；一个监听器抛错不影响别人（D11）。 */
+  const announceViewers = (): void => {
+    for (const listener of watchers) {
+      try {
+        listener(audience.size)
+      } catch {
+        watchers.delete(listener)
+      }
+    }
+  }
   const heartbeat = setInterval(() => {
     for (const response of audience) response.write?.(': ping\n\n')
   }, HEARTBEAT_MS)
@@ -48,12 +68,19 @@ export function createLive(assets: DocumentAssets): Live {
       } catch {
         // 观众断在半条消息上：摘掉它，其余观众照常收（D11）。
         audience.delete(response)
+        announceViewers()
       }
     }
   }
   return {
     get assets() { return current },
     get revision() { return revision },
+    get viewers() { return audience.size },
+    onViewers(listener) {
+      watchers.add(listener)
+      listener(audience.size)
+      return () => { watchers.delete(listener) }
+    },
     subscribe(response) {
       response.writeHead(200, {
         'content-type': 'text/event-stream; charset=utf-8',
@@ -61,8 +88,12 @@ export function createLive(assets: DocumentAssets): Live {
         connection: 'keep-alive',
       })
       audience.add(response)
+      announceViewers()
       // 长连接没有响应体结束的那一刻，观众离开只有这一个信号。
-      response.on?.('close', () => { audience.delete(response) })
+      response.on?.('close', () => {
+        audience.delete(response)
+        announceViewers()
+      })
       const frame: BoardEventFrame = { revision, event: { type: 'board' } }
       response.write?.(`data: ${JSON.stringify(frame)}\n\n`)
     },
@@ -84,6 +115,7 @@ export function createLive(assets: DocumentAssets): Live {
         }
       }
       audience.clear()
+      watchers.clear()
     },
   }
 }

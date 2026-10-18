@@ -1,7 +1,7 @@
 {
   "name": "dsh-widget-board",
   "description": "Widget board for the DeepSeek Harness web GUI: a page of draggable cards whose cards are sandboxed small widgets, written by the reader or by the agent in a session.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "main": "lib/host/index.js",
   "workspaces": [
@@ -69,7 +69,8 @@
     "react": "^18.2.0"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.5"
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",

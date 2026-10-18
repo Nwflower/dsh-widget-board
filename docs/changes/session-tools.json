@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 18,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "会话里的 agent 现在能用六个工具读写看板：列组件（widget_catalog）、写或改一个组件（widget_define）、读看板上的卡片（widget_board）、放卡或改卡（widget_place）、移除卡（widget_remove）、推数据（widget_push）。工具跟着总开关出现与撤下，并带一条虚拟 skill「widget-authoring」，写组件的格式、运行时接口与盒子契约都在里面。",
+  "en": "An agent in a session can now read and write the board with six tools: list widgets (widget_catalog), write or replace a widget (widget_define), read the cards on the board (widget_board), place or change a card (widget_place), remove a card (widget_remove), and push data (widget_push). The tools follow the master switch, and a virtual skill named widget-authoring carries the widget format, runtime interface and box contract."
+}

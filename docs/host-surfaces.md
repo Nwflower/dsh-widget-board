@@ -26,6 +26,8 @@
 
 - **存储域**：`ctx.storage.domain.open(spec)` 返回带类型的域；`defineDomain({ name, version, layout?, compatibleVersions?, invalidRecords?, global?, tables })`，表由 `domainTable<K, V>(zodSchema)` 声明。读是同步的内存读；写排在每个域唯一的写入链上，先等持久化，再改内存，再发出 `domain/changed`；表提供 `get`、`entries`、`put`、`delete`、`update(key, fn)`。同名域重复打开会失败。出处：`dsh-storage-domain/lib/types/spec.d.ts`、`domain.d.ts`、`index.d.ts`。
 - **工具**：`defineTool({ name, description, parameters, output: { schema, render }, execute(args, exec) })`（`@deepseek-ai/dsh-tools`），经工具注册表的 `register(tool)` 注册并返回释放函数。注册表按可选服务解析，并经 `ctx.inject(['tools'], …)` 跟随它的出现与更换。出处：任务看板 `src/index.ts`、`src/host/agent-tools.ts`。
+- **直接注册原始 JSON Schema 工具也能用**：注册表读的是 `{ name, description, parameters, output: { schema, render }, execute }`，`parameters` 是给模型看的 JSON Schema 对象，输入校验由工具自己做；`defineTool` 只是在这一层之上加了参数推导与校验。本仓库构建时拿不到 `@deepseek-ai/dsh-tools`（它由宿主进程提供），因此按这个形状直接注册。出处：`dsh-tools/lib/types/index.d.ts` 的 `ToolDefinition`、`ToolOutputDefinition` 与 `dsh-llm` 的 `ToolSchema`；本仓库的 `packages/contracts/src/tools.ts` 与 `packages/testing/smoke.cjs`（在 0.2.1-rc.2 上实证：宿主输出里出现 `widget-board: 注册了 widget_catalog、…`）。
+- **`ctx.inject` 是读可选服务的唯一路子**：上下文是代理，读未声明的服务会抛；`ctx.inject(['tools'], cb)` 在服务出现时回调，服务缺席时插件照常起来。同一个上下文上可以再 `inject` 别的服务（本仓库用它把 `systemPrompt` 与 `skills` 挂成可选）。出处：`@deepseek-ai/cordis` 的 `RegistryService.inject`；本仓库的 `packages/host/src/tools/index.ts`。
 - **系统提示**：`ctx.systemPrompt.section({ name, order, text })` 返回释放函数；同名重复注册会抛出，所以要先释放旧的。出处：任务看板 `src/index.ts`。
 - **skill**：`ctx.skills.register(SkillRegistration)` 注册运行时 skill。出处：`dsh-skill/lib/types/index.d.ts`。
 - **路由**：`ctx.webServer.register(route)`（`WebRoute` 来自 `@deepseek-ai/dsh-host-webserver`）交给插件原始请求，宿主的 `/api` 栅栏不覆盖插件路由。插件自己调用 `ctx.get('connection')?.requestRejection(req)` 借用宿主的栅栏与认证；没有这项服务时只放行本机回环。出处：`D:\DSH\dsh-claude-style\packages\engine\node\http.ts`。
@@ -35,6 +37,7 @@
 - **组件目录里的图片与字体要内联**（D3）：文档的 CSP 只放行 `data:` 与 `blob:` 的图片与字体，组件自己发请求又过不了栅栏。作者写 `{{asset:相对路径}}`，宿主拼文档时换成 `data:` 地址；路径越出组件目录或文件不存在时拒绝拼装。出处：本仓库的 `packages/host/src/document.ts` 与 `packages/host/test/document.test.ts`。
 - **配置表单**：`Config` 用 schemastery 声明，可热改的字段标 `.volatile()`，运行时拿到的可能是活的引用（`.get()`）。同一个名字在配置文件里是普通值，所以另声明 `ConfigInput`，schema 写成 `z<ConfigInput, Config>`，读值用 `readConfigField`（两种形态都接受）。出处：任务看板 `src/index.ts`；本仓库 `packages/host/src/index.ts` 照此实现。
 - **批准**：`ctx.approval.request(req)` 返回 `ApprovalOutcome`；请求必须带 `agent`（代表哪个会话询问）与 `toolName`，可带 `callId`、`reason`、`displayReason`。没有会话 agent 的界面动作不能用它。出处：`dsh-user-approval/lib/types/index.d.ts`、`types.d.ts`。
+- **界面上的授权由看板自己记录**：`ctx.approval.request` 要一个未结束的轮次与一个会话 agent，界面上的点击没有这两样，所以人给出的授权记在 `$DSH_HOME/widget-board/grants.json` 里，与看板同一个写入者；工具触发的动作在已有授权之外再经 `ctx.approval.request` 问一次（D6）。出处：本仓库的 `packages/host/src/grants.ts`、`packages/host/src/permissions.ts` 与 `docs/adr/D6-data-sources-and-actions.md`。
 - **程序执行**：`ctx.ptcRuntime` 运行受沙箱策略约束的程序，宿主函数以命名空间绑定给程序，参数与返回值必须是无损 JSON。本机宿主只带了 node 后端（`dsh-ptc-runtime-node`）。出处：`dsh-ptc-runtime/lib/types/types.d.ts`。
 - **子进程**：`ctx.subprocess` 管理进程组、有界的输出与升级终止。出处：`dsh-subprocess/package.json` 的描述。
 - **主题**：浏览器侧 `ctx.theme` 是 `ThemeRuntime`：`getTheme()`、`exportInspectTokens()`、`register(definition)`、`overrideTokens(source, tokens)`；状态变化发出 `theme/change(snapshot)`。宿主令牌是 `--dsw-*`。出处：`dsh-client-ui-theme/lib/types/client/index.d.ts`。
@@ -52,7 +55,8 @@
 ### 提供方
 
 - **浏览器侧的 cordis 服务也能用 `provide` 发布**：与宿主侧同一条写法，`typeof ctx.provide === 'function'` 时调用；提供方在 `apply` 里声明 `inject = ['widgetBoard']` 就能等到它出现。出处：任务看板 `src/client/index.ts`；本仓库的 `packages/client/src/entry.ts` 与 `packages/testing/fixtures/provider/client.js`。
-- **一个外部包能同时带宿主半边与浏览器半边**：`package.json` 的 `exports["."]`、`exports["./client"]`、`dsh.bundle.patch` 与 `dsh.client` 四项齐全时，`dsh plugin --profile web add <目录>` 装进去，两半都起来。冒烟把 `packages/testing/fixtures/provider/` 这样一个包装进临时宿主，核对组件库里出现它、原生组件渲染出数据源的数据、撤下后消失。出处：本仓库的 `packages/testing/dsh-web.cjs`（`extras`）与 `packages/testing/smoke.cjs`。
+- **一个外部包能同时带宿主半边与浏览器半边**：`package.json` 的 `exports["."]`、`exports["./client"]`、`dsh.bundle.patch` 与 `dsh.client` 四项齐全时，`dsh plugin --profile web add <目录>` 装进去，两半都起来。冒烟把 `packages/testing/fixtures/provider/` 这样一个包装进临时宿主，核对组件库里出现它、原生组件渲染出数据源的数据、要权限的动作在授权前被拦下、在卡片上授权之后放行、撤下后消失。出处：本仓库的 `packages/testing/dsh-web.cjs`（`extras`）与 `packages/testing/smoke.cjs`。
+- **服务面版本不匹配要由提供方自己核对**：宿主侧的服务带 `apiVersion`，提供方按自己的版本注册；对不上时注册抛出（`versionMismatch`）。冒烟用的提供方在启动时按一个不存在的版本试注册一次，核对它确实抛出。出处：本仓库的 `packages/contracts/src/service.ts` 与 `packages/testing/fixtures/provider/host.js`。
 
 ## 待在真实宿主上核实
 

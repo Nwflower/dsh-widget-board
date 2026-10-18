@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 17,
+  "at": "2026-10-17",
+  "external": false,
+  "zh": "动作与数据源带上了归属：跨提供方重名时后到的注册被拒绝并说明原因，组件用「提供方:名字」点名；动作可以声明自己需要的权限，声明了权限的动作要有人在卡片上给出授权（绑在这个组件版本上）之后才跑得起来，组件内容一变就要重新授权。提供方的注册现在是一个生命周期把手：撤下时目录、它名下的数据源与动作、它留下的授权与目录监视一并撤下。",
+  "en": "Actions and data sources now carry an owner: a duplicate name from another provider is refused with a reason and a widget can address one as \"provider:name\". An action can declare the permissions it needs, and such an action only runs after a person grants it on the card (bound to that widget version); changing the widget asks again. A provider registration is now a lifecycle handle: disposing it removes the directory, the data sources and actions registered under it, its leftover grants and its directory watch."
+}

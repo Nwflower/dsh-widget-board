@@ -12,6 +12,9 @@
 
 - 组件可以调 `widget.notify({ title, body })` 发起通知：侧栏的看板入口右上角滑入未读条数，悬停读到最近一条的标题与正文，点一下看板入口之后清零；番茄钟到点会自己发一条。
 - 看板从一块变成多块：顶部一条标签在几块看板之间切换，每块看板有自己的卡片、盒子与修订号；存储拆成一份索引加每块看板一份文件，旧版本的单一看板在第一次打开时自动搬成第一块看板。
+- 会话里的 agent 现在能用六个工具读写看板：列组件（widget_catalog）、写或改一个组件（widget_define）、读看板上的卡片（widget_board）、放卡或改卡（widget_place）、移除卡（widget_remove）、推数据（widget_push）。工具跟着总开关出现与撤下，并带一条虚拟 skill「widget-authoring」，写组件的格式、运行时接口与盒子契约都在里面。
+- 组件可以在 widget.json 里声明刷新策略：按需（默认），或「看着的时候按间隔读」。宿主上只有一条定时链，按有哪些卡片要刷新、现在有几个看板页在看算出跑不跑、跑多快；没有观众时一律不读。数据源也能声明自己需要的权限，要权限的数据源与动作一样，读之前要有人在卡片上给出授权。
+- 组件可以导出成 .dshw 再导入回来，看板可以导出成 .dshboard（带上它用到的全部组件；数据与状态默不带，带 ?data=true 才带）。解包前校验路径、扩展名、文件数与大小；同 id 不同内容先回 409 并给出两边的哈希，带上 replace 才覆盖，内置与插件提供的组件永远不被覆盖。组件库浮窗里每一格有「导出」，头部有「导入」。
 
 ### 体验优化
 
@@ -24,6 +27,7 @@
 - 组件在 widget.json 里声明的最小盒子（minBox）现在会生效：新卡片与拖动落点抬到下限，缩放停在下限，载入看板与组件库热重载时把低于下限的卡片抬上来；组卡取正反两面的并集。
 - 组件拿到宽度与高度两个方向的尺寸档（data-box-width、data-box-height）；令牌补上间距与字号阶梯，运行时套件补 .w-frame、.w-actions、.w-scroll 三个布局原语与按档位隐藏的类。
 - 删掉一张卡片时，卡片按附件磁贴入场的反向退场：淡出并缩到 0.85，250ms，曲线与磁贴入场同一条；退场走完才换快照，其它卡片这时才开始收拢。
+- 动作与数据源带上了归属：跨提供方重名时后到的注册被拒绝并说明原因，组件用「提供方:名字」点名；动作可以声明自己需要的权限，声明了权限的动作要有人在卡片上给出授权（绑在这个组件版本上）之后才跑得起来，组件内容一变就要重新授权。提供方的注册现在是一个生命周期把手：撤下时目录、它名下的数据源与动作、它留下的授权与目录监视一并撤下。
 - 组件库的缩略画面标成 preview 位置，组件可以在这里换一套静态排版；番茄钟的缩略画面收掉快捷时长与开始按钮，待办收掉输入行，只留标题、读数与内容。
 - 看板页顶部多了一条标签：每块看板一个标签，活动标签的药丸滑过去；标签条上只放一个新建入口，切换标签时不重挂任何组件——所有看板的卡片同时挂载，看不见的那些照旧暂停。
 - 看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。
@@ -41,6 +45,9 @@
 
 - Widgets can call `widget.notify({ title, body })` to raise a notification: the Board entry in the sidebar slides in the unread count, hovering reads the latest title and body, clicking the entry clears it, and the pomodoro raises one when its session ends.
 - The board now holds several boards: a tab strip at the top switches between them, and each board keeps its own cards, boxes and revisions; storage splits into one index plus one file per board, and an older single board is carried over as the first one when it opens.
+- An agent in a session can now read and write the board with six tools: list widgets (widget_catalog), write or replace a widget (widget_define), read the cards on the board (widget_board), place or change a card (widget_place), remove a card (widget_remove), and push data (widget_push). The tools follow the master switch, and a virtual skill named widget-authoring carries the widget format, runtime interface and box contract.
+- A widget can declare a refresh policy in widget.json: on demand (the default) or "read on an interval while watched". One timer on the host decides whether and how fast to run from which cards ask for it and how many board pages are watching; nothing is read without a viewer. A data source can also declare the permissions it needs, and a gated source is granted on the card before it can be read, exactly like a gated action.
+- A widget can be exported as .dshw and imported back, and a board as .dshboard with every widget it uses embedded (data and state are left out unless ?data=true). Packages are checked for paths, extensions, file count and size before they are unpacked; the same id with different content answers 409 and names both hashes, and only replace overwrites — built-in and plugin-provided widgets are never overwritten. Each tile in the library panel has an Export, and its header has an Import.
 
 ### Improvements
 
@@ -53,6 +60,7 @@
 - The minimum box a widget declares in widget.json now applies: new cards and drop points are raised to it, resizing stops at it, and cards below it are raised when a board loads or the library hot-reloads; a flip group uses the union of both sides.
 - Widgets now get width and height size classes (data-box-width, data-box-height); the token set gains spacing and type scales, and the runtime suite gains the .w-frame, .w-actions and .w-scroll layout primitives plus size-class hiding helpers.
 - Removing a card now plays the attachment tile's entrance in reverse — fade out and shrink to 0.85 over 250 ms on the same curve — and the board swaps the snapshot only after the exit, so the other cards start closing in afterwards.
+- Actions and data sources now carry an owner: a duplicate name from another provider is refused with a reason and a widget can address one as "provider:name". An action can declare the permissions it needs, and such an action only runs after a person grants it on the card (bound to that widget version); changing the widget asks again. A provider registration is now a lifecycle handle: disposing it removes the directory, the data sources and actions registered under it, its leftover grants and its directory watch.
 - Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content.
 - The board page gains a tab strip: one tab per board with a pill that slides to the active one, a single New entry on the strip, and no widget is remounted when you switch — every board's cards stay mounted, and the ones you cannot see stay paused.
 - Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed.

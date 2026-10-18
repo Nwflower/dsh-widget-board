@@ -7,8 +7,8 @@
  * 算，包内的来源例外——它读不出东西说明构建没有写完，直接抛出。
  */
 import { createHash } from 'node:crypto'
-import { readFile, readdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import Ajv from 'ajv'
 import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
 import { WIDGET_MANIFEST_SCHEMA } from '@dsh-widget-board/contracts'
@@ -167,6 +167,24 @@ async function readRoot(root: WidgetRoot, load: LibraryLoad): Promise<void> {
     }
     load.records.set(record.manifest.id, record)
     load.entries.push(entryOf(record))
+  }
+}
+
+/**
+ * 把一个组件目录整个写出来：先清掉旧的，再逐份写。
+ *
+ * 覆盖时先清掉旧目录：删掉的文件不该留在新版本里——版本就是整个目录的内容（D7）。
+ *
+ * @param dir - 组件目录的绝对路径。
+ * @param files - 相对路径与内容；路径已经由调用方校验过不越出目录。
+ */
+export async function writeWidgetDirectory(dir: string, files: readonly { path: string, content: Uint8Array }[]): Promise<void> {
+  await rm(dir, { recursive: true, force: true })
+  await mkdir(dir, { recursive: true })
+  for (const file of files) {
+    const target = join(dir, file.path)
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, file.content)
   }
 }
 

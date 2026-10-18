@@ -5,15 +5,15 @@
  * 只被写状态、头与体。工作区用真的那一份，落在 `.debug/` 下的临时目录里：索引与看板文件的读写
  * 因此一起被测到。这一层判定的是本插件的行为，不是宿主的实现。
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { mkdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { Board, BoardEvent, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
-import { PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, Grant, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
+import { PLUGIN_ROUTE, grantKey } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
+import type { GrantStore } from '../src/grants'
 import type { WidgetRecord } from '../src/library'
 import { createRegistries } from '../src/sources'
 import { writeBoard } from '../src/state'
@@ -121,6 +121,44 @@ afterEach(async () => {
 })
 
 /**
+ * 一份只在内存里的授权表：路由这一层的测试不碰磁盘（D6）。
+ *
+ * @returns 授权表。
+ */
+function memoryGrants(): GrantStore {
+  const grants = new Map<string, Grant>()
+  return {
+    all: () => [...grants.values()],
+    has: (kind, hash, id) => grants.has(grantKey(kind, hash, id)),
+    async grant(input) {
+      const key = grantKey(input.kind, input.hash, input.id)
+      const existing = grants.get(key)
+      if (existing !== undefined) return existing
+      const grant: Grant = { key, ...input, at: input.at ?? '2026-01-01T00:00:00.000Z' }
+      grants.set(key, grant)
+      return grant
+    },
+    async revoke(kind, hash, id) {
+      return grants.delete(grantKey(kind, hash, id))
+    },
+    async forget(options) {
+      let removed = 0
+      for (const [key, grant] of [...grants]) {
+        const byHash = options.hashes === undefined || options.hashes.includes(grant.hash)
+        const byKind = options.kind === undefined || grant.kind === options.kind
+        const byId = options.id === undefined || grant.id === options.id
+        const byProvider = options.provider === undefined || grant.provider === options.provider
+        if (byHash && byKind && byId && byProvider) {
+          grants.delete(key)
+          removed += 1
+        }
+      }
+      return removed
+    },
+  }
+}
+
+/**
  * 起一套替身：`.debug/` 下写一份索引与一块看板，再打开工作区。
  *
  * @param record - 组件库里的那一个组件，默认是天气卡。
@@ -151,6 +189,8 @@ async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Ha
       get: async (hash: string) => (hash === HASH ? record : undefined),
     },
     workspace,
+    get board() { return workspace.active() },
+    save: async (change, options) => await workspace.save(workspace.activeId(), change, options),
     live: {
       assets: { tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} },
       revision: 0,
@@ -162,6 +202,7 @@ async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Ha
     connection: undefined,
     refresh: async () => undefined,
     sources,
+    grants: memoryGrants(),
   }
   const handler = createHandler(context)
   return {
@@ -381,7 +422,7 @@ describe('加卡片与移除卡片', () => {
 
   it('绑定数据源时读一次并把数据写进卡片', async () => {
     const test = await harness()
-    test.context.sources.registerDataSource({ apiVersion: 1, id: 'weather.now', read: () => ({ n: 7 }) })
+    test.context.sources.registerDataSource({ apiVersion: 2, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 7 }) })
     const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather', source: 'weather.now' }))
     expect(response.status).toBe(201)
     const created = test.context.workspace.board('board').instances.at(-1)
@@ -392,7 +433,7 @@ describe('加卡片与移除卡片', () => {
   it('请求没指定数据源时用组件声明的那个', async () => {
     const test = await harness()
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, source: 'weather.now' } })
-    test.context.sources.registerDataSource({ apiVersion: 1, id: 'weather.now', read: () => ({ n: 9 }) })
+    test.context.sources.registerDataSource({ apiVersion: 2, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 9 }) })
     const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
     expect(response.status).toBe(201)
     expect(test.context.workspace.board('board').instances.at(-1)?.data).toEqual({ n: 9 })
@@ -481,11 +522,56 @@ describe('动作', () => {
     const test = await harness()
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'refresh' }] } })
     let seen: unknown
-    test.context.sources.registerAction({ apiVersion: 1, id: 'refresh', run: (_instance, payload) => { seen = payload; return { ok: 1 } } })
+    test.context.sources.registerAction({ apiVersion: 2, provider: 'test-provider', id: 'refresh', run: (_instance, payload) => { seen = payload; return { ok: 1 } } })
     const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'refresh', payload: { now: 1 } }))
     expect(response.status).toBe(200)
     expect(JSON.parse(response.body)).toEqual({ ok: true, result: { ok: 1 } })
     expect(seen).toEqual({ now: 1 })
+  })
+
+  it('要权限的动作在没有授权时回 403，并写明缺的是哪一条', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'test-provider:run' }] } })
+    test.context.sources.registerAction({
+      apiVersion: 2,
+      provider: 'test-provider',
+      id: 'run',
+      permission: { hosts: ['example.invalid'] },
+      run: () => ({ ok: 1 }),
+    })
+    const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'test-provider:run' }))
+    expect(response.status).toBe(403)
+    expect(JSON.parse(response.body)).toMatchObject({ code: 'grant-required', kind: 'action', id: 'test-provider:run', provider: 'test-provider' })
+  })
+
+  it('人给出授权之后同一个动作放行', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'test-provider:run' }] } })
+    test.context.sources.registerAction({
+      apiVersion: 2,
+      provider: 'test-provider',
+      id: 'run',
+      permission: { hosts: ['example.invalid'] },
+      run: () => ({ ok: 1 }),
+    })
+    const granted = await test.send('POST', '/instance/board-first/grant', JSON.stringify({ kind: 'action', id: 'test-provider:run' }))
+    expect(granted.status).toBe(200)
+    const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'test-provider:run' }))
+    expect(response.status).toBe(200)
+    expect(JSON.parse(response.body)).toEqual({ ok: true, result: { ok: 1 } })
+  })
+
+  it('提供方把权限改大之后要重新授权', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'test-provider:run' }] } })
+    const first = test.context.sources.registerAction({ apiVersion: 2, provider: 'test-provider', id: 'run', permission: { hosts: ['a'] }, run: () => null })
+    await test.send('POST', '/instance/board-first/grant', JSON.stringify({ kind: 'action', id: 'test-provider:run' }))
+    // 提供方换了实现：先撤下旧的，再按新的权限注册（D12）。
+    first()
+    test.context.sources.registerAction({ apiVersion: 2, provider: 'test-provider', id: 'run', permission: { hosts: ['a', 'b'] }, run: () => null })
+    const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'test-provider:run' }))
+    expect(response.status).toBe(403)
+    expect(JSON.parse(response.body).error).toMatch(/重新给出授权/)
   })
 
   it('manifest 没声明的动作被拒绝', async () => {

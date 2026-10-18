@@ -69,17 +69,50 @@ export interface LocalizedText {
   en: string
 }
 
-/** manifest 里声明的动作：组件按下时发出的名字（D6）。 */
+/**
+ * manifest 里声明的动作：组件按下时发出的名字（D6）。
+ *
+ * `id` 是看板自己的动作名，或者 `提供方:名字` 点名某个插件注册的动作。声明过的动作还要有人给出
+ * 授权才能真的跑起来；这一点不由 manifest 决定（D6）。
+ */
 export interface WidgetAction {
   id: string
   label?: LocalizedText
 }
 
-/** 组件声明的权限（D6）：没有声明的动作、主机与命令一律拒绝。 */
+/**
+ * 组件声明的权限（D6）：没有声明的动作、主机与命令一律拒绝。
+ *
+ * 这是组件作者写下来的意图，界面上用它把授权说清楚；真正拦人的是宿主上的授权表。
+ */
 export interface WidgetPermissions {
   hosts?: string[]
   commands?: string[]
 }
+
+/** 刷新策略：按需，或按一个固定的间隔（D6）。 */
+export const WIDGET_REFRESH_MODES = ['onDemand', 'interval'] as const
+
+/** 一种刷新策略。 */
+export type WidgetRefreshMode = (typeof WIDGET_REFRESH_MODES)[number]
+
+/**
+ * 组件声明的刷新策略（D6）。
+ *
+ * `onDemand`（省略时就是它）表示只有人按下刷新、或数据源被显式读一次时才读；`interval` 表示看板
+ * 有人看着的时候按 `everyMs` 定时读。没有观众的实例一律不读——宿主上不该有没人看的轮询（D5）。
+ */
+export interface WidgetRefresh {
+  mode: WidgetRefreshMode
+  /** `interval` 时的间隔毫秒数；低于下限时按下限算。 */
+  everyMs?: number
+}
+
+/** 定时刷新允许的最短间隔：再密就是拿组件自己的频率换宿主的读写。 */
+export const REFRESH_MIN_MS = 1000
+
+/** 省略 `everyMs` 时的间隔。 */
+export const REFRESH_DEFAULT_MS = 30_000
 
 /**
  * 看板上这张卡最小能缩到多大：跨列数与根字号的倍数（D16）。
@@ -110,6 +143,8 @@ export interface WidgetManifest {
   source?: string
   actions?: WidgetAction[]
   permissions?: WidgetPermissions
+  /** 刷新策略（D6）；省略时按需。 */
+  refresh?: WidgetRefresh
   libs?: string[]
   text?: Record<string, LocalizedText>
   /** 看板上的最小盒子（D16）。 */
@@ -183,7 +218,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
         additionalProperties: false,
         required: ['id'],
         properties: {
-          id: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}$' },
+          id: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
           label: { $ref: '#/$defs/text' },
         },
       },
@@ -194,6 +229,15 @@ export const WIDGET_MANIFEST_SCHEMA = {
       properties: {
         hosts: { type: 'array', items: { type: 'string', minLength: 1 } },
         commands: { type: 'array', items: { type: 'string', minLength: 1 } },
+      },
+    },
+    refresh: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['mode'],
+      properties: {
+        mode: { enum: WIDGET_REFRESH_MODES },
+        everyMs: { type: 'integer', minimum: REFRESH_MIN_MS },
       },
     },
     libs: { type: 'array', items: { type: 'string', minLength: 1 } },

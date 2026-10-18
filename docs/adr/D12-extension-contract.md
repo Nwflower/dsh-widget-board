@@ -6,8 +6,8 @@
 
 ## 决定
 
-- 宿主与浏览器两侧各发布一个 cordis 服务 `widgetBoard`，带 `WIDGET_BOARD_API_VERSION`。版本不匹配时可见地拒绝该提供方，不影响看板继续服务。
-- 服务面：`registerWidgetType`（原生 React 组件，或一个组件目录）、`registerDataSource`、`registerAction`。每次注册返回释放函数，提供方卸载时随之释放；以 `plugin` 来源记入组件库（D8）。
+- 宿主与浏览器两侧各发布一个 cordis 服务 `widgetBoard`，带 `WIDGET_BOARD_API_VERSION`。版本不匹配时可见地拒绝该提供方，不影响看板继续服务。当前版本是 2；1 → 2 的差异：`registerWidgetType` 返回的不再是一个释放函数，而是一个把手（`provider`、`widgets`、`register`、`dispose`），数据源与动作的注册带上 `provider`，动作可以声明 `permission`。
+- 服务面：`registerWidgetType`（原生 React 组件，或一个组件目录）、`registerDataSource`、`registerAction`。一次目录注册拿到的把手是这个提供方的生命周期把手：后补的数据源与动作挂在它名下，`dispose()` 把目录、名下的注册、这个提供方留下的授权与目录监视一并撤下；数据源与动作的名字在同一时刻全局唯一，跨提供方重名时后到的注册抛出并说明原因（D6）。
 - 跨包时提供方只在自己包里写同形的 `declare module` 声明，不值导入本插件。
 - 看板的代码里不出现任何提供方的名字。
 - 与任务看板的关系：本插件内置 `service:taskBoard` 数据源，读任务看板已经发布的 `taskBoard` 服务（快照、订阅、动作分派），在看板上提供任务列、运行中卡片、计数这类组件，动作转给它的 `dispatch`。任务看板本身不需要修改。
@@ -16,6 +16,7 @@
 
 - 服务面一旦发布就是公开契约，改动要升版本常量并给出协商规则。
 - 原生组件在父页面里运行（D3），提供方要自己保证性能；看板只能隔离它的错误。
+- 提供方卸载之后，指向它的卡片照旧留在看板上，只是画成不可用的占位；提供方装回来就恢复。
 
 ## 重审条件
 

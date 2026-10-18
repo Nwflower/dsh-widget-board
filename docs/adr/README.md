@@ -10,7 +10,7 @@
 | [D2](D2-packages-and-build.md) | 按依赖分包，TypeScript 与 esbuild | — |
 | [D3](D3-isolation-and-trust.md) | 组件隔离与信任分级 | — |
 | [D5](D5-host-authority.md) | 宿主权威、存储与修订号 | — |
-| [D6](D6-data-sources-and-actions.md) | 数据源、动作与批准 | — |
+| [D6](D6-data-sources-and-actions.md) | 数据源、动作与授权 | — |
 | [D7](D7-widget-format.md) | 组件格式与内容寻址版本 | — |
 | [D8](D8-library-and-sharing.md) | 分享、导入与组件库 | — |
 | [D9](D9-session-tools.md) | 面向会话的工具与自检 | — |

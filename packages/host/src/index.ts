@@ -6,10 +6,10 @@
  * 推给在线页面（D18）。
  */
 import { join, resolve } from 'node:path'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
+import type { WidgetMinBox, WidgetRoot, WidgetTypeHandle } from '@dsh-widget-board/contracts'
 import {
   PACKAGE_NAME,
   PLUGIN_ROUTE,
@@ -21,12 +21,18 @@ import {
 } from '@dsh-widget-board/contracts'
 import { createVersionStore } from './blobs'
 import { loadAssets } from './assets'
+import { openGrants } from './grants'
+import type { GrantStore } from './grants'
 import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
-import { createHandler } from './routes'
+import { createHandler, readInto } from './routes'
 import { createRegistries } from './sources'
+import { createProviderRegistry, widgetIdsIn } from './providers'
+import { createScheduler, intervalOf } from './refresh'
+import { createToolContext, registerTools } from './tools'
+import type { ToolRegistration } from './tools'
 import { openWorkspace } from './workspace'
 import { watchTree } from './watch'
 import { dshHome } from './home'
@@ -79,6 +85,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const builtin = join(lib, 'widgets')
   const runtime = join(lib, 'runtime')
   const home = join(dshHome(), 'widget-board')
+  const grantFile = join(home, 'grants.json')
   const versions = createVersionStore(join(home, 'blobs'))
   // 用户组件目录先建出来：拖进来的组件有地方放，监视也挂得上（D17）。
   await mkdir(join(home, 'widgets'), { recursive: true })
@@ -92,20 +99,43 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const live = createLive(await loadAssets(runtime))
   const sources = createRegistries()
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
-  const workspace = await openWorkspace(home, library.records, (event) => live.notify(event))
+  // 每次写入都会发一条通知：定时刷新的表跟着重算（D6）——加卡、移除、换数据源都从这里过。
+  let syncScheduler: () => void = () => {}
+  const workspace = await openWorkspace(home, library.records, (event) => {
+    live.notify(event)
+    syncScheduler()
+  })
+  // 授权表：人给出过的那些，绑在组件版本上（D6）。
+  const grants: GrantStore = await openGrants(grantFile)
 
   /** 刷新路由要调的重读：重读函数在下面定义，闭包先接住这个变量。 */
   let refreshLibrary: () => Promise<void> = async () => {}
+  /**
+   * 改当前选中的看板：转给 workspace 的唯一写入队列（D5、D21），写完让定时刷新的表跟着重算（D6）。
+   */
+  const save: RouteContext['save'] = async (change, options) => {
+    const next = await workspace.save(workspace.activeId(), change, {
+      ...options,
+      event: (board, id) => options.event(board, id),
+    })
+    syncScheduler()
+    return next
+  }
 
   const context: RouteContext = {
     records: library.records,
     entries: library.entries,
+    library,
+    roots,
     versions,
     workspace,
+    get board() { return workspace.active() },
+    save,
     live,
     connection: connectionOf(ctx),
     refresh: () => refreshLibrary(),
     sources,
+    grants,
   }
 
   // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与
@@ -118,6 +148,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       library = next
       context.records = next.records
       context.entries = next.entries
+      context.library = next
       // 组件的 minBox 可能在这一版里变了：每块看板里低于新下限的卡片抬上来，页面按新的盒子重取一次。
       const minBoxOf = (widget: string): WidgetMinBox | undefined => next.records.get(widget)?.manifest.minBox
       await workspace.relayout(minBoxOf)
@@ -127,6 +158,21 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     return run
   }
   refreshLibrary = reload
+
+  // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读，没人看就停。
+  const scheduler = createScheduler({
+    cards: () => context.board.instances.flatMap((instance) => {
+      const everyMs = intervalOf(context.records.get(instance.widget)?.manifest.refresh)
+      return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
+    }),
+    viewers: () => live.viewers,
+    read: async (id) => { await readInto(context, id) },
+    onError: (id, error) => {
+      console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
+    },
+  })
+  const stopWatchingViewers = live.onViewers(() => { scheduler.sync() })
+  syncScheduler = () => { scheduler.sync() }
 
   const handler = createHandler(context)
   const disposeRoute = webServerOf(ctx).register({
@@ -151,31 +197,38 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   })
   const stopBuiltin = watch(lib)
   const stopUser = watch(join(home, 'widgets'))
+  // 已经挂上监视的目录：插件注册的目录也监视，开发时改一个组件文件就能看到（D17）。
+  const watched = new Set<string>([lib, join(home, 'widgets')])
+  const watchOnce = (dir: string): (() => void) => {
+    if (watched.has(dir)) return () => {}
+    watched.add(dir)
+    const stop = watch(dir)
+    return () => {
+      watched.delete(dir)
+      stop()
+    }
+  }
+
+  // 提供方的注册与生命周期：目录、它名下的数据源与动作、它留下的授权一起管（D12、D17）。
+  const providers = createProviderRegistry({
+    roots,
+    reload,
+    registerDataSource: (source) => sources.registerDataSource(source),
+    registerAction: (action) => sources.registerAction(action),
+    forgetGrants: async (provider) => { await grants.forget({ provider }) },
+    idsIn: async (root) => await widgetIdsIn(root, async (file) => await readFile(file, 'utf8')),
+    watch: watchOnce,
+  })
 
   /** 插件提供的组件目录：注册时加入来源表并读一次，撤下时移出并重读（D17）。 */
   const service = {
     apiVersion: WIDGET_BOARD_API_VERSION,
-    async registerWidgetType(registration: { apiVersion: number, provider: string, directory: string }): Promise<() => Promise<void>> {
+    async registerWidgetType(registration: { apiVersion: number, provider: string, directory: string }): Promise<WidgetTypeHandle> {
       if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
       if (registration.provider.trim() === '' || registration.directory.trim() === '') {
         throw new Error('registerWidgetType 需要 provider 与 directory')
       }
-      const root: WidgetRoot = { dir: registration.directory, source: 'plugin', provider: registration.provider }
-      if (roots.some((existing) => existing.dir === root.dir && existing.provider === root.provider)) {
-        throw new Error(`${registration.provider} 已经注册过 ${registration.directory}`)
-      }
-      roots.push(root)
-      try {
-        await reload()
-      } catch (error) {
-        roots.pop()
-        throw error
-      }
-      return async () => {
-        const index = roots.indexOf(root)
-        if (index !== -1) roots.splice(index, 1)
-        await reload()
-      }
+      return await providers.register(registration)
     },
     registerDataSource(registration: { apiVersion: number } & Parameters<typeof sources.registerDataSource>[0]) {
       if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
@@ -189,6 +242,24 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide
   if (typeof provide === 'function') provide.call(ctx, WIDGET_BOARD_SERVICE_NAME, service)
 
+  // 面向会话的工具与 skill（D9）：只在宿主有工具注册表、且这一行开着时出现。注册与撤销跟着总开关
+  // 走——关掉看板之后，会话里也不该再看见这几个工具。
+  const toolContext = createToolContext(context, save, reload)
+  let tools: ToolRegistration | undefined
+  const syncTools = (): void => {
+    if (enabled && tools === undefined) {
+      tools = registerTools(ctx, toolContext, (names) => {
+        console.log(`widget-board: 注册了 ${names.join('、')}`)
+      })
+      return
+    }
+    if (!enabled && tools !== undefined) {
+      tools.dispose()
+      tools = undefined
+    }
+  }
+  syncTools()
+
   // 可热改的字段由加载器提交进这一行的引用，提交时发这个事件；事件名属于加载器，不在本插件的
   // 类型依赖里，所以按名字订阅一次。
   const onEvent = (ctx as { on?: (event: string, listener: () => void) => unknown }).on
@@ -196,13 +267,18 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     const next = readConfigField(config.enabled, true)
     if (next === enabled) return
     enabled = next
+    syncTools()
     // 关掉时长连接一并收掉：页面不该停在一条不再有消息的连接上（D18）。
     if (!enabled) live.close()
   })
 
   ctx.effect(() => () => {
+    tools?.dispose()
+    stopWatchingViewers()
+    scheduler.stop()
     stopBuiltin()
     stopUser()
+    providers.disposeAll()
     disposeRoute()
     live.close()
   }, 'widget-board: routes and library watch')

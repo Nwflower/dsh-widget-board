@@ -21,6 +21,7 @@
   ```
 
 - `widget.json` 按 `contracts` 里的 JSON Schema 校验，校验用 Ajv。manifest 不合格的组件不进入组件库，错误原样返回给作者。
+- `refresh` 声明刷新策略（D6）：省略或 `{ "mode": "onDemand" }` 表示只由人按刷新、或工具显式读一次；`{ "mode": "interval", "everyMs": 1000 }` 表示看板有人看着的时候按这个间隔读，间隔抬到 1 秒的下限。没有观众时一律不读。
 - manifest 的 `defaultBox` 声明加卡片时的默认宽高；省略时是一列宽、22rem 高。`board-hero` 用 2 列、14rem，让题头的标题、说明与字模图案排得开。
 - 运行时接口 `window.widget`：`props`、`data`、`onData`、`state`、`setState`、`size`、`onResize`、`action`、`t`、`fit`、`reportError`。
 - CSS 套件提供令牌、动效原语（数字滚动、文字变形、图标切换、骨架闪烁、列表重排）与基础件（`.w-chip`、`.w-meter`、`.w-fit`）。组件用套件即可做出一致的外观与动效（D10）。

@@ -5,7 +5,9 @@
 - **marked** — Markdown 解析器，MIT License，https://github.com/markedjs/marked
 - **highlight.js** — 代码高亮，BSD-3-Clause License，https://github.com/highlightjs/highlight.js
 
-两个库的版权归各自的作者所有；本插件只做打包与调用。
+组件包与看板包的 zip 读写用 **fflate**（MIT License，https://github.com/101arrowz/fflate），内联进宿主半边的产物。
+
+三个库的版权归各自的作者所有；本插件只做打包与调用。
 
 看板入口的未读通知徽标参考了 transitions.dev 的 **Notification badge**（作者 Jakub Antalík），按它的许可改写为本站的类名与令牌：
 

@@ -10,6 +10,7 @@
 
 <h3 id="cn-unreleased">新增功能</h3>
 
+- 会话里直接看得见组件：新增 widget_show 工具，widget_define 与 widget_show 的结果在会话正文里画出组件（只读快照，按当时的版本哈希重画）。widget_define 带自检：调用进行中由看得到这个会话的页面把新组件放进代表性盒子，用组件运行时里的检查器量一遍，结论写进工具结果；没有页面接手时标 unverified。检查器只剩一份，尺寸矩阵也改用它的判定（新增文字与控件被纵向截掉的判据），并且铺满组件库里每个组件。
 - 组件可以调 `widget.notify({ title, body })` 发起通知：侧栏的看板入口右上角滑入未读条数，悬停读到最近一条的标题与正文，点一下看板入口之后清零；番茄钟到点会自己发一条。
 - 看板从一块变成多块：顶部一条标签在几块看板之间切换，每块看板有自己的卡片、盒子与修订号；存储拆成一份索引加每块看板一份文件，旧版本的单一看板在第一次打开时自动搬成第一块看板。
 - 会话里的 agent 现在能用六个工具读写看板：列组件（widget_catalog）、写或改一个组件（widget_define）、读看板上的卡片（widget_board）、放卡或改卡（widget_place）、移除卡（widget_remove）、推数据（widget_push）。工具跟着总开关出现与撤下，并带一条虚拟 skill「widget-authoring」，写组件的格式、运行时接口与盒子契约都在里面。
@@ -61,6 +62,7 @@
 
 <h3 id="en-unreleased">New Features</h3>
 
+- Widgets now render inside the conversation: a new widget_show tool, and the results of widget_define and widget_show draw the widget inline (a read-only snapshot pinned to the version hash, redrawn the same way when the session reopens). widget_define is self-checked: while the call runs, a page showing the session puts the new widget into representative boxes and measures it with the inspector in the widget runtime; the verdict lands in the tool result, and no page means unverified. The inspector now exists once: the size matrix uses its judgement too (with vertical text and control clipping added) and covers every widget in the library.
 - Widgets can call `widget.notify({ title, body })` to raise a notification: the Board entry in the sidebar slides in the unread count, hovering reads the latest title and body, clicking the entry clears it, and the pomodoro raises one when its session ends.
 - The board now holds several boards: a tab strip at the top switches between them, and each board keeps its own cards, boxes and revisions; storage splits into one index plus one file per board, and an older single board is carried over as the first one when it opens.
 - An agent in a session can now read and write the board with six tools: list widgets (widget_catalog), write or replace a widget (widget_define), read the cards on the board (widget_board), place or change a card (widget_place), remove a card (widget_remove), and push data (widget_push). The tools follow the master switch, and a virtual skill named widget-authoring carries the widget format, runtime interface and box contract.

@@ -12,9 +12,9 @@
  * 用法：node packages/testing/matrix.cjs
  */
 'use strict'
-const { mkdirSync, mkdtempSync, rmSync } = require('node:fs')
+const { mkdirSync, rmSync } = require('node:fs')
 const { join } = require('node:path')
-const { openPage, start } = require('./dsh-web.cjs')
+const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { frameOf } = require('./frames.cjs')
 const { keepOnlyGallery, writeLayouts, addInstance } = require('./board.cjs')
 const { openBoard } = require('./panel.cjs')
@@ -125,7 +125,7 @@ async function measure(frame) {
   }, INSPECT_GLOBAL)
 }
 
-start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) => {
+start({ home: scratchHome('matrix-') }).then(async (host) => {
   let opened
   try {
     opened = await openPage(host.url, { width: 1600, height: 1000 })

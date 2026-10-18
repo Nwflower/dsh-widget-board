@@ -24,6 +24,20 @@ const { launchBrowser, newContextOn } = require('./browser.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 /** 临时宿主的 home：跟其他调试产物一起放在 .debug/ 下。 */
 const DEFAULT_HOME = path.join(ROOT, '.debug', 'host')
+/**
+ * 一轮检查自己的临时 home：不跟并行跑的检查或手工调好的 `.debug/host` 抢同一个宿主。
+ *
+ * `.debug/` 被 gitignore，新检出（持续集成）里没有它，先建出来再在里面取临时目录。
+ *
+ * @param prefix - 目录名前缀，例如 `smoke-`。
+ * @returns 新建的目录。
+ */
+function scratchHome(prefix) {
+  const scratch = path.join(ROOT, '.debug')
+  fs.mkdirSync(scratch, { recursive: true })
+  return fs.mkdtempSync(path.join(scratch, prefix))
+}
+
 /** 预加载进宿主，让它在调用方退出时一起结束。 */
 const LIFELINE = path.join(__dirname, 'lifeline.cjs')
 
@@ -190,7 +204,7 @@ async function withHost(body) {
   }
 }
 
-module.exports = { DEFAULT_HOME, openPage, start, withHost }
+module.exports = { DEFAULT_HOME, openPage, scratchHome, start, withHost }
 
 if (require.main === module) {
   const at = process.argv.indexOf('--port')

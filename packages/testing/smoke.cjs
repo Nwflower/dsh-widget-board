@@ -12,10 +12,9 @@
  * 用法：node packages/testing/smoke.cjs
  */
 'use strict'
-const { mkdtempSync } = require('node:fs')
 const { readFile, writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
-const { openPage, start } = require('./dsh-web.cjs')
+const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
 const { keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
@@ -622,8 +621,7 @@ async function reducedPass(page) {
   check('切换栏不做过渡', still.tabTransition === '0s', still.tabTransition)
 }
 
-// 每轮一个自己的临时 home：不要跟并行跑的检查或手工调好的 `.debug/host` 抢同一个宿主。
-const home = mkdtempSync(join(__dirname, '..', '..', '.debug', 'smoke-'))
+const home = scratchHome('smoke-')
 start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
   // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
   // 在地址打印之后，所以等一会儿再看。

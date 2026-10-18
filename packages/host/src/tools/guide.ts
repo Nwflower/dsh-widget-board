@@ -49,6 +49,7 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`sizes\`：\`s\`、\`m\`、\`l\`、\`wide\`、\`xl\`、\`hero\`、\`expanded\`、\`inline\`、\`rail\`。看板这一处只用到位置与盒子，尺寸族给会话内联与右侧栏用。
 - \`props\` 与 \`data\` 是 JSON Schema。\`data\` 用来校验数据源读回来的数据，不合格的不会写进卡片。
 - \`source\` 是默认数据源的名字；要别人装的插件提供，写 \`提供方:名字\`。
+- \`source\` 写 \`"http"\` 时，再用 \`request.url\` 给出宿主代发的地址。URL 里的 \`{名字}\` 在每次读取时换成卡片 props 里的同名值，没有时换成 props schema 给这个属性写的 \`default\`；主机必须列在 \`permissions.hosts\` 里。返回的 JSON 原样作为 \`data\` 交给组件，解析与映射由组件自己的脚本做。\`request.cacheMs\` 可选：给了就让宿主按这个毫秒数缓存同一个地址的响应。
 - \`actions\` 里写插件动作的全名。**没有声明的动作一律被拒绝**；要权限的动作还要有人在卡片上给出授权之后才跑得起来。
 - \`libs\`：\`marked\`、\`highlight\` 由宿主内联进这份文档，组件里直接用全局名。
 - \`minBox\` 是这张卡缩到多小还排得下；低于它的缩放会被停在下限。
@@ -71,7 +72,7 @@ widget.fit()            // 把内容高度报给宿主（内联显示时用）
 widget.reportError(err) // 把失败原因写在这张卡上
 \`\`\`
 
-组件在 iframe 里跑，拿不到网络、cookie 与父页面。要数据就声明数据源，要动手就声明动作。
+组件在 iframe 里跑，拿不到网络、cookie 与父页面。要数据就声明数据源（要网上的数据用 \`"http"\`），要动手就声明动作。
 
 ## 盒子契约
 

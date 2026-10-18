@@ -110,6 +110,44 @@ describe('不合格的组件', () => {
     expect(load.entries.some((entry) => entry.error !== undefined)).toBe(true)
   })
 
+  it('默认数据源可以写成「提供方:名字」', async () => {
+    const root = join(ROOT, 'qualified-source')
+    const manifest = JSON.stringify({
+      id: 'weather',
+      title: { zh: '天气', en: 'Weather' },
+      version: '0.1.0',
+      sizes: ['s'],
+      source: 'demo:count',
+    })
+    await widget(join(root, 'builtin'), 'stat')
+    await widget(join(root, 'user'), 'weather', { manifest })
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'user'), source: 'user' },
+    ])
+    expect(load.errors).toEqual([])
+    expect(load.records.get('weather')?.manifest.source).toBe('demo:count')
+  })
+
+  it('source 是 http 却没给 request 时不可用', async () => {
+    const root = join(ROOT, 'http-without-request')
+    const manifest = JSON.stringify({
+      id: 'weather',
+      title: { zh: '天气', en: 'Weather' },
+      version: '0.1.0',
+      sizes: ['s'],
+      source: 'http',
+    })
+    await widget(join(root, 'builtin'), 'stat')
+    await widget(join(root, 'user'), 'weather', { manifest })
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'user'), source: 'user' },
+    ])
+    expect(load.records.has('weather')).toBe(false)
+    expect(load.errors[0]?.message).toMatch(/request/)
+  })
+
   it('缺少 index.html 时记下原因', async () => {
     const root = join(ROOT, 'missing-file')
     await widget(join(root, 'builtin'), 'weather')

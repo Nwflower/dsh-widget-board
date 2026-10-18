@@ -10,6 +10,7 @@ DeepSeek Harness 的组件看板插件。侧栏多一个「看板」入口，中
 - **题头也是卡片**：一块活的看板的标题、说明与字模图案内置成 `board-hero` 组件卡，可以拖动、缩放、移除；旧看板升级时补一次这张卡，添加按钮只在下方菜单。
 - **下方菜单**：看板这一栏下方居中的加号按下后化开成扇面的三个图标，分别是添加、整理与刷新。底色、桥接与投影画在同一张 SVG 的 goo 滤镜里；三个动作按 40ms 错峰弹开，加号旋转 45°，收起时整块轻轻下沉 5px 再回弹。添加打开悬浮的组件库：按来源分组排成网格，每格画着组件自己的缩略画面；按住一格拖到看板的任意一列，或轻点加在末尾；整理按当前阅读顺序把卡片密排；刷新让宿主重读组件库并重挂卡片。
 - **卡片设置**：卡片右上角、移除按钮旁边的齿轮打开一块设置弹窗，分「组件设置 / 凭据 / 数据与权限 / 关于」四节。props 由组件自己的 schema 生成表单，保存时宿主按同一个 schema 校验；凭据写进宿主的凭据服务，不进看板文件、导出包与工具结果；数据源、权限与「允许 / 撤销」也在这里。
+- **宿主能力**：组件在 manifest 里声明能力，经 `widget.call` 调用；能力由插件注册，输入输出按 JSON Schema 校验，要权限的能力先由人授权。内置的 DSH 余额卡就声明 `dsh.account.balance`，读当前登录的 DSH 账号的充值钱包与赠送钱包，不需要 API key。
 - **通用数据卡**：数字、列表、表格、图表、进度、键值、时间线与图片内置在组件库里；它们共用 `.t-data` 骨架，内容由 data 填、标题由 props 改，卡片大小由看板给。
 - **时间与密度**：翻页时钟、表盘与热力图在组件库里；时钟把时与分逐格翻页、秒在旁边滚动，表盘用环形比例表示配额与目标，热力图按日铺格子并给出总数、有记录的天数与连续天数。
 - **日历与改动**：月历把一个月的日期铺成七列，有安排的日期带点，可以翻到前后月份或回到今天；改动卡把统一的 diff 按行铺开，新增行与删除行标出加减号，文件路径自成一行。
@@ -58,15 +59,16 @@ dsh plugin add <本仓库路径>
 
 ## 给插件提供方
 
-宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 2`）：
+宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 3`）：
 
-- `registerWidgetType({ apiVersion, provider, directory })`：注册一个组件目录，返回一个把手：`provider`、`widgets`、`register({ dataSources, actions })` 与 `dispose()`。数据源与动作挂在这个提供方的注册名下，撤下时一并释放。
+- `registerWidgetType({ apiVersion, provider, directory })`：注册一个组件目录，返回一个把手：`provider`、`widgets`、`register({ dataSources, actions, capabilities })` 与 `dispose()`。数据源、动作与能力挂在这个提供方的注册名下，撤下时一并释放。
 - `registerDataSource({ apiVersion, provider, id, read, permission? })`：注册一个数据源，卡片可以绑定它取数据；声明了 `permission` 的源要有人给出授权才读得到。
 - `registerAction({ apiVersion, provider, id, run, permission? })`：注册一个动作，同样可以声明权限。
+- `registerCapability({ apiVersion, provider, id, input?, output?, permission?, credentials?, call })`：注册一个宿主能力，组件在 manifest 里声明后经 `widget.call(id, args)` 调用；参数与结果按 schema 校验，`call` 收到一个中止信号。声明了 `permission` 的能力要有人给出授权。
 
 浏览器半边发布同名服务，`registerWidgetType({ apiVersion, provider, id, component })` 登记一个 React 组件：与组件库里同 id 的组件对上之后，卡片用它渲染，参数与 `window.widget` 同形。版本从 `service.apiVersion` 读，不复制常量。
 
-提供方跨包时按 `import type { WidgetBoardClientService } from 'dsh-widget-board/service'` 取类型，在自己包里 `declare module '@deepseek-ai/cordis'` 把服务挂到 `Context` 上；没有类型检查的纯 JS 提供方仍按同形声明写。运行时只走服务：不要值导入本插件，也不要为绕开这条规则添加 `dsh.client.external`；客户端产物只依赖平台种子。插件停用或卸载时，注册的组件、数据源、动作与它留下的授权一起撤下，已经放着的卡片保留并显示不可用，装回来之后恢复。
+提供方跨包时按 `import type { WidgetBoardClientService } from 'dsh-widget-board/service'` 取类型，在自己包里 `declare module '@deepseek-ai/cordis'` 把服务挂到 `Context` 上；没有类型检查的纯 JS 提供方仍按同形声明写。运行时只走服务：不要值导入本插件，也不要为绕开这条规则添加 `dsh.client.external`；客户端产物只依赖平台种子。插件停用或卸载时，注册的组件、数据源、动作、能力与它留下的授权一起撤下，已经放着的卡片保留并显示不可用，装回来之后恢复。
 
 ## 状态
 

@@ -3,6 +3,7 @@ import { PACKAGE_NAME, WIDGET_BOARD_SERVICE_NAME } from '@dsh-widget-board/contr
 import { createClientService } from './native'
 import { registerPanel } from './panel'
 import { mountStyle } from './style'
+import { registerToolView } from './toolview'
 
 /** 加载器按这个 id 把这份导出交给宿主的浏览器半边。 */
 export const name = PACKAGE_NAME
@@ -21,6 +22,8 @@ export const inject = ['slots']
 export function apply(ctx: Context): void {
   ctx.effect(() => mountStyle(), 'widget-board: stylesheet')
   ctx.effect(() => registerPanel(ctx), 'widget-board: sidebar row and board page')
+  // 会话里 `widget_show` 的结果画成一张组件（D9）。
+  ctx.effect(() => registerToolView(ctx), 'widget-board: inline widget tool view')
   // 原生组件的登记处先于面板提供：提供方在启动早期就能注册，登记项随插件卸载撤下。
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide
   if (typeof provide === 'function') provide.call(ctx, WIDGET_BOARD_SERVICE_NAME, createClientService())

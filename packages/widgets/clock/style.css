@@ -1,0 +1,73 @@
+/*
+ * 翻页时钟的样式：时与分是四个翻页数字格，秒用小号数字跟在右边，日期在下方。
+ *
+ * 翻页的几何与时长在运行时套件的 .t-flip 里（D10）；这里只写字号、宽度与配色。半页的底色用卡片
+ * 自身的表面色，翻过去时不会透出后面的数字。
+ */
+.clock-card__body {
+  align-items: center;
+  justify-content: center;
+}
+
+.clock-card__face {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.clock-card__time {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  color: var(--w-color-fg, #0b1016);
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, sans-serif);
+  font-size: clamp(40px, 17vw, 84px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.clock-card__digit {
+  width: 0.62em;
+  text-align: center;
+  --t-flip-page: linear-gradient(var(--w-color-surface, #fff), var(--w-color-surface, #fff));
+  --t-flip-page-filter: none;
+}
+
+.clock-card__colon {
+  display: inline-block;
+  width: 0.34em;
+  color: var(--w-color-muted, #6b7684);
+  text-align: center;
+  transform: translateY(-0.04em);
+}
+
+.clock-card__seconds {
+  margin-left: 0.2em;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 0.3em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.clock-card__date {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  line-height: 14px;
+  text-align: center;
+}
+
+@media (max-height: 260px) {
+  .clock-card__date { display: none; }
+}
+
+:root[data-motion="reduced"] .clock-card__digit .t-flip-page { animation: none; }

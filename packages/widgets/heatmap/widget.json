@@ -1,0 +1,67 @@
+{
+  "id": "heatmap",
+  "title": {
+    "zh": "热力图",
+    "en": "Heatmap"
+  },
+  "description": {
+    "zh": "按日铺开的活动格子：颜色深浅表示多少，附总数、有记录的天数与连续天数。",
+    "en": "A grid of daily activity whose shade shows how much, with totals, active days and a streak."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "days": {
+        "type": "array",
+        "maxItems": 400,
+        "items": {
+          "type": "object",
+          "required": ["date", "value"],
+          "properties": {
+            "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+            "value": { "type": "number" }
+          }
+        }
+      },
+      "caption": { "type": "string", "maxLength": 160 }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无记录",
+      "en": "No activity"
+    },
+    "less": {
+      "zh": "少",
+      "en": "Less"
+    },
+    "more": {
+      "zh": "多",
+      "en": "More"
+    },
+    "total": {
+      "zh": "共 {n} 次",
+      "en": "{n} total"
+    },
+    "active": {
+      "zh": "{n} 天有记录",
+      "en": "{n} active days"
+    },
+    "streak": {
+      "zh": "连续 {n} 天",
+      "en": "{n}-day streak"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "gauge",
+  "title": {
+    "zh": "表盘",
+    "en": "Gauge"
+  },
+  "description": {
+    "zh": "一组环形表盘：比例、百分比与说明，适合配额、目标与完成度。",
+    "en": "A set of ring gauges with ratios, percentages and notes; for quotas, goals and completion."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 12,
+        "items": {
+          "type": "object",
+          "required": ["label", "value", "max"],
+          "properties": {
+            "label": { "type": "string", "maxLength": 60 },
+            "value": { "type": "number" },
+            "max": { "type": "number" },
+            "note": { "type": "string", "maxLength": 60 },
+            "tone": { "enum": ["accent", "warn", "danger", "muted"] }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无指标",
+      "en": "No metrics"
+    }
+  }
+}

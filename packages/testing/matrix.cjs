@@ -14,7 +14,7 @@ const { mkdirSync, mkdtempSync, rmSync } = require('node:fs')
 const { join } = require('node:path')
 const { openPage, start } = require('./dsh-web.cjs')
 const { frameOf } = require('./frames.cjs')
-const { writeLayouts } = require('./board.cjs')
+const { keepOnlyGallery, writeLayouts } = require('./board.cjs')
 const { openBoard } = require('./panel.cjs')
 const { openLibrary } = require('./library.cjs')
 
@@ -148,6 +148,7 @@ start({ home: mkdtempSync(join(ROOT, '.debug', 'matrix-')) }).then(async (host) 
     opened = await openPage(host.url, { width: 1600, height: 1000 })
     const page = opened.page
     await page.waitForSelector('svg.dsh-widget-board__icon', { timeout: 120000 })
+    await keepOnlyGallery(page)
     await openBoard(page)
     const snapshot = await page.evaluate(async () => {
       const workspace = await (await fetch('api/widget-board/boards')).json()

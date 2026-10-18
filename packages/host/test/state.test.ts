@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Board, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
-import { seedBoard, withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
+import { withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
 
 /** 一块带两张卡的看板。 */
 function board(): Board {
@@ -111,13 +111,6 @@ describe('卡片布局', () => {
 })
 
 describe('默认数据源', () => {
-  it('第一次铺卡时接上组件声明的默认数据源', () => {
-    const weather = record('weather')
-    weather.manifest.source = 'http'
-    const seeded = seedBoard(new Map([['weather', weather]]), '看板')
-    expect(seeded.instances[0]?.source).toBe('http')
-  })
-
   it('旧卡片没有数据源时补上组件声明的那个', () => {
     const weather = record('weather')
     weather.manifest.source = 'http'

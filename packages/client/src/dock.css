@@ -12,6 +12,19 @@
   display: contents;
 }
 
+/* 加号后面的一条渐隐底：卡片滚到加号下面时先淡出，加号坐在看板自己的底色上，读得清；条本身不接指针。
+ * 左缘与宽度是看板这一栏（不含左右侧栏），BoardDock 量出来写在浮层层上。 */
+.dsh-widget-board__dock-fade {
+  position: fixed;
+  bottom: 0;
+  left: var(--dsh-widget-board-left, 0);
+  z-index: 79;
+  width: var(--dsh-widget-board-width, 100%);
+  height: 104px;
+  background: linear-gradient(to top, var(--dsw-alias-bg-base) 0, var(--dsw-alias-bg-base) 56%, transparent 100%);
+  pointer-events: none;
+}
+
 .dsh-widget-board__dock {
   position: fixed;
   bottom: 8px;

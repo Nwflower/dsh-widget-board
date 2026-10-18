@@ -404,8 +404,8 @@ export function BoardDock({
     return () => cancelAnimationFrame(frame)
   }, [proxy])
 
-  // 菜单与组件库按看板这一栏的中线定位：侧栏收放、拖宽时跟着挪，不按整扇窗口算。写 CSS 变量而不是
-  // 走 React 状态，侧栏动画期间每帧都量也不会重绘整页。
+  // 菜单与组件库按看板这一栏的中线定位，底部的渐隐条按这一栏的左缘与宽度铺：侧栏收放、拖宽时跟着挪，
+  // 不按整扇窗口算。写 CSS 变量而不是走 React 状态，侧栏动画期间每帧都量也不会重绘整页。
   useLayoutEffect(() => {
     const board = anchor.current
     const layer = layerRef.current
@@ -413,6 +413,8 @@ export function BoardDock({
     const update = (): void => {
       const rect = board.getBoundingClientRect()
       layer.style.setProperty('--dsh-widget-board-anchor', `${String(rect.left + board.clientWidth / 2)}px`)
+      layer.style.setProperty('--dsh-widget-board-left', `${String(rect.left)}px`)
+      layer.style.setProperty('--dsh-widget-board-width', `${String(board.clientWidth)}px`)
     }
     update()
     const observer = new ResizeObserver(update)
@@ -447,6 +449,7 @@ export function BoardDock({
 
   return (
     <div className="dsh-widget-board__dock-layer" ref={layerRef} style={LAYER_STYLE}>
+      <div className="dsh-widget-board__dock-fade" aria-hidden="true" />
       <div ref={dockRef}>
         <DockMenu
           busy={busy}

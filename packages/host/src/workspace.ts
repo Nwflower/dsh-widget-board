@@ -10,12 +10,13 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Board, BoardEvent, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from './library'
-import { StaleRevisionError, emptyBoard, readBoard, seedBoard, withLayouts, writeBoard } from './state'
+import { seedBoards } from './default-boards'
+import { StaleRevisionError, emptyBoard, readBoard, withLayouts, writeBoard } from './state'
 
 /** 索引的格式版本。 */
 export const INDEX_FORMAT = 1
 
-/** 第一块看板的标题。 */
+/** 旧看板没有标题时给它起的名字。 */
 const FIRST_TITLE = '看板'
 
 /** 新建看板的标题前缀；重名时后面接一个序号。 */
@@ -169,20 +170,23 @@ export async function openWorkspace(
   const boards = new Map<string, Board>()
   let index = await readIndex(indexFile)
   if (index === null) {
-    // 单一看板的时代留下的一份：搬成第一块看板，搬完才删掉原文件（D5 的重审条件）。
-    let first: Board
+    // 单一看板的时代留下的一份：搬成第一块看板，搬完才删掉原文件（D5 的重审条件）。没有旧文件时
+    // 才是真正的第一次启动，铺两块默认看板（D17）。
+    let first: Board[]
     try {
-      first = await readBoard(legacy, records)
+      first = [await readBoard(legacy, records)]
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      first = seedBoard(records, FIRST_TITLE)
+      first = seedBoards(records)
     }
-    if (typeof first.title !== 'string' || first.title.trim() === '') first = { ...first, title: FIRST_TITLE }
-    await writeBoard(boardFileOf(home, first.id), first)
-    index = { version: INDEX_FORMAT, active: first.id, boards: [first.id] }
+    first = first.map((entry) => typeof entry.title !== 'string' || entry.title.trim() === '' ? { ...entry, title: FIRST_TITLE } : entry)
+    for (const entry of first) {
+      await writeBoard(boardFileOf(home, entry.id), entry)
+      boards.set(entry.id, entry)
+    }
+    index = { version: INDEX_FORMAT, active: (first[0] as Board).id, boards: first.map((entry) => entry.id) }
     await writeJson(indexFile, index)
     await rm(legacy, { force: true })
-    boards.set(first.id, first)
   } else {
     for (const id of index.boards) boards.set(id, await readBoard(boardFileOf(home, id), records))
     if (!index.boards.includes(index.active)) index = { ...index, active: index.boards[0] as string }

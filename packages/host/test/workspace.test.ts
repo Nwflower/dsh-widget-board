@@ -8,14 +8,16 @@ import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { Board, BoardEvent } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
+import { loadLibrary } from '../src/library'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const HASH = 'a'.repeat(64)
+const WIDGETS = join(ROOT, 'packages', 'widgets')
 
 /** 一个组件记录。 */
 function record(id: string, minBox?: { w: number, h: number }): WidgetRecord {
@@ -47,6 +49,13 @@ function board(id: string, title: string, height = 22): Board {
     ],
   }
 }
+
+/** 真实的内置组件库：第一次启动的两块看板按它铺。 */
+let library: WidgetRecord[]
+
+beforeAll(async () => {
+  library = [...(await loadLibrary([{ dir: WIDGETS, source: 'builtin' }])).records.values()]
+})
 
 /** 这一轮起的临时目录，测试结束一并删掉。 */
 const homes: string[] = []
@@ -80,17 +89,41 @@ async function open(home: string, records: WidgetRecord[] = [record('weather')])
   return { workspace, events }
 }
 
+/**
+ * 先写好只有一块看板的工作区再打开：这些测试关心的是看板的增删与写入，不是第一次启动铺什么。
+ *
+ * @param home - 临时目录。
+ * @returns 工作区与事件表。
+ */
+async function openStarted(home: string): ReturnType<typeof open> {
+  await writeBoard(join(home, 'boards', 'start.json'), board('start', '看板'))
+  await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'start', boards: ['start'] })}
+`, 'utf8')
+  return await open(home)
+}
+
 describe('第一次打开', () => {
-  it('没有任何文件时给一块看板，内置组件每个一张卡', async () => {
+  it('没有任何文件时铺两块看板：「我的看板」选中并排第一，「组件画廊」排第二', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home, [record('weather'), record('todo')])
+    const { workspace } = await open(home, library)
     const boards = workspace.list()
-    expect(boards).toHaveLength(1)
-    expect(boards[0]?.title).toBe('看板')
-    expect(boards[0]?.instances.map((instance) => instance.widget).sort()).toEqual(['todo', 'weather'])
+    expect(boards.map((entry) => entry.title)).toEqual(['我的看板', '组件画廊'])
     expect(workspace.activeId()).toBe(boards[0]?.id)
+    expect(boards[0]?.instances.length).toBeGreaterThan(0)
+    expect(boards[1]?.instances.length).toBeGreaterThan(boards[0]?.instances.length ?? 0)
     expect(existsSync(join(home, 'boards.json'))).toBe(true)
-    expect(existsSync(join(home, 'boards', `${boards[0]?.id ?? ''}.json`))).toBe(true)
+    for (const entry of boards) expect(existsSync(join(home, 'boards', `${entry.id}.json`))).toBe(true)
+    const index = JSON.parse(await readFile(join(home, 'boards.json'), 'utf8')) as { active: string, boards: string[] }
+    expect(index).toMatchObject({ active: boards[0]?.id, boards: boards.map((entry) => entry.id) })
+  })
+
+  it('已有看板的用户不受影响：再次打开读到的还是原来的看板', async () => {
+    const home = await tempHome()
+    await open(home, library)
+    const reopened = (await open(home, library)).workspace
+    expect(reopened.list().map((entry) => entry.title)).toEqual(['我的看板', '组件画廊'])
+    const kept = await openStarted(await tempHome())
+    expect(kept.workspace.list().map((entry) => entry.title)).toEqual(['看板'])
   })
 
   it('索引版本不认识时报错并保留原文件', async () => {
@@ -124,7 +157,7 @@ describe('单一看板的迁移', () => {
 describe('看板的增删改与选中', () => {
   it('新建的空看板排在末尾并成为当前选中', async () => {
     const home = await tempHome()
-    const { workspace, events } = await open(home)
+    const { workspace, events } = await openStarted(home)
     const first = workspace.list()[0]?.id ?? ''
     const created = await workspace.create()
     expect(workspace.list().map((entry) => entry.id)).toEqual([first, created.id])
@@ -141,7 +174,7 @@ describe('看板的增删改与选中', () => {
 
   it('改名写进那一块看板自己的文件', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home)
+    const { workspace } = await openStarted(home)
     const id = workspace.activeId()
     await workspace.rename(id, '工作')
     expect(workspace.board(id).title).toBe('工作')
@@ -152,7 +185,7 @@ describe('看板的增删改与选中', () => {
 
   it('移除一块看板：文件删掉、索引不再提它；只剩一块时拒绝', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home)
+    const { workspace } = await openStarted(home)
     const first = workspace.activeId()
     const second = await workspace.create()
     await workspace.remove(second.id)
@@ -164,7 +197,7 @@ describe('看板的增删改与选中', () => {
 
   it('选中只改索引，同一块重复选中不再写', async () => {
     const home = await tempHome()
-    const { workspace, events } = await open(home)
+    const { workspace, events } = await openStarted(home)
     const first = workspace.activeId()
     const second = await workspace.create()
     const before = events.length
@@ -178,7 +211,7 @@ describe('看板的增删改与选中', () => {
 describe('按块写入', () => {
   it('每块看板各算各的修订号', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home)
+    const { workspace } = await openStarted(home)
     const first = workspace.activeId()
     const second = await workspace.create()
     await workspace.save(second.id, (current) => ({ ...current, instances: [] }), { layoutChanged: true, event: () => ({ type: 'board' }) })
@@ -190,7 +223,7 @@ describe('按块写入', () => {
 
   it('布局修订号过期时抛出，磁盘上不留半份', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home)
+    const { workspace } = await openStarted(home)
     const id = workspace.activeId()
     await workspace.save(id, (current) => current, { layoutChanged: true, event: () => ({ type: 'board' }) })
     await expect(workspace.save(id, (current) => current, { expectedLayoutRevision: 0, layoutChanged: true, event: () => ({ type: 'board' }) })).rejects.toThrow(/布局修订号/)
@@ -199,7 +232,7 @@ describe('按块写入', () => {
 
   it('找得到任意一块看板上的卡片与组', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home)
+    const { workspace } = await openStarted(home)
     const first = workspace.activeId()
     const firstCard = workspace.board(first).instances[0]?.id ?? ''
     const second = await workspace.create()
@@ -218,7 +251,7 @@ describe('按块写入', () => {
 
   it('组件的最小盒子变了时把每块看板里低于下限的卡片抬上来', async () => {
     const home = await tempHome()
-    const { workspace } = await open(home)
+    const { workspace } = await openStarted(home)
     const first = workspace.activeId()
     const second = await workspace.create()
     // 两块看板各放一张 6rem 高的卡：都在下限之下。

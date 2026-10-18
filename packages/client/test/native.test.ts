@@ -1,5 +1,5 @@
 /**
- * 原生组件的登记处（D17）：按组件 id 登记、替换、撤下，版本与形状不对时拒绝。
+ * 原生组件的登记处（D17）：按组件 id 登记、拒绝重名、撤下，版本与形状不对时拒绝。
  */
 import { describe, expect, it } from 'vitest'
 import { createClientService, nativeWidgetOf } from '../src/native'
@@ -35,14 +35,13 @@ describe('原生组件的登记', () => {
     expect(() => service.registerWidgetType({ apiVersion: service.apiVersion, provider: 'p', id: 'a', component: 42 })).toThrow(/React 组件/)
   })
 
-  it('再次登记同一个 id 时用新的，旧登记的释放不动它', () => {
+  it('再次登记同一个 id 时抛出，先到的那一个继续用', () => {
     const service = createClientService()
     const dispose = service.registerWidgetType({ apiVersion: service.apiVersion, provider: 'p', id: 'a', component })
-    const other = (): null => null
-    const disposeOther = service.registerWidgetType({ apiVersion: service.apiVersion, provider: 'q', id: 'a', component: other })
+    expect(() => service.registerWidgetType({ apiVersion: service.apiVersion, provider: 'q', id: 'a', component }))
+      .toThrow(/已经由 p 注册/)
+    expect(nativeWidgetOf('a')?.provider).toBe('p')
     dispose()
-    expect(nativeWidgetOf('a')?.provider).toBe('q')
-    disposeOther()
     expect(nativeWidgetOf('a')).toBeUndefined()
   })
 })

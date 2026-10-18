@@ -4,7 +4,7 @@
  * 两者都只读宿主上的状态，不改任何东西；返回的是规范 JSON 值，模型看到的内容由 `render` 拼。
  */
 import type { BoardValue, CatalogEntry, CatalogValue, WidgetToolSpec } from '@dsh-widget-board/contracts'
-import { WIDGET_TOOL_NAMES } from '@dsh-widget-board/contracts'
+import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { ToolContext } from './index'
 
 /** 把一组组件拼成目录说明。 */
@@ -110,18 +110,28 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
 export function boardTool(context: ToolContext): WidgetToolSpec {
   return {
     name: WIDGET_TOOL_NAMES.board,
-    description: 'Read the widget board: every card with its widget, props, data, state, and box. Use it to find the instance id a later widget_place, widget_push, or widget_remove call needs.',
+    description: 'Read a widget board: every card with its widget, props, data, state, and box. Returns all boards with their ids; pass `board` to read another board. Use it to find the instance id a later widget_place, widget_push, or widget_remove call needs.',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
         id: { type: 'string', description: 'Only this card instance id.' },
         widget: { type: 'string', description: 'Only cards of this widget type.' },
+        board: { type: 'string', description: 'Board id from the boards list; omit for the selected board.' },
       },
     },
     async execute(args) {
-      const wanted = (args ?? {}) as { id?: unknown, widget?: unknown }
-      const board = context.route.board
+      const wanted = (args ?? {}) as { id?: unknown, widget?: unknown, board?: unknown }
+      const workspace = context.route.workspace
+      const chosen = typeof wanted.board === 'string' && wanted.board !== '' ? wanted.board : workspace.activeId()
+      if (!workspace.has(chosen)) throw new ToolRefusal(`没有这块看板：${chosen}`)
+      const board = workspace.board(chosen)
+      const boards = workspace.list().map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        active: entry.id === workspace.activeId(),
+        cards: entry.instances.length,
+      }))
       const cards = board.instances
         .filter((instance) => (typeof wanted.id !== 'string' || instance.id === wanted.id)
           && (typeof wanted.widget !== 'string' || instance.widget === wanted.widget))
@@ -140,11 +150,14 @@ export function boardTool(context: ToolContext): WidgetToolSpec {
             layout: instance.layout,
           }
         })
-      return { title: board.title, revision: board.revision, layoutRevision: board.layoutRevision, cards } satisfies BoardValue
+      return { boards, board: board.id, title: board.title, revision: board.revision, layoutRevision: board.layoutRevision, cards } satisfies BoardValue
     },
     render(value) {
       const board = value as BoardValue
-      if (board.cards.length === 0) return [{ type: 'text', text: `看板「${board.title}」上没有符合条件的卡片。` }]
+      const summary = board.boards
+        .map((entry) => `「${entry.title}」${entry.active ? '（选中）' : ''} ${entry.cards} 张`)
+        .join('、')
+      if (board.cards.length === 0) return [{ type: 'text', text: `看板：${summary}。\n看板「${board.title}」上没有符合条件的卡片。` }]
       const lines = board.cards.map((card) => {
         const head = `- ${card.id} · ${card.widget}（${card.title.zh}）· ${card.layout.w} 列 × ${card.layout.h}rem @ (${card.layout.x}, ${card.layout.y})`
         const parts = [head]
@@ -153,7 +166,7 @@ export function boardTool(context: ToolContext): WidgetToolSpec {
         if (Object.keys(card.props).length > 0) parts.push(`  props：${JSON.stringify(card.props)}`)
         return parts.join('\n')
       })
-      return [{ type: 'text', text: [`看板「${board.title}」（修订 ${board.revision}，布局修订 ${board.layoutRevision}）：`, ...lines].join('\n') }]
+      return [{ type: 'text', text: [`看板：${summary}。`, `看板「${board.title}」（修订 ${board.revision}，布局修订 ${board.layoutRevision}）：`, ...lines].join('\n') }]
     },
   }
 }

@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 21,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "组件状态写入由父页面按 250 毫秒窗口合并，宿主按卡 64KB、按看板 1MB 与每秒次数限额拒绝超出的写入并显示原因；状态事件在对象合并时只带补丁；布局提交成功只回这次落定的盒子；定时刷新覆盖全部看板；看板没有选中时卡片也暂停，运行时新增 `paused` 与 `onPause`；同一份组件版本库在启动时不再重写已存在的文件。",
+  "en": "Widget state writes are coalesced in a 250 ms window in the parent page; the host rejects writes over 64 KB per card, 1 MB per board or the per-second write limits and shows the reason. State events carry an object patch, a successful layout commit returns only the boxes it stored, scheduled refresh covers every board, cards pause when their board is not selected, the runtime gains `paused` and `onPause`, and the version store no longer rewrites blobs that already exist at startup."
+}

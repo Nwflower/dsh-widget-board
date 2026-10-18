@@ -28,7 +28,9 @@ export interface WidgetCardProps {
   /** 打开这张卡的设置（D22）；没有可配置项时不传。 */
   onSettings?: (button: HTMLButtonElement) => void
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
-  onState: (id: string, patch: unknown) => void
+  onState: (id: string, patch: unknown) => Promise<void>
+  /** 所在的看板没有被选中：整块看板暂停（D21）。 */
+  pausedByBoard: boolean
   /** 组件发到看板栏上的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 把这张卡从看板上移除。 */
@@ -61,17 +63,18 @@ export function WidgetCard({
   onState,
   onNotify,
   onRemove,
+  pausedByBoard,
   controls,
   onDragStart,
   onDragMove,
   onDragEnd,
   onDragCancel,
 }: WidgetCardProps): ReactNode {
-  const [paused, setPaused] = useState(false)
+  const [viewportPaused, setViewportPaused] = useState(false)
 
   useEffect(() => controls.register(instance.id, {
-    pause: () => setPaused(true),
-    resume: () => setPaused(false),
+    pause: () => setViewportPaused(true),
+    resume: () => setViewportPaused(false),
   }), [controls, instance.id])
 
   return (
@@ -95,7 +98,7 @@ export function WidgetCard({
         frames={frames}
         onState={onState}
         onNotify={onNotify}
-        paused={paused}
+        paused={viewportPaused || pausedByBoard}
       />
     </CardShell>
   )

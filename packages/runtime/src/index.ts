@@ -23,10 +23,14 @@ export interface WidgetApi {
   readonly props: Record<string, unknown>
   readonly data: unknown
   readonly state: unknown
+  /** 宿主是否暂停了这张卡：离开视口或所在的看板没有选中（D16、D21）。 */
+  readonly paused: boolean
   onSize(handler: (size: WidgetSize) => void): () => void
   onProps(handler: (props: Record<string, unknown>) => void): () => void
   onData(handler: (data: unknown) => void): () => void
   onState(handler: (state: unknown) => void): () => void
+  /** 暂停状态变了；组件据此停掉计时器与逐帧绘制（D16）。 */
+  onPause(handler: (paused: boolean) => void): () => void
   /** 把一份局部状态交给宿主保存（D5）。 */
   setState(patch: unknown): void
   /** 发出 manifest 里声明过的动作（D6）。 */
@@ -58,6 +62,7 @@ let lang = root.lang || 'zh-CN'
 let props: Record<string, unknown> = {}
 let data: unknown = undefined
 let state: unknown = undefined
+let paused = false
 let text: Record<string, { zh: string, en: string }> = {}
 
 type Listeners = {
@@ -65,9 +70,10 @@ type Listeners = {
   props: Array<(props: Record<string, unknown>) => void>
   data: Array<(data: unknown) => void>
   state: Array<(state: unknown) => void>
+  pause: Array<(paused: boolean) => void>
 }
 
-const listeners: Listeners = { size: [], props: [], data: [], state: [] }
+const listeners: Listeners = { size: [], props: [], data: [], state: [], pause: [] }
 
 /** 发一条消息给父页面；没有端口时什么也不做（组件单独打开时）。 */
 function send(message: WidgetMessage): void {
@@ -166,10 +172,14 @@ function receive(message: ParentMessage): void {
       applyTokens(message.tokens)
       return
     case 'pause':
+      paused = true
       root.toggleAttribute('data-paused', true)
+      for (const handler of listeners.pause) handler(true)
       return
     case 'resume':
+      paused = false
       root.removeAttribute('data-paused')
+      for (const handler of listeners.pause) handler(false)
       return
   }
 }
@@ -191,10 +201,12 @@ function install(): void {
     get props() { return props },
     get data() { return data },
     get state() { return state },
+    get paused() { return paused },
     onSize: (handler) => subscribe(listeners.size, handler),
     onProps: (handler) => subscribe(listeners.props, handler),
     onData: (handler) => subscribe(listeners.data, handler),
     onState: (handler) => subscribe(listeners.state, handler),
+    onPause: (handler) => subscribe(listeners.pause, handler),
     setState: (patch) => send({ type: 'setState', patch }),
     action: (id, payload) => send({ type: 'action', id, payload }),
     notify: (notification) => send({

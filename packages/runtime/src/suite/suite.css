@@ -209,11 +209,16 @@ body { overflow: hidden; }
   pointer-events: none;
 }
 
-/* 离开视口的卡片停在原地（D4）。 */
-:root[data-paused] .t-digit-group.is-animating .t-digit,
-:root[data-paused] .t-digit-group.is-animating .t-digit[data-stagger],
-:root[data-paused] .t-flip-page,
-:root[data-paused] .t-tabs-pill { animation-play-state: paused; }
+/*
+ * 暂停时整份文档的动画与过渡都停在原地（D16、D21）：宿主把 data-paused 写在根节点上，组件自己的
+ * 关键帧不必逐个声明；属性摘掉之后动画从当前进度继续。
+ */
+:root[data-paused] *,
+:root[data-paused] *::before,
+:root[data-paused] *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
 
 /* 减弱动效：切换只剩不透明度的直切，滚动与滑动一律不走（D10）。 */
 :root[data-motion="reduced"] .t-icon-swap .t-icon {

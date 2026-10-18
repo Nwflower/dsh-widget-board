@@ -52,7 +52,12 @@ export function createVersionStore(dir: string, limit = 32): VersionStore {
     }
     const file = join(dir, `${record.hash}.json`)
     await mkdir(dirname(file), { recursive: true })
-    await writeFile(file, `${JSON.stringify(stored)}\n`, 'utf8')
+    try {
+      // `wx`：文件已经在就跳过，不把每个版本在每次启动时重写一遍；坏内容在读取时按哈希校验报错。
+      await writeFile(file, `${JSON.stringify(stored)}\n`, { encoding: 'utf8', flag: 'wx' })
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    }
     written.add(record.hash)
   }
 

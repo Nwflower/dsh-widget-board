@@ -1,0 +1,167 @@
+/*
+ * 月历的样式：七列日期网格，今天是一枚圆形底色，有安排的日期在下面点一颗点。
+ *
+ * 行高由网格自己摊开（grid-auto-rows: 1fr），所以卡片多高就画多少行；矮卡片里日期数字居中收在
+ * 小圆里。按钮与今天标记用套件的令牌，动效只走时长与曲线（D10）。
+ */
+.calendar-card__body {
+  gap: 8px;
+}
+
+.calendar-card__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calendar-card__month {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--w-color-fg, #0b1016);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-card__nav {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-card__step,
+.calendar-card__today {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
+  border-radius: 8px;
+  background: none;
+  color: var(--w-color-muted, #6b7684);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--w-motion-base) var(--w-motion-ease-smooth),
+    transform var(--w-motion-press) var(--w-motion-ease-smooth);
+}
+
+.calendar-card__step {
+  padding: 0;
+  font-size: 14px;
+}
+
+.calendar-card__step:active,
+.calendar-card__today:active {
+  transform: scale(var(--w-motion-press-scale));
+  transition: color var(--w-motion-base) var(--w-motion-ease-smooth), transform 0ms;
+}
+
+.calendar-card__step:focus-visible,
+.calendar-card__today:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .calendar-card__step:hover,
+  .calendar-card__today:hover {
+    color: var(--w-color-fg, #0b1016);
+  }
+}
+
+.calendar-card__weekdays {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 14px;
+  text-align: center;
+}
+
+.calendar-card__grid {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 2px;
+}
+
+.calendar-card__day {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 8px;
+  color: var(--w-color-fg, #0b1016);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+.calendar-card__day[data-outside] {
+  color: var(--w-color-muted, #6b7684);
+  opacity: 0.55;
+}
+
+.calendar-card__number {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.calendar-card__day[data-today] .calendar-card__number {
+  background: var(--w-color-accent, #2563eb);
+  color: var(--w-color-on-accent, #fff);
+}
+
+.calendar-card__dots {
+  display: flex;
+  height: 5px;
+  align-items: center;
+  gap: 2px;
+}
+
+.calendar-card__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--w-color-accent, #2563eb);
+}
+
+.calendar-card__dot[data-tone="warn"] { background: #b45309; }
+.calendar-card__dot[data-tone="danger"] { background: #b91c1c; }
+
+@media (max-width: 320px) {
+  .calendar-card__month { font-size: 12px; }
+  .calendar-card__day { font-size: 11px; line-height: 14px; }
+  .calendar-card__number { width: 19px; height: 19px; }
+}
+
+@media (max-height: 260px) {
+  .calendar-card__body { gap: 5px; }
+  .calendar-card__dots { display: none; }
+}
+
+:root[data-motion="reduced"] .calendar-card__step,
+:root[data-motion="reduced"] .calendar-card__today {
+  transition: none;
+}

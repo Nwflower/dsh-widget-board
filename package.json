@@ -27,6 +27,9 @@
   "exports": {
     ".": "./lib/host/index.js",
     "./client": "./lib/client.js",
+    "./service": {
+      "types": "./lib/types/service-types.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -69,8 +72,7 @@
     "react": "^18.2.0"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.5",
-    "fflate": "^0.8.3"
+    "@deepseek-ai/schemastery": "^3.18.5"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
@@ -78,6 +80,7 @@
     "@types/react": "18.3.31",
     "ajv": "^8.20.0",
     "esbuild": "0.28.2",
+    "fflate": "^0.8.3",
     "highlight.js": "^11.12.0",
     "jscpd": "5.4.1",
     "marked": "^18.1.1",

@@ -116,6 +116,14 @@ export interface WorkspaceSnapshot {
   grants: Grant[]
 }
 
+/** 一次布局提交成功后的答复：只带这次落定的盒子与修订号（D16）。 */
+export interface BoardLayoutSaved {
+  /** 写入之后的布局修订号。 */
+  layoutRevision: number
+  /** 宿主存下的盒子，按卡片 id 索引；提交里没有的卡片不出现。 */
+  layouts: Record<string, CardLayout>
+}
+
 /**
  * 一项凭据在设置弹窗里的状态（D22）：只有是否存在、来自哪一层、能不能写，永远没有值。
  *

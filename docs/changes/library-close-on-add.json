@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 4,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "加卡片时组件库立刻收起，不等宿主写完：数据源读得慢时，晚收会把用户在这期间重新打开的组件库关掉。",
+  "en": "The library panel now closes as soon as a card is added instead of waiting for the host to finish, so a slow data source cannot close the panel the user reopened in the meantime."
+}

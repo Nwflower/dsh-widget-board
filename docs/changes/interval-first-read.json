@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 22,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "打开看板时，声明了定时刷新的卡片先读一次，之后按间隔读；不用等满一个间隔才看到当下的数据。",
+  "en": "When a board is opened, cards with an interval refresh read once right away and then on their interval, so current data appears without waiting a full interval."
+}

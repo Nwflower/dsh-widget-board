@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 3,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "widget.json 的 source 现在接受「提供方:名字」，与编写指南一致；此前这种写法会被 manifest 校验拒绝。",
+  "en": "The source field in widget.json now accepts \"provider:name\", matching the authoring guide; that form used to be rejected by manifest validation."
+}

@@ -15,6 +15,7 @@
 - 会话里的 agent 现在能用六个工具读写看板：列组件（widget_catalog）、写或改一个组件（widget_define）、读看板上的卡片（widget_board）、放卡或改卡（widget_place）、移除卡（widget_remove）、推数据（widget_push）。工具跟着总开关出现与撤下，并带一条虚拟 skill「widget-authoring」，写组件的格式、运行时接口与盒子契约都在里面。
 - 组件可以在 widget.json 里声明刷新策略：按需（默认），或「看着的时候按间隔读」。宿主上只有一条定时链，按有哪些卡片要刷新、现在有几个看板页在看算出跑不跑、跑多快；没有观众时一律不读。数据源也能声明自己需要的权限，要权限的数据源与动作一样，读之前要有人在卡片上给出授权。
 - 组件可以导出成 .dshw 再导入回来，看板可以导出成 .dshboard（带上它用到的全部组件；数据与状态默不带，带 ?data=true 才带）。解包前校验路径、扩展名、文件数与大小；同 id 不同内容先回 409 并给出两边的哈希，带上 replace 才覆盖，内置与插件提供的组件永远不被覆盖。组件库浮窗里每一格有「导出」，头部有「导入」。
+- 组件可以声明由宿主代发的 HTTPS 请求：widget.json 里写 "source": "http" 与 request.url，地址里的 {名字} 在读取时换成卡片 props（没有时用 props schema 的默认值），主机必须列在 permissions.hosts 里；回环、内网与 IP 字面量一律拒绝，重定向不跟随，响应有超时与大小上限；request.cacheMs 给出同一个地址的缓存时长，返回的 JSON 原样作为 data 交给组件。
 
 ### 体验优化
 
@@ -31,12 +32,18 @@
 - 组件库的缩略画面标成 preview 位置，组件可以在这里换一套静态排版；番茄钟的缩略画面收掉快捷时长与开始按钮，待办收掉输入行，只留标题、读数与内容。
 - 看板页顶部多了一条标签：每块看板一个标签，活动标签的药丸滑过去；标签条上只放一个新建入口，切换标签时不重挂任何组件——所有看板的卡片同时挂载，看不见的那些照旧暂停。
 - 看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。
+- 天气卡改用 Open-Meteo 的真实数据：组件自己把原始响应映射成五天预报（WMO 天气代码、双语星期与天气文字、高低温），地点与经纬度从卡片 props 取；按五小时刷新，宿主把 Open-Meteo 的响应按地址缓存同样久，重新打开看板不会连着请求接口；数据没到时显示等待，超时后写明暂时无法获取；内置看板第一次打开时旧的天气卡会自动接上数据源。
+- 打开看板时，声明了定时刷新的卡片先读一次，之后按间隔读；不用等满一个间隔才看到当下的数据。
 - Windows 桌面端把看板标签条挂进窗口标题栏：标题栏让出那一条、宽度放得下时，标签条靠左挂在 Desktop 菜单之后，比页内小一号、上下留出空隙，圆角 9999；看板内容从标题栏下方开始。标签条换成 transitions.dev 的 Tabs sliding，活动标签的药丸滑过去，首帧不补间。放不下或不在桌面端时仍留在页面顶部。
+- 组件在 widget.json 里声明默认数据源之后，看板上没有绑定数据源的旧卡片在加载时接上它，不必重新加卡。
 
 ### 问题修复
 
 - 从仓库安装时这个包自己构建一次：`prepare` 跑构建，装出来的包里带上 `lib/host/index.js`，不再因为缺宿主半边而启用失败；lint 在发布入口指向 `lib/` 时要求 `scripts.prepare` 存在。
 - 看板页顶部的标签条不再被内容压短：它保持自己的高度，药丸套住活动标签，文字不会再跑到条外、药丸落到文字下方。
+- 加卡片时的第一次数据读取也过授权：要权限的数据源在有人于卡片上给出授权之前不再被读一次，加卡请求按 403 回给界面，卡片留在看板上；请求本身失败时只记一条日志，不再让加卡失败，卡片的数据留空。
+- widget.json 的 source 现在接受「提供方:名字」，与编写指南一致；此前这种写法会被 manifest 校验拒绝。
+- 加卡片时组件库立刻收起，不等宿主写完：数据源读得慢时，晚收会把用户在这期间重新打开的组件库关掉。
 
 ### 其他变更
 
@@ -50,6 +57,7 @@
 - An agent in a session can now read and write the board with six tools: list widgets (widget_catalog), write or replace a widget (widget_define), read the cards on the board (widget_board), place or change a card (widget_place), remove a card (widget_remove), and push data (widget_push). The tools follow the master switch, and a virtual skill named widget-authoring carries the widget format, runtime interface and box contract.
 - A widget can declare a refresh policy in widget.json: on demand (the default) or "read on an interval while watched". One timer on the host decides whether and how fast to run from which cards ask for it and how many board pages are watching; nothing is read without a viewer. A data source can also declare the permissions it needs, and a gated source is granted on the card before it can be read, exactly like a gated action.
 - A widget can be exported as .dshw and imported back, and a board as .dshboard with every widget it uses embedded (data and state are left out unless ?data=true). Packages are checked for paths, extensions, file count and size before they are unpacked; the same id with different content answers 409 and names both hashes, and only replace overwrites — built-in and plugin-provided widgets are never overwritten. Each tile in the library panel has an Export, and its header has an Import.
+- A widget can declare an HTTPS request the host makes for it: write "source": "http" and request.url in widget.json. Each {name} in the URL is replaced from the card's props (or the props schema default), and the host must be listed in permissions.hosts. Loopback, private and IP-literal hosts are refused, redirects are not followed, and responses have a timeout and a size cap; request.cacheMs sets how long the same URL is cached, and the returned JSON becomes the widget's data as-is.
 
 ### Improvements
 
@@ -66,12 +74,18 @@
 - Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content.
 - The board page gains a tab strip: one tab per board with a pill that slides to the active one, a single New entry on the strip, and no widget is remounted when you switch — every board's cards stay mounted, and the ones you cannot see stay paused.
 - Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed.
+- The weather card now reads real data from Open-Meteo: the widget itself maps the raw response into a five-day forecast (WMO weather codes, bilingual weekdays and conditions, highs and lows), with the place and coordinates taken from the card props. It refreshes every five hours and the host caches the Open-Meteo response per URL for as long, so reopening the board does not hit the API again; it shows a waiting state until data arrives and names the failure after a timeout. Existing weather cards are bound to the source when their board is first opened.
+- When a board is opened, cards with an interval refresh read once right away and then on their interval, so current data appears without waiting a full interval.
 - On the Windows desktop the board tab strip now rides in the window's caption row: when the shell reserves that row and the strip fits, it sits at the left after the desktop menu, a size smaller than in the page with air above and below and 9999px corners, and the board starts below it. The strip now uses transitions.dev's Tabs sliding, with the pill sliding to the active tab and no tween on first paint; when it does not fit, or outside the desktop, it stays at the top of the page.
+- Once a widget declares a default data source in widget.json, existing cards on a board that have none are bound to it when the board loads, without re-adding them.
 
 ### Bug Fixes
 
 - The package now builds itself when installed from the repository: `prepare` runs the build, so the installed copy carries `lib/host/index.js` and no longer fails to activate without its host half; lint requires `scripts.prepare` whenever a published entry points into `lib/`.
 - The tab strip at the top of the board page no longer collapses under tall content: it keeps its height and the pill stays on the active tab, so labels no longer sit outside the strip with the pill below them.
+- The first data read when a card is added now goes through grants too: a gated source is not read before a person allows it on the card, the add request answers 403, and the card stays on the board. If the request itself fails, the add still succeeds with empty data and the reason goes to the log.
+- The source field in widget.json now accepts "provider:name", matching the authoring guide; that form used to be rejected by manifest validation.
+- The library panel now closes as soon as a card is added instead of waiting for the host to finish, so a slow data source cannot close the panel the user reopened in the meantime.
 
 ### Chores
 

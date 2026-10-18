@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 21,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "天气卡改用 Open-Meteo 的真实数据：组件自己把原始响应映射成五天预报（WMO 天气代码、双语星期与天气文字、高低温），地点与经纬度从卡片 props 取；按五小时刷新，宿主把 Open-Meteo 的响应按地址缓存同样久，重新打开看板不会连着请求接口；数据没到时显示等待，超时后写明暂时无法获取；内置看板第一次打开时旧的天气卡会自动接上数据源。",
+  "en": "The weather card now reads real data from Open-Meteo: the widget itself maps the raw response into a five-day forecast (WMO weather codes, bilingual weekdays and conditions, highs and lows), with the place and coordinates taken from the card props. It refreshes every five hours and the host caches the Open-Meteo response per URL for as long, so reopening the board does not hit the API again; it shows a waiting state until data arrives and names the failure after a timeout. Existing weather cards are bound to the source when their board is first opened."
+}

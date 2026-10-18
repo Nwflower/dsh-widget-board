@@ -377,7 +377,13 @@ describe('组卡换槽', () => {
       records: [stat, chart, todo],
       instances: [
         card('front', stat, { group: { id: 'group', side: 'front', template: 'flip' }, props: { title: 'x' }, data: { old: true } }),
-        card('back', chart, { group: { id: 'group', side: 'back', template: 'flip' } }),
+        card('back', chart, {
+          group: { id: 'group', side: 'back', template: 'flip' },
+          props: { title: 'back' },
+          data: { n: 1 },
+          state: { open: true },
+          source: 'back:source',
+        }),
       ],
     })
     const response = await test.send('POST', '/group/group/slot', JSON.stringify({ side: 'front', widget: 'todo' }))
@@ -386,7 +392,14 @@ describe('组卡换槽', () => {
     const front = instances.find((instance) => instance.id === 'front')
     const back = instances.find((instance) => instance.id === 'back')
     expect(front).toMatchObject({ widget: 'todo', props: {}, data: null, state: null, layout: { w: 2, h: 26 } })
-    expect(back).toMatchObject({ widget: 'chart', layout: { w: 2, h: 26 } })
+    expect(back).toMatchObject({
+      widget: 'chart',
+      props: { title: 'back' },
+      data: { n: 1 },
+      state: { open: true },
+      source: 'back:source',
+      layout: { w: 2, h: 26 },
+    })
     expect(front?.source).toBeUndefined()
   })
 
@@ -403,5 +416,93 @@ describe('组卡换槽', () => {
     expect((await test.send('POST', '/group/group/slot', JSON.stringify({ side: 'side', widget: 'stat' }))).status).toBe(400)
     expect((await test.send('POST', '/group/missing/slot', JSON.stringify({ side: 'front', widget: 'stat' }))).status).toBe(404)
     expect((await test.send('POST', '/group/group/slot', JSON.stringify({ side: 'front', widget: 'missing' }))).status).toBe(400)
+  })
+})
+
+describe('宿主能力', () => {
+  it('设置读模型列出能力、授权状态与能力声明的凭据', async () => {
+    const stat = record('stat', { capabilities: ['test.echo'] })
+    const test = await harness({
+      records: [stat],
+      instances: [card('card', stat)],
+      credentials: memoryCredentials(),
+      sources: (sources) => {
+        sources.registerCapability({
+          apiVersion: 3,
+          provider: 'test-provider',
+          id: 'test.echo',
+          title: { zh: '回声', en: 'Echo' },
+          permission: {},
+          credentials: [{ ref: 'TEST_KEY', label: { zh: '密钥', en: 'Key' } }],
+          call: () => ({ ok: true }),
+        })
+      },
+    })
+    const response = await test.send('GET', '/instance/card/settings')
+    expect(response.status).toBe(200)
+    const settings = JSON.parse(response.body) as {
+      capabilities: { id: string, provider: string, title: { zh: string }, granted: boolean }[],
+      credentials: { ref: string }[],
+    }
+    expect(settings.capabilities[0]).toMatchObject({ id: 'test.echo', provider: 'test-provider', title: { zh: '回声' }, granted: false })
+    expect(settings.credentials.some((entry) => entry.ref === 'TEST_KEY')).toBe(true)
+    const grant = await test.send('POST', '/instance/card/grant', JSON.stringify({ kind: 'capability', id: 'test.echo' }))
+    expect(grant.status).toBe(200)
+    const after = await test.send('GET', '/instance/card/settings')
+    expect((JSON.parse(after.body) as { capabilities: { granted: boolean }[] }).capabilities[0]?.granted).toBe(true)
+  })
+
+  it('调用能力：先要授权，再校验参数与结果', async () => {
+    const stat = record('stat', { capabilities: ['test.echo'] })
+    const seen: unknown[] = []
+    const test = await harness({
+      records: [stat],
+      instances: [card('card', stat)],
+      sources: (sources) => {
+        sources.registerCapability({
+          apiVersion: 3,
+          provider: 'test-provider',
+          id: 'test.echo',
+          permission: {},
+          input: { type: 'object', required: ['n'], properties: { n: { type: 'number' } } },
+          output: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } } },
+          call: (_instance, args) => { seen.push(args); return { ok: true } },
+        })
+      },
+    })
+    const blocked = await test.send('POST', '/instance/card/call', JSON.stringify({ capability: 'test.echo', args: { n: 1 } }))
+    expect(blocked.status).toBe(403)
+    expect(JSON.parse(blocked.body)).toMatchObject({ code: 'grant-required', kind: 'capability', id: 'test.echo' })
+    await test.send('POST', '/instance/card/grant', JSON.stringify({ kind: 'capability', id: 'test.echo' }))
+    const wrong = await test.send('POST', '/instance/card/call', JSON.stringify({ capability: 'test.echo', args: {} }))
+    expect(wrong.status).toBe(400)
+    expect((JSON.parse(wrong.body) as { issues: unknown[] }).issues.length).toBeGreaterThan(0)
+    const ok = await test.send('POST', '/instance/card/call', JSON.stringify({ capability: 'test.echo', args: { n: 2 } }))
+    expect(ok.status).toBe(200)
+    expect(JSON.parse(ok.body)).toEqual({ result: { ok: true } })
+    expect(seen).toEqual([{ n: 2 }])
+  })
+
+  it('没声明、没提供方与结果不符都拒绝', async () => {
+    const stat = record('stat', { capabilities: ['test.echo'] })
+    const plain = record('plain')
+    const test = await harness({
+      records: [stat, plain],
+      instances: [card('card', stat), card('other', plain)],
+      sources: (sources) => {
+        sources.registerCapability({
+          apiVersion: 3,
+          provider: 'test-provider',
+          id: 'test.echo',
+          output: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } } },
+          call: () => ({ ok: 'nope' }),
+        })
+      },
+    })
+    expect((await test.send('POST', '/instance/other/call', JSON.stringify({ capability: 'test.echo', args: {} }))).status).toBe(400)
+    expect((await test.send('POST', '/instance/card/call', JSON.stringify({ capability: 'test.missing', args: {} }))).status).toBe(400)
+    const bad = await test.send('POST', '/instance/card/call', JSON.stringify({ capability: 'test.echo', args: {} }))
+    expect(bad.status).toBe(502)
+    expect((JSON.parse(bad.body) as { issues: unknown[] }).issues.length).toBeGreaterThan(0)
   })
 })

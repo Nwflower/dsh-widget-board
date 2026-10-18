@@ -195,6 +195,7 @@ describe('注册表的归属', () => {
     registries.registerDataSource({ apiVersion: 2, provider: 'one', id: 'a', read: () => null })
     registries.registerAction({ apiVersion: 2, provider: 'one', id: 'b', run: () => null })
     registries.registerAction({ apiVersion: 2, provider: 'two', id: 'c', run: () => null })
-    expect(registries.namesOf('one')).toEqual({ dataSources: ['a'], actions: ['b'] })
+    registries.registerCapability({ apiVersion: 3, provider: 'one', id: 'd', call: () => null })
+    expect(registries.namesOf('one')).toEqual({ dataSources: ['a'], actions: ['b'], capabilities: ['d'] })
   })
 })

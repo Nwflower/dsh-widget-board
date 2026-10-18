@@ -76,7 +76,7 @@ widget.setState(patch)  // 合并一份状态进宿主；对象只合并一层
 widget.onState(fn)
 widget.size             // { w, h, family, placement, cols }
 widget.onSize(fn)
-widget.paused           // 卡片被暂停了：离开视口，或所在的看板没有选中
+widget.paused           // 卡片被暂停了：离开视口
 widget.onPause(fn)      // 暂停状态变了；计时器与逐帧绘制在这里停下与恢复
 widget.action(id, payload)   // 发出 manifest 里声明过的动作
 widget.call(capability, args) // 调用 manifest 里声明过的宿主能力，返回 Promise

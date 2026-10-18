@@ -29,8 +29,6 @@ export interface WidgetCardProps {
   onSettings?: (button: HTMLButtonElement) => void
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
   onState: (id: string, patch: unknown) => Promise<void>
-  /** 所在的看板没有被选中：整块看板暂停（D21）。 */
-  pausedByBoard: boolean
   /** 组件发到看板栏上的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 把这张卡从看板上移除。 */
@@ -63,7 +61,6 @@ export function WidgetCard({
   onState,
   onNotify,
   onRemove,
-  pausedByBoard,
   controls,
   onDragStart,
   onDragMove,
@@ -98,7 +95,7 @@ export function WidgetCard({
         frames={frames}
         onState={onState}
         onNotify={onNotify}
-        paused={viewportPaused || pausedByBoard}
+        paused={viewportPaused}
       />
     </CardShell>
   )

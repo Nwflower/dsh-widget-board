@@ -23,7 +23,7 @@ export interface WidgetApi extends WidgetHandles {
   readonly props: Record<string, unknown>
   readonly data: unknown
   readonly state: unknown
-  /** 宿主是否暂停了这张卡：离开视口或所在的看板没有选中（D16、D21）。 */
+  /** 宿主是否暂停了这张卡：离开视口（D16、D21）。 */
   readonly paused: boolean
   onSize(handler: (size: WidgetSize) => void): () => void
   onProps(handler: (props: Record<string, unknown>) => void): () => void

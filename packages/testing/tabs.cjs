@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * tabs.cjs — 看板标签的检查（D21）：一条标签条加一个新建入口，切换标签不重挂任何组件。
+ * tabs.cjs — 看板标签的检查（D21）：一条标签条加一个新建入口，切换标签时重挂组件。
  *
  * 与看板的打开方式一起使用：页面已经停在看板上时调用。这一段会新建一块看板、切过去再切回来，
  * 最后把它移除，后续场景仍然只有原来那一块。
  *
- * 未选中的看板留在文档里（`visibility: hidden`），所以「看得见」按计算样式判定，不按有没有盒子。
+ * 页面只挂当前看板：未选中的看板不在文档里，所以「看得见」与「挂载」都只按当前这一块算。
  */
 
 const { frameOf } = require('./frames.cjs')
@@ -85,7 +85,7 @@ async function markPomodoro(page) {
 }
 
 /**
- * 标签条：新建一块看板、切过去、切回来，核对组件没有被重挂。
+ * 标签条：新建一块看板、切过去、切回来，核对组件重新挂载。
  *
  * @param page - 宿主页面，看板已经打开。
  * @param context - 这一层共用的判定。
@@ -111,25 +111,25 @@ async function tabsPass(page, { check }) {
   const marker = await markPomodoro(page)
   check('番茄钟的文档已经挂上', marker === 1, String(marker))
 
-  // 新建：多一个标签、它成为选中、它那块是空的，原来那块看板的卡片还在文档里。
+  // 新建：多一个标签、它成为选中、它那块是空的，原来那块看板的卡片已经不在文档里。
   await page.locator(NEW_TAB).click()
   await page.waitForFunction(({ tabs, count }) => document.querySelectorAll(`${tabs} [data-dsh-widget-board-tab]`).length === count + 1, { tabs: TABS, count: before.tabs }, { timeout: 10000 })
   const created = await stripState(page)
   try {
     check('新建之后多一个标签并选中它', created.tabs === 2 && created.selected.length === 1 && created.selected[0] !== firstId, JSON.stringify(created.selected))
-    check('新看板是空的，旧看板的卡片仍然挂载', created.visibleCards === 0 && created.mountedCards === before.mountedCards, `${created.visibleCards} / ${created.mountedCards}`)
+    check('新看板是空的，旧看板的卡片不再挂载', created.visibleCards === 0 && created.mountedCards === 0, `${created.visibleCards} / ${created.mountedCards}`)
     check('同时只有一块看板看得见', created.visibleFlows === 1, String(created.visibleFlows))
 
     // 宿主上当前选中的也换过去了。
     const stored = await page.evaluate(async () => (await fetch('api/widget-board/boards')).json())
     check('宿主记住了选中的那块看板', stored.active === created.selected[0], String(stored.active))
 
-    // 切回来：番茄钟的记号还在，说明它的文档没有被重挂。
+    // 切回来：番茄钟的文档是新挂的，记号回到 1。
     await page.locator(`[data-dsh-widget-board-tab="${firstId}"]`).click()
     await page.waitForFunction(({ tabs, id }) => document.querySelector(`${tabs} [data-dsh-widget-board-tab="${id}"]`)?.getAttribute('aria-selected') === 'true', { tabs: TABS, id: firstId }, { timeout: 10000 })
     const back = await markPomodoro(page)
-    // 记号数的是「这份文档被标过几次」：文档还在就是 2，被重挂过就回到 1。
-    check('切回原来的看板时组件没有重挂', back === marker + 1, `${back} / ${marker}`)
+    // 记号数的是「这份文档被标过几次」：重挂之后是新文档，回到 1；没有重挂才会是 2。
+    check('切回原来的看板时组件重新挂载', back === 1, `${back} / ${marker}`)
     const restored = await stripState(page)
     check('切回来之后原来的卡片又看得见', restored.visibleCards === before.visibleCards, `${restored.visibleCards} / ${before.visibleCards}`)
   } finally {

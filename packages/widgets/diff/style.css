@@ -1,0 +1,64 @@
+/*
+ * 改动视图的样式：一行一条，行首是加减号，文件路径自成一行当作分节标题。
+ *
+ * 新增与删除只染背景与符号，正文始终用前景色，浅色与深色下都读得清（D10）。等宽字体与行高跟着
+ * 卡片内容滚动，不撑高卡片。
+ */
+.diff-card__body {
+  gap: 0;
+}
+
+.diff-card__scroll {
+  font-family: var(--t-mono);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.diff-card__line {
+  display: grid;
+  grid-template-columns: 1.1em minmax(0, 1fr);
+  gap: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--w-color-fg, #0b1016);
+}
+
+.diff-card__sign {
+  color: var(--w-color-muted, #6b7684);
+  text-align: center;
+}
+
+.diff-card__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.diff-card__line[data-type="meta"] {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 62%, transparent);
+  color: var(--w-color-muted, #6b7684);
+  font-weight: 600;
+}
+
+.diff-card__line[data-type="meta"]:first-child {
+  margin-top: 0;
+  padding-top: 1px;
+  border-top: 0;
+}
+
+.diff-card__line[data-type="add"] {
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+}
+
+.diff-card__line[data-type="remove"] {
+  background: color-mix(in srgb, #dc2626 14%, transparent);
+}
+
+.diff-card__line[data-type="add"] .diff-card__sign { color: #15803d; }
+.diff-card__line[data-type="remove"] .diff-card__sign { color: #b91c1c; }
+
+@media (max-width: 320px) {
+  .diff-card__scroll { font-size: 10px; line-height: 15px; }
+}

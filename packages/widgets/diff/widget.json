@@ -1,0 +1,46 @@
+{
+  "id": "diff",
+  "title": {
+    "zh": "改动",
+    "en": "Diff"
+  },
+  "description": {
+    "zh": "一份统一的改动视图：新增行与删除行标着加减号，文件路径作为分节标题。",
+    "en": "A unified diff view: added and removed lines carry a sign, and file paths act as section headings."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "lines": {
+        "type": "array",
+        "maxItems": 400,
+        "items": {
+          "type": "object",
+          "required": ["text"],
+          "properties": {
+            "type": { "enum": ["add", "remove", "context", "meta"] },
+            "text": { "type": "string", "maxLength": 400 }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无改动",
+      "en": "No changes"
+    }
+  }
+}

@@ -50,6 +50,9 @@ async function launchBrowser(options = {}) {
 /**
  * 在已经跑着的浏览器上开一个隔离的上下文，它的缓存、cookie 与存储都是自己的。
  *
+ * 语言固定为简体中文：宿主外壳与组件都按 `navigator.language` 选文案，检查按中文文案找按钮、
+ * 核对文字；不写死的话，英文系统上的浏览器（持续集成）会渲染英文。
+ *
  * @param browser - `launchBrowser` 起的浏览器。
  * @param options.width/height - 视口。
  * @param options.reducedMotion - `reduce` 时这个上下文按减弱动效渲染。
@@ -58,6 +61,7 @@ async function launchBrowser(options = {}) {
 async function newContextOn(browser, options = {}) {
   return browser.newContext({
     viewport: { width: options.width ?? 1280, height: options.height ?? 900 },
+    locale: 'zh-CN',
     ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
   })
 }

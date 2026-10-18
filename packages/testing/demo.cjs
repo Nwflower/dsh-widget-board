@@ -238,7 +238,7 @@ async function main() {
   const browser = await launchBrowser()
   const errors = []
   try {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' })
+    const context = await newContextOn(browser)
     const page = await context.newPage()
     watch(page, errors)
     await open(page, url)

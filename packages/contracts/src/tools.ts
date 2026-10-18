@@ -15,9 +15,9 @@ export const WIDGET_TOOL_NAMES = {
   catalog: 'widget_catalog',
   /** 新建或更新一个组件类型。 */
   define: 'widget_define',
-  /** 读看板上的卡片。 */
+  /** 读一块看板上的卡片，并列出全部看板。 */
   board: 'widget_board',
-  /** 往看板上放一张卡、挪它、改它的大小或 props。 */
+  /** 往看板上放一张卡、挪它、改它的大小或 props；可以指定看板。 */
   place: 'widget_place',
   /** 从看板上移除一张卡。 */
   remove: 'widget_remove',
@@ -225,8 +225,22 @@ export interface BoardCardValue {
   layout: { x: number, y: number, w: number, h: number }
 }
 
+/** 工作区里的一块看板，给工具选目标用。 */
+export interface BoardSummaryValue {
+  id: string
+  title: string
+  /** 是不是当前选中的那一块。 */
+  active: boolean
+  /** 卡片总数。 */
+  cards: number
+}
+
 /** `widget_board` 的返回值。 */
 export interface BoardValue {
+  /** 工作区里的全部看板，按标签次序；后续调用按 `id` 点名。 */
+  boards: BoardSummaryValue[]
+  /** 这次读的是哪一块。 */
+  board: string
   title: string
   revision: number
   layoutRevision: number

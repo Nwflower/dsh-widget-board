@@ -7,15 +7,15 @@
 import type {
   MotionLevel,
   ParentMessage,
+  WidgetHandles,
   WidgetMessage,
-  WidgetNotification,
   WidgetSize,
 } from '@dsh-widget-board/contracts'
 import { MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
 import { installMotionTemplates } from './motion'
 
 /** 组件的公共接口，写在编写指南里的那一份。 */
-export interface WidgetApi {
+export interface WidgetApi extends WidgetHandles {
   /** 当前的像素盒与尺寸族；握手之前是 null。 */
   readonly size: WidgetSize | null
   /** 宿主的界面语言，如 `zh-CN`。 */
@@ -31,16 +31,8 @@ export interface WidgetApi {
   onState(handler: (state: unknown) => void): () => void
   /** 暂停状态变了；组件据此停掉计时器与逐帧绘制（D16）。 */
   onPause(handler: (paused: boolean) => void): () => void
-  /** 把一份局部状态交给宿主保存（D5）。 */
-  setState(patch: unknown): void
-  /** 发出 manifest 里声明过的动作（D6）。 */
-  action(id: string, payload?: unknown): void
-  /** 往看板栏上记一条未读通知；省略标题时用组件的标题（D7）。 */
-  notify(notification?: WidgetNotification): void
   /** 内联在会话正文里时上报自身高度；看板不使用这个高度。 */
   fit(): void
-  /** manifest `text` 里的一条文案，按当前语言取。 */
-  t(key: string): string
   reportError(message: string): void
 }
 
@@ -53,6 +45,9 @@ declare global {
 /** 握手消息：父页面验证来源之后才把端口递进来。 */
 const CONNECT = 'connect'
 
+/** 一次能力调用最长等多久；超时后前端不再等，宿主那一侧的 15 秒上限会先中止提供方。 */
+const CALL_TIMEOUT_MS = 30_000
+
 /** 一帧的根节点，运行时往它上面写尺寸族、动画档位与列行数。 */
 const root = document.documentElement
 
@@ -64,6 +59,18 @@ let data: unknown = undefined
 let state: unknown = undefined
 let paused = false
 let text: Record<string, { zh: string, en: string }> = {}
+
+/** 在途能力调用的等待者，按 requestId 索引。 */
+interface PendingCall {
+  resolve: (value: unknown) => void
+  reject: (error: Error) => void
+  timer: number
+  signal?: AbortSignal
+  onAbort?: () => void
+}
+
+const pendingCalls = new Map<string, PendingCall>()
+let callSequence = 0
 
 type Listeners = {
   size: Array<(size: WidgetSize) => void>
@@ -181,7 +188,24 @@ function receive(message: ParentMessage): void {
       root.removeAttribute('data-paused')
       for (const handler of listeners.pause) handler(false)
       return
+    case 'call-result':
+    case 'call-error':
+      settleCall(message)
+      return
   }
+}
+
+/** 一条能力调用的回应：把等待者收掉，结果或错误交给调用方。 */
+function settleCall(message: Extract<ParentMessage, { type: 'call-result' } | { type: 'call-error' }>): void {
+  const pending = pendingCalls.get(message.requestId)
+  if (pending === undefined) return
+  pendingCalls.delete(message.requestId)
+  window.clearTimeout(pending.timer)
+  if (pending.signal !== undefined && pending.onAbort !== undefined) {
+    pending.signal.removeEventListener('abort', pending.onAbort)
+  }
+  if (message.type === 'call-result') pending.resolve(message.result)
+  else pending.reject(new Error(message.message))
 }
 
 /** 订阅一个列表，返回退订函数。 */
@@ -209,6 +233,39 @@ function install(): void {
     onPause: (handler) => subscribe(listeners.pause, handler),
     setState: (patch) => send({ type: 'setState', patch }),
     action: (id, payload) => send({ type: 'action', id, payload }),
+    call: (capability, args, options) => new Promise((resolve, reject) => {
+      if (port === null) {
+        reject(new Error('组件还没有连上宿主'))
+        return
+      }
+      const requestId = `call-${String(++callSequence)}`
+      const message = { type: 'call' as const, requestId, capability, args }
+      if (!withinLimit(message)) {
+        reject(new Error('能力调用的参数超过消息长度上限'))
+        return
+      }
+      const timer = window.setTimeout(() => {
+        const pending = pendingCalls.get(requestId)
+        if (pending === undefined) return
+        pendingCalls.delete(requestId)
+        reject(new Error(`调用 ${capability} 超时`))
+      }, CALL_TIMEOUT_MS)
+      const signal = options?.signal
+      const onAbort = (): void => {
+        if (!pendingCalls.has(requestId)) return
+        pendingCalls.delete(requestId)
+        window.clearTimeout(timer)
+        send({ type: 'cancel', requestId })
+        reject(new Error(`调用 ${capability} 已取消`))
+      }
+      if (signal?.aborted === true) {
+        reject(new Error(`调用 ${capability} 已取消`))
+        return
+      }
+      pendingCalls.set(requestId, { resolve, reject, timer, ...(signal === undefined ? {} : { signal, onAbort }) })
+      if (signal !== undefined) signal.addEventListener('abort', onAbort, { once: true })
+      send(message)
+    }),
     notify: (notification) => send({
       type: 'notify',
       ...(notification?.title === undefined ? {} : { title: notification.title }),

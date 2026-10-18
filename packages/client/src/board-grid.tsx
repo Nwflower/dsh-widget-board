@@ -117,14 +117,16 @@ export interface BoardGridProps {
   onFlow: (id: string, element: HTMLDivElement | null) => void
   /** 这块看板成为选中时把「整理」交给外壳，切走时收回。 */
   onTidyReady: (tidy: (() => void) | null) => void
-  /** 宿主给了一份新的工作区。 */
+  /** 宿主给了一份新的工作区（修订号过期时）。 */
   onSnapshot: (snapshot: WorkspaceSnapshot) => void
+  /** 宿主存下了这次布局：只把这一块看板的盒子并回去。 */
+  onLayouts: (boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>) => void
   /** 记下或清掉一条失败提示。 */
   onFailure: (message: string | null) => void
   /** 这次写宿主要不要挡住菜单与拖动。 */
   onBusyChange: (busy: boolean) => void
   /** 组件交出来的界面状态（D5）。 */
-  onState: (id: string, patch: unknown) => void
+  onState: (id: string, patch: unknown) => Promise<void>
   /** 组件发来的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 移除一张卡。 */
@@ -156,6 +158,7 @@ export function BoardGrid({
   onFlow,
   onTidyReady,
   onSnapshot,
+  onLayouts,
   onFailure,
   onBusyChange,
   onState,
@@ -195,8 +198,9 @@ export function BoardGrid({
     )
     busyRef.current = true
     onBusyChange(true)
-    saveBoardLayouts(board.id, board.layoutRevision, tidied).then((next) => {
-      onSnapshot(next)
+    saveBoardLayouts(board.id, board.layoutRevision, tidied).then((result) => {
+      if (result.kind === 'stale') onSnapshot(result.snapshot)
+      else onLayouts(board.id, result.layout.layoutRevision, result.layout.layouts)
     }, (error: Error) => {
       onFailure(error.message)
       onRefetch()
@@ -204,7 +208,7 @@ export function BoardGrid({
       busyRef.current = false
       onBusyChange(false)
     })
-  }, [board.id, board.layoutRevision, layout, metrics, onBusyChange, onFailure, onRefetch, onSnapshot])
+  }, [board.id, board.layoutRevision, layout, metrics, onBusyChange, onFailure, onLayouts, onRefetch, onSnapshot])
 
   // 菜单上的「整理」按当前选中的那一块走：注册一次，取用时读最新的那一份闭包。
   const tidyRef = useRef(onTidy)
@@ -323,12 +327,13 @@ export function BoardGrid({
     setDraft(resolved.layouts)
     busyRef.current = true
     onBusyChange(true)
-    saveBoardLayouts(board.id, current.layoutRevision, resolved.layouts).then((next) => {
+    saveBoardLayouts(board.id, current.layoutRevision, resolved.layouts).then((result) => {
       busyRef.current = false
       draftRef.current = null
       setDraft(null)
       onBusyChange(false)
-      onSnapshot(next)
+      if (result.kind === 'stale') onSnapshot(result.snapshot)
+      else onLayouts(board.id, result.layout.layoutRevision, result.layout.layouts)
     }, (error: Error) => {
       // 提交没成：按宿主的当前的一份重画，不把本地预览留在屏幕上（D5）。
       busyRef.current = false
@@ -338,7 +343,7 @@ export function BoardGrid({
       console.error(`widget-board: ${t('layoutFailed')}：${error.message}`)
       onRefetch()
     })
-  }, [board.id, cancelDrag, metrics, onBusyChange, onRefetch, onSnapshot])
+  }, [board.id, cancelDrag, metrics, onBusyChange, onLayouts, onRefetch, onSnapshot])
 
   useEffect(() => {
     if (drag === null) return
@@ -398,6 +403,7 @@ export function BoardGrid({
                   onState={onState}
                   onNotify={onNotify}
                   onRemoveGroup={() => onRemoveGroup(card.id)}
+                  pausedByBoard={!active}
                   controls={controls}
                   onDragStart={beginDrag}
                   onDragMove={moveDrag}
@@ -442,6 +448,7 @@ export function BoardGrid({
                 onState={onState}
                 onNotify={onNotify}
                 onRemove={onRemove}
+                pausedByBoard={!active}
                 controls={controls}
                 onDragStart={beginDrag}
                 onDragMove={moveDrag}

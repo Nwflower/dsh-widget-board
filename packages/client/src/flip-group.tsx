@@ -21,7 +21,9 @@ export interface FlipGroupCardProps {
   exiting: boolean
   theme: ShellTheme
   frames: FrameHost
-  onState: (id: string, patch: unknown) => void
+  onState: (id: string, patch: unknown) => Promise<void>
+  /** 所在的看板没有被选中：整组暂停（D21）。 */
+  pausedByBoard: boolean
   /** 组件发到看板栏上的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 整组一起移除（D19）。 */
@@ -65,6 +67,7 @@ export function FlipGroupCard({
   onState,
   onNotify,
   onRemoveGroup,
+  pausedByBoard,
   controls,
   onDragStart,
   onDragMove,
@@ -111,7 +114,7 @@ export function FlipGroupCard({
                   frames={frames}
                   onState={onState}
                   onNotify={onNotify}
-                  paused={paused || flipped}
+                  paused={pausedByBoard || paused || flipped}
                 />
               )}
           </div>
@@ -127,7 +130,7 @@ export function FlipGroupCard({
                   frames={frames}
                   onState={onState}
                   onNotify={onNotify}
-                  paused={paused || !flipped}
+                  paused={pausedByBoard || paused || !flipped}
                 />
               )}
           </div>

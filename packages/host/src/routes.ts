@@ -14,6 +14,7 @@ import type {
   Board,
   BoardCreateRequest,
   BoardEvent,
+  BoardInstance,
   BoardLayoutRequest,
   BoardRenameRequest,
   CardLayout,
@@ -46,7 +47,8 @@ import { isCardLayout } from '@dsh-widget-board/model'
 import { readJson } from './body'
 import { Refusal } from './refusal'
 import { shareRoutes } from './share'
-import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState } from './state'
+import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
+import type { RateLimiter } from './limits'
 import type { SaveOptions, Workspace } from './workspace'
 
 /** 卡片状态的请求体上限：界面状态只是几张表单的值，几 KB 足够。 */
@@ -100,6 +102,8 @@ export interface RouteContext {
   sources: Registries
   /** 人给出过的授权，绑在组件版本上（D6）。 */
   grants: GrantStore
+  /** 状态写入的预算：按卡与按看板各一份（D23）。 */
+  limits: { stateCard: RateLimiter, stateBoard: RateLimiter }
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */
@@ -208,7 +212,7 @@ function faceOf(board: Board, id: string): InstanceFace {
  * @returns 那张卡与它所在的看板。
  * @throws {Refusal} 全工作区都没有这张卡。
  */
-function locate(context: RouteContext, id: string): { board: Board, instance: InstanceFace } {
+function locate(context: RouteContext, id: string): { board: Board, instance: BoardInstance } {
   const found = context.workspace.findInstance(id)
   if (found === undefined) throw new Refusal(404, `看板上没有这张卡：${id}`)
   return found
@@ -323,15 +327,20 @@ const ROUTES: Route[] = [
       if (!isBoardLayoutRequest(body)) throw new Refusal(400, '布局提交的形状不对：需要 layoutRevision 与 layouts')
       const layouts = body.layouts
       try {
-        await context.workspace.save(
+        let saved: Record<string, CardLayout> = {}
+        const next = await context.workspace.save(
           id,
           (current) => withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox),
           {
             expectedLayoutRevision: body.layoutRevision,
             layoutChanged: true,
-            event: (next, board) => ({ type: 'layout', board, layoutRevision: next.layoutRevision, layouts: storedLayouts(next, Object.keys(layouts)) }),
+            event: (savedBoard, board) => {
+              saved = storedLayouts(savedBoard, Object.keys(layouts))
+              return { type: 'layout', board, layoutRevision: savedBoard.layoutRevision, layouts: saved }
+            },
           },
         )
+        json(response, 200, { layoutRevision: next.layoutRevision, layouts: saved })
       } catch (error) {
         if (error instanceof StaleRevisionError) {
           json(response, 409, workspaceSnapshot(context))
@@ -339,7 +348,6 @@ const ROUTES: Route[] = [
         }
         throw error
       }
-      json(response, 200, workspaceSnapshot(context))
     },
   },
   {
@@ -439,8 +447,20 @@ const ROUTES: Route[] = [
       const body = await readJson(request, STATE_LIMIT)
       if (!isRecord(body) || !('patch' in body)) throw new Refusal(400, '状态要放在 patch 里')
       const patch = (body as unknown as InstanceStateRequest).patch
-      await context.workspace.save(board.id, (current) => withInstanceState(current, id, patch), {
-        event: (next) => ({ type: 'instance', id, state: next.instances.find((instance) => instance.id === id)?.state }),
+      if (!context.limits.stateCard.allow(id) || !context.limits.stateBoard.allow(board.id)) {
+        throw new Refusal(429, '状态写入太频繁，稍后再试', { code: 'state-rate-limited' })
+      }
+      // 这次是否对象合并，决定事件带补丁还是整份 state；两边用的是同一条合并规则。
+      let merged = false
+      await context.workspace.save(board.id, (current) => {
+        const instance = current.instances.find((candidate) => candidate.id === id)
+        merged = isRecord(instance?.state) && isRecord(patch)
+        return withInstanceStateChecked(current, id, patch)
+      }, {
+        event: (next) => {
+          const state = next.instances.find((instance) => instance.id === id)?.state
+          return merged ? { type: 'instance', id, patch } : { type: 'instance', id, state }
+        },
       })
       json(response, 200, { ok: true })
     },
@@ -464,7 +484,8 @@ const ROUTES: Route[] = [
     limit: DATA_LIMIT,
     async handle(context, request, response, match) {
       const id = decodeURIComponent(match[1] as string)
-      const face = faceOf(locate(context, id).board, id)
+      const found = locate(context, id)
+      const face = faceOf(found.board, id)
       const body = await readJson(request, DATA_LIMIT)
       if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '动作要写明 id')
       const wanted = body as unknown as InstanceActionRequest
@@ -472,7 +493,7 @@ const ROUTES: Route[] = [
       if (!declared) throw new Refusal(400, `组件没有声明动作 ${wanted.id}`)
       const resolved = context.sources.resolveAction(wanted.id)
       if (resolved === undefined) throw new Refusal(400, `没有动作 ${wanted.id}，提供它的插件可能没有安装`)
-      requireGrant(grantFacts(context), id, 'action', wanted.id, resolved.registration.permission, resolved.provider)
+      requireGrant(grantFacts(context, found.board), id, 'action', wanted.id, resolved.registration.permission, resolved.provider)
       // 动作的失败原因原样回给卡片：组件把它显示出来，用户不必去翻日志（D11）。
       const result = await context.sources.runAction(wanted.id, face, wanted.payload)
       json(response, 200, { ok: true, result: result ?? null })
@@ -579,7 +600,7 @@ const ROUTES: Route[] = [
  * @throws {Refusal} 看板上没有这张卡（404），或请求里没有名字（400）。
  */
 async function grantRequestOf(context: RouteContext, request: HostRequest, id: string): Promise<{ kind: GrantKind, id: string }> {
-  faceOf(context.board, id)
+  locate(context, id)
   const body = await readJson(request, EMPTY_LIMIT)
   if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '授权或撤权要写明 id')
   return { kind: body.kind === 'source' ? 'source' : 'action', id: body.id }
@@ -594,8 +615,7 @@ async function grantRequestOf(context: RouteContext, request: HostRequest, id: s
  * @throws {Refusal} 看板上没有这张卡，或它的组件不在组件库里。
  */
 function recordOfCard(context: RouteContext, id: string): WidgetRecord {
-  const widget = context.board.instances.find((instance) => instance.id === id)?.widget ?? ''
-  const record = context.records.get(widget)
+  const record = context.records.get(locate(context, id).instance.widget)
   if (record === undefined) throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来')
   return record
 }
@@ -604,12 +624,13 @@ function recordOfCard(context: RouteContext, id: string): WidgetRecord {
  * 把路由上下文里跟授权有关的那几项收成一份事实（D6）。
  *
  * @param context - 路由上下文。
+ * @param board - 这张卡所在的看板；卡片 id 全工作区唯一，不能拿选中的看板代替（D21）。
  * @returns 看板、组件当前的版本哈希与授权表。
  */
-function grantFacts(context: RouteContext): GrantFacts {
+function grantFacts(context: RouteContext, board: Board): GrantFacts {
   const hashes = new Map<string, string>()
   for (const [id, record] of context.records) hashes.set(id, record.hash)
-  return { board: context.board, hashes, grants: context.grants }
+  return { board, hashes, grants: context.grants }
 }
 
 /**
@@ -624,12 +645,13 @@ function grantFacts(context: RouteContext): GrantFacts {
  * @throws {Refusal} 看板上没有这张卡、这张卡没有数据源、数据源不在、或没有授权。
  */
 export async function readInto(context: RouteContext, id: string, source?: string): Promise<unknown> {
-  const face = faceOf(context.board, id)
-  const asked = source ?? context.board.instances.find((instance) => instance.id === id)?.source
+  const { board, instance } = locate(context, id)
+  const face = faceOf(board, id)
+  const asked = source ?? instance.source
   if (asked === undefined || asked === '') throw new Refusal(400, `这张卡没有数据源：${id}`)
   const resolved = context.sources.resolveDataSource(asked)
   if (resolved === undefined) throw new Refusal(400, `没有数据源 ${asked}，提供它的插件可能没有安装`)
-  requireGrant(grantFacts(context), id, 'source', asked, resolved.registration.permission, resolved.provider)
+  requireGrant(grantFacts(context, board), id, 'source', asked, resolved.registration.permission, resolved.provider)
   const data = await context.sources.readSource(asked, face)
   await saveData(context, id, data)
   return data

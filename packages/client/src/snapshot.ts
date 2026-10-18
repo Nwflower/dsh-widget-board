@@ -8,6 +8,7 @@
 import type {
   BoardCreateRequest,
   BoardLayoutRequest,
+  BoardLayoutSaved,
   BoardRenameRequest,
   CardLayout,
   GrantKind,
@@ -82,6 +83,11 @@ function isWorkspace(value: unknown): value is WorkspaceSnapshot {
 /** 读一份工作区快照；形状不对时抛出来。 */
 async function snapshotOf(response: Response, subject: string): Promise<WorkspaceSnapshot> {
   if (!response.ok) throw new Error(await errorOf(response, subject))
+  return await snapshotBodyOf(response, subject)
+}
+
+/** 读一份工作区快照的响应体，不先看状态码；409 也要把它交给页面。 */
+async function snapshotBodyOf(response: Response, subject: string): Promise<WorkspaceSnapshot> {
   const snapshot: unknown = await response.json()
   if (!isWorkspace(snapshot)) throw new Error(`${subject}：响应不是工作区快照`)
   return snapshot
@@ -277,26 +283,38 @@ export async function revokeInstance(id: string, kind: GrantKind, name: string):
 }
 
 /**
+ * 一次布局提交的结果：宿主存下这次盒子，或修订号过期时给出当前工作区（D5、D16）。
+ */
+export type BoardLayoutResult =
+  | { kind: 'saved', layout: BoardLayoutSaved }
+  | { kind: 'stale', snapshot: WorkspaceSnapshot }
+
+/**
  * 把一块看板的卡片盒子交给宿主（D16、D21）。
  *
  * 拖动与缩放只在本地预览，松手时提交一次；修订号过期时宿主返回当前工作区，这里把它交回去让页面
- * 按宿主的那一份重画（D5）。
+ * 按宿主的那一份重画（D5）。成功时只回这次落定的盒子，不再把全部看板的数据与状态带回来。
  *
  * @param boardId - 看板 id。
  * @param layoutRevision - 页面读到的那一块的布局修订号。
  * @param layouts - 整理过的卡片布局。
- * @returns 宿主上的工作区。
- * @throws {Error} 请求失败，或响应不是快照。
+ * @returns 存下的盒子，或修订号过期时的当前工作区。
+ * @throws {Error} 请求失败，或响应形状不对。
  */
-export async function saveBoardLayouts(boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>): Promise<WorkspaceSnapshot> {
+export async function saveBoardLayouts(boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>): Promise<BoardLayoutResult> {
   const body: BoardLayoutRequest = { layoutRevision, layouts }
   const response = await fetch(boardLayoutPath(boardId), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok && response.status !== 409) throw new Error(await errorOf(response, '存不下卡片布局'))
-  return await snapshotOf(response, '存不下卡片布局')
+  if (response.status === 409) return { kind: 'stale', snapshot: await snapshotBodyOf(response, '存不下卡片布局') }
+  if (!response.ok) throw new Error(await errorOf(response, '存不下卡片布局'))
+  const saved = await response.json() as Partial<BoardLayoutSaved>
+  if (!Number.isSafeInteger(saved.layoutRevision) || typeof saved.layouts !== 'object' || saved.layouts === null) {
+    throw new Error('存不下卡片布局：响应不是布局结果')
+  }
+  return { kind: 'saved', layout: saved as BoardLayoutSaved }
 }
 
 /**

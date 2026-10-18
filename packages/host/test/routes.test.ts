@@ -18,6 +18,7 @@ import type { WidgetRecord } from '../src/library'
 import { createRegistries } from '../src/sources'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
+import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from '../src/limits'
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -203,6 +204,10 @@ async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Ha
     refresh: async () => undefined,
     sources,
     grants: memoryGrants(),
+    limits: {
+      stateCard: createRateLimiter(STATE_WRITES_PER_SECOND),
+      stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
+    },
   }
   const handler = createHandler(context)
   return {
@@ -317,6 +322,9 @@ describe('布局提交', () => {
     expect(test.context.workspace.board('board').layoutRevision).toBe(6)
     expect(test.context.workspace.board('board').instances[0]?.layout).toEqual(layouts['board-first'])
     expect(test.events.at(-1)).toEqual({ type: 'layout', board: 'board', layoutRevision: 6, layouts })
+    // 成功只回这次落定的盒子，不再把全部看板的数据与状态带回来。
+    const body = JSON.parse(response.body) as { layoutRevision: number, layouts: typeof layouts }
+    expect(body).toEqual({ layoutRevision: 6, layouts })
   })
 
   it('提交低于组件最小盒子的布局时抬到下限', async () => {
@@ -344,12 +352,64 @@ describe('卡片状态与数据', () => {
     expect(test.events.at(-1)).toEqual({ type: 'instance', id: 'board-first', state: { n: 1 } })
   })
 
+  it('状态已经是对象时事件只带这次补丁', async () => {
+    const test = await harness()
+    await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { n: 1 } }))
+    await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { m: 2 } }))
+    expect(test.context.workspace.board('board').instances[0]?.state).toEqual({ n: 1, m: 2 })
+    expect(test.events.at(-1)).toEqual({ type: 'instance', id: 'board-first', patch: { m: 2 } })
+  })
+
+  it('状态超过单卡额度时回 413，不写进看板', async () => {
+    const test = await harness()
+    let last = 0
+    for (let index = 0; index < 5; index += 1) {
+      const patch = { [`k${index}`]: 'x'.repeat(15 * 1024) }
+      last = (await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch }))).status
+    }
+    expect(last).toBe(413)
+    expect(JSON.stringify(test.context.workspace.board('board').instances[0]?.state).length).toBeLessThan(64 * 1024)
+  })
+
+  it('写入太频繁时回 429', async () => {
+    const test = await harness()
+    let last = 0
+    for (let index = 0; index < STATE_WRITES_PER_SECOND + 1; index += 1) {
+      last = (await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { n: index } }))).status
+    }
+    expect(last).toBe(429)
+  })
+
   it('卡片在哪块看板上就写哪一块：另一块看板上的卡也找得到', async () => {
     const test = await harness(RECORD, true)
     const response = await test.send('POST', '/instance/second-first/state', JSON.stringify({ patch: { n: 2 } }))
     expect(response.status).toBe(200)
     expect(test.context.workspace.board('second').instances[0]?.state).toEqual({ n: 2 })
     expect(test.context.workspace.board('board').instances[0]?.state).toBeNull()
+  })
+
+  it('另一块看板上的卡也能按 id 读数据与授权', async () => {
+    const test = await harness(RECORD, true)
+    await test.context.workspace.save('second', (current) => ({
+      ...current,
+      instances: current.instances.map((instance) => ({ ...instance, source: 'weather.now' })),
+    }), { event: () => ({ type: 'board' }) })
+    let reads = 0
+    test.context.sources.registerDataSource({
+      apiVersion: 2,
+      provider: 'test-provider',
+      id: 'weather.now',
+      read: () => { reads += 1; return { n: 7 } },
+    })
+    const read = await test.send('POST', '/instance/second-first/read')
+    expect(read.status).toBe(200)
+    expect(reads).toBe(1)
+    expect(test.context.workspace.board('second').instances[0]?.data).toEqual({ n: 7 })
+    expect(test.context.workspace.board('board').instances[0]?.data).toBeNull()
+
+    const granted = await test.send('POST', '/instance/second-first/grant', JSON.stringify({ kind: 'source', id: 'weather.now' }))
+    expect(granted.status).toBe(200)
+    expect(test.context.grants.all()).toHaveLength(1)
   })
 
   it('看板上没有这张卡时回 404', async () => {

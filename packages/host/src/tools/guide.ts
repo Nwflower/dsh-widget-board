@@ -65,6 +65,8 @@ widget.setState(patch)  // 合并一份状态进宿主；对象只合并一层
 widget.onState(fn)
 widget.size             // { w, h, family, placement, cols }
 widget.onSize(fn)
+widget.paused           // 卡片被暂停了：离开视口，或所在的看板没有选中
+widget.onPause(fn)      // 暂停状态变了；计时器与逐帧绘制在这里停下与恢复
 widget.action(id, payload)   // 发出 manifest 里声明过的动作
 widget.t(key)           // manifest 的 text 里的一条文案，按当前语言
 widget.fit()            // 把内容高度报给宿主（内联显示时用）
@@ -72,6 +74,8 @@ widget.reportError(err) // 把失败原因写在这张卡上
 \`\`\`
 
 组件在 iframe 里跑，拿不到网络、cookie 与父页面。要数据就声明数据源，要动手就声明动作。
+
+\`setState\` 由父页面合并：同一个 250 毫秒窗口里的几条补丁合成一次提交，暂停、页面隐藏与卸载时立即提交。状态有额度（一张卡 64KB，一块看板 1MB），超出的写入会被拒绝并在卡片上显示原因；不要拿它存动画帧或大块数据。
 
 ## 盒子契约
 
@@ -93,7 +97,7 @@ widget.reportError(err) // 把失败原因写在这张卡上
 
 - 内容不能撑高卡片：卡片的高度是用户定的。超出时自己滚动或收掉次要信息。
 - 组件文档只允许 \`index.html\`、\`style.css\`、\`main.js\` 三份文件；图片与字体写 \`{{asset:相对路径}}\`，宿主把它换成 \`data:\` 地址。
-- 消息有长度与频率上限：状态补丁要小，不要每秒发很多条。
+- 消息有长度与频率上限：状态补丁要小，不要每秒发很多条；\`setState\` 本身会被合并，但状态总量有额度。
 - 沙箱里没有 \`fetch\`、没有 \`localStorage\`；状态用 \`widget.setState\`。
 - 组件的**内容哈希**就是版本：改一个字符，之前给的授权与固定版本都不再匹配。
 `

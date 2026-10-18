@@ -10,6 +10,7 @@ import { GrantRequiredError, grantInstance, sendInstanceAction } from './snapsho
 import { useNativeWidget } from './native'
 import { NativeBoundary } from './native-boundary'
 import { CARD_CLIP } from './card-shell'
+import { createStateQueue } from './state-queue'
 
 /** 卡片这么久没有收到组件的任何一条消息，就重新连一次（D11）。 */
 const ANSWER_TIMEOUT_MS = 6000
@@ -28,7 +29,7 @@ export interface CardSurfaceProps {
   /** 整页唯一的握手中心（D3）。 */
   frames: FrameHost
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
-  onState: (id: string, patch: unknown) => void
+  onState: (id: string, patch: unknown) => Promise<void>
   /** 组件发到看板栏上的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
   /** 这一层画面是否暂停：组卡把藏起来的一面停住（D16）。 */
@@ -69,6 +70,8 @@ export function CardSurface({
   const readyRef = useRef(false)
   const answeredRef = useRef(false)
   const [failure, setFailure] = useState<string | null>(null)
+  /** 状态没写进宿主的原因；成功后收起（D23）。 */
+  const [saveFailure, setSaveFailure] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   /** 宿主因为缺授权拒绝了上一次动作或读数据：卡片上画出「允许」按钮（D6）。 */
   const [asking, setAsking] = useState<{ kind: GrantKind, id: string } | null>(null)
@@ -93,6 +96,12 @@ export function CardSurface({
   const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} })
   initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} }
   const src = widgetDocumentPath(widget.hash, theme.lang)
+  // 组件连续 setState 时由队列合并；暂停、页面隐藏与卸载时立即发送（D23）。
+  const [queue] = useState(() => createStateQueue({
+    send: async (patch) => { await stateRef.current(instance.id, patch) },
+    onError: (error) => { setSaveFailure(error.message) },
+    onSaved: () => { setSaveFailure(null) },
+  }))
 
   /**
    * 一次动作的结果落到卡片上：成功就收起要授权的那条提示，失败就把原因写出来；缺授权时另画出
@@ -155,7 +164,7 @@ export function CardSurface({
       }
       // 高度由看板布局给出，组件上报的内容高度不参与（D16）；消息仍然合法，只是不用。
       if (message.type === 'error') setFailure(message.message)
-      if (message.type === 'setState') stateRef.current(instance.id, message.patch)
+      if (message.type === 'setState') queue.push(message.patch)
       if (message.type === 'notify') notifyRef.current(instance, widget, message)
       if (message.type === 'action') {
         sendInstanceAction(instance.id, message.id, message.payload).then(() => { settleAction() }, settleAction)
@@ -228,7 +237,21 @@ export function CardSurface({
     const port = portRef.current
     if (port === null || !readyRef.current) return
     port.postMessage({ type: paused ? 'pause' : 'resume' } satisfies ParentMessage)
-  }, [paused])
+    if (paused) void queue.flush()
+  }, [paused, queue])
+
+  // 卸下这张卡或整页离开时把最后一份状态送出去；页面隐藏也先冲一次（D23）。
+  useEffect(() => {
+    const flush = (): void => { void queue.flush() }
+    const onVisibility = (): void => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
+      queue.dispose()
+    }
+  }, [queue])
 
   return (
     <>
@@ -251,7 +274,7 @@ export function CardSurface({
                 data: instance.data ?? null,
                 state: instance.state ?? null,
                 paused,
-                setState: (patch: unknown) => onState(instance.id, patch),
+                setState: (patch: unknown) => { queue.push(patch) },
                 action: (id: string, payload?: unknown) => {
                   sendInstanceAction(instance.id, id, payload).then(() => { settleAction() }, settleAction)
                 },
@@ -267,7 +290,9 @@ export function CardSurface({
             </NativeBoundary>
           </div>
         )}
-      {failure === null ? null : <p className="dsh-widget-board__failure-strip" role="status">{failure}</p>}
+      {failure === null && saveFailure === null ? null : (
+        <p className="dsh-widget-board__failure-strip" role="status">{failure ?? saveFailure}</p>
+      )}
       {asking === null ? null : (
         <button
           type="button"

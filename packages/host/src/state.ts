@@ -13,6 +13,8 @@ import { dirname } from 'node:path'
 import type { Board, BoardInstance, CardLayout, InstanceGroup, WidgetMinBox } from '@dsh-widget-board/contracts'
 import { BOARD_HERO_ID } from '@dsh-widget-board/contracts'
 import { DEFAULT_HEIGHT_REM, clampCardBox, clampCardLayout, isCardLayout, nextCardLayout } from '@dsh-widget-board/model'
+import { BOARD_STATE_BYTES_LIMIT, STATE_BYTES_LIMIT } from './limits'
+import { Refusal } from './refusal'
 import type { WidgetRecord } from './library'
 
 /** 存储格式的版本：2 把固定的题头换成了 `board-hero` 卡片。 */
@@ -258,6 +260,47 @@ export function withInstanceState(board: Board, id: string, patch: unknown): Boa
   const instances = [...board.instances]
   instances[index] = { ...instance, state }
   return { ...board, instances }
+}
+
+/** 状态超过额度（D23）；路由把它翻成 413。 */
+export class StateLimitError extends Refusal {
+  constructor(message: string) {
+    super(413, message, { code: 'state-too-large' })
+  }
+}
+
+/** 一份状态序列化之后的字节数；`null` 与 `undefined` 按 0 算。 */
+function stateBytes(value: unknown): number {
+  if (value === undefined || value === null) return 0
+  const text = JSON.stringify(value)
+  return text === undefined ? 0 : Buffer.byteLength(text, 'utf8')
+}
+
+/**
+ * 把补丁并进状态，并核对额度（D23）。
+ *
+ * 单张卡的额度与整块看板的合计各有一道；超出时抛出 {@link StateLimitError}，调用方据此回 413，
+ * 不留下写了一半的状态。
+ *
+ * @param board - 当前看板。
+ * @param id - 卡片实例的 id。
+ * @param patch - 组件送来的补丁。
+ * @returns 换过这张卡状态的看板。
+ * @throws {StateLimitError} 超过单卡或整块看板的额度。
+ * @throws {Error} 看板上没有这张卡。
+ */
+export function withInstanceStateChecked(board: Board, id: string, patch: unknown): Board {
+  const next = withInstanceState(board, id, patch)
+  const instance = next.instances.find((candidate) => candidate.id === id)
+  const own = stateBytes(instance?.state)
+  if (own > STATE_BYTES_LIMIT) {
+    throw new StateLimitError(`这张卡的状态超过 ${String(STATE_BYTES_LIMIT)} 字节：${String(own)} 字节`)
+  }
+  const total = next.instances.reduce((sum, candidate) => sum + stateBytes(candidate.state), 0)
+  if (total > BOARD_STATE_BYTES_LIMIT) {
+    throw new StateLimitError(`这块看板的状态合计超过 ${String(BOARD_STATE_BYTES_LIMIT)} 字节：${String(total)} 字节`)
+  }
+  return next
 }
 
 /**

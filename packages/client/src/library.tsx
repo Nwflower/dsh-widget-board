@@ -91,7 +91,7 @@ function previewOf(entry: WidgetLibraryEntry, widgets: Readonly<Record<string, W
 }
 
 /** 缩略画面不写宿主：它没有看板上的实例，组件的 setState 也就没有落点。 */
-const ignoreState = (): void => {}
+const ignoreState = async (): Promise<void> => {}
 
 /** 缩略画面也不发通知：组件库里的一次预览不该在看板栏上记一笔。 */
 const ignoreNotify = (): void => {}

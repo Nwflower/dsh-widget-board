@@ -113,6 +113,14 @@ export interface WorkspaceSnapshot {
   grants: Grant[]
 }
 
+/** 一次布局提交成功后的答复：只带这次落定的盒子与修订号（D16）。 */
+export interface BoardLayoutSaved {
+  /** 写入之后的布局修订号。 */
+  layoutRevision: number
+  /** 宿主存下的盒子，按卡片 id 索引；提交里没有的卡片不出现。 */
+  layouts: Record<string, CardLayout>
+}
+
 /** `POST /boards` 的请求体：新建一块看板（D21）。 */
 export interface BoardCreateRequest {
   /** 标题；省略时宿主起一个「未命名看板」加序号。 */

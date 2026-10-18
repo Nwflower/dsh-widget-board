@@ -16,8 +16,8 @@ const ROOT = path.resolve(import.meta.dirname, '..')
 const DECISIONS = path.join(ROOT, 'docs', 'adr')
 /** 停止线：源文件接近这个行数就拆分，不再往里加功能（D2）。 */
 const MAX_LINES = 750
-/** 不走进去的目录：本地草稿、产物与依赖。 */
-const SKIPPED = new Set(['.git', '.debug', '.claude', 'node_modules', 'lib'])
+/** 不走进去的目录：本地草稿、临时工作树、产物与依赖。 */
+const SKIPPED = new Set(['.git', '.agents', '.debug', '.claude', 'node_modules', 'lib'])
 
 const problems = []
 

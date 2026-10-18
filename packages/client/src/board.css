@@ -13,7 +13,8 @@
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  padding: 20px 20px 132px;
+  /* 上缘不留内边距：顶部那一条（标签条加它的底）由 tabs.css 自己排，滚动时才盖得到窗口最上沿。 */
+  padding: 0 20px 132px;
   overflow: auto;
   background-color: var(--dsw-alias-bg-base);
   /* 一层很淡的点阵，像参考里的图纸；卡片与题头各自盖住自己那一块。 */
@@ -50,6 +51,9 @@
 .dsh-widget-board__flow[data-active="false"] {
   position: absolute;
   inset: 0;
+  /* 不可见的那几块看板比选中的高时，它们行内给的高度与溢出的卡片不能把看板的可滚动区域撑出一段空白。 */
+  max-height: 100%;
+  overflow: hidden;
   visibility: hidden;
   pointer-events: none;
 }

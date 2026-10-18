@@ -4,12 +4,13 @@
  * 结构照 transitions.dev 的 Tabs sliding：一条贴着标签的圆角底条，活动标签的药丸在标签下面滑过去；
  * 药丸的位置与宽度由 tabs.tsx 量出来写在行内，首帧不补间。时长与曲线取 --w-motion-base 与
  * --w-motion-ease-smooth（250ms，cubic-bezier(0.22, 1, 0.36, 1)），减弱动效时取消（D10）。标签条
- * 粘在页面顶端；Windows 桌面端让出窗口标题栏时，它靠左挂进那一条（tabs.tsx 量位置）。
+ * 粘在页面顶端，下面垫着一条看板滚动时盖住卡片的底；Windows 桌面端让出窗口标题栏时，它靠左挂进
+ * 那一条（tabs.tsx 量位置）。
  */
 
 .dsh-widget-board__tabs {
   position: sticky;
-  top: 0;
+  top: 20px;
   z-index: 6;
   display: inline-flex;
   box-sizing: border-box;
@@ -20,7 +21,7 @@
   max-width: 100%;
   align-items: center;
   gap: 3px;
-  margin: -8px 0 14px -8px;
+  margin: 20px 0 6px -8px;
   padding: 3px;
   overflow-x: auto;
   border-radius: 9999px;
@@ -29,6 +30,27 @@
 }
 
 .dsh-widget-board__tabs::-webkit-scrollbar { display: none; }
+
+/* 标签条后面的一条底：看板滚动时卡片从它下面走过，不再透过标签条之外的空隙露出来。它是看板根节点的
+ * 第一个伪元素，粘在窗口最上沿、不占版面（高度与下外边距相加为 0，标签条仍从原来的位置起排）；
+ * Windows 桌面端标签条挂进窗口标题栏时没有这一条，根节点自己补回上缘的内边距。颜色读宿主令牌，
+ * 浅色与深色各自成立。 */
+.dsh-widget-board::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex: none;
+  height: 60px;
+  margin: 0 -20px -60px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 94%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.dsh-widget-board:has(> .dsh-widget-board__tabs[data-titlebar="true"])::before { display: none; }
+.dsh-widget-board:has(> .dsh-widget-board__tabs[data-titlebar="true"]) { padding-top: 20px; }
 
 /* 活动标签底下那枚药丸：位置与宽度由 tabs.tsx 写在行内，切换时从这里过渡。 */
 .dsh-widget-board__tabs-pill {

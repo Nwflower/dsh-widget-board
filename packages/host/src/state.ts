@@ -2,8 +2,8 @@
  * 一块看板的内容与形状（D5、D21）：卡片、它们的盒子与修订号。
  *
  * 文件放在哪里、有几块看板由 `workspace.ts` 决定，这里只管一块看板的读写与纯函数式的改动。第一次
- * 启动时给组件库里的每个组件放一张卡；此后的组件增删都来自添加面板与工具，不再自动补卡。每张卡片
- * 带着自己的盒子（D16）。旧看板没有盒子时按最矮的一列补上默认位置；版本 1 的看板升级时把原来的
+ * 启动的两块看板由 `default-boards.ts` 铺；此后的组件增删都来自添加面板与工具，不再自动补卡。
+ * 每张卡片带着自己的盒子（D16）。旧看板没有盒子时按最矮的一列补上默认位置；版本 1 的看板升级时把原来的
  * 固定题头补成一张 `board-hero` 卡。格式版本对不上时启动直接报错并保留原文件（D11）。卡片引用的
  * 组件不在组件库里不算错误：卡片保留，界面把它画成不可用的占位（D17）。
  */
@@ -46,7 +46,7 @@ export class StaleRevisionError extends Error {
  * @param record - 组件记录。
  * @returns 可以交给 `nextCardLayout` 的宽高。
  */
-function defaultBoxOf(record: WidgetRecord): { w: number, h: number } {
+export function defaultBoxOf(record: WidgetRecord): { w: number, h: number } {
   return clampCardBox(record.manifest.defaultBox ?? { w: 1, h: DEFAULT_HEIGHT_REM }, record.manifest.minBox)
 }
 
@@ -105,26 +105,6 @@ export function emptyBoard(title: string): Board {
     layoutRevision: INITIAL_LAYOUT_REVISION,
     instances: [],
   }
-}
-
-/**
- * 第一次启动时的看板：内置组件每个一张卡，按组件 id 排好，依次放进最矮的列。
- *
- * 用户与插件来源的组件不铺卡：它们从添加面板加入，装了插件不该顺带改变别人的看板（D17）。
- *
- * @param records - 已校验的组件。
- * @param title - 标题。
- * @returns 新的看板。
- */
-export function seedBoard(records: Map<string, WidgetRecord>, title: string): Board {
-  const board = emptyBoard(title)
-  const instances: BoardInstance[] = []
-  const builtin = [...records.values()].filter((record) => record.source === 'builtin')
-  for (const record of builtin.sort((left, right) => left.manifest.id.localeCompare(right.manifest.id))) {
-    const source = record.manifest.source
-    instances.push(instanceOf(record, instances, source === undefined ? {} : { source }))
-  }
-  return { ...board, instances }
 }
 
 /**

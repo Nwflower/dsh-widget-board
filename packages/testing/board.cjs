@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * board.cjs — 看板的测试辅助：读工作区快照、整块提交、复位卡片状态与盒子、改一张卡片的高度（D16、D21）。
+ * board.cjs — 看板的测试辅助：读工作区快照、整块提交、复位卡片状态与盒子、改一张卡片的高度、只留画廊（D16、D17、D21）。
  *
  * 布局只走宿主那一份快照与 `POST /boards/<id>/layout`，测试不直接改页面上的坐标；默认作用在当前
  * 选中的那块看板上。卡片状态按卡片 id 写，卡片 id 全工作区唯一，所以哪块看板上的卡都写得进去。
@@ -44,6 +44,25 @@ async function writeLayouts(page, build) {
       body: JSON.stringify({ layoutRevision, layouts }),
     })
   }, { boardId: board.id, layoutRevision: board.layoutRevision, layouts })
+}
+
+/**
+ * 只留「组件画廊」这一块看板。
+ *
+ * 第一次启动铺两块看板（D17）：精选的「我的看板」与每个内置组件各一张的画廊。检查按组件标题找
+ * 卡片、并把每个内置组件都当作在场，所以让它们面对只有画廊的工作区，找得到唯一的一张。
+ *
+ * @param page - 宿主页面，看板页还没有打开。
+ */
+async function keepOnlyGallery(page) {
+  const snapshot = await workspace(page)
+  const gallery = snapshot.boards.find((board) => board.title === '组件画廊')
+  if (gallery === undefined) throw new Error(`工作区里没有「组件画廊」：${snapshot.boards.map((board) => board.title).join('、')}`)
+  for (const board of snapshot.boards) {
+    if (board.id === gallery.id) continue
+    const status = await page.evaluate(async (id) => (await fetch(`api/widget-board/boards/${encodeURIComponent(id)}/remove`, { method: 'POST' })).status, board.id)
+    if (status !== 200) throw new Error(`移除看板 ${board.title} 失败：${status}`)
+  }
 }
 
 /**
@@ -127,4 +146,4 @@ async function addInstance(page, widget) {
   }, widget)
 }
 
-module.exports = { activeBoard, addInstance, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+module.exports = { activeBoard, addInstance, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

@@ -1,0 +1,46 @@
+{
+  "id": "dsh-balance",
+  "title": {
+    "zh": "DSH 余额",
+    "en": "DSH balance"
+  },
+  "description": {
+    "zh": "读取当前 DeepSeek Harness 账号的充值钱包与赠送钱包；账号在宿主里登录，不需要 API key。",
+    "en": "Reads the recharge and bonus wallets of the signed-in DeepSeek Harness account; no API key needed."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "capabilities": ["dsh.account.balance"],
+  "minBox": { "w": 1, "h": 10 },
+  "text": {
+    "title": {
+      "zh": "DSH 余额",
+      "en": "DSH balance"
+    },
+    "refresh": {
+      "zh": "刷新余额",
+      "en": "Refresh balance"
+    },
+    "loading": {
+      "zh": "读取账户…",
+      "en": "Reading account…"
+    },
+    "note": {
+      "zh": "当前登录的 DSH 账号",
+      "en": "Signed-in DSH account"
+    },
+    "bonus": {
+      "zh": "赠送",
+      "en": "bonus"
+    },
+    "failed": {
+      "zh": "读不到余额",
+      "en": "Balance unavailable"
+    },
+    "empty": {
+      "zh": "账号没有钱包记录",
+      "en": "No wallet on this account"
+    }
+  }
+}

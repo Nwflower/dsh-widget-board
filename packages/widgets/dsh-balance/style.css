@@ -1,0 +1,78 @@
+/*
+ * DSH 余额卡的样式。
+ *
+ * 骨架（底色、边框、标题区）来自套件的 `.t-data`；这里只放大金额、收窄赠送与说明，并给刷新按钮
+ * 一个右上角的位置。颜色与字号从套件令牌读（D10）。
+ */
+.balance__body {
+  justify-content: center;
+}
+
+.balance__amount {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(26px, 17vw, 46px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.balance__currency {
+  flex: none;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.balance__bonus {
+  margin: 8px 0 0;
+  color: var(--w-color-accent, #2563eb);
+  font-family: var(--t-mono);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.balance__note {
+  margin: 6px 0 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.balance__refresh {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 90%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--w-color-muted, #6b7684);
+  cursor: pointer;
+}
+
+.balance__refresh svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.balance__refresh:disabled { opacity: 0.45; cursor: default; }
+
+/* 缩略画面是静态样例：刷新按钮收起来，也不接指针（与套件的 preview 排法一致）。 */
+:root[data-placement="preview"] .balance__refresh { display: none; }
+
+.balance[data-state="failed"] .balance__amount { color: var(--w-color-danger, #b91c1c); }
+.balance[data-state="ready"] .balance__amount { color: var(--w-color-fg, #0b1016); }
+.balance[data-state="loading"] .balance__amount { color: var(--w-color-muted, #6b7684); }

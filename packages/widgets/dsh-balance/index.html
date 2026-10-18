@@ -1,0 +1,18 @@
+<div class="t-data balance" data-state="loading">
+  <header class="t-data__head">
+    <div>
+      <p class="t-data__kicker">DSH · ACCOUNT</p>
+      <h2 class="t-data__title" data-field="title">DSH 余额</h2>
+    </div>
+    <button class="balance__refresh t-pressable" type="button" data-field="refresh" title="刷新余额" aria-label="刷新余额">
+      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V6h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </header>
+  <div class="t-data__body balance__body">
+    <p class="balance__amount"><span data-field="amount">—</span><span class="balance__currency" data-field="currency"></span></p>
+    <p class="balance__bonus" data-field="bonus"></p>
+    <p class="balance__note" data-field="note">当前登录的 DSH 账号</p>
+  </div>
+</div>

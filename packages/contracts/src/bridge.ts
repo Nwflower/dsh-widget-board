@@ -4,6 +4,8 @@
  * 握手之后两端只经一个 `MessagePort` 说话；每条消息按这里的形状判定，两端用的是同一个判定函数，
  * 认不出的类型、缺字段与超限的载荷一律丢弃并报出来。形状只在 `contracts` 写一次。
  */
+import type { InspectionResult } from './inspect'
+import { isInspectionReport } from './inspect'
 import type { WidgetFamily } from './widget'
 
 /** 组件出现在哪儿：看板上的卡片、会话正文、右侧栏、展开浮层与组件库里的缩略画面（D16）。 */
@@ -89,6 +91,8 @@ export type ParentMessage =
   | { type: 'resume' }
   | { type: 'call-result', requestId: string, result: unknown }
   | { type: 'call-error', requestId: string, code: string, message: string }
+  /** 让组件在当前盒子里跑一次检查器（D9、D13）。 */
+  | { type: 'inspect', requestId: string }
 
 /** 一条组件发给父页面的消息。 */
 export type WidgetMessage =
@@ -100,6 +104,8 @@ export type WidgetMessage =
   | { type: 'height', height: number }
   | { type: 'error', message: string }
   | ({ type: 'notify' } & WidgetNotification)
+  /** 检查器的结果，回应同一 `requestId` 的 `inspect`。 */
+  | ({ type: 'report', requestId: string } & InspectionResult)
 
 /** 一条消息的 JSON 长度上限；超限的丢弃并报错（D3）。 */
 export const MESSAGE_LIMIT = 64 * 1024
@@ -108,10 +114,10 @@ export const MESSAGE_LIMIT = 64 * 1024
 export const MESSAGE_RATE_LIMIT = 200
 
 /** 父页面消息的类型集合，供两端判定。 */
-export const PARENT_MESSAGE_TYPES = ['init', 'size', 'data', 'props', 'state', 'theme', 'pause', 'resume', 'call-result', 'call-error'] as const
+export const PARENT_MESSAGE_TYPES = ['init', 'size', 'data', 'props', 'state', 'theme', 'pause', 'resume', 'call-result', 'call-error', 'inspect'] as const
 
 /** 组件消息的类型集合，供两端判定。 */
-export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'call', 'cancel', 'height', 'error', 'notify'] as const
+export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'call', 'cancel', 'height', 'error', 'notify', 'report'] as const
 
 /**
  * 一条消息是否在长度上限之内。
@@ -180,6 +186,8 @@ export function isParentMessage(value: unknown): value is ParentMessage {
     case 'call-error':
       return typeof value.requestId === 'string' && value.requestId !== ''
         && typeof value.code === 'string' && typeof value.message === 'string'
+    case 'inspect':
+      return typeof value.requestId === 'string' && value.requestId !== ''
     default:
       return false
   }
@@ -223,6 +231,10 @@ export function isWidgetMessage(value: unknown): value is WidgetMessage {
     case 'notify':
       return isOptionalText(value.title, NOTIFICATION_TITLE_LIMIT)
         && isOptionalText(value.body, NOTIFICATION_BODY_LIMIT)
+    case 'report':
+      return typeof value.requestId === 'string' && value.requestId !== ''
+        && isInspectionReport(value.report)
+        && Array.isArray(value.problems) && value.problems.every((problem) => typeof problem === 'string')
     default:
       return false
   }

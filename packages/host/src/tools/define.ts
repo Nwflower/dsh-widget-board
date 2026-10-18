@@ -7,8 +7,9 @@
  */
 import { join } from 'node:path'
 import { strToU8 } from 'fflate'
-import type { DefineValue, WidgetManifest, WidgetToolSpec } from '@dsh-widget-board/contracts'
-import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
+import type { DefineValue, SelfCheckResult, WidgetManifest, WidgetToolSpec } from '@dsh-widget-board/contracts'
+import { WIDGET_TOOL_NAMES, ToolRefusal, selfCheckBoxes, withinLimit } from '@dsh-widget-board/contracts'
+import { DEFAULT_HEIGHT_REM, snapCardHeight } from '@dsh-widget-board/model'
 import { isRecord } from '../guards'
 import { manifestProblem, writeWidgetDirectory } from '../library'
 import type { ToolContext } from './index'
@@ -80,11 +81,20 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
           description: 'Relative path to file text. index.html and style.css are required; main.js, samples.json and assets/... are optional.',
         },
         replace: { type: 'boolean', description: 'Allow overwriting an existing widget directory. Without it, an existing id is refused.' },
+        preview: {
+          type: 'object',
+          additionalProperties: false,
+          description: 'Props and data to render the widget with for the self-check and the inline preview. Use realistic content so the check sees the real layout.',
+          properties: {
+            props: { type: 'object' },
+            data: {},
+          },
+        },
       },
     },
-    async execute(args) {
+    async execute(args, call) {
       if (!isRecord(args) || typeof args.id !== 'string') throw new ToolRefusal('widget_define 要写明 id')
-      const wanted = args as { id: string, manifest?: unknown, files?: unknown, replace?: unknown }
+      const wanted = args as { id: string, manifest?: unknown, files?: unknown, replace?: unknown, preview?: unknown }
       if (!ID_PATTERN.test(wanted.id)) throw new ToolRefusal(`组件 id 要匹配 ^[a-z][a-z0-9-]{1,39}$：${wanted.id}`)
       const manifest = manifestOf(wanted.manifest)
       if (manifest.id !== wanted.id) throw new ToolRefusal(`manifest.id 是 ${manifest.id}，与 id ${wanted.id} 不一致`)
@@ -92,6 +102,7 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
       for (const required of ['index.html', 'style.css']) {
         if (!files.some((file) => file.path === required)) throw new ToolRefusal(`缺少必需的 ${required}（D7）`)
       }
+      const preview = previewOf(context, manifest, wanted.preview)
 
       const root = context.route.roots.find((candidate) => candidate.source === 'user')
       if (root === undefined) throw new ToolRefusal('没有可写的用户组件目录')
@@ -110,7 +121,25 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
       if (record === undefined) throw new ToolRefusal(`写完了，但组件库重读之后没有 ${wanted.id}；检查目录里的文件`)
       notes.push(`写下了 ${files.length + 1} 份文件：widget.json、${files.map((file) => file.path).join('、')}`)
       if (replaced) notes.push('覆盖了同名的组件目录，旧版本仍留在版本库里')
-      return { id: record.manifest.id, dir: record.dir, hash: record.hash, replaced, notes } satisfies DefineValue
+      // 自检交给正在显示这次调用的会话页面：它把新版本放进几个代表性的盒子量一遍（D9、D13）。
+      const check = await context.route.selfChecks.run(call.callId, {
+        widget: record.manifest.id,
+        hash: record.hash,
+        props: preview.props,
+        data: preview.data,
+        boxes: selfCheckBoxes(record.manifest.minBox),
+      }, call.signal)
+      return {
+        id: record.manifest.id,
+        dir: record.dir,
+        hash: record.hash,
+        replaced,
+        notes,
+        check,
+        preview,
+        title: record.manifest.title,
+        height: snapCardHeight(record.manifest.defaultBox?.h ?? DEFAULT_HEIGHT_REM),
+      } satisfies DefineValue
     },
     render(value) {
       const defined = value as DefineValue
@@ -119,9 +148,54 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
         text: [
           `${defined.replaced ? '更新' : '新建'}了组件 ${defined.id}，版本哈希 ${defined.hash.slice(0, 12)}。`,
           ...defined.notes,
-          `用 ${WIDGET_TOOL_NAMES.place} 把它放到看板上。`,
+          ...checkLines(defined.check),
+          defined.check.status === 'failed'
+            ? `先按上面的问题改好，带上 replace: true 再调一次 ${WIDGET_TOOL_NAMES.define}。`
+            : `用 ${WIDGET_TOOL_NAMES.place} 把它放到看板上，或用 ${WIDGET_TOOL_NAMES.show} 在会话里给用户看。`,
         ].join('\n'),
       }]
     },
+    meta(value) {
+      return value
+    },
   }
+}
+
+/**
+ * 自检的结论读成给模型的几行。
+ *
+ * @param check - 自检的结论。
+ * @returns 文本行。
+ */
+function checkLines(check: SelfCheckResult): string[] {
+  if (check.status === 'unverified') return [`自检没有做：${check.reason ?? '没有页面交回报告'}。`]
+  const boxes = check.boxes.map((box) => `${String(box.box.cols)} 列 × ${String(box.box.h)}rem`).join('、')
+  if (check.status === 'passed') return [`自检通过：在 ${boxes} 里排版正常，没有脚本错误。`]
+  return [`自检发现问题（量过 ${boxes}）：`, ...check.problems.map((problem) => `- ${problem}`)]
+}
+
+/**
+ * 读自检与预览用的 props 与 data：形状要符合组件自己的 schema。
+ *
+ * @param context - 工具要动的那些东西。
+ * @param manifest - 校验过的 manifest。
+ * @param value - 模型给的 preview。
+ * @returns props 与 data。
+ * @throws {ToolRefusal} 不符合 schema 或超过桥的长度上限。
+ */
+function previewOf(context: ToolContext, manifest: WidgetManifest, value: unknown): DefineValue['preview'] {
+  if (value === undefined) return { props: {}, data: null }
+  if (!isRecord(value)) throw new ToolRefusal('preview 要是 { props, data }')
+  if (value.props !== undefined && !isRecord(value.props)) throw new ToolRefusal('preview.props 要是一个对象')
+  const props = (value.props ?? {}) as Record<string, unknown>
+  const propsProblem = context.propsError(manifest.props, props)
+  if (propsProblem !== undefined) throw new ToolRefusal(`preview.props 与 manifest 的 props schema 不符：${propsProblem}`)
+  const data = value.data ?? null
+  if (value.data !== undefined) {
+    const dataProblem = context.dataError(manifest.data, data)
+    if (dataProblem !== undefined) throw new ToolRefusal(`preview.data 与 manifest 的 data schema 不符：${dataProblem}`)
+  }
+  const preview = { props, data }
+  if (!withinLimit(preview)) throw new ToolRefusal('preview 超过 64 KiB；只给能看出排版的那部分')
+  return preview
 }

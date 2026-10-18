@@ -54,6 +54,8 @@ import { isCardLayout } from '@dsh-widget-board/model'
 import { readJson } from './body'
 import { Refusal } from './refusal'
 import { shareRoutes } from './share'
+import type { SelfChecks } from './selfcheck'
+import { selfCheckRoutes } from './selfcheck'
 import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
 import type { RateLimiter } from './limits'
 import type { SaveOptions, Workspace } from './workspace'
@@ -114,6 +116,8 @@ export interface RouteContext {
   limits: { stateCard: RateLimiter, stateBoard: RateLimiter }
   /** 宿主的凭据服务（D22）；没装时是 `undefined`，设置弹窗给出可见的说法。 */
   credentials?: () => HostCredentials | undefined
+  /** `widget_define` 的自检：任务与报告经它在工具与会话页面之间交接（D9）。 */
+  selfChecks: SelfChecks
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */
@@ -644,7 +648,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes()].flatMap((route) => {
+    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...selfCheckRoutes()].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

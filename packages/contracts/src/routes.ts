@@ -210,3 +210,17 @@ export const refreshPath = (): string => `${CLIENT_ROUTE}${REFRESH_PATH}`
  */
 export const widgetDocumentPath = (hash: string, lang: string): string =>
   `${CLIENT_ROUTE}${WIDGET_ROUTE}/${hash}/document?lang=${encodeURIComponent(lang)}`
+
+/**
+ * 自检的路由前缀（D9）：`GET /selfcheck/<callId>` 等宿主交出这次调用的自检任务，
+ * `POST /selfcheck/<callId>` 交回报告。`callId` 就是会话里那次 `widget_define` 的调用 id。
+ */
+export const SELF_CHECK_ROUTE = '/selfcheck'
+
+/**
+ * 某次工具调用的自检地址，文档相对。
+ *
+ * @param callId - 会话里那次工具调用的 id。
+ * @returns 取任务与交报告共用的路径。
+ */
+export const selfCheckPath = (callId: string): string => `${CLIENT_ROUTE}${SELF_CHECK_ROUTE}/${encodeURIComponent(callId)}`

@@ -1,0 +1,92 @@
+/*
+ * JSON 卡片的样式：一层一缩进，对象与数组前面是一个折叠按钮，值按类型着色。
+ *
+ * 树在滚动区里，长内容不撑高卡片；缩进线用左边框画，折叠时子层整段收起。颜色只用套件令牌
+ * 与两处稳定的类型色。
+ */
+.json-card__scroll {
+  font-family: var(--t-mono);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.json-card__row {
+  display: flex;
+  min-height: 18px;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.json-card__key {
+  flex: none;
+  color: var(--w-color-muted, #6b7684);
+}
+
+.json-card__key::after {
+  content: ":";
+  margin-left: 1px;
+}
+
+.json-card__value {
+  min-width: 0;
+  color: var(--w-color-fg, #0b1016);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.json-card__value[data-type="number"] { color: var(--w-color-accent, #2563eb); }
+.json-card__value[data-type="boolean"] { color: #b45309; }
+.json-card__value[data-type="null"] { color: var(--w-color-muted, #6b7684); }
+
+.json-card__head {
+  display: flex;
+  min-height: 18px;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.json-card__toggle {
+  display: grid;
+  width: 14px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--w-color-muted, #6b7684);
+  font: inherit;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.json-card__toggle:focus-visible {
+  outline: 1px solid var(--w-color-accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.json-card__summary {
+  color: var(--w-color-muted, #6b7684);
+}
+
+.json-card__children {
+  margin-left: 5px;
+  padding-left: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 70%, transparent);
+}
+
+.json-card__caption {
+  flex: none;
+  margin: 6px 0 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 10px;
+  line-height: 14px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 320px) {
+  .json-card__scroll { font-size: 10px; line-height: 16px; }
+}
+
+:root[data-motion="reduced"] .json-card__toggle { transition: none; }

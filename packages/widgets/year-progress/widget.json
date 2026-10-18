@@ -1,0 +1,33 @@
+{
+  "id": "year-progress",
+  "title": {
+    "zh": "年度进度",
+    "en": "Year progress"
+  },
+  "description": {
+    "zh": "今年走到哪里：百分比、一条带季度刻度的进度条、今天是第几天与还剩多少天。",
+    "en": "How far the year has come: a percentage, a bar with quarter ticks, the day of the year and the days left."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "text": {
+    "note": {
+      "zh": "第 {day} 天 · 还剩 {left} 天",
+      "en": "Day {day} · {left} days left"
+    },
+    "done": {
+      "zh": "今年已经过完",
+      "en": "The year is over"
+    }
+  }
+}

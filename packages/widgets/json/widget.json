@@ -1,0 +1,30 @@
+{
+  "id": "json",
+  "title": {
+    "zh": "JSON",
+    "en": "JSON"
+  },
+  "description": {
+    "zh": "一段 JSON 的树状查看器：对象与数组逐层折叠，值按类型着色，长文本直接换行。",
+    "en": "A tree view of a JSON value: objects and arrays fold level by level, values are colored by type, and long text wraps."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "value": {},
+      "caption": { "type": "string", "maxLength": 160 }
+    }
+  }
+}

@@ -3,9 +3,12 @@
  *
  * 这一节画在设置外壳的表面上，不在看板根节点下面：颜色读宿主的 --dsw-* 令牌，时长与曲线写死
  * 在宿主的过渡时长上没有必要——这里只有按下与悬停的颜色变化，用 fast 一档（D10）。
+ *
+ * 类名前缀与卡片右上角的设置按钮不同：那一枚 `.dsh-widget-board__settings` 带卡片内的绝对定位与
+ * 20px 尺寸，与这一节共用一个类名会把这些规则一并套在设置面板上。
  */
 
-.dsh-widget-board__settings {
+.dsh-widget-board__board-settings {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -13,7 +16,7 @@
   font-family: var(--dsw-font-family);
 }
 
-.dsh-widget-board__settings-list {
+.dsh-widget-board__board-settings-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -22,7 +25,7 @@
   list-style: none;
 }
 
-.dsh-widget-board__settings-row {
+.dsh-widget-board__board-settings-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -32,11 +35,11 @@
   background: var(--dsw-alias-bg-layer-1);
 }
 
-.dsh-widget-board__settings-row[data-active="true"] {
+.dsh-widget-board__board-settings-row[data-active="true"] {
   border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
 }
 
-.dsh-widget-board__settings-name {
+.dsh-widget-board__board-settings-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -52,15 +55,15 @@
   cursor: pointer;
 }
 
-.dsh-widget-board__settings-name[aria-current="true"] { color: var(--dsw-alias-brand-primary); }
+.dsh-widget-board__board-settings-name[aria-current="true"] { color: var(--dsw-alias-brand-primary); }
 
-.dsh-widget-board__settings-count {
+.dsh-widget-board__board-settings-count {
   flex: none;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
 }
 
-.dsh-widget-board__settings-input {
+.dsh-widget-board__board-settings-input {
   flex: none;
   width: 160px;
   padding: 4px 8px;
@@ -72,12 +75,12 @@
   font-size: 13px;
 }
 
-.dsh-widget-board__settings-input:focus-visible {
+.dsh-widget-board__board-settings-input:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: -1px;
 }
 
-.dsh-widget-board__settings-action {
+.dsh-widget-board__board-settings-action {
   flex: none;
   padding: 4px 10px;
   border: 1px solid var(--dsw-alias-border-l1);
@@ -91,25 +94,25 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .dsh-widget-board__settings-action:hover:not(:disabled) {
+  .dsh-widget-board__board-settings-action:hover:not(:disabled) {
     border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
     color: var(--dsw-alias-label-primary);
   }
 }
 
-.dsh-widget-board__settings-action:disabled { opacity: 0.5; cursor: not-allowed; }
-.dsh-widget-board__settings-action:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.dsh-widget-board__board-settings-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.dsh-widget-board__board-settings-action:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 
-.dsh-widget-board__settings-notice {
+.dsh-widget-board__board-settings-notice {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   line-height: 20px;
 }
 
-.dsh-widget-board__settings-notice--error { color: var(--dsw-alias-state-error-primary); }
+.dsh-widget-board__board-settings-notice--error { color: var(--dsw-alias-state-error-primary); }
 
-.dsh-widget-board__settings-hint {
+.dsh-widget-board__board-settings-hint {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;

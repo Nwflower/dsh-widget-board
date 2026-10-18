@@ -54,6 +54,7 @@
 - 从仓库安装时这个包自己构建一次：`prepare` 跑构建，装出来的包里带上 `lib/host/index.js`，不再因为缺宿主半边而启用失败；lint 在发布入口指向 `lib/` 时要求 `scripts.prepare` 存在。
 - 看板页顶部的标签条不再被内容压短：它保持自己的高度，药丸套住活动标签，文字不会再跑到条外、药丸落到文字下方。
 - 加卡片时的第一次数据读取也过授权：要权限的数据源在有人于卡片上给出授权之前不再被读一次，加卡请求按 403 回给界面，卡片留在看板上；请求本身失败时只记一条日志，不再让加卡失败，卡片的数据留空。
+- 设置页里的「看板」一节重新画得完整：它不再与卡片右上角的设置按钮共用样式类名——卡片按钮的绝对定位与 20px 尺寸曾一并套在设置面板上，把这一节压成一个小点。
 - 加卡片时组件库立刻收起，不等宿主写完：数据源读得慢时，晚收会把用户在这期间重新打开的组件库关掉。
 
 ### 其他变更
@@ -107,6 +108,7 @@
 - The package now builds itself when installed from the repository: `prepare` runs the build, so the installed copy carries `lib/host/index.js` and no longer fails to activate without its host half; lint requires `scripts.prepare` whenever a published entry points into `lib/`.
 - The tab strip at the top of the board page no longer collapses under tall content: it keeps its height and the pill stays on the active tab, so labels no longer sit outside the strip with the pill below them.
 - The first data read when a card is added now goes through grants too: a gated source is not read before a person allows it on the card, the add request answers 403, and the card stays on the board. If the request itself fails, the add still succeeds with empty data and the reason goes to the log.
+- The Board section in settings draws in full again: it no longer shares a style class with the settings button in a card's corner, whose absolute positioning and 20px box used to apply to the settings panel too and squeeze the section into a dot.
 - The library panel now closes as soon as a card is added instead of waiting for the host to finish, so a slow data source cannot close the panel the user reopened in the meantime.
 
 ### Chores

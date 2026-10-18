@@ -88,31 +88,31 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
   const last = boards.length <= 1
 
   return (
-    <div className="dsh-widget-board__settings" data-dsh-widget-board-settings="">
+    <div className="dsh-widget-board__board-settings" data-dsh-widget-board-settings="">
       {failure === null
         ? null
-        : <p className="dsh-widget-board__settings-notice dsh-widget-board__settings-notice--error">{failure}</p>}
+        : <p className="dsh-widget-board__board-settings-notice dsh-widget-board__board-settings-notice--error">{failure}</p>}
       {snapshot === null
-        ? <p className="dsh-widget-board__settings-notice">{t('boardListLoading')}</p>
+        ? <p className="dsh-widget-board__board-settings-notice">{t('boardListLoading')}</p>
         : (
-          <ul className="dsh-widget-board__settings-list" aria-label={t('boards')}>
+          <ul className="dsh-widget-board__board-settings-list" aria-label={t('boards')}>
             {boards.map((board) => (
               <li
                 key={board.id}
-                className="dsh-widget-board__settings-row"
+                className="dsh-widget-board__board-settings-row"
                 data-dsh-widget-board-settings-board={board.id}
                 data-active={board.id === snapshot.active ? 'true' : 'false'}
               >
                 <button
                   type="button"
-                  className="dsh-widget-board__settings-name"
+                  className="dsh-widget-board__board-settings-name"
                   aria-current={board.id === snapshot.active}
                   title={t('selectBoard')}
                   onClick={() => { onSelect(board.id) }}
                 >
                   {board.title}
                 </button>
-                <span className="dsh-widget-board__settings-count">
+                <span className="dsh-widget-board__board-settings-count">
                   {board.instances.length}
                   {' '}
                   {t('boardCards')}
@@ -121,7 +121,7 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
                   ? (
                     <>
                       <input
-                        className="dsh-widget-board__settings-input"
+                        className="dsh-widget-board__board-settings-input"
                         value={title}
                         aria-label={t('boardName')}
                         autoFocus
@@ -133,13 +133,13 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
                       />
                       <button
                         type="button"
-                        className="dsh-widget-board__settings-action"
+                        className="dsh-widget-board__board-settings-action"
                         disabled={busy || title.trim() === ''}
                         onClick={onConfirmRename}
                       >
                         {t('renameConfirm')}
                       </button>
-                      <button type="button" className="dsh-widget-board__settings-action" onClick={onCancelRename}>
+                      <button type="button" className="dsh-widget-board__board-settings-action" onClick={onCancelRename}>
                         {t('renameCancel')}
                       </button>
                     </>
@@ -148,14 +148,14 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
                     <>
                       <button
                         type="button"
-                        className="dsh-widget-board__settings-action"
+                        className="dsh-widget-board__board-settings-action"
                         onClick={() => { onStartRename(board.id, board.title) }}
                       >
                         {t('rename')}
                       </button>
                       <button
                         type="button"
-                        className="dsh-widget-board__settings-action"
+                        className="dsh-widget-board__board-settings-action"
                         disabled={busy || last}
                         title={last ? t('lastBoard') : t('removeBoard')}
                         onClick={() => { onRemove(board.id) }}
@@ -168,7 +168,7 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
             ))}
           </ul>
         )}
-      {last && snapshot !== null ? <p className="dsh-widget-board__settings-hint">{t('lastBoard')}</p> : null}
+      {last && snapshot !== null ? <p className="dsh-widget-board__board-settings-hint">{t('lastBoard')}</p> : null}
     </div>
   )
 }

@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 2,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "设置页里的「看板」一节重新画得完整：它不再与卡片右上角的设置按钮共用样式类名——卡片按钮的绝对定位与 20px 尺寸曾一并套在设置面板上，把这一节压成一个小点。",
+  "en": "The Board section in settings draws in full again: it no longer shares a style class with the settings button in a card's corner, whose absolute positioning and 20px box used to apply to the settings panel too and squeeze the section into a dot."
+}

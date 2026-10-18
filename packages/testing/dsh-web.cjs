@@ -129,11 +129,22 @@ async function start(options = {}) {
     // 反斜杠在引号里会被 NODE_OPTIONS 当成转义，路径统一用正斜杠。
     NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${LIFELINE.replaceAll('\\', '/')}"`].filter(Boolean).join(' '),
   }
-  const child = spawn(`dsh --profile ${profile} --port ${port} --no-open`, { env, stdio: ['pipe', 'pipe', 'pipe'], shell: true })
+  // 命令走 shell 时才认得出 PATH 里的 dsh，因此这里起的是一个 shell，sh 再执行 dsh。止住它的
+  // 时候要连 dsh 一起止：Unix 上让子进程自带一个进程组，向整组发信号（只发给 sh，dsh 会留下来
+  // 接着监听端口，调用方的输出管道也一直开着，进程退不掉）；Windows 上用 taskkill /T。
+  const child = spawn(`dsh --profile ${profile} --port ${port} --no-open`, {
+    env,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: true,
+    detached: process.platform !== 'win32',
+  })
   const stop = () => {
     if (child.exitCode !== null || child.signalCode !== null) return
-    if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
-    else child.kill('SIGTERM')
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+      return
+    }
+    process.kill(-child.pid, 'SIGTERM')
   }
   /** 宿主进程到目前为止的输出：插件登记了什么、有没有报错都写在这里。 */
   let log = ''

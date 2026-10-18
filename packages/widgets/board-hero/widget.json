@@ -11,7 +11,8 @@
   "author": "dsh-widget-board",
   "version": "0.1.0",
   "sizes": ["s", "l"],
-  "defaultBox": { "w": 2, "h": 14 },
+  "defaultBox": { "w": 2, "h": 18 },
+  "minBox": { "w": 1, "h": 10 },
   "props": {
     "type": "object",
     "additionalProperties": false,
@@ -24,10 +25,6 @@
     }
   },
   "text": {
-    "kicker": {
-      "zh": "BOARD · LIVE",
-      "en": "BOARD · LIVE"
-    },
     "lead": {
       "zh": "一块",
       "en": "A"
@@ -41,8 +38,8 @@
       "en": "board"
     },
     "tagline": {
-      "zh": "独立工作、任何事情、自由排版",
-      "en": "Independent work, anything, free layout"
+      "zh": "拖一拖，把常用的数据放在一页上",
+      "en": "Drag to keep the numbers you check on one page"
     }
   }
 }

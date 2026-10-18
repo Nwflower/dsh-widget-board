@@ -14,6 +14,7 @@
     kicker: card.querySelector('[data-field="kicker"]'),
     title: card.querySelector('[data-field="title"]'),
     meta: card.querySelector('[data-field="meta"]'),
+    plot: card.querySelector('[data-role="plot"]'),
     grid: card.querySelector('[data-role="grid"]'),
     area: card.querySelector('[data-role="area"]'),
     line: card.querySelector('[data-role="line"]'),
@@ -29,6 +30,20 @@
     return widget === undefined || String(widget.lang || 'zh').toLowerCase().indexOf('zh') === 0
   }
 
+  function format(value) {
+    return new Intl.NumberFormat(isZh() ? 'zh-CN' : 'en-US').format(value)
+  }
+
+  /** 图表对读屏器的一句话：标题、采样点数与最新值。 */
+  function describe(points) {
+    var title = el.title.textContent || ''
+    if (points.length === 0) return isZh() ? title + '，暂无采样点' : title + ', no samples'
+    var last = points[points.length - 1]
+    return isZh()
+      ? title + '，' + points.length + ' 个采样点，最新 ' + format(last.value)
+      : title + ', ' + points.length + ' points, latest ' + format(last.value)
+  }
+
   function emptyLabel() {
     if (widget === undefined) return isZh() ? '暂无采样点' : 'No samples'
     var label = widget.t('empty')
@@ -38,7 +53,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'CHART · 04',
         title: '请求量',
         caption: '最近七天 · 每小时的请求数',
         points: [
@@ -49,7 +63,6 @@
       }
     }
     return {
-      kicker: 'CHART · 04',
       title: 'Requests',
       caption: 'Last seven days · requests per hour',
       points: [
@@ -76,7 +89,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     card.dataset.kind = props.kind === 'area' || props.kind === 'bar' ? props.kind : 'line'
     return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
@@ -105,8 +118,11 @@
       el.bars.replaceChildren()
       el.dot.hidden = true
       el.axis.replaceChildren()
+      el.plot.setAttribute('aria-label', describe(points))
       return
     }
+
+    el.plot.setAttribute('aria-label', describe(points))
 
     var line = coordinates.map(function (point, index) {
       return (index === 0 ? 'M' : 'L') + point.x.toFixed(2) + ' ' + point.y.toFixed(2)
@@ -147,6 +163,15 @@
     el.axis.replaceChildren.apply(el.axis, axis)
   }
 
+  function summary(points) {
+    if (points.length === 0) return ''
+    var last = points[points.length - 1]
+    var peak = Math.max.apply(null, points.map(function (point) { return point.value }))
+    return isZh()
+      ? '最高 ' + format(peak) + ' · 最新 ' + format(last.value)
+      : 'Max ' + format(peak) + ' · latest ' + format(last.value)
+  }
+
   function applyData(source) {
     var base = defaults()
     var data = source !== null && typeof source === 'object' ? source : {}
@@ -164,7 +189,7 @@
     el.bars.hidden = empty
     el.axis.hidden = empty
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : points.length + ' POINTS')
+    write(el.meta, meta !== '' ? meta : summary(points))
   }
 
   applyProps(widget === undefined ? {} : widget.props)

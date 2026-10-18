@@ -59,6 +59,7 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - 设置弹窗按 \`props\` schema 生成表单。字段标签与提示写进 \`text\` 的 \`props.<字段>.label\` 与 \`props.<字段>.hint\`；字符串、数字、布尔与字符串枚举直接出控件，对象、数组与其他写法用 JSON 编辑。
 - \`libs\`：\`marked\`、\`highlight\` 由宿主内联进这份文档，组件里直接用全局名。
 - \`minBox\` 是这张卡缩到多小还排得下；低于它的缩放会被停在下限。
+- \`defaultBox\` 是加卡片时的默认盒子，按内容量给：图表、表格与 Markdown 用两列，数字、翻转、磁吸用一列偏矮。省略时是一列宽、22rem 高。
 
 ## 运行时：window.widget
 
@@ -92,7 +93,11 @@ widget.reportError(err) // 把失败原因写在这张卡上
 
 ## 样式
 
-只用令牌，不写字面值：\`var(--w-space-md)\`、\`var(--w-type-title)\`、\`var(--w-radius-card)\`、\`var(--w-color-text)\`、\`var(--w-motion-base)\` 等。宿主令牌（\`--dsw-*\`）由外壳解析成字面值推进来，也可以直接用。
+只用令牌，不写字面值：\`var(--w-space-md)\`、\`var(--w-type-title)\`、\`var(--w-radius-card)\`、\`var(--w-color-fg)\`、\`var(--w-motion-base)\` 等。宿主令牌（\`--dsw-*\`）由外壳解析成字面值推进来，也可以直接用。
+
+数据卡共用 \`.t-data\` 的标题区：\`.t-data__title\` 写标题；\`.t-data__kicker\` 与 \`.t-data__meta\` 只在有事实可写时出现（范围、来源、条数、最新值），空着就自己隐藏。不要用编号或装饰性全大写标签，微标签最小 12px，数字用 \`tabular-nums\`。
+
+状态色读套件的 \`--w-tone-ok\`、\`--w-tone-warn\`、\`--w-tone-danger\`、\`--w-tone-idle\`，不要自己写颜色。状态不能只靠颜色表达：再放一个 \`.w-sr\` 的读屏文字。
 
 套件提供布局原语：\`.w-frame\`（居中的最大内容宽度）、\`.w-actions\`（等宽操作行）、\`.w-scroll\`（纵向滚动区）、\`.w-chip\`、\`.w-meter\`、\`.w-fit\`。
 

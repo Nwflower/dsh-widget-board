@@ -10,14 +10,14 @@
 .todo {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--w-space-md, 12px);
   box-sizing: border-box;
   width: 100%;
   /* iframe 的视口就是卡片的内容盒；撑满它，高度由看板给的盒子决定（D16）。 */
   height: 100vh;
   min-height: 0;
   overflow: hidden;
-  padding: 18px 18px 16px;
+  padding: var(--w-space-lg, 16px) var(--w-space-lg, 16px) var(--w-space-md, 12px);
   border-radius: var(--w-radius-card, 24px);
   background: var(--w-color-surface, #fff);
   color: var(--w-color-fg, #0b1016);
@@ -36,9 +36,9 @@
 
 .todo-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--w-type-title, 16px);
   font-weight: 600;
-  line-height: 20px;
+  line-height: 22px;
 }
 
 .todo-count {
@@ -98,9 +98,9 @@
   display: flex;
   flex: 1;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--w-space-sm, 8px);
   min-width: 0;
-  padding: 6px 2px;
+  padding: var(--w-space-sm, 8px) 2px;
   border-radius: 10px;
   cursor: pointer;
 }
@@ -164,8 +164,8 @@
 .todo-text {
   min-width: 0;
   color: inherit;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
   overflow-wrap: anywhere;
   transition: color var(--w-motion-fast) var(--w-motion-ease-standard);
 }
@@ -179,11 +179,11 @@
 
 .todo-remove {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: none;
   color: var(--w-color-muted, #6b7684);
   font: inherit;
@@ -211,11 +211,11 @@
 
 .todo-empty {
   margin: 0;
-  padding: 14px 12px;
+  padding: var(--w-space-lg, 16px) var(--w-space-md, 12px);
   border: 1px dashed color-mix(in srgb, var(--w-color-fg, #0b1016) 18%, transparent);
   border-radius: 12px;
   color: var(--w-color-muted, #6b7684);
-  font-size: 12px;
+  font-size: var(--w-type-caption, 12px);
   line-height: 18px;
   text-align: center;
 }
@@ -224,19 +224,19 @@
 
 /* 矮盒子：收掉内边距与间距，清单先让出高度。 */
 @media (max-height: 300px) {
-  .todo { gap: 8px; padding: 12px; }
-  .todo-add { padding-top: 8px; }
+  .todo { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
+  .todo-add { padding-top: var(--w-space-sm, 8px); }
   .todo-input,
-  .todo-submit { height: 28px; }
+  .todo-submit { height: 32px; }
 }
 
 /* 加一条：底下一道分隔，输入框占满，右边一个加号。 */
 .todo-add {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--w-space-sm, 8px);
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: var(--w-space-sm, 8px);
   border-top: 1px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 8%, transparent);
 }
 
@@ -246,14 +246,14 @@
 .todo-input {
   flex: 1;
   min-width: 0;
-  height: 30px;
-  padding: 0 9px;
+  height: 36px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--w-color-fg, #0b1016) 5%, transparent);
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--w-type-body, 14px);
   outline: none;
 }
 
@@ -269,11 +269,11 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--w-color-fg, #0b1016) 88%, transparent);
   color: var(--w-color-surface, #fff);
   cursor: pointer;

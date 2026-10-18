@@ -28,7 +28,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'KV · 06',
         title: '运行信息',
         items: [
           { key: '版本', value: '0.0.0', note: 'dsh-widget-board' },
@@ -39,7 +38,6 @@
       }
     }
     return {
-      kicker: 'KV · 06',
       title: 'Runtime',
       items: [
         { key: 'Version', value: '0.0.0', note: 'dsh-widget-board' },
@@ -57,7 +55,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     var columns = typeof props.columns === 'number' && isFinite(props.columns) ? Math.round(props.columns) : 2
     card.style.setProperty('--kv-cols', String(Math.min(3, Math.max(1, columns))))
@@ -99,7 +97,7 @@
     var items = Array.isArray(data.items) ? data.items : base.items
     var count = render(items)
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : count + ' FIELDS')
+    write(el.meta, meta !== '' ? meta : isZh() ? count + ' 项' : count + (count === 1 ? ' field' : ' fields'))
   }
 
   applyProps(widget === undefined ? {} : widget.props)

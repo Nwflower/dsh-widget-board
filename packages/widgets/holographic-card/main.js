@@ -16,10 +16,10 @@
   }
 
   var defaults = {
-    kicker: 'HOLO · 04',
+    kicker: '',
     title: '全息卡',
-    text: '移动指针，彩虹和高光跟着走。内容由 props 填进来。',
-    meta: 'PREMIUM CARD'
+    text: '移动指针，彩虹和高光跟着走。',
+    meta: '彩虹与高光'
   }
 
   function apply(props) {

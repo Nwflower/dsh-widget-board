@@ -28,18 +28,18 @@
   function sample() {
     if (isZh()) {
       return [
-        '## 一块会写字的卡片',
+        '## 发布前检查',
         '',
-        '正文、列表、引用与表格都在这一张卡里；代码块按语言高亮。',
+        '这一页要能在一眼内读完。先删掉不回答任何问题的卡片。',
         '',
-        '- 标题、**强调**与 `行内代码`',
-        '- 表格与引用',
-        '- 代码块',
+        '- 尺寸矩阵在 1×6 到 4×30 都通过',
+        '- 浅色与深色都核对过',
+        '- 空态、加载与错误都能看见',
         '',
         '| 项目 | 状态 |',
         '| --- | --- |',
-        '| Markdown | 已排版 |',
-        '| 代码 | 已高亮 |',
+        '| 组件 | 已就绪 |',
+        '| 文档 | 已更新 |',
         '',
         '```ts',
         'const size = widget.size',
@@ -48,22 +48,22 @@
         '}',
         '```',
         '',
-        '> 内容由 data.markdown 推进来，卡片只负责排版。'
+        '> 改动一次只做一件事，方便回头核对。'
       ].join('\n')
     }
     return [
-      '## A card that writes',
+      '## Pre-ship check',
       '',
-      'Prose, lists, quotes and tables live inside one card; code blocks are highlighted by language.',
+      'The page should read in one pass. Delete any card that answers no question.',
       '',
-      '- headings, **emphasis** and `inline code`',
-      '- tables and quotes',
-      '- code blocks',
+      '- Size matrix passes from 1×6 to 4×30',
+      '- Light and dark checked',
+      '- Empty, loading and error states are visible',
       '',
       '| Item | State |',
       '| --- | --- |',
-      '| Markdown | typeset |',
-      '| Code | highlighted |',
+      '| Components | Ready |',
+      '| Docs | Updated |',
       '',
       '```ts',
       'const size = widget.size',
@@ -72,7 +72,7 @@
       '}',
       '```',
       '',
-      '> data.markdown brings the content; the card only lays it out.'
+      '> One change at a time, so it is easy to check afterwards.'
     ].join('\n')
   }
 
@@ -140,9 +140,9 @@
   }
 
   function applyProps(source) {
-    var base = { kicker: 'MARKDOWN · 09', title: 'Markdown' }
+    var base = { title: isZh() ? '笔记' : 'Notes' }
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
   }
 

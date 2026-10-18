@@ -28,7 +28,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'PROGRESS · 05',
         title: '容量与配额',
         items: [
           { label: '本地存储', value: 64, max: 100, note: '64 / 100 GB' },
@@ -38,7 +37,6 @@
       }
     }
     return {
-      kicker: 'PROGRESS · 05',
       title: 'Capacity',
       items: [
         { label: 'Local storage', value: 64, max: 100, note: '64 / 100 GB' },
@@ -55,7 +53,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }
@@ -85,9 +83,10 @@
       track.setAttribute('aria-valuemin', '0')
       track.setAttribute('aria-valuemax', String(item.max))
       track.setAttribute('aria-valuenow', String(item.value))
+      track.setAttribute('aria-valuetext', Math.round(ratio * 100) + '%')
       var bar = document.createElement('span')
       bar.className = 'progress-card__bar'
-      bar.style.width = (ratio * 100).toFixed(2) + '%'
+      bar.style.transform = 'scaleX(' + ratio.toFixed(4) + ')'
       track.appendChild(bar)
       row.append(line, track)
       if (typeof item.note === 'string' && item.note.trim() !== '') {
@@ -111,7 +110,7 @@
     var items = Array.isArray(data.items) ? data.items : base.items
     var count = render(items)
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : count + ' METRICS')
+    write(el.meta, meta !== '' ? meta : isZh() ? count + ' 项' : count + (count === 1 ? ' metric' : ' metrics'))
   }
 
   applyProps(widget === undefined ? {} : widget.props)

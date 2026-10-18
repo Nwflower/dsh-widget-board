@@ -10,6 +10,7 @@
     kicker: card.querySelector('[data-field="kicker"]'),
     title: card.querySelector('[data-field="title"]'),
     meta: card.querySelector('[data-field="meta"]'),
+    table: card.querySelector('.table-card__table'),
     head: card.querySelector('[data-role="head"]'),
     body: card.querySelector('[data-role="body"]'),
     wrap: card.querySelector('[data-role="wrap"]'),
@@ -31,7 +32,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'TABLE · 03',
         title: '服务状态',
         columns: [
           { key: 'name', label: '服务' },
@@ -47,7 +47,6 @@
       }
     }
     return {
-      kicker: 'TABLE · 03',
       title: 'Services',
       columns: [
         { key: 'name', label: 'Service' },
@@ -70,7 +69,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }
@@ -86,6 +85,7 @@
     cells.forEach(function (column) {
       var th = document.createElement('th')
       th.textContent = typeof column.label === 'string' ? column.label : column.key
+      th.scope = 'col'
       if (column.align === 'right') th.dataset.align = 'right'
       head.push(th)
     })
@@ -116,9 +116,16 @@
     var data = source !== null && typeof source === 'object' ? source : {}
     var columns = Array.isArray(data.columns) ? data.columns : base.columns
     var rows = Array.isArray(data.rows) ? data.rows : base.rows
-    var counts = render(columns, rows)
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : counts.columns + ' COLS · ' + counts.rows + ' ROWS')
+    var counts = render(columns, rows)
+    var title = el.title.textContent || (isZh() ? '表格' : 'Table')
+    el.table.setAttribute('aria-label', isZh()
+      ? title + '，' + counts.rows + ' 行 ' + counts.columns + ' 列'
+      : title + ', ' + counts.rows + ' rows ' + counts.columns + ' columns')
+    var fallback = isZh()
+      ? counts.rows + ' 行 · ' + counts.columns + ' 列'
+      : counts.rows + ' rows · ' + counts.columns + ' columns'
+    write(el.meta, meta !== '' ? meta : fallback)
   }
 
   applyProps(widget === undefined ? {} : widget.props)

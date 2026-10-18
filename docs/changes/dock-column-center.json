@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 21,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "看板下方的加号菜单与组件库浮窗改成按看板这一栏的中线定位：左右侧栏收放、拖宽时它们跟着卡片区走，不再按整扇窗口居中。",
+  "en": "The bottom plus menu and the widget library now centre on the board column: collapsing, expanding or dragging the sidebars keeps them on the card area's midline instead of the window's."
+}

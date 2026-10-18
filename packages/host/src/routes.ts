@@ -22,6 +22,7 @@ import type {
   GroupAddRequest,
   GroupRemoveRequest,
   HostConnection,
+  HostCredentials,
   HostRequest,
   HostResponse,
   InstanceAddRequest,
@@ -31,16 +32,20 @@ import type {
   InstanceStateRequest,
   WidgetLibraryEntry,
   WidgetRoot,
-  WorkspaceSnapshot,
 } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
+import { groupRoutes } from './groups'
 import type { GrantStore } from './grants'
+import { isRecord } from './guards'
 import { requireGrant, type GrantFacts } from './permissions'
 import type { Live } from './live'
 import type { LibraryLoad, WidgetRecord } from './library'
-import { dataError } from './schema'
+import { json } from './response'
+import { dataError, propsError } from './schema'
+import { settingsRoutes } from './settings'
+import { workspaceSnapshot } from './snapshot'
 import type { Registries } from './sources'
 import { isCardLayout } from '@dsh-widget-board/model'
 import { readJson } from './body'
@@ -100,6 +105,8 @@ export interface RouteContext {
   sources: Registries
   /** 人给出过的授权，绑在组件版本上（D6）。 */
   grants: GrantStore
+  /** 宿主的凭据服务（D22）；没装时是 `undefined`，设置弹窗给出可见的说法。 */
+  credentials?: () => HostCredentials | undefined
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */
@@ -123,38 +130,6 @@ function rejectionOf(request: HostRequest, connection: HostConnection | undefine
   if (connection !== undefined) return connection.requestRejection({ headers: request.headers })
   if (!isLoopback(request.socket?.remoteAddress)) return 403
   return request.headers['sec-fetch-site'] === 'cross-site' ? 403 : undefined
-}
-
-/** 回一条 JSON。 */
-function json(response: HostResponse, status: number, body: unknown): void {
-  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-  response.end(JSON.stringify(body))
-}
-
-/** 工作区快照：全部看板与当前选中，外加它们用到的组件元信息、整个组件库与看板上用得到的授权（D21、D6）。 */
-export function workspaceSnapshot(context: RouteContext): WorkspaceSnapshot {
-  const widgets: WorkspaceSnapshot['widgets'] = {}
-  for (const [id, record] of context.records) {
-    widgets[id] = {
-      hash: record.hash,
-      title: record.manifest.title,
-      sizes: record.manifest.sizes,
-      ...(record.manifest.text === undefined ? {} : { text: record.manifest.text }),
-      source: record.source,
-      ...(record.provider === undefined ? {} : { provider: record.provider }),
-      ...(record.manifest.minBox === undefined ? {} : { minBox: record.manifest.minBox }),
-    }
-  }
-  // 只带工作区里出现的那些版本：授权表会一直长，页面只关心眼前这些卡（D6）。
-  const hashes = new Set(context.workspace.list().flatMap((board) => board.instances.map((instance) => instance.hash)))
-  const grants = context.grants.all().filter((grant) => hashes.has(grant.hash))
-  return { active: context.workspace.activeId(), boards: context.workspace.list(), widgets, library: context.entries, grants }
-}
-
-
-/** 普通的 JSON 对象。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /**
@@ -360,6 +335,10 @@ const ROUTES: Route[] = [
         throw new Refusal(400, `没有数据源 ${wanted.source}，提供它的插件可能没有安装`)
       }
       if (wanted.props !== undefined && !isRecord(wanted.props)) throw new Refusal(400, 'props 要是普通的 JSON 对象')
+      if (wanted.props !== undefined) {
+        const problem = propsError(record.manifest.props, wanted.props)
+        if (problem !== undefined) throw new Refusal(400, problem)
+      }
       if (wanted.layout !== undefined && !isCardLayout(wanted.layout)) throw new Refusal(400, 'layout 的列号、跨列与高度不合法')
       // 先定下卡片的 id：写入排进队列之后，响应与数据源都要按它找这张卡。
       const id = randomUUID()
@@ -651,7 +630,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = [...ROUTES, ...shareRoutes(context)].flatMap((route) => {
+    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes()].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

@@ -3,8 +3,9 @@
  *
  * 两个半边共用这一份，形状只在这里写一次。
  */
-import type { WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetSource } from './widget'
+import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
+import type { ActionPermission } from './service'
 
 /**
  * 一张卡片在看板上的位置与尺寸。
@@ -97,6 +98,8 @@ export interface WidgetSummary {
   provider?: string
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
+  /** 这个类型有没有可配置的 props 或凭据（D22）：设置按钮据此决定出不出现。 */
+  settings?: boolean
 }
 
 /** `GET /boards` 的响应：整个工作区。 */
@@ -111,6 +114,83 @@ export interface WorkspaceSnapshot {
   library: WidgetLibraryEntry[]
   /** 看板上的卡片拿到过的授权（D6）；界面据此决定要不要问人。 */
   grants: Grant[]
+}
+
+/**
+ * 一项凭据在设置弹窗里的状态（D22）：只有是否存在、来自哪一层、能不能写，永远没有值。
+ *
+ * 与宿主 `ctx.credentials.describe()` 的答复同形；看板不引宿主包，所以形状在这里记一次。
+ */
+export interface CredentialStatus {
+  configured: boolean
+  /** 提供值的那一层，例如 `env`、`file`；未配置时缺席。 */
+  source?: string
+  writable: boolean
+}
+
+/** 设置弹窗里的一条凭据声明与它的当前状态（D22）。 */
+export interface CredentialSetting extends WidgetCredential {
+  info?: CredentialStatus
+  /** 凭据服务缺席或读不出来时的原因。 */
+  unavailable?: string
+}
+
+/**
+ * 一张卡在设置弹窗里要读的全部东西（D22）。
+ *
+ * `propsSchema` 来自当前组件版本；`source` 带上它的权限与当前授权状态；`credentials` 只有状态。
+ * 读模型按需取，不放进每次工作区快照。
+ */
+export interface CardSettings {
+  instance: BoardInstance
+  widget: {
+    title: LocalizedText
+    description?: LocalizedText
+    version: string
+    hash: string
+    source: WidgetSource
+    provider?: string
+    propsSchema?: Record<string, unknown>
+    text?: Record<string, LocalizedText>
+    refresh?: WidgetRefresh
+  }
+  /** 卡片绑定的数据源；没有绑定或提供方不在时缺席。 */
+  source?: {
+    id: string
+    provider: string
+    permission?: ActionPermission
+    /** 当前组件版本上有没有一份覆盖这份权限的授权（D6）。 */
+    granted: boolean
+  }
+  /** 绑定了数据源但找不到提供方时的原因。 */
+  sourceError?: string
+  /** 与这张卡当前组件版本有关的授权（D6）。 */
+  grants: Grant[]
+  credentials: CredentialSetting[]
+  /** 宿主有没有凭据服务；没有时凭据这一节显示原因。 */
+  credentialsAvailable: boolean
+}
+
+/** `POST /instance/<id>/props` 的请求体：设置弹窗保存整份 props（D22）。 */
+export interface InstancePropsRequest {
+  props: Record<string, unknown>
+}
+
+/**
+ * `POST /instance/<id>/credential` 的请求体（D22）。
+ *
+ * 只接受这张卡的组件 manifest 声明过的 `ref`；`set` 要带非空 `value`，`unset` 不带。
+ */
+export interface InstanceCredentialRequest {
+  ref: string
+  action: 'set' | 'unset'
+  value?: string
+}
+
+/** `POST /group/<id>/slot` 的请求体：把组的一个槽换成另一个组件（D22）。 */
+export interface GroupSlotRequest {
+  side: GroupSide
+  widget: string
 }
 
 /** `POST /boards` 的请求体：新建一块看板（D21）。 */

@@ -8,10 +8,11 @@ DeepSeek Harness 的组件看板插件。侧栏多一个「看板」入口，中
 - **Windows 桌面端**：窗口让出标题栏、标签条放得下时，它靠左挂进标题栏，比页内小一号、上下留出空隙；标签条用 transitions.dev 的 Tabs sliding，活动标签的药丸滑过去，首帧不补间。看板内容从标题栏下方开始；放不下或不在桌面端时留在页面顶部。
 - **自由排版**：看板按自身宽度在 1 到 4 列之间切换，卡片有自己的一列宽与高度；高度按 6/10/14/18/22/26/30rem 七档跳，纵向位置按 2rem 一档吸附，拖动与缩放时实时显示尺寸，换窗口宽度、收侧栏都不必重排。
 - **题头也是卡片**：一块活的看板的标题、说明与字模图案内置成 `board-hero` 组件卡，可以拖动、缩放、移除；旧看板升级时补一次这张卡，添加按钮只在下方菜单。
-- **下方菜单**：屏幕下方居中的加号按下后化开成扇面的三个图标，分别是添加、整理与刷新。底色、桥接与投影画在同一张 SVG 的 goo 滤镜里；三个动作按 40ms 错峰弹开，加号旋转 45°，收起时整块轻轻下沉 5px 再回弹。添加打开悬浮的组件库：按来源分组排成网格，每格画着组件自己的缩略画面；按住一格拖到看板的任意一列，或轻点加在末尾；整理按当前阅读顺序把卡片密排；刷新让宿主重读组件库并重挂卡片。
+- **下方菜单**：看板这一栏下方居中的加号按下后化开成扇面的三个图标，分别是添加、整理与刷新。底色、桥接与投影画在同一张 SVG 的 goo 滤镜里；三个动作按 40ms 错峰弹开，加号旋转 45°，收起时整块轻轻下沉 5px 再回弹。添加打开悬浮的组件库：按来源分组排成网格，每格画着组件自己的缩略画面；按住一格拖到看板的任意一列，或轻点加在末尾；整理按当前阅读顺序把卡片密排；刷新让宿主重读组件库并重挂卡片。
+- **卡片设置**：卡片右上角、移除按钮旁边的齿轮打开一块设置弹窗，分「组件设置 / 凭据 / 数据与权限 / 关于」四节。props 由组件自己的 schema 生成表单，保存时宿主按同一个 schema 校验；凭据写进宿主的凭据服务，不进看板文件、导出包与工具结果；数据源、权限与「允许 / 撤销」也在这里。
 - **通用数据卡**：数字、列表、表格、图表、进度、键值、时间线与图片内置在组件库里；它们共用 `.t-data` 骨架，内容由 data 填、标题由 props 改，卡片大小由看板给。
 - **Markdown 与代码**：Markdown 卡按 GFM 排版，代码块按语言高亮；marked 与 highlight 随插件发布，文档内联，组件不联网。
-- **翻面组（原型）**：正反各一张普通卡片，共用一个卡片盒子，鼠标移上去翻面；暂时固定为数字与图表，从组件库加入，按组移除。
+- **翻面组**：正反各一张普通卡片，共用一个卡片盒子，鼠标移上去翻面；从组件库加入后直接打开槽条，两面各放哪个组件由你挑。换组件会重置那个槽的 props、数据与状态，另一个槽不动；组卡的最小盒子取两面当前组件的最大值。
 - **三种动效模板**：翻转卡、磁吸卡、全息卡在组件库里，加进看板后改 props 里的文案就能用；动效与指针行为在运行时套件里，模板自己不挂事件。
 - **组件的三个来源**：随包发布的内置组件、`$DSH_HOME/widget-board/widgets/` 里你自己的组件，以及插件经 `widgetBoard` 服务注册的组件。组件格式相同：一个目录，`widget.json` 加 `index.html`、`style.css`、可选的 `main.js`。
 - **状态在宿主上**：卡片的界面状态与数据都存在宿主，切走再切回、页面重载、组件热重载之后都接得上。
@@ -43,6 +44,8 @@ dsh plugin add <本仓库路径>
 
 写一个组件：在 `$DSH_HOME/widget-board/widgets/<id>/` 下建一个目录，写 `widget.json`、`index.html`、`style.css`，需要脚本时再加 `main.js`。目录一改，宿主重读组件库，在线页面的卡片按新版本重挂。
 
+`widget.json` 还可以声明 `credentials`：设置弹窗据此显示密钥输入框，值由宿主的凭据服务保存，组件读不到，也不会写进看板文件。`source` 写 `提供方:名字` 时点名插件注册的数据源；props 表单的字段标签与提示写进 `text` 的 `props.<字段>.label` 与 `props.<字段>.hint`。
+
 卡片盒子由看板给。运行时把内容盒归到两个方向：`data-box-width` 是 `narrow`、`regular`、`wide`，`data-box-height` 是 `short`、`regular`、`tall`，并给出 `--w-w`、`--w-h` 与 `--w-cols`；组件按这些档位收起或展开内容。`widget.json` 的 `minBox` 是卡片的下限，拖动与缩放不会把卡片压到它下面。间距与字号从 `--w-space-*` 与 `--w-type-*` 取；套件提供 `.w-frame`、`.w-actions`、`.w-scroll` 三个布局原语，以及 `.w-hide-short`、`.w-hide-narrow` 两个按档位隐藏的类。组件库的缩略画面带 `data-placement="preview"` 与 `data-size="preview"`，可以在这里换一套静态排版。
 
 组件要提示一件事时调 `widget.notify({ title, body })`：标题省略时用组件的标题，正文可选；标题限 120 个字符，正文限 400 个。通知记在侧栏的看板入口上，悬停能读到最近一条的标题与正文，点一下入口算看过。
@@ -53,11 +56,11 @@ dsh plugin add <本仓库路径>
 
 ## 给插件提供方
 
-宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 1`）：
+宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 2`）：
 
-- `registerWidgetType({ apiVersion, provider, directory })`：注册一个组件目录，返回释放函数。
-- `registerDataSource({ apiVersion, id, read })`：注册一个数据源，卡片可以绑定它取数据。
-- `registerAction({ apiVersion, id, run })`：注册一个动作。
+- `registerWidgetType({ apiVersion, provider, directory })`：注册一个组件目录，返回一个把手：`provider`、`widgets`、`register({ dataSources, actions })` 与 `dispose()`。数据源与动作挂在这个提供方的注册名下，撤下时一并释放。
+- `registerDataSource({ apiVersion, provider, id, read, permission? })`：注册一个数据源，卡片可以绑定它取数据；声明了 `permission` 的源要有人给出授权才读得到。
+- `registerAction({ apiVersion, provider, id, run, permission? })`：注册一个动作，同样可以声明权限。
 
 浏览器半边发布同名服务，`registerWidgetType({ apiVersion, provider, id, component })` 登记一个 React 组件：与组件库里同 id 的组件对上之后，卡片用它渲染，参数与 `window.widget` 同形。提供方不在运行时导入本插件：在自己包里写同形的 `declare module` 类型声明，按 `apiVersion` 协商。
 

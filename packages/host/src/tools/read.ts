@@ -37,6 +37,7 @@ function catalogOf(context: ToolContext): CatalogValue {
       hash: record.hash,
       ...(manifest.source === undefined ? {} : { source_id: manifest.source }),
       ...(manifest.actions === undefined ? {} : { actions: manifest.actions.map((action) => action.id) }),
+      ...(manifest.credentials === undefined ? {} : { credentials: manifest.credentials }),
       ...(manifest.props === undefined ? {} : { props: manifest.props }),
       ...(manifest.data === undefined ? {} : { data: manifest.data }),
       ...(manifest.minBox === undefined ? {} : { minBox: manifest.minBox }),
@@ -88,6 +89,9 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
         if (entry.error !== undefined) parts.push(`  不可用：${entry.error}`)
         if (entry.source_id !== undefined) parts.push(`  数据源：${entry.source_id}`)
         if (entry.actions !== undefined && entry.actions.length > 0) parts.push(`  动作：${entry.actions.join('、')}`)
+        if (entry.credentials !== undefined && entry.credentials.length > 0) {
+          parts.push(`  凭据：${entry.credentials.map((credential) => credential.ref).join('、')}`)
+        }
         if (entry.hash !== undefined) parts.push(`  版本哈希：${entry.hash.slice(0, 12)}`)
         return parts.join('\n')
       })

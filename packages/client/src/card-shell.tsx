@@ -21,6 +21,8 @@ export interface CardShellProps {
   gesture: 'move' | 'resize' | null
   /** 这张卡正在退场：外壳只画动画，指针不再接。 */
   exiting: boolean
+  /** 打开这张卡的设置；省略时不画设置按钮。 */
+  onSettings?: (button: HTMLButtonElement) => void
   onRemove: () => void
   onDragStart: (event: ReactPointerEvent<HTMLElement>, id: string, kind: 'move' | 'resize') => void
   onDragMove: (event: ReactPointerEvent<HTMLElement>) => void
@@ -42,6 +44,7 @@ export function CardShell({
   placement,
   gesture,
   exiting,
+  onSettings,
   onRemove,
   onDragStart,
   onDragMove,
@@ -84,6 +87,27 @@ export function CardShell({
         onPointerDown={(event) => onDragStart(event, id, 'move')}
         {...dragProps}
       />
+      {onSettings === undefined
+        ? null
+        : (
+          <button
+            type="button"
+            className="dsh-widget-board__settings"
+            data-dsh-widget-board-handle="settings"
+            title={t('cardSettings')}
+            aria-label={t('cardSettings')}
+            disabled={exiting}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => onSettings(event.currentTarget)}
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M3 5h10M3 8h10M3 11h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <circle cx="6" cy="5" r="1.6" fill="currentColor" />
+              <circle cx="10" cy="8" r="1.6" fill="currentColor" />
+              <circle cx="7" cy="11" r="1.6" fill="currentColor" />
+            </svg>
+          </button>
+        )}
       <button
         type="button"
         className="dsh-widget-board__remove"

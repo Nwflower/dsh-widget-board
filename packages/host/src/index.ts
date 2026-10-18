@@ -16,6 +16,7 @@ import {
   WIDGET_BOARD_API_VERSION,
   WIDGET_BOARD_SERVICE_NAME,
   connectionOf,
+  credentialsOf,
   versionMismatch,
   webServerOf,
 } from '@dsh-widget-board/contracts'
@@ -136,6 +137,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     refresh: () => refreshLibrary(),
     sources,
     grants,
+    credentials: () => credentialsOf(ctx),
   }
 
   // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与

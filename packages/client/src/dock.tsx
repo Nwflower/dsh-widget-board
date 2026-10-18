@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import type { WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
 import { isChinese, t } from './copy'
@@ -38,6 +38,8 @@ const DRAG_THRESHOLD = 5
 
 /** 底板菜单要用的东西。 */
 export interface BoardDockProps {
+  /** 看板页的根节点：菜单与组件库按它的中线定位，左右侧栏不参与。 */
+  anchor: RefObject<HTMLDivElement | null>
   /** 组件库的全部类型。 */
   entries: readonly WidgetLibraryEntry[]
   /** 组件元信息：组件库里的缩略画面按它找组件。 */
@@ -283,13 +285,14 @@ function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
 /**
  * 看板下方的浮层：菜单、组件库浮窗与拖放预览。
  *
- * 菜单与浮窗固定在看板内容之上，不参与卡片排版。组件库的一格按下后由这里接收指针移动，预览卡片用
- * 弹簧跟手；松手时把屏幕坐标交给看板，由看板算落点并写宿主（D17、D5）。
+ * 菜单与浮窗固定在看板内容之上，按看板这一栏的中线定位，不参与卡片排版。组件库的一格按下后由这
+ * 里接收指针移动，预览卡片用弹簧跟手；松手时把屏幕坐标交给看板，由看板算落点并写宿主（D17、D5）。
  *
  * @param props - 组件库、打开状态与四个动作。
  * @returns 浮层。
  */
 export function BoardDock({
+  anchor,
   entries,
   widgets,
   theme,
@@ -311,6 +314,7 @@ export function BoardDock({
   const velocityRef = useRef({ x: 0, y: 0 })
   const libraryRef = useRef<HTMLDivElement | null>(null)
   const dockRef = useRef<HTMLDivElement | null>(null)
+  const layerRef = useRef<HTMLDivElement | null>(null)
 
   const beginDrag = useCallback((entry: WidgetLibraryEntry, event: ReactPointerEvent<HTMLElement>) => {
     if (busy || event.button !== 0) return
@@ -400,6 +404,26 @@ export function BoardDock({
     return () => cancelAnimationFrame(frame)
   }, [proxy])
 
+  // 菜单与组件库按看板这一栏的中线定位：侧栏收放、拖宽时跟着挪，不按整扇窗口算。写 CSS 变量而不是
+  // 走 React 状态，侧栏动画期间每帧都量也不会重绘整页。
+  useLayoutEffect(() => {
+    const board = anchor.current
+    const layer = layerRef.current
+    if (board === null || layer === null) return
+    const update = (): void => {
+      const rect = board.getBoundingClientRect()
+      layer.style.setProperty('--dsh-widget-board-anchor', `${String(rect.left + board.clientWidth / 2)}px`)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(board)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [anchor])
+
   // 浮窗打开时，点在看板或别处就关掉；正在拖放时不能关。
   useEffect(() => {
     if (!libraryOpen) return
@@ -422,7 +446,7 @@ export function BoardDock({
   }, [libraryOpen, onCloseLibrary])
 
   return (
-    <div className="dsh-widget-board__dock-layer" style={LAYER_STYLE}>
+    <div className="dsh-widget-board__dock-layer" ref={layerRef} style={LAYER_STYLE}>
       <div ref={dockRef}>
         <DockMenu
           busy={busy}

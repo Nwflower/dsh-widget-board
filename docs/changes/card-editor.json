@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 21,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "卡片右上角多了设置弹窗：组件设置、凭据、数据与权限、关于四节；props 由组件自己的 schema 生成表单，保存时宿主按同一个 schema 校验；凭据写进宿主的凭据服务，不进看板文件、导出包与工具结果。翻面组也在弹窗里挑两个槽的组件，换一个槽会重置它自己的设置，另一个槽不动。",
+  "en": "Cards gain a settings modal with four sections: widget settings, credentials, data and permissions, and about. Props render from the widget's own schema and the host validates them against the same schema on save; credentials go to the host's credential service and never enter board files, exports or tool output. A flip group also picks its two slot widgets in the modal: replacing one resets that slot's own settings and leaves the other alone."
+}

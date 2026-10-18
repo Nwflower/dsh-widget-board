@@ -200,6 +200,20 @@ describe('widget_place', () => {
     expect(harnessed.context.board.layoutRevision).toBe(before)
   })
 
+  it('props 与 manifest 的 props schema 不符时拒绝', async () => {
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      properties: { title: { type: 'string' } },
+    }
+    const harnessed = harness({ records: [record('stat', { props: schema })] })
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', props: { title: 'x' } })
+    const id = (placed as { id: string }).id
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', id, props: { title: 1 } }))
+      .rejects.toThrow(/props schema/)
+    expect(harnessed.context.board.instances[0]?.props).toEqual({ title: 'x' })
+  })
+
   it('不让一张卡改成另一种组件', async () => {
     const harnessed = harness()
     const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat' })

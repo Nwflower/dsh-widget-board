@@ -1,8 +1,9 @@
 /*
  * 看板下方的浮层：菜单、拖放接住层与预览卡。
  *
- * 这些节点固定在看板根节点之外，不参与卡片排版；颜色读宿主的 --dsw-* 令牌，时长与曲线由
- * BoardDock 写在浮层层上的 --w-motion-* 给出（D10、D16）。
+ * 这些节点固定在看板根节点之外，不参与卡片排版；中线由 BoardDock 写在浮层层上的
+ * --dsh-widget-board-anchor 给出（看板这一栏，不含左右侧栏），颜色读宿主的 --dsw-* 令牌，
+ * 时长与曲线由同一层上的 --w-motion-* 给出（D10、D16）。
  */
 
 /* 下方菜单：一张 SVG goo 层画底色、桥接与投影；按钮是压在上面的清晰层。 */
@@ -14,7 +15,7 @@
 .dsh-widget-board__dock {
   position: fixed;
   bottom: 8px;
-  left: 50%;
+  left: var(--dsh-widget-board-anchor, 50%);
   z-index: 80;
   width: 200px;
   height: 140px;

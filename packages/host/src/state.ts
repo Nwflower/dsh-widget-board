@@ -10,9 +10,10 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Board, BoardInstance, CardLayout, InstanceGroup, WidgetMinBox } from '@dsh-widget-board/contracts'
+import type { Board, BoardInstance, CardLayout, GroupSide, InstanceGroup, WidgetMinBox } from '@dsh-widget-board/contracts'
 import { BOARD_HERO_ID } from '@dsh-widget-board/contracts'
 import { DEFAULT_HEIGHT_REM, clampCardBox, clampCardLayout, isCardLayout, nextCardLayout } from '@dsh-widget-board/model'
+import { isRecord } from './guards'
 import type { WidgetRecord } from './library'
 
 /** 存储格式的版本：2 把固定的题头换成了 `board-hero` 卡片。 */
@@ -220,11 +221,6 @@ export async function writeBoard(file: string, board: Board): Promise<void> {
   await rename(temporary, file)
 }
 
-/** 普通的 JSON 对象：可以当补丁合并。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 /**
  * 找一张卡。
  *
@@ -397,6 +393,51 @@ export function withGroupAdded(
 export function withGroupRemoved(board: Board, id: string): Board {
   const instances = board.instances.filter((instance) => instance.group?.id !== id)
   if (instances.length === board.instances.length) throw new Error(`看板上没有这一组：${id}`)
+  return { ...board, instances }
+}
+
+/**
+ * 换掉组卡一个槽里的组件（D22）：槽还是同一条实例，组件、版本、props、数据、状态与数据源一起换。
+ *
+ * 另一个槽不动。组卡盒子共享，换完之后按两个槽当前组件的最小盒子重新抬一次，两张实例写同一个盒子。
+ *
+ * @param board - 当前看板。
+ * @param groupId - 组 id。
+ * @param side - 换哪一侧。
+ * @param record - 新组件的记录。
+ * @param minBoxOf - 按组件 id 取最小盒子；省略时不执行下限。
+ * @returns 换过之后的看板。
+ * @throws {Error} 看板上没有这一组、这个槽，或组只剩一个槽。
+ */
+export function withGroupSlotReplaced(
+  board: Board,
+  groupId: string,
+  side: GroupSide,
+  record: WidgetRecord,
+  minBoxOf?: (widget: string) => WidgetMinBox | undefined,
+): Board {
+  const slot = board.instances.find((instance) => instance.group?.id === groupId && instance.group.side === side)
+  if (slot === undefined) throw new Error(`看板上没有这一组的 ${side} 槽：${groupId}`)
+  const other = board.instances.find((instance) => instance.group?.id === groupId && instance.id !== slot.id)
+  if (other === undefined) throw new Error(`这一组缺少另一个槽：${groupId}`)
+  const minBox = mergeMinBox(minBoxOf?.(record.manifest.id), minBoxOf?.(other.widget))
+  const layout = clampCardLayout(slot.layout, minBox)
+  const instances = board.instances.map((instance) => {
+    if (instance.group?.id !== groupId) return instance
+    if (instance.id !== slot.id) return { ...instance, layout }
+    const next: BoardInstance = {
+      ...instance,
+      widget: record.manifest.id,
+      hash: record.hash,
+      props: {},
+      data: null,
+      state: null,
+      layout,
+    }
+    if (record.manifest.source === undefined) delete next.source
+    else next.source = record.manifest.source
+    return next
+  })
   return { ...board, instances }
 }
 

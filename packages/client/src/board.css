@@ -294,9 +294,11 @@
   .dsh-widget-board__mask-readout .dsh-widget-board__measure-hint { display: none; }
 }
 
-/* 触屏没有悬停：拖动把手一直露着；缩放的弧按悬停规则来，在触屏上只在拖动中出现。 */
+/* 触屏没有悬停：拖动把手与右上角的两枚按钮一直露着；缩放的弧在触屏上只在拖动中出现。 */
 @media (hover: none) {
-  .dsh-widget-board__grip { opacity: 0.85; }
+  .dsh-widget-board__grip,
+  .dsh-widget-board__remove,
+  .dsh-widget-board__settings { opacity: 0.85; }
 }
 
 /* 尺寸读数：只在外壳拿着指针时出现，压在卡片左下角。 */
@@ -500,11 +502,11 @@
   line-height: 18px;
 }
 
-/* 移除卡片的小按钮：悬停卡片时露在右上角。 */
-.dsh-widget-board__remove {
+/* 右上角的两枚小按钮：设置与移除，悬停卡片时一起露出来。 */
+.dsh-widget-board__remove,
+.dsh-widget-board__settings {
   position: absolute;
   top: 6px;
-  right: 6px;
   z-index: 2;
   width: 20px;
   height: 20px;
@@ -513,21 +515,39 @@
   background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 92%, transparent);
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
-  font-size: 13px;
-  line-height: 16px;
   opacity: 0;
   padding: 0;
   transition: opacity var(--w-motion-fast) var(--w-motion-ease-standard);
 }
 
+.dsh-widget-board__remove {
+  right: 6px;
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.dsh-widget-board__settings {
+  right: 30px;
+  display: grid;
+  place-items: center;
+}
+
+.dsh-widget-board__settings svg {
+  display: block;
+  pointer-events: none;
+}
+
 .dsh-widget-board__cell:hover .dsh-widget-board__remove,
-.dsh-widget-board__remove:focus-visible {
+.dsh-widget-board__cell:hover .dsh-widget-board__settings,
+.dsh-widget-board__remove:focus-visible,
+.dsh-widget-board__settings:focus-visible {
   opacity: 1;
 }
 
-/* 缩放时遮罩是唯一的前景：拖动与移除的把手收起来，松开后再回来。
+/* 缩放时遮罩是唯一的前景：拖动、设置与移除的把手收起来，松开后再回来。
  * 与上面的悬停规则同样具体，所以这条必须排在它们后面。 */
 .dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__grip,
+.dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__settings,
 .dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__remove {
   opacity: 0;
   pointer-events: none;

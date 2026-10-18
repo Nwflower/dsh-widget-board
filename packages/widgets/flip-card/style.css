@@ -22,8 +22,8 @@
 .flip-card__back {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: clamp(18px, 5vw, 30px);
+  gap: var(--w-space-sm, 8px);
+  padding: clamp(16px, 5vw, 24px);
   border-radius: inherit;
 }
 
@@ -32,54 +32,60 @@
   background: var(--w-color-surface, #fff);
 }
 
+/*
+ * 背面把前景与底色对调：浅色下是深底浅字，深色下是浅底深字，两面都从令牌来。
+ * 角上的光斑用底色混出，跟当前配色走。
+ */
 .flip-card__back {
-  background:
-    radial-gradient(circle at 78% 16%, color-mix(in srgb, var(--w-color-accent, #1a6cff) 62%, transparent), transparent 58%),
-    linear-gradient(145deg, color-mix(in srgb, var(--w-color-accent, #1a6cff) 38%, #0b1220), #0b1220);
-  color: #fff;
+  background-color: var(--w-color-fg, #0b1016);
+  background-image: radial-gradient(circle at 78% 16%, color-mix(in srgb, var(--w-color-bg, #fff) 18%, transparent), transparent 58%);
+  color: var(--w-color-bg, #fff);
 }
 
 .flip-card__kicker {
-  color: var(--w-color-accent, #1a6cff);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
-  letter-spacing: 0.14em;
-  line-height: 14px;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
+.flip-card__kicker:empty { display: none; }
+
 .flip-card__title {
-  margin: auto 0 0;
+  margin: var(--w-space-xl, 24px) 0 0;
   color: inherit;
   font-size: clamp(24px, 8vw, 40px);
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
   line-height: 1.04;
 }
 
 .flip-card__text {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
   overflow-wrap: anywhere;
 }
 
 .flip-card__hint {
   margin-top: auto;
   color: var(--w-color-muted, #6b7684);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  line-height: 12px;
-  text-transform: uppercase;
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
 .flip-card__back .flip-card__kicker,
-.flip-card__back .flip-card__hint { color: rgb(255 255 255 / 62%); }
-.flip-card__back .flip-card__title { color: #fff; }
-.flip-card__back .flip-card__text { color: rgb(255 255 255 / 78%); }
+.flip-card__back .flip-card__hint { color: color-mix(in srgb, var(--w-color-bg, #fff) 72%, transparent); }
+.flip-card__back .flip-card__title { color: var(--w-color-bg, #fff); }
+.flip-card__back .flip-card__text { color: color-mix(in srgb, var(--w-color-bg, #fff) 82%, transparent); }
+
+/* 背面在深色主题下是浅底，焦点框跟着换成底色，才在两面都看得见。 */
+.flip-card:focus-visible .flip-card__back { outline-color: var(--w-color-bg, #fff); }
 
 @media (max-width: 260px) {
   .flip-card__front,
@@ -89,7 +95,7 @@
 
 @media (max-height: 260px) {
   .flip-card__text { display: none; }
-  .flip-card__title { font-size: 24px; }
+  .flip-card__title { font-size: 24px; margin-top: 0; }
   .flip-card__front,
   .flip-card__back { gap: 6px; padding: 16px; }
 }

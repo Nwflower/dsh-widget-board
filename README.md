@@ -49,7 +49,7 @@ dsh plugin add <本仓库路径>
 
 `widget.json` 还可以声明 `credentials`：设置弹窗据此显示密钥输入框，值由宿主的凭据服务保存，组件读不到，也不会写进看板文件。`source` 写 `提供方:名字` 时点名插件注册的数据源；props 表单的字段标签与提示写进 `text` 的 `props.<字段>.label` 与 `props.<字段>.hint`。
 
-卡片盒子由看板给。运行时把内容盒归到两个方向：`data-box-width` 是 `narrow`、`regular`、`wide`，`data-box-height` 是 `short`、`regular`、`tall`，并给出 `--w-w`、`--w-h` 与 `--w-cols`；组件按这些档位收起或展开内容。`widget.json` 的 `minBox` 是卡片的下限，拖动与缩放不会把卡片压到它下面。间距与字号从 `--w-space-*` 与 `--w-type-*` 取；套件提供 `.w-frame`、`.w-actions`、`.w-scroll` 三个布局原语，以及 `.w-hide-short`、`.w-hide-narrow` 两个按档位隐藏的类。组件库的缩略画面带 `data-placement="preview"` 与 `data-size="preview"`，可以在这里换一套静态排版。
+卡片盒子由看板给。运行时把内容盒归到两个方向：`data-box-width` 是 `narrow`、`regular`、`wide`，`data-box-height` 是 `short`、`regular`、`tall`，并给出 `--w-w`、`--w-h` 与 `--w-cols`；组件按这些档位收起或展开内容。`widget.json` 的 `defaultBox` 是加卡片时的默认盒子，`minBox` 是卡片的下限，拖动与缩放不会把卡片压到它下面。间距与字号从 `--w-space-*` 与 `--w-type-*` 取；状态色读 `--w-tone-ok`、`--w-tone-warn`、`--w-tone-danger`、`--w-tone-idle`，再配一行 `.w-sr` 的读屏文字，状态不只靠颜色。套件提供 `.w-frame`、`.w-actions`、`.w-scroll` 三个布局原语，以及 `.w-hide-short`、`.w-hide-narrow` 两个按档位隐藏的类。组件库的缩略画面带 `data-placement="preview"` 与 `data-size="preview"`，可以在这里换一套静态排版。
 
 组件要提示一件事时调 `widget.notify({ title, body })`：标题省略时用组件的标题，正文可选；标题限 120 个字符，正文限 400 个。通知记在侧栏的看板入口上，悬停能读到最近一条的标题与正文，点一下入口算看过。
 

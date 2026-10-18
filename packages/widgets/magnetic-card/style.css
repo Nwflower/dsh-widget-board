@@ -2,7 +2,8 @@
  * 磁吸卡的样式。
  *
  * 跟随与回弹在运行时套件里（.t-magnetic）；这里只写舞台与卡片自己的配色。
- * 舞台留出四周边距，卡片移动时不会被 iframe 的视口裁掉（D10）。
+ * 舞台就是这张卡的表面：底色、边框与圆角跟别的卡同源。卡片本体是舞台里的一块深色画面，
+ * 留出的四周边距就是它移动的余量（D10、D16）。
  */
 
 .magnetic-stage {
@@ -10,23 +11,24 @@
   height: 100vh;
   box-sizing: border-box;
   place-items: center;
-  padding: clamp(18px, 8vw, 48px);
+  padding: clamp(16px, 6vw, 36px);
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
+  border-radius: var(--w-radius-card, 24px);
   background-color: var(--w-color-surface, #fff);
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--w-color-fg, #0b1016) 6%, transparent) 1px, transparent 1.2px);
-  background-size: 14px 14px;
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
 }
 
 .magnetic-card {
   display: flex;
-  width: min(78%, 340px);
-  max-height: 86%;
+  width: min(86%, 420px);
+  max-height: 88%;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--w-space-sm, 8px);
   box-sizing: border-box;
-  padding: clamp(18px, 4.5vw, 30px);
+  padding: clamp(16px, 4.5vw, 24px);
   overflow: hidden;
-  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--w-color-bg, #fff) 16%, transparent);
+  border-radius: var(--w-radius-card, 24px);
   background: linear-gradient(145deg, #1e293b, #0f172a);
   color: #e2e8f0;
   box-shadow: 0 24px 60px -30px rgb(2 6 23 / 80%);
@@ -37,15 +39,16 @@
 
 .magnetic-kicker {
   color: #7dd3fc;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  line-height: 14px;
-  text-transform: uppercase;
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
+.magnetic-kicker:empty { display: none; }
+
 .magnetic-title {
-  margin: 4px 0 0;
+  margin: var(--w-space-xs, 4px) 0 0;
   color: #f8fafc;
   font-size: clamp(22px, 7vw, 34px);
   font-weight: 600;
@@ -55,25 +58,24 @@
 
 .magnetic-text {
   margin: 0;
-  color: rgb(226 232 240 / 68%);
-  font-size: 12px;
-  line-height: 18px;
+  color: rgb(226 232 240 / 72%);
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
   overflow-wrap: anywhere;
 }
 
 .magnetic-meta {
-  margin-top: 6px;
-  color: rgb(226 232 240 / 42%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  line-height: 12px;
-  text-transform: uppercase;
+  margin-top: var(--w-space-xs, 4px);
+  color: rgb(226 232 240 / 78%);
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
 @media (max-width: 260px) {
   .magnetic-stage { padding: 14px; }
-  .magnetic-card { width: 88%; padding: 16px; }
+  .magnetic-card { width: 92%; padding: 16px; }
 }
 
 @media (max-height: 260px) {

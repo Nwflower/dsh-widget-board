@@ -48,9 +48,9 @@
 
   function defaults() {
     if (isZh()) {
-      return { kicker: 'IMAGE · 08', title: '今日一图', caption: '一张不联网的默认封面', alt: '蓝色点阵封面' }
+      return { title: '今日一图', caption: '蓝色点阵封面', alt: '蓝色点阵与两团白色光晕' }
     }
-    return { kicker: 'IMAGE · 08', title: 'Today', caption: 'A local default cover', alt: 'Blue dot-grid cover' }
+    return { title: 'Today', caption: 'Blue dot-grid cover', alt: 'Blue dot grid with two white glows' }
   }
 
   function write(node, value) {
@@ -60,9 +60,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    write(el.meta, typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : 'COVER')
+    write(el.meta, typeof props.meta === 'string' ? props.meta : '')
   }
 
   function showPlaceholder() {

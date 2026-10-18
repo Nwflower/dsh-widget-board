@@ -3,8 +3,8 @@
  */
 .md-card__body {
   gap: 0;
-  font-size: 12px;
-  line-height: 19px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
   overflow-wrap: anywhere;
 }
 
@@ -17,19 +17,19 @@
 .md-card__body h4,
 .md-card__body h5,
 .md-card__body h6 {
-  margin: 14px 0 6px;
+  margin: var(--w-space-lg, 16px) 0 var(--w-space-sm, 8px);
   color: var(--w-color-fg, #0b1016);
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
-.md-card__body h1 { font-size: 19px; }
-.md-card__body h2 { font-size: 16px; }
-.md-card__body h3 { font-size: 14px; }
+.md-card__body h1 { font-size: var(--w-type-title, 16px); }
+.md-card__body h2 { font-size: var(--w-type-body, 14px); }
+.md-card__body h3,
 .md-card__body h4,
 .md-card__body h5,
-.md-card__body h6 { font-size: 12px; }
+.md-card__body h6 { font-size: var(--w-type-caption, 12px); }
 
 .md-card__body p {
   margin: 0 0 8px;
@@ -57,9 +57,9 @@
 .md-card__body li::marker { color: var(--w-color-muted, #6b7684); }
 
 .md-card__body blockquote {
-  margin: 8px 0;
-  padding: 6px 10px;
-  border-left: 2px solid var(--w-color-accent, #2563eb);
+  margin: var(--w-space-sm, 8px) 0;
+  padding: var(--w-space-xs, 4px) var(--w-space-md, 12px);
+  border-left: 1px solid var(--w-color-accent, #2563eb);
   border-radius: 0 8px 8px 0;
   background: color-mix(in srgb, var(--w-color-fg, #0b1016) 4%, transparent);
   color: var(--w-color-muted, #6b7684);
@@ -72,20 +72,20 @@
   border-radius: 4px;
   background: color-mix(in srgb, var(--w-color-fg, #0b1016) 6%, transparent);
   font-family: var(--t-mono);
-  font-size: 10.5px;
+  font-size: var(--w-type-caption, 12px);
 }
 
 .md-card__body pre {
-  margin: 8px 0;
-  padding: 10px;
+  margin: var(--w-space-sm, 8px) 0;
+  padding: var(--w-space-md, 12px);
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--w-color-border, #dfe4ea) 75%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--w-color-fg, #0b1016) 4%, transparent);
   color: var(--w-color-fg, #0b1016);
   font-family: var(--t-mono);
-  font-size: 10.5px;
-  line-height: 16px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
   tab-size: 2;
 }
 
@@ -96,46 +96,44 @@
   line-height: inherit;
 }
 
-.md-code { margin: 8px 0; }
+.md-code { margin: var(--w-space-sm, 8px) 0; }
 
 .md-code__bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 5px 9px 0;
+  gap: var(--w-space-sm, 8px);
+  padding: var(--w-space-xs, 4px) var(--w-space-sm, 8px) 0;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 8px;
-  letter-spacing: 0.1em;
-  line-height: 12px;
-  text-transform: uppercase;
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
 
-.md-code pre { margin-top: 6px; }
+.md-code pre { margin-top: var(--w-space-xs, 4px); }
 
 .md-card__body table {
   width: 100%;
-  margin: 8px 0;
+  margin: var(--w-space-sm, 8px) 0;
   border-collapse: collapse;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
 }
 
 .md-card__body th,
 .md-card__body td {
-  padding: 4px 8px;
+  padding: var(--w-space-xs, 4px) var(--w-space-sm, 8px);
   border-bottom: 1px solid color-mix(in srgb, var(--w-color-border, #dfe4ea) 70%, transparent);
   text-align: left;
 }
 
 .md-card__body th {
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 8px;
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .md-card__body tr:last-child td { border-bottom: 0; }
@@ -157,7 +155,7 @@
 .md-card__body .md-image-alt {
   color: var(--w-color-muted, #6b7684);
   font-family: var(--t-mono);
-  font-size: 9px;
+  font-size: var(--w-type-caption, 12px);
 }
 
 .md-card__body input[type="checkbox"] {
@@ -208,10 +206,3 @@
 
 .md-card__body .hljs-meta,
 .md-card__body .hljs-tag { color: var(--w-color-muted, #6b7684); }
-
-@media (max-width: 300px) {
-  .md-card__body { font-size: 11px; line-height: 18px; }
-  .md-card__body h1 { font-size: 17px; }
-  .md-card__body h2 { font-size: 15px; }
-  .md-card__body pre { font-size: 10px; line-height: 15px; }
-}

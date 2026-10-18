@@ -16,10 +16,10 @@
   }
 
   var defaults = {
-    kicker: 'MAGNETIC · 03',
+    kicker: '',
     title: '磁吸卡',
     text: '把指针移到卡片上，它会跟过来；移开再弹回去。',
-    meta: 'GSAP 的手感，用指针和 CSS 做出来'
+    meta: '指针跟随与回弹'
   }
 
   function apply(props) {

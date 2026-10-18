@@ -2,7 +2,7 @@
  * 图表卡的样式：SVG 铺满剩余高度，折线/面积/柱状由 data-kind 切换；刻度与说明在下方。
  */
 .chart-card__body {
-  gap: 10px;
+  gap: var(--w-space-sm, 8px);
 }
 
 .chart-card__plot {
@@ -59,13 +59,12 @@
   display: flex;
   flex: none;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--w-space-md, 12px);
   overflow: hidden;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 8px;
-  letter-spacing: 0.04em;
-  line-height: 12px;
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -80,8 +79,8 @@
 .chart-card__caption {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
   overflow-wrap: anywhere;
 }
 

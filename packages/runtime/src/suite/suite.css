@@ -340,8 +340,8 @@ body { overflow: hidden; }
   height: 100vh;
   box-sizing: border-box;
   flex-direction: column;
-  gap: 14px;
-  padding: clamp(16px, 3.2vw, 22px);
+  gap: var(--w-space-md, 12px);
+  padding: var(--w-space-lg, 16px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
   border-radius: var(--w-radius-card, 24px);
@@ -359,36 +359,45 @@ body { overflow: hidden; }
   gap: 12px;
 }
 
+/*
+ * 标题区只有标题，加一行可选的标签与右上角的事实。
+ *
+ * 标签由使用方按需填写，默认不出现；它承载范围、来源一类信息，不承载编号。旧组件里的
+ * `.t-data__kicker` 继续可用，尺寸收到与正文说明同一档，不再全大写加宽字距。
+ */
 .t-data__kicker {
-  margin: 0 0 6px;
-  color: var(--w-color-accent, #2563eb);
-  font-family: var(--t-mono);
-  font-size: 9px;
+  margin: 0 0 4px;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
   font-weight: 500;
-  letter-spacing: 0.14em;
-  line-height: 12px;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 16px;
+  text-transform: none;
 }
+
+.t-data__kicker:empty,
+.t-data__meta:empty { display: none; }
 
 .t-data__title {
   margin: 0;
   color: var(--w-color-fg, #0b1016);
-  font-size: 15px;
+  font-size: var(--w-type-title, 16px);
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 20px;
+  line-height: 22px;
 }
 
 .t-data__meta {
   flex: none;
   padding-top: 1px;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  line-height: 14px;
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 16px;
   text-align: right;
-  text-transform: uppercase;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .t-data__body {
@@ -409,13 +418,13 @@ body { overflow: hidden; }
 .t-data__empty {
   display: flex;
   margin: auto;
-  padding: 18px 14px;
+  padding: var(--w-space-lg, 16px) var(--w-space-md, 12px);
   align-items: center;
   justify-content: center;
   border: 1px dashed color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
   border-radius: 12px;
   color: var(--w-color-muted, #6b7684);
-  font-size: 12px;
+  font-size: var(--w-type-caption, 12px);
   line-height: 18px;
   text-align: center;
 }
@@ -423,16 +432,14 @@ body { overflow: hidden; }
 .t-data [hidden] { display: none; }
 
 @media (max-width: 320px) {
-  .t-data { gap: 10px; padding: 14px; }
-  .t-data__kicker { font-size: 8px; letter-spacing: 0.1em; }
-  .t-data__title { font-size: 13px; line-height: 18px; }
-  .t-data__meta { font-size: 8px; }
+  .t-data { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
+  .t-data__title { font-size: var(--w-type-body, 14px); line-height: 20px; }
 }
 
 @media (max-height: 280px) {
-  .t-data { gap: 8px; padding: 12px; }
-  .t-data__kicker { margin-bottom: 3px; }
-  .t-data__empty { padding: 10px; }
+  .t-data { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
+  .t-data__kicker { margin-bottom: 2px; }
+  .t-data__empty { padding: var(--w-space-md, 12px); }
 }
 
 /*
@@ -465,3 +472,27 @@ body { overflow: hidden; }
 
 :root[data-box-height="short"] .w-hide-short,
 :root[data-box-width="narrow"] .w-hide-narrow { display: none; }
+
+/*
+ * 状态色：色相固定，亮度与前景混出，浅色与深色下都保持可读。组件画状态点、时间线节点或
+ * 趋势时读这四个变量，不各自写颜色。
+ */
+:root {
+  --w-tone-ok: var(--w-color-accent, #2563eb);
+  --w-tone-warn: color-mix(in srgb, #b45309 74%, var(--w-color-fg, #0b1016));
+  --w-tone-danger: color-mix(in srgb, #b42318 76%, var(--w-color-fg, #0b1016));
+  --w-tone-idle: color-mix(in srgb, var(--w-color-fg, #0b1016) 30%, transparent);
+}
+
+/* 只给读屏器的一行字：状态不能只靠颜色表达。 */
+.w-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}

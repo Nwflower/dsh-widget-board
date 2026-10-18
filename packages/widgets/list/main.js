@@ -28,7 +28,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'LIST · 02',
         title: '最近事件',
         meta: '',
         items: [
@@ -39,7 +38,6 @@
       }
     }
     return {
-      kicker: 'LIST · 02',
       title: 'Recent events',
       meta: '',
       items: [
@@ -50,6 +48,11 @@
     }
   }
 
+  function statusLabel(status) {
+    if (isZh()) return status === 'ok' ? '正常' : status === 'warn' ? '注意' : status === 'error' ? '异常' : '空闲'
+    return status === 'ok' ? 'OK' : status === 'warn' ? 'Warning' : status === 'error' ? 'Error' : 'Idle'
+  }
+
   function write(node, value) {
     if (node !== undefined && node !== null) node.textContent = value === null || value === undefined ? '' : String(value)
   }
@@ -57,7 +60,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }
@@ -69,17 +72,21 @@
       if (item === null || typeof item !== 'object' || typeof item.title !== 'string' || item.title.trim() === '') continue
       var row = document.createElement('div')
       row.className = 'list-card__row'
-      row.dataset.status = item.status === 'ok' || item.status === 'warn' || item.status === 'error' ? item.status : 'idle'
+      var status = item.status === 'ok' || item.status === 'warn' || item.status === 'error' ? item.status : 'idle'
+      row.dataset.status = status
       var dot = document.createElement('span')
       dot.className = 'list-card__dot'
       dot.setAttribute('aria-hidden', 'true')
       var title = document.createElement('span')
       title.className = 'list-card__title'
       title.textContent = item.title
+      var state = document.createElement('span')
+      state.className = 'w-sr'
+      state.textContent = statusLabel(status)
       var meta = document.createElement('span')
       meta.className = 'list-card__meta'
       meta.textContent = typeof item.meta === 'string' ? item.meta : ''
-      row.append(dot, title, meta)
+      row.append(dot, title, state, meta)
       rows.push(row)
     }
     el.list.replaceChildren.apply(el.list, rows)
@@ -95,7 +102,7 @@
     var items = Array.isArray(data.items) ? data.items : base.items
     var count = render(items)
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : count + ' ITEMS')
+    write(el.meta, meta !== '' ? meta : isZh() ? count + ' 项' : count + (count === 1 ? ' item' : ' items'))
   }
 
   applyProps(widget === undefined ? {} : widget.props)

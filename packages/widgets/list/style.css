@@ -9,8 +9,8 @@
   display: grid;
   grid-template-columns: 7px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 9px 0;
+  gap: var(--w-space-sm, 8px);
+  padding: var(--w-space-sm, 8px) 0;
   border-top: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 62%, transparent);
 }
 
@@ -20,20 +20,20 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 22%, transparent);
+  background: var(--w-tone-idle);
 }
 
-.list-card__row[data-status="ok"] .list-card__dot { background: var(--w-color-accent, #2563eb); }
-.list-card__row[data-status="warn"] .list-card__dot { background: #b45309; }
-.list-card__row[data-status="error"] .list-card__dot { background: #b91c1c; }
-.list-card__row[data-status="idle"] .list-card__dot { background: color-mix(in srgb, var(--w-color-fg, #0b1016) 22%, transparent); }
+.list-card__row[data-status="ok"] .list-card__dot { background: var(--w-tone-ok); }
+.list-card__row[data-status="warn"] .list-card__dot { background: var(--w-tone-warn); }
+.list-card__row[data-status="error"] .list-card__dot { background: var(--w-tone-danger); }
+.list-card__row[data-status="idle"] .list-card__dot { background: var(--w-tone-idle); }
 
 .list-card__title {
   min-width: 0;
   overflow: hidden;
   color: var(--w-color-fg, #0b1016);
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -41,10 +41,9 @@
 .list-card__meta {
   flex: none;
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  line-height: 14px;
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
   text-align: right;
   white-space: nowrap;
 }

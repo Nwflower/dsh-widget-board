@@ -31,6 +31,17 @@
   line-height: 1;
 }
 
+/*
+ * 矮盒子（D20 的 short 档）：翻页格一上一下各占一半，字号要小到两半都装得下；40px 的下界在
+ * 6rem 的盒子里会把数字顶出去。这里把字号按盒子高度收小，整张面也收紧间距。
+ */
+:root[data-box-height="short"] .clock-card__time {
+  font-size: clamp(22px, min(18vw, 42vh), 48px);
+}
+
+:root[data-box-height="short"] .clock-card__face { gap: 2px; }
+}
+
 .clock-card__digit {
   width: 0.62em;
   text-align: center;

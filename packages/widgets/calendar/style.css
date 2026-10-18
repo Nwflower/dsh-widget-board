@@ -159,6 +159,25 @@
   .calendar-card__dots { display: none; }
 }
 
+/*
+ * 矮盒子（D20 的 short 档）：标题栏的按钮与星期行占掉的高度让日期格子装不下一个数字，收掉导航与
+ * 星期行，只留月份与能排下的整行。盒子再矮也先把日期保住——它们才是这张卡要说的。
+ */
+:root[data-box-height="short"] .calendar-card__nav,
+:root[data-box-height="short"] .calendar-card__weekdays,
+:root[data-box-height="short"] .calendar-card__dots {
+  display: none;
+}
+
+:root[data-box-height="short"] .calendar-card__body { gap: 2px; }
+
+:root[data-box-height="short"] .calendar-card__number {
+  width: 18px;
+  height: 18px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+}
+
 :root[data-motion="reduced"] .calendar-card__step,
 :root[data-motion="reduced"] .calendar-card__today {
   transition: none;

@@ -28,7 +28,9 @@ import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
-import { createHandler, readInto } from './routes'
+import { createHandler } from './routes'
+import { readManyInto } from './batch-reads'
+import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
 import { createScheduler, intervalOf } from './refresh'
@@ -100,11 +102,11 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const live = createLive(await loadAssets(runtime))
   const sources = createRegistries()
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
-  // 每次写入都会发一条通知：定时刷新的表跟着重算（D6）——加卡、移除、换数据源都从这里过。
+  // 卡片增删与组件库重读才改变定时刷新的表；状态、数据与布局写入不重算它（D6）。
   let syncScheduler: () => void = () => {}
   const workspace = await openWorkspace(home, library.records, (event) => {
     live.notify(event)
-    syncScheduler()
+    if (event.type === 'board') syncScheduler()
   })
   // 授权表：人给出过的那些，绑在组件版本上（D6）。
   const grants: GrantStore = await openGrants(grantFile)
@@ -112,15 +114,13 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   /** 刷新路由要调的重读：重读函数在下面定义，闭包先接住这个变量。 */
   let refreshLibrary: () => Promise<void> = async () => {}
   /**
-   * 改当前选中的看板：转给 workspace 的唯一写入队列（D5、D21），写完让定时刷新的表跟着重算（D6）。
+   * 改当前选中的看板：转给 workspace 的唯一写入队列（D5、D21）。
    */
   const save: RouteContext['save'] = async (change, options) => {
-    const next = await workspace.save(workspace.activeId(), change, {
+    return await workspace.save(workspace.activeId(), change, {
       ...options,
       event: (board, id) => options.event(board, id),
     })
-    syncScheduler()
-    return next
   }
 
   const context: RouteContext = {
@@ -137,6 +137,10 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     refresh: () => refreshLibrary(),
     sources,
     grants,
+    limits: {
+      stateCard: createRateLimiter(STATE_WRITES_PER_SECOND),
+      stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
+    },
     credentials: () => credentialsOf(ctx),
   }
 
@@ -155,6 +159,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       const minBoxOf = (widget: string): WidgetMinBox | undefined => next.records.get(widget)?.manifest.minBox
       await workspace.relayout(minBoxOf)
       live.publish(await loadAssets(runtime))
+      // 刷新声明可能随这一版变了：定时链按新的卡片表重算一次（D6）。
+      syncScheduler()
     })
     reloading = run.catch(() => undefined)
     return run
@@ -163,12 +169,13 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
 
   // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读，没人看就停。
   const scheduler = createScheduler({
-    cards: () => context.board.instances.flatMap((instance) => {
+    // 卡片 id 全工作区唯一；定时链按全部看板算，不只看选中的那一块（D6、D21）。
+    cards: () => context.workspace.list().flatMap((board) => board.instances.flatMap((instance) => {
       const everyMs = intervalOf(context.records.get(instance.widget)?.manifest.refresh)
       return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
-    }),
+    })),
     viewers: () => live.viewers,
-    read: async (id) => { await readInto(context, id) },
+    read: async (ids) => await readManyInto(context, ids),
     onError: (id, error) => {
       console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
     },

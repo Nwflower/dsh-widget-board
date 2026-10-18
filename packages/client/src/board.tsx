@@ -30,7 +30,7 @@ import { BoardDock } from './dock'
 import { createFrameHost } from './frame-host'
 import { FLIP_GROUP_ENTRY } from './group'
 import { subscribeLive } from './live'
-import { mergeEvent, needsSnapshot } from './merge'
+import { mergeEvent, mergeLayout, needsSnapshot } from './merge'
 import { noticeOf, notificationStore } from './notifications'
 import {
   activateBoard,
@@ -194,9 +194,18 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   }, [refetch])
 
   // 组件交出来的界面状态直接写给宿主；宿主是唯一权威，存下之后它自己会把改动推给所有在线页面（D5）。
-  const onState = useCallback((id: string, patch: unknown) => {
-    saveInstanceState(id, patch).catch((error: Error) => {
-      console.error(`widget-board: ${t('saveFailed')}（${id}）：${error.message}`)
+  // 发送的合并与失败提示在每张卡的队列里（D23）。
+  const onState = useCallback(async (id: string, patch: unknown) => {
+    await saveInstanceState(id, patch)
+  }, [])
+
+  /** 布局提交成功：只把这一块看板的盒子并回去，不拿整份快照替换（D16、D18）。 */
+  const onLayouts = useCallback((boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>) => {
+    setSnapshot((previous) => {
+      if (previous === null) return previous
+      const next = mergeLayout(previous, boardId, layoutRevision, layouts)
+      cachedWorkspace = next
+      return next
     })
   }, [])
 
@@ -473,6 +482,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                 onFlow={registerFlow}
                 onTidyReady={registerTidy}
                 onSnapshot={apply}
+                onLayouts={onLayouts}
                 onFailure={setFailure}
                 onBusyChange={setBusy}
                 onSettings={openEditor}

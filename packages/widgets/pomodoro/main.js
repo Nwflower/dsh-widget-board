@@ -332,6 +332,12 @@
       requestAnimationFrame(placeTicks)
     })
     widget.onState(restore)
+    // 卡片离开视口或所在的看板没有选中时停下滴答；恢复时按结束时刻接着算（D16、D21）。
+    widget.onPause(function (nowPaused) {
+      clearInterval(timer)
+      timer = 0
+      if (!nowPaused && state.running) timer = setInterval(tick, TICK_MS)
+    })
   }
 
   // 单独打开这份文档时没有宿主，宽度变化只会走窗口的 resize。

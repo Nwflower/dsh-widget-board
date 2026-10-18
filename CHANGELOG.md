@@ -34,6 +34,8 @@
 - 看板页顶部多了一条标签：每块看板一个标签，活动标签的药丸滑过去；标签条上只放一个新建入口，切换标签时不重挂任何组件——所有看板的卡片同时挂载，看不见的那些照旧暂停。
 - 看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。
 - 看板下方的加号菜单与组件库浮窗改成按看板这一栏的中线定位：左右侧栏收放、拖宽时它们跟着卡片区走，不再按整扇窗口居中。
+- 组件状态写入由父页面按 250 毫秒窗口合并，宿主按卡 64KB、按看板 1MB 与每秒次数限额拒绝超出的写入并显示原因；状态事件在对象合并时只带补丁；布局提交成功只回这次落定的盒子；定时刷新覆盖全部看板；看板没有选中时卡片也暂停，运行时新增 `paused` 与 `onPause`；同一份组件版本库在启动时不再重写已存在的文件。
+- 定时刷新把同一块看板在同一轮到期的卡片合成一次写入，不再每张卡各写一遍整块看板；读失败的卡只影响自己。
 - Windows 桌面端把看板标签条挂进窗口标题栏：标题栏让出那一条、宽度放得下时，标签条靠左挂在 Desktop 菜单之后，比页内小一号、上下留出空隙，圆角 9999；看板内容从标题栏下方开始。标签条换成 transitions.dev 的 Tabs sliding，活动标签的药丸滑过去，首帧不补间。放不下或不在桌面端时仍留在页面顶部。
 - 提供方的服务类型现在有一个只含类型的入口（`dsh-widget-board/service`）：用 `import type` 取类型，运行时只走服务，从 `service.apiVersion` 读版本，不复制常量，也不为绕开规则添加 `dsh.client.external`。客户端产物只依赖平台种子，这一条由构建检查；原生组件的重名注册被拒绝并保留先到的那一个，把手名下的数据源与动作必须与把手同名。插件停用或卸载时，组件、数据源、动作与它留下的授权一起撤下，卡片保留并显示不可用，启用之后恢复。
 
@@ -73,6 +75,8 @@
 - The board page gains a tab strip: one tab per board with a pill that slides to the active one, a single New entry on the strip, and no widget is remounted when you switch — every board's cards stay mounted, and the ones you cannot see stay paused.
 - Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed.
 - The bottom plus menu and the widget library now centre on the board column: collapsing, expanding or dragging the sidebars keeps them on the card area's midline instead of the window's.
+- Widget state writes are coalesced in a 250 ms window in the parent page; the host rejects writes over 64 KB per card, 1 MB per board or the per-second write limits and shows the reason. State events carry an object patch, a successful layout commit returns only the boxes it stored, scheduled refresh covers every board, cards pause when their board is not selected, the runtime gains `paused` and `onPause`, and the version store no longer rewrites blobs that already exist at startup.
+- Scheduled refresh batches the cards that are due on the same board into one write instead of rewriting the whole board once per card; a failed read only affects its own card.
 - On the Windows desktop the board tab strip now rides in the window's caption row: when the shell reserves that row and the strip fits, it sits at the left after the desktop menu, a size smaller than in the page with air above and below and 9999px corners, and the board starts below it. The strip now uses transitions.dev's Tabs sliding, with the pill sliding to the active tab and no tween on first paint; when it does not fit, or outside the desktop, it stays at the top of the page.
 - Provider service types now have a type-only entry (`dsh-widget-board/service`): import types with `import type`, call through the service at runtime, read the version from `service.apiVersion`, and never add `dsh.client.external` to get around the rule. The client artifact depends only on the platform seeds, and the build checks it; a duplicate native widget id is refused with the first registration kept, and a handle's data sources and actions must carry the handle's provider. Disabling or unloading a provider withdraws its widgets, data sources, actions and leftover grants, leaves its cards in place as unavailable, and restores them when it returns.
 

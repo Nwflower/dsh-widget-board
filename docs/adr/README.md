@@ -26,6 +26,7 @@
 | [D20](D20-component-box-contract.md) | 组件的盒子契约 | — |
 | [D21](D21-multiple-boards.md) | 多块看板 | — |
 | [D22](D22-card-editor.md) | 卡片设置弹窗与组槽选择 | — |
+| [D23](D23-write-budget.md) | 状态写入的预算与合并 | — |
 
 ## 作废的编号
 

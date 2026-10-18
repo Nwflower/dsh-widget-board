@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { WorkspaceSnapshot } from '@dsh-widget-board/contracts'
-import { mergeEvent, needsSnapshot } from '../src/merge'
+import { mergeEvent, mergeLayout, needsSnapshot } from '../src/merge'
 
 /** 一份两块看板的工作区：第一块两张卡，第二块一张卡。 */
 function workspace(): WorkspaceSnapshot {
@@ -56,6 +56,12 @@ describe('合并通知', () => {
     expect(next.boards[0]?.instances[0]?.state).toEqual({ day: 0 })
   })
 
+  it('状态补丁按一层合并进页面上的那一份', () => {
+    const next = mergeEvent(workspace(), { revision: 2, event: { type: 'instance', id: 'first', patch: { hour: 8 } } })
+    expect(next.boards[0]?.instances[0]?.state).toEqual({ day: 0, hour: 8 })
+    expect(next.boards[0]?.instances[0]?.data).toEqual({ n: 1 })
+  })
+
   it('props 通知只换 props', () => {
     const before = workspace()
     const next = mergeEvent(before, { revision: 2, event: { type: 'instance', id: 'first', props: { title: 'x' } } })
@@ -80,6 +86,15 @@ describe('合并通知', () => {
     expect(next.boards[1]?.layoutRevision).toBe(4)
     expect(next.boards[1]?.instances[0]?.layout).toEqual({ x: 0, y: 40, w: 2, h: 12 })
     expect(next.boards[0]).toBe(before.boards[0])
+  })
+
+  it('布局提交的答复与布局通知走同一条合并', () => {
+    const before = workspace()
+    const next = mergeLayout(before, 'first-board', 4, { first: { x: 1, y: 20, w: 1, h: 18 } })
+    expect(next.boards[0]?.layoutRevision).toBe(4)
+    expect(next.boards[0]?.instances[0]?.layout).toEqual({ x: 1, y: 20, w: 1, h: 18 })
+    expect(next.boards[0]?.instances[1]).toBe(before.boards[0]?.instances[1])
+    expect(next.boards[1]).toBe(before.boards[1])
   })
 
   it('换选中的通知只改 active', () => {

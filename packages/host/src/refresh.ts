@@ -22,6 +22,14 @@ export interface ScheduledCard {
   everyMs: number
 }
 
+/** 一次批量读取里一张卡的结果。 */
+export interface ReadOutcome {
+  /** 卡片实例的 id。 */
+  id: string
+  /** 读失败的原因；成功时缺席。 */
+  error?: unknown
+}
+
 /** 调度器的依赖。 */
 export interface SchedulerDeps {
   /** 现在有几张卡要读、各按什么间隔。 */
@@ -29,11 +37,12 @@ export interface SchedulerDeps {
   /** 现在有几个看板页在看。 */
   viewers: () => number
   /**
-   * 读一张卡。
+   * 读一批到期的卡；同一块看板的卡由实现合成一次写入（D6）。
    *
-   * @param id - 卡片实例的 id。
+   * @param ids - 这一轮到期的卡片实例 id。
+   * @returns 每张卡的结果；失败的那几张由调度器报出来。
    */
-  read: (id: string) => Promise<void>
+  read: (ids: readonly string[]) => Promise<readonly ReadOutcome[]>
   /** 出错时报一声；一张卡读不出来不影响别的卡。 */
   onError?: (id: string, error: unknown) => void
   /** 定时器工厂；测试里换成手动推进的替身。 */
@@ -89,6 +98,7 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
       return
     }
     const now = Date.now()
+    const dueIds: string[] = []
     for (const card of cards) {
       const at = due.get(card.id)
       if (at === undefined) {
@@ -98,10 +108,18 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
       if (at > now || reading.has(card.id)) continue
       due.set(card.id, now + card.everyMs)
       reading.add(card.id)
-      deps.read(card.id)
-        .catch((error: unknown) => { deps.onError?.(card.id, error) })
-        .finally(() => { reading.delete(card.id) })
+      dueIds.push(card.id)
     }
+    if (dueIds.length === 0) return
+    deps.read(dueIds).then((outcomes) => {
+      for (const outcome of outcomes) {
+        if (outcome.error !== undefined) deps.onError?.(outcome.id, outcome.error)
+      }
+    }, (error: unknown) => {
+      for (const id of dueIds) deps.onError?.(id, error)
+    }).finally(() => {
+      for (const id of dueIds) reading.delete(id)
+    })
   }
 
   const stop = (): void => {

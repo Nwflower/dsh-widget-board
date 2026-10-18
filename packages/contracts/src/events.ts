@@ -13,8 +13,8 @@ export type BoardEvent =
   | { type: 'board' }
   /** 一次布局提交落定：页面换掉这块看板的卡片盒子（D16、D21）。 */
   | { type: 'layout', board: string, layoutRevision: number, layouts: Record<string, CardLayout> }
-  /** 一张卡的状态、数据或 props 变了：页面就地合并（D5、D22）；卡片 id 全工作区唯一，所以不带看板。 */
-  | { type: 'instance', id: string, state?: unknown, data?: unknown, props?: Record<string, unknown> }
+  /** 一张卡的状态、数据或 props 变了：页面就地合并（D5、D22、D23）；卡片 id 全工作区唯一，所以不带看板。 */
+  | { type: 'instance', id: string, state?: unknown, patch?: unknown, data?: unknown, props?: Record<string, unknown> }
   /** 换了一块看板：页面把选中的标签换过去，不必重取快照（D21）。 */
   | { type: 'active', board: string }
 

@@ -6,26 +6,28 @@
 
 ## 决定
 
-- 七个工具，经 `ctx.tools.register` 注册，跟随总开关注册与撤销：
-  - `widget_catalog`：组件类型的说明、尺寸族与像素范围、props 的 JSON Schema、样例、来源与版本。
-  - `widget_define`：新建或更新组件类型（manifest、三份文件、样例），返回校验结果与自检报告。
-  - `widget_board`：看板的列出、读取、新建、改名、删除。
-  - `widget_place`：放置、移动、换尺寸族、改 props、移除实例。
-  - `widget_push`：向实例推送数据。调用最频繁、载荷小，单独一个工具。
-  - `widget_show`：把一个实例，或一次性的类型、props、data 快照，内联显示在当前会话。
-  - `widget_library`：导出、导入、复制、回退、删除、检查更新（D8）。
-- 所有工具只调用同一个宿主服务，不复制业务规则；领域上的拒绝以 `{ ok: false, code, message }` 的值返回，模型可以自行改正。工具描述是面向模型的英文。
-- `widget_define` 与 `widget_show` 在 `tool.call.toolview` 上注册视图，会话里显示活的组件。`widget_show` 的结果记录组件哈希与数据快照，会话重新打开后照样能画。
-- 自检：`widget_define` 把组件存为草稿，请在线的客户端在隐藏的画廊里按每个尺寸族的最小与最大像素各渲染一次，收集脚本错误、CSP 违规（`securitypolicyviolation`）、溢出（`scrollWidth > clientWidth` 或高度同理）与空白渲染，交回工具结果。没有客户端在线时，结果明确标为 `unverified`。自检与持续集成的尺寸矩阵调用同一个检查器（D13）。
-- 编写指南是经 `ctx.skills.register` 注册的虚拟 skill `widget-authoring`：格式、运行时接口、令牌与动效原语、尺寸族与像素范围、样例组件；模型按需加载。
-- 系统提示只有一小段说明插件与工具的存在，并且只在至少一个工具对当前会话可见时出现。
-- 卡片运行出错时显示故障与「交给 agent 修复」，把故障报告、组件文件与样例发进一个会话。
+- 六个工具，经 `ctx.tools.register` 注册，跟随总开关注册与撤销。**已实现**：
+  - `widget_catalog`：组件类型的说明、尺寸族、props 与 data 的 JSON Schema、来源、提供方与当前版本的哈希；读不出来的目录也列出来并写明原因。
+  - `widget_define`：新建或更新组件类型（manifest 与整个目录的文件），返回内容哈希与说明。
+  - `widget_board`：读看板上现在有哪些卡片（组件、props、data、state 与盒子）。
+  - `widget_place`：放一张新卡，或改一张已有卡的位置、大小、props 与数据源。
+  - `widget_remove`：移除一张卡（组卡按组移除）。
+  - `widget_push`：向一张卡推送数据。调用最频繁、载荷小，单独一个工具。
+- **还没有的**：`widget_show`（把实例或一次性快照内联显示在当前会话）与 `widget_library`（导出、导入、复制、回退、删除、检查更新，D8）。两者都要等内联渲染与分享导入就位。
+- 工具的参数是给模型看的 JSON Schema，执行体自己校验输入（直接注册，不经 `defineTool`——本仓库构建时拿不到 `@deepseek-ai/dsh-tools`，那一包由宿主进程提供）。领域上的拒绝抛出并带上原因，宿主把它收敛成 `isError`；工具描述是面向模型的英文。
+- 注册经 `ctx.inject(['tools'], …)`：cordis 只允许读声明过的服务，直接读未声明的属性会抛。`systemPrompt` 与 `skills` 各自等自己的服务，任何一个缺席都不影响工具本身（D1、D11）。
+- 编写指南是经 `ctx.skills.register` 注册的虚拟 skill `widget-authoring`：目录格式、manifest 的字段、`window.widget` 的接口、盒子契约（两个方向的档位）、令牌与套件原语、以及几个容易踩空的地方；模型按需加载。
+- 系统提示只有一小段说明插件与工具的存在，并且只在工具可见时出现。
+- **还没有的**：`widget_define` 的自检（草稿、在线客户端的隐藏画廊、脚本错误与溢出的报告、无客户端时标 `unverified`），以及 `widget_define` 与 `widget_show` 在 `tool.call.toolview` 上的视图。自检要与持续集成的尺寸矩阵共用同一个检查器（D13），而那个检查器现在住在 `packages/testing/matrix.cjs` 里、由 Playwright 驱动，还不能被宿主调用。
+- **还没有的**：卡片出错时显示「交给 agent 修复」并把故障报告发进一个会话。
 
 ## 后果
 
 - 自检依赖在线的客户端；纯无界面的宿主上，agent 拿到的是未验证的结果。
-- 工具数量固定为七个，新能力优先作为已有工具的动作加入，避免工具表膨胀。
+- 工具数量固定为六个（加上还没有的两个共八个），新能力优先作为已有工具的动作加入，避免工具表膨胀。
 - 运行与刷新会消耗用户的额度与本机资源，相关动作的批准规则见 D6。
+- agent 写出的组件与用户自己写的落在同一个目录里、走同一份校验；一个组件要动外部世界仍然要人给出授权（D6）。
+- 冒烟只能核对「工具在真实宿主里注册上了」（宿主自己的输出是唯一看得见它的地方）；工具的行为由 `packages/host/test/tools.test.ts` 盯着。真正的端到端（会话里让模型写一个组件）要有人在场，不属于冒烟。
 
 ## 重审条件
 

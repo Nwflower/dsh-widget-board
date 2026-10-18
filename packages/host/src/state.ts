@@ -305,6 +305,46 @@ export function withInstanceRemoved(board: Board, id: string): Board {
 }
 
 /**
+ * 改一张已有的卡：盒子、props、数据源与数据（D9、D16）。
+ *
+ * 只改给出的那几项，其余保持原样。给了盒子时抬到组件的最小盒子；卡片属于一个组时，盒子写给整组
+ * （D19）。`source` 给成空串表示解绑数据源。
+ *
+ * @param board - 当前看板。
+ * @param id - 卡片实例的 id。
+ * @param patch - 要改的那几项。
+ * @param minBoxOf - 按组件 id 取最小盒子；省略时不执行下限。
+ * @returns 改过之后的看板。
+ * @throws {Error} 看板上没有这张卡。
+ */
+export function withInstancePatched(
+  board: Board,
+  id: string,
+  patch: { layout?: Partial<CardLayout>, props?: Record<string, unknown>, source?: string, data?: unknown },
+  minBoxOf?: (widget: string) => WidgetMinBox | undefined,
+): Board {
+  const index = indexOf(board, id)
+  const current = board.instances[index] as BoardInstance
+  const layout = patch.layout === undefined ? undefined : clampCardLayout({ ...current.layout, ...patch.layout }, minBoxOf?.(current.widget))
+  const next: BoardInstance = {
+    ...current,
+    ...(patch.props === undefined ? {} : { props: patch.props }),
+    ...(patch.data === undefined ? {} : { data: patch.data }),
+  }
+  if (patch.source !== undefined) {
+    if (patch.source === '') delete next.source
+    else next.source = patch.source
+  }
+  const instances = board.instances.map((instance) => {
+    if (layout === undefined) return instance.id === id ? next : instance
+    // 组卡的两张卡共用同一个盒子：改一侧就是改整组（D19）。
+    if (current.group !== undefined && instance.group?.id === current.group.id) return { ...instance, layout }
+    return instance.id === id ? { ...next, layout } : instance
+  })
+  return { ...board, instances }
+}
+
+/**
  * 往看板上加一张固定的翻面组（D19）：正面一张卡、背面一张卡，共用一个组 id 与同一个盒子。
  *
  * 两张卡都是普通卡片，各自有 props、data、state 和实例路由；组只多一层标记，不在组件库里占一个

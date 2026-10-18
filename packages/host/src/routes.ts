@@ -26,6 +26,7 @@ import type {
   InstanceFace,
   InstanceStateRequest,
   WidgetLibraryEntry,
+  WidgetRoot,
 } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
@@ -33,7 +34,7 @@ import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import type { GrantStore } from './grants'
 import { requireGrant, type GrantFacts } from './permissions'
 import type { Live } from './live'
-import type { WidgetRecord } from './library'
+import type { LibraryLoad, WidgetRecord } from './library'
 import { dataError } from './schema'
 import type { Registries } from './sources'
 import { isCardLayout } from '@dsh-widget-board/model'
@@ -61,6 +62,10 @@ export interface RouteContext {
   records: Map<string, WidgetRecord>
   /** 给界面的全部组件类型，含读不出来的那些（D17）。 */
   entries: WidgetLibraryEntry[]
+  /** 组件库这一轮读出来的全部结果：错误与来源也在里面（D17、D9）。 */
+  library: LibraryLoad
+  /** 组件来源表：写新组件时按它找用户目录（D9、D17）。 */
+  roots: readonly WidgetRoot[]
   /** 出现过的版本，按内容哈希取（D7）。 */
   versions: VersionStore
   board: Board

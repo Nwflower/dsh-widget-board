@@ -11,6 +11,7 @@
 <h3 id="cn-unreleased">新增功能</h3>
 
 - 组件可以调 `widget.notify({ title, body })` 发起通知：侧栏的看板入口右上角滑入未读条数，悬停读到最近一条的标题与正文，点一下看板入口之后清零；番茄钟到点会自己发一条。
+- 会话里的 agent 现在能用六个工具读写看板：列组件（widget_catalog）、写或改一个组件（widget_define）、读看板上的卡片（widget_board）、放卡或改卡（widget_place）、移除卡（widget_remove）、推数据（widget_push）。工具跟着总开关出现与撤下，并带一条虚拟 skill「widget-authoring」，写组件的格式、运行时接口与盒子契约都在里面。
 
 ### 体验优化
 
@@ -33,6 +34,7 @@
 <h3 id="en-unreleased">New Features</h3>
 
 - Widgets can call `widget.notify({ title, body })` to raise a notification: the Board entry in the sidebar slides in the unread count, hovering reads the latest title and body, clicking the entry clears it, and the pomodoro raises one when its session ends.
+- An agent in a session can now read and write the board with six tools: list widgets (widget_catalog), write or replace a widget (widget_define), read the cards on the board (widget_board), place or change a card (widget_place), remove a card (widget_remove), and push data (widget_push). The tools follow the master switch, and a virtual skill named widget-authoring carries the widget format, runtime interface and box contract.
 
 ### Improvements
 

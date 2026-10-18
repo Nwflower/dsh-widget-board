@@ -700,6 +700,14 @@ async function reducedPass(page) {
 }
 
 start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
+  // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
+  // 在地址打印之后，所以等一会儿再看。
+  let log = host.log()
+  for (let attempt = 0; attempt < 40 && !log.includes('widget-board:'); attempt += 1) {
+    await sleep(500)
+    log = host.log()
+  }
+  check('宿主里注册了面向会话的工具', log.includes('widget-board: 注册了 widget_catalog'), log.split('\n').filter((line) => line.includes('widget-board')).join(' / '))
   let opened
   try {
     opened = await openPage(host.url)

@@ -30,6 +30,8 @@ import type { RouteContext } from './routes'
 import { createHandler } from './routes'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
+import { createToolContext, registerTools } from './tools'
+import type { ToolRegistration } from './tools'
 import { StaleRevisionError, loadBoard, withLayouts, writeBoard } from './state'
 import { watchTree } from './watch'
 import { dshHome } from './home'
@@ -132,6 +134,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const context: RouteContext = {
     records: library.records,
     entries: library.entries,
+    library,
+    roots,
     versions,
     board: await loadBoard(boardFile, library.records),
     save,
@@ -152,6 +156,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       library = next
       context.records = next.records
       context.entries = next.entries
+      context.library = next
       // 组件的 minBox 可能在这一版里变了：低于新下限的卡片抬上来，页面按新的盒子重取一次。
       const minBoxOf = (widget: string): WidgetMinBox | undefined => next.records.get(widget)?.manifest.minBox
       if (withLayouts(context.board, minBoxOf).changed) {
@@ -232,6 +237,24 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide
   if (typeof provide === 'function') provide.call(ctx, WIDGET_BOARD_SERVICE_NAME, service)
 
+  // 面向会话的工具与 skill（D9）：只在宿主有工具注册表、且这一行开着时出现。注册与撤销跟着总开关
+  // 走——关掉看板之后，会话里也不该再看见这几个工具。
+  const toolContext = createToolContext(context, save, reload)
+  let tools: ToolRegistration | undefined
+  const syncTools = (): void => {
+    if (enabled && tools === undefined) {
+      tools = registerTools(ctx, toolContext, (names) => {
+        console.log(`widget-board: 注册了 ${names.join('、')}`)
+      })
+      return
+    }
+    if (!enabled && tools !== undefined) {
+      tools.dispose()
+      tools = undefined
+    }
+  }
+  syncTools()
+
   // 可热改的字段由加载器提交进这一行的引用，提交时发这个事件；事件名属于加载器，不在本插件的
   // 类型依赖里，所以按名字订阅一次。
   const onEvent = (ctx as { on?: (event: string, listener: () => void) => unknown }).on
@@ -239,11 +262,13 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     const next = readConfigField(config.enabled, true)
     if (next === enabled) return
     enabled = next
+    syncTools()
     // 关掉时长连接一并收掉：页面不该停在一条不再有消息的连接上（D18）。
     if (!enabled) live.close()
   })
 
   ctx.effect(() => () => {
+    tools?.dispose()
     stopBuiltin()
     stopUser()
     providers.disposeAll()

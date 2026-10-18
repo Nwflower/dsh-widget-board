@@ -129,9 +129,6 @@ const COPY = {
   keepEditing: { zh: '继续编辑', en: 'Keep editing' },
   groupWidgetMissing: { zh: '组件不在库里', en: 'Widget is missing' },
   // 会话里的工具视图（D9）。
-  showSnapshot: { zh: '会话里的快照 · 只读', en: 'Inline snapshot · read-only' },
-  showMissing: { zh: '这次显示的版本取不回来了', en: 'The version shown here is no longer available' },
-  showName: { zh: '显示组件', en: 'Show widget' },
   checkTitle: { zh: '自检', en: 'Self-check' },
   checkPassed: { zh: '排版正常', en: 'Layout fine' },
   checkFailed: { zh: '有问题', en: 'Problems' },
@@ -140,6 +137,12 @@ const COPY = {
   checkRunning: { zh: '正在量盒子…', en: 'Measuring boxes…' },
   checkFinished: { zh: '自检做完了', en: 'Self-check done' },
   defineName: { zh: '写组件', en: 'Define widget' },
+  inlinePreparing: { zh: '组件正在准备…', en: 'Preparing the widget…' },
+  inlineEmpty: { zh: '这次调用没有可显示的组件', en: 'This call has no widget to show' },
+  inlineDetached: {
+    zh: '这是一次性预览，动作没有去处；把它放上看板之后就能按。',
+    en: 'This is a one-off preview, so actions have nowhere to go; place it on the board to use them.',
+  },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

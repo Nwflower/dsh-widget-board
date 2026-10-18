@@ -3,6 +3,6 @@
   "order": 0,
   "at": "2026-10-18",
   "external": false,
-  "zh": "会话里直接看得见组件：新增 widget_show 工具，widget_define 与 widget_show 的结果在会话正文里画出组件（只读快照，按当时的版本哈希重画）。widget_define 带自检：调用进行中由看得到这个会话的页面把新组件放进代表性盒子，用组件运行时里的检查器量一遍，结论写进工具结果；没有页面接手时标 unverified。检查器只剩一份，尺寸矩阵也改用它的判定（新增文字与控件被纵向截掉的判据），并且铺满组件库里每个组件。",
-  "en": "Widgets now render inside the conversation: a new widget_show tool, and the results of widget_define and widget_show draw the widget inline (a read-only snapshot pinned to the version hash, redrawn the same way when the session reopens). widget_define is self-checked: while the call runs, a page showing the session puts the new widget into representative boxes and measures it with the inspector in the widget runtime; the verdict lands in the tool result, and no page means unverified. The inspector now exists once: the size matrix uses its judgement too (with vertical text and control clipping added) and covers every widget in the library."
+  "zh": "widget_define 带自检：调用进行中由看得到这个会话的页面把新组件放进代表性盒子，用组件运行时里的检查器量一遍，结论写进工具结果；没有页面接手时标 unverified。widget_define 的结果在会话正文里画出结论、问题与预览，会话重新打开时按同一份重画。检查器只剩一份，尺寸矩阵也改用它的判定（新增文字与控件被纵向截掉的判据），并且铺满组件库里每个组件。",
+  "en": "widget_define is self-checked: while the call runs, a page showing the session puts the new widget into representative boxes and measures it with the inspector in the widget runtime; the verdict lands in the tool result, and no page means unverified. The widget_define result shows the verdict, the problems and a preview inline in the conversation, redrawn the same way when the session reopens. The inspector now exists once: the size matrix uses its judgement too (with vertical text and control clipping added) and covers every widget in the library."
 }

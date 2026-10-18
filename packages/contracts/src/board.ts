@@ -106,7 +106,7 @@ export interface WidgetSummary {
 export interface WorkspaceSnapshot {
   /** 当前选中的看板 id（D21）。 */
   active: string
-  /** 全部看板，按索引里的次序；每一块的卡片同时挂载（D21）。 */
+  /** 全部看板，按索引里的次序；页面只挂当前看板（D21）。 */
   boards: Board[]
   /** 卡片要用的组件元信息，按组件 id 索引；不可用的类型不在其中。 */
   widgets: Record<string, WidgetSummary>

@@ -5,7 +5,7 @@
  * 所以这套样式只负责网格与配色，不写死列数。
  */
 .heatmap-card__body {
-  gap: 12px;
+  gap: var(--w-space-md, 12px);
   justify-content: center;
 }
 
@@ -78,8 +78,8 @@
 .heatmap-card__caption {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
   overflow-wrap: anywhere;
 }
 
@@ -92,10 +92,9 @@
 
 .heatmap-card__legend-label {
   color: var(--w-color-muted, #6b7684);
-  font-family: var(--t-mono);
-  font-size: 8px;
-  letter-spacing: 0.04em;
-  line-height: 10px;
+  font-size: var(--w-type-caption, 12px);
+  letter-spacing: 0;
+  line-height: 16px;
 }
 
 .heatmap-card__swatch {
@@ -105,10 +104,10 @@
 }
 
 @media (max-width: 320px) {
-  .heatmap-card__body { gap: 9px; }
+  .heatmap-card__body { gap: var(--w-space-sm, 8px); }
   .heatmap-card__grid { gap: 2px; }
   .heatmap-card__week { gap: 2px; }
-  .heatmap-card__caption { font-size: 10px; line-height: 14px; }
+  .heatmap-card__caption { font-size: var(--w-type-caption, 12px); line-height: 18px; }
 }
 
 @media (max-height: 260px) {

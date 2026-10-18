@@ -1,31 +1,68 @@
 /**
- * `widget_show`：把一张卡、或一份一次性的 props 与 data，画进当前会话（D9）。
+ * `widget_show`：把一个组件内联显示在当前会话的回答里（D9）。
  *
- * 工具本身不画东西：它定下要画的版本（内容哈希）与那一刻的 props、data、state，交给会话里的工具
- * 视图。这一份随工具结果存进会话日志，会话重新打开时视图按同一个哈希从版本库取回当时的组件文档
- * （D7），画出来的就是当时的样子。会话里的画面是只读的快照：组件写的状态不回到看板。
+ * 两条路径。给 `id` 时显示看板上已有的那一张：状态写回卡片，动作经卡片的路由执行，读者在会话里
+ * 看到的就是看板上的那一张。给 `widget` 时按组件与 props 起一份一次性快照：它不在任何看板上，不
+ * 写看板，状态只留在页面上，动作没有去处。两条路径都不改看板。
+ *
+ * 返回值同时是客户端工具视图的载荷（`WidgetToolSpec.view`）：视图只按它画，不再回读宿主。
  */
-import type { ShowValue, WidgetToolSpec } from '@dsh-widget-board/contracts'
-import { WIDGET_TOOL_NAMES, ToolRefusal, withinLimit } from '@dsh-widget-board/contracts'
-import { DEFAULT_HEIGHT_REM, snapCardHeight } from '@dsh-widget-board/model'
+import { randomUUID } from 'node:crypto'
+import type { BoardInstance, ShowValue, WidgetFamily, WidgetToolSpec } from '@dsh-widget-board/contracts'
+import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import { isRecord } from '../guards'
+import type { WidgetRecord } from '../library'
+import { widgetSummaryOf } from '../snapshot'
 import type { ToolContext } from './index'
 
+/** 没点名尺寸族时按这个次序挑一个组件声明过的：内联盒子偏大，够排得下就用大的。 */
+const FAMILY_ORDER: readonly WidgetFamily[] = ['xl', 'wide', 'l', 'm', 's']
+
 /**
- * 把模型给的高度收进看板的高度档位（D16）。
+ * 一个组件在内联显示时用哪个尺寸族（D16）。
  *
- * @param value - 模型给的高度（rem）。
- * @param fallback - 没给时用的高度。
- * @returns 一个档位上的高度。
+ * @param record - 组件记录。
+ * @param wanted - 调用方点名的族；省略时按 `FAMILY_ORDER` 挑。
+ * @returns 组件声明过的一个族。
+ * @throws {ToolRefusal} 点名的族不在 manifest 的 `sizes` 里。
  */
-function heightOf(value: unknown, fallback: number): number {
-  if (value === undefined) return snapCardHeight(fallback)
-  if (typeof value !== 'number' || !Number.isFinite(value)) throw new ToolRefusal('height 要是一个数（rem）')
-  return snapCardHeight(value)
+function familyOf(record: WidgetRecord, wanted: unknown): WidgetFamily {
+  const sizes = record.manifest.sizes
+  if (wanted !== undefined) {
+    if (typeof wanted !== 'string') throw new ToolRefusal('size 要是一个字符串')
+    if (!(sizes as readonly string[]).includes(wanted)) {
+      throw new ToolRefusal(`${record.manifest.id} 没有 ${wanted} 这个尺寸族；它声明的是 ${sizes.join('、')}`)
+    }
+    return wanted as WidgetFamily
+  }
+  const picked = FAMILY_ORDER.find((family) => (sizes as readonly string[]).includes(family))
+  return picked ?? sizes[0] ?? 's'
 }
 
 /**
- * `widget_show`：在会话里画出一个组件。
+ * 一次性快照的那张卡：id 由宿主起，不在任何看板上。
+ *
+ * @param record - 组件记录。
+ * @param props - 已经校验过的 props。
+ * @param data - 已经校验过的数据；没有数据源也没有给数据时是 `null`。
+ * @param source - 卡片绑定的数据源名。
+ * @returns 视图要画的那一份。
+ */
+function snapshotOf(record: WidgetRecord, props: Record<string, unknown>, data: unknown, source: string | undefined): BoardInstance {
+  return {
+    id: `inline-${randomUUID()}`,
+    widget: record.manifest.id,
+    hash: record.hash,
+    ...(source === undefined ? {} : { source }),
+    props,
+    data,
+    state: null,
+    layout: { x: 0, y: 0, w: 1, h: record.manifest.defaultBox?.h ?? 10 },
+  }
+}
+
+/**
+ * `widget_show`：把看板上的一张卡或一份一次性快照内联显示在回答里。
  *
  * @param context - 工具要动的那些东西。
  * @returns 工具的注册项。
@@ -33,74 +70,86 @@ function heightOf(value: unknown, fallback: number): number {
 export function showTool(context: ToolContext): WidgetToolSpec {
   return {
     name: WIDGET_TOOL_NAMES.show,
-    description: 'Render a widget inline in this conversation. Pass `card` to show a board card as it is right now, or `widget` with optional `props` and `data` to show a one-off snapshot without touching any board. The inline view is a read-only snapshot pinned to the current widget version, so it still renders the same way when the conversation is reopened.',
+    description: 'Show a widget inline in this conversation, in the answer itself. Pass `id` for a card that is already on the board (its state and actions keep working); pass `widget` with optional `props` and `data` for a one-off snapshot that touches no board and keeps its state only on the page. Call widget_catalog first for the widget id and its props/data JSON Schema.',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
-        card: { type: 'string', description: 'Id of a board card (from widget_board). Shows its props, data and state as they are now.' },
-        widget: { type: 'string', description: 'Widget id from widget_catalog, for a one-off snapshot. Ignored when `card` is given.' },
-        props: { type: 'object', description: 'Props for the snapshot; must match the widget props schema.' },
-        data: { description: 'Data for the snapshot; must match the widget data schema.' },
-        height: { type: 'number', description: 'Height in rem, snapped to the board height steps (6 to 30). Defaults to the card height or the widget default box.' },
+        id: { type: 'string', description: 'Card instance id from widget_board; the inline view shares that card.' },
+        widget: { type: 'string', description: 'Widget type id from widget_catalog, for a one-off snapshot.' },
+        props: { type: 'object', description: 'Props for the snapshot; validated against the widget props schema.' },
+        data: { description: 'Data for the snapshot; validated against the widget data schema. Omit to read the widget\'s declared data source once.' },
+        size: { type: 'string', description: 'Which declared size family to lay the inline box out in; defaults to the largest the widget declares.' },
       },
     },
     async execute(args) {
-      const wanted = (isRecord(args) ? args : {}) as { card?: unknown, widget?: unknown, props?: unknown, data?: unknown, height?: unknown }
-      let value: ShowValue
-      if (typeof wanted.card === 'string' && wanted.card !== '') {
-        const found = context.route.workspace.findInstance(wanted.card)
-        if (found === undefined) throw new ToolRefusal(`看板上没有这张卡：${wanted.card}`)
-        const { instance } = found
+      if (!isRecord(args)) throw new ToolRefusal('widget_show 要一个对象参数')
+      const wanted = args as { id?: unknown, widget?: unknown, props?: unknown, data?: unknown, size?: unknown }
+      const id = typeof wanted.id === 'string' && wanted.id !== '' ? wanted.id : undefined
+      const widget = typeof wanted.widget === 'string' && wanted.widget !== '' ? wanted.widget : undefined
+      if (id === undefined && widget === undefined) throw new ToolRefusal('widget_show 要写明 id（看板上的卡）或 widget（一次性快照）')
+      if (id !== undefined && widget !== undefined) throw new ToolRefusal('widget_show 的 id 与 widget 只能给一个')
+      if (wanted.props !== undefined && !isRecord(wanted.props)) throw new ToolRefusal('props 要是一个对象')
+
+      if (id !== undefined) {
+        const found = context.route.workspace.findInstance(id)
+        if (found === undefined) throw new ToolRefusal(`看板上没有这张卡：${id}`)
+        const instance = found.instance
         const record = context.route.records.get(instance.widget)
-        if (record === undefined) throw new ToolRefusal(`卡片 ${instance.id} 的组件 ${instance.widget} 现在不在组件库里，画不出来`)
-        value = {
+        if (record === undefined) throw new ToolRefusal(`卡片 ${id} 的组件 ${instance.widget} 不在组件库里，显示不了`)
+        return {
+          id: instance.id,
           widget: instance.widget,
-          title: record.manifest.title,
+          // 卡片可能钉在旧版本上：显示卡片自己那一份，不跟着组件库换。
           hash: instance.hash,
+          ...(instance.source === undefined ? {} : { source: instance.source }),
           props: instance.props,
-          data: instance.data ?? null,
-          state: instance.state ?? null,
-          height: heightOf(wanted.height, instance.layout.h),
-          card: instance.id,
-        }
-      } else {
-        if (typeof wanted.widget !== 'string' || wanted.widget === '') throw new ToolRefusal('widget_show 要写明 card，或写明 widget')
-        const record = context.route.records.get(wanted.widget)
-        if (record === undefined) throw new ToolRefusal(`组件库里没有可用的组件 ${wanted.widget}，先用 widget_catalog 看有哪些`)
-        if (wanted.props !== undefined && !isRecord(wanted.props)) throw new ToolRefusal('props 要是一个对象')
-        const props = (wanted.props ?? {}) as Record<string, unknown>
-        const propsProblem = context.propsError(record.manifest.props, props)
-        if (propsProblem !== undefined) throw new ToolRefusal(`props 与 ${wanted.widget} 的 props schema 不符：${propsProblem}`)
-        const data = wanted.data ?? null
-        if (wanted.data !== undefined) {
-          const dataProblem = context.dataError(record.manifest.data, data)
-          if (dataProblem !== undefined) throw new ToolRefusal(`数据与 ${wanted.widget} 的 data schema 不符：${dataProblem}`)
-        }
-        value = {
-          widget: wanted.widget,
-          title: record.manifest.title,
-          hash: record.hash,
-          props,
-          data,
-          state: null,
-          height: heightOf(wanted.height, record.manifest.defaultBox?.h ?? DEFAULT_HEIGHT_REM),
-        }
+          data: instance.data,
+          state: instance.state,
+          family: familyOf(record, wanted.size),
+          summary: { ...widgetSummaryOf(record), hash: instance.hash },
+          board: { id: found.board.id, title: found.board.title },
+        } satisfies ShowValue
       }
-      // 视图握手时把这一份整个递进组件，超过桥的长度上限就画不出来（D3）。
-      if (!withinLimit(value)) throw new ToolRefusal('要画的 props、data 与 state 合起来超过 64 KiB；只给会话里要看的那部分')
+
+      const record = context.route.records.get(widget as string)
+      if (record === undefined) throw new ToolRefusal(`组件库里没有可用的组件 ${String(widget)}，先用 widget_catalog 看有哪些`)
+      if (wanted.props !== undefined) {
+        const problem = context.propsError(record.manifest.props, wanted.props)
+        if (problem !== undefined) throw new ToolRefusal(problem)
+      }
+      const source = record.manifest.source
+      let data: unknown = null
+      if (wanted.data !== undefined) {
+        const problem = context.dataError(record.manifest.data, wanted.data)
+        if (problem !== undefined) throw new ToolRefusal(`数据与 ${record.manifest.id} 的 data schema 不符：${problem}`)
+        data = wanted.data
+      } else if (source !== undefined) {
+        const face = { id: 'inline', widget: record.manifest.id, props: (wanted.props ?? {}) as Record<string, unknown> }
+        data = await context.readSource(source, face)
+        const problem = context.dataError(record.manifest.data, data)
+        if (problem !== undefined) throw new ToolRefusal(`数据源 ${source} 返回的数据与 ${record.manifest.id} 的 data schema 不符：${problem}`)
+      }
+      const instance = snapshotOf(record, (wanted.props ?? {}) as Record<string, unknown>, data, source)
+      return {
+        ...instance,
+        family: familyOf(record, wanted.size),
+        summary: widgetSummaryOf(record),
+      } satisfies ShowValue
+    },
+    view(value) {
       return value
     },
     render(value) {
       const shown = value as ShowValue
-      const origin = shown.card === undefined ? '一次性快照' : `看板上的卡片 ${shown.card}`
+      const title = shown.summary.title.zh
+      const where = shown.board === undefined
+        ? '这是一份一次性快照，不在看板上；状态只留在页面上'
+        : `它同时是看板「${shown.board.title}」上的卡片 ${shown.id}，状态与动作双向同步`
       return [{
         type: 'text',
-        text: `在会话里画出了 ${shown.widget}（${shown.title.zh}，${origin}，版本哈希 ${shown.hash.slice(0, 12)}，高 ${String(shown.height)}rem）。这是只读的快照，组件写的状态不会回到看板。`,
+        text: `组件 ${shown.widget}（${title}）以 ${shown.family} 尺寸内联显示在回答里；${where}。`,
       }]
-    },
-    meta(value) {
-      return value
     },
   }
 }

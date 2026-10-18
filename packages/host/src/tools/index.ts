@@ -133,7 +133,7 @@ export function createToolContext(
 /** 注册给模型看的那一段系统提示。 */
 const PROMPT_SECTION = [
   '这个部署装着一个组件看板：一页可以拖动、缩放的卡片，每张卡片是一个沙箱里的小组件。',
-  `要写一个新组件、或把看板上的卡片改一改时，先加载 \`${WIDGET_SKILL_NAME}\` 这条 skill，再用 ${WIDGET_TOOL_NAMES.catalog} 看现有的组件、用 ${WIDGET_TOOL_NAMES.define} 写新的、用 ${WIDGET_TOOL_NAMES.place} 放到看板上。`,
+  `要写一个新组件、或把看板上的卡片改一改时，先加载 \`${WIDGET_SKILL_NAME}\` 这条 skill，再用 ${WIDGET_TOOL_NAMES.catalog} 看现有的组件、用 ${WIDGET_TOOL_NAMES.define} 写新的、用 ${WIDGET_TOOL_NAMES.place} 放到看板上。想让读者当场看到组件，用 ${WIDGET_TOOL_NAMES.show} 把它内联显示在回答里。`,
   '组件的代码在沙箱里跑，拿不到网络与 cookie；要数据就声明一个数据源，要动手就声明一个动作，两者都由宿主上的插件提供。',
 ].join('\n')
 
@@ -154,21 +154,18 @@ const SKILL = {
  * @returns 工具的注册项。
  */
 export function toolRegistrations(context: ToolContext): WidgetToolRegistration[] {
-  return toolSpecs(context).map((spec) => {
-    const meta = spec.meta
-    return {
-      name: spec.name,
-      description: spec.description,
-      parameters: spec.parameters,
-      output: {
-        schema: {},
-        render: (_args, value) => spec.render(value),
-        // 有视图的工具才写会话日志里的那一份；没有视图的工具不占日志（D9）。
-        ...(meta === undefined ? {} : { presentationMeta: (_args: unknown, value: unknown) => meta(value) }),
-      },
-      execute: async (args, exec) => await spec.execute(args, { callId: exec.callId, signal: exec.signal }),
-    }
-  })
+  return toolSpecs(context).map((spec) => ({
+    name: spec.name,
+    description: spec.description,
+    parameters: spec.parameters,
+    output: {
+      schema: {},
+      render: (_args, value) => spec.render(value),
+      // 带视图的工具把返回值投影成客户端要的载荷；宿主把它存进这次结果的 meta（D9）。
+      ...(spec.view === undefined ? {} : { presentationMeta: (_args: unknown, value: unknown) => spec.view?.(value) }),
+    },
+    execute: async (args, exec) => await spec.execute(args, { callId: exec.callId, signal: exec.signal }),
+  }))
 }
 
 /**
@@ -181,10 +178,10 @@ export function toolSpecs(context: ToolContext): WidgetToolSpec[] {
   return [
     catalogTool(context),
     defineTool(context),
+    showTool(context),
     boardTool(context),
     placeTool(context),
     removeTool(context),
     pushTool(context),
-    showTool(context),
   ]
 }

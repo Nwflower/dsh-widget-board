@@ -39,11 +39,11 @@ const MY_BOARD: readonly MyBoardEntry[] = [
   { widget: 'weather', layout: { x: 2, y: 0, w: 1, h: 18 } },
   { widget: 'pomodoro', layout: { x: 0, y: 20, w: 1, h: 14 } },
   { widget: 'todo', layout: { x: 1, y: 20, w: 1, h: 14 } },
-  { widget: 'calendar', layout: { x: 2, y: 20, w: 1, h: 14 } },
+  { widget: 'clock', layout: { x: 2, y: 20, w: 1, h: 14 } },
   { group: { front: 'stat', back: 'chart' }, layout: { x: 0, y: 36, w: 1, h: 14 } },
   { widget: 'diff', layout: { x: 1, y: 36, w: 1, h: 14 } },
   { widget: 'dsh-balance', layout: { x: 2, y: 36, w: 1, h: 14 } },
-  { widget: 'clock', layout: { x: 3, y: 0, w: 1, h: 18 } },
+  { widget: 'calendar', layout: { x: 3, y: 0, w: 1, h: 18 } },
   { widget: 'heatmap', layout: { x: 3, y: 20, w: 1, h: 14 } },
 ]
 
@@ -52,8 +52,8 @@ const GALLERY_COLUMNS = 3
 
 /** 画廊的类别，按显示的先后；每个类别里的组件也按这里的先后，相邻的几个正好排满一行。 */
 const GALLERY_CATEGORIES: readonly { title: string, widgets: readonly string[] }[] = [
-  { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'diff', 'dsh-balance'] },
-  { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'weather', 'pomodoro', 'todo'] },
+  { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance'] },
+  { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'year-progress', 'weather', 'pomodoro', 'todo', 'links'] },
   { title: '动效模板', widgets: ['flip-card', 'holographic-card', 'magnetic-card'] },
 ]
 

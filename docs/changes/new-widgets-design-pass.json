@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 20,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "月历、翻页时钟、改动、表盘与热力图跟上数据卡的标题区与盒子：编号 kicker 与全大写等宽微标签默认不再出现，右上信息改成条数、周数或行数，状态色读套件的 --w-tone-*；日历的翻月与今天按钮放大到 32px，热力图图例与说明提到 12px；每张卡补了与内容量相称的 defaultBox 与 minBox。",
+  "en": "Calendar, flip clock, diff, gauge and heatmap join the data-card header and box system: numbered kickers and uppercase mono micro-labels are gone by default, the top-right fact is now a count of events, weeks or lines, and status colors read the suite's --w-tone-* variables. Calendar's month controls grow to 32px, the heatmap legend and caption move to 12px, and each card declares a defaultBox and minBox suited to its content."
+}

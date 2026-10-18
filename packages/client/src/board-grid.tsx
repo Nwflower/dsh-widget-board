@@ -408,7 +408,6 @@ export function BoardGrid({
                   // 组卡总有槽条可换，不跟着某一面的 props 走（D22）。
                   onSettings={(button: HTMLButtonElement) => { onSettings('group', card.id, button) }}
                   onRemoveGroup={() => onRemoveGroup(card.id)}
-                  pausedByBoard={!active}
                   controls={controls}
                   onDragStart={beginDrag}
                   onDragMove={moveDrag}
@@ -456,7 +455,6 @@ export function BoardGrid({
                   ? { onSettings: (button: HTMLButtonElement) => { onSettings('instance', instance.id, button) } }
                   : {})}
                 onRemove={onRemove}
-                pausedByBoard={!active}
                 controls={controls}
                 onDragStart={beginDrag}
                 onDragMove={moveDrag}

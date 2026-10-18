@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 24,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "会话里的 agent 多了一个工具 widget_show：把一个组件内联显示在回答里，不必切到看板。给 id 时显示看板上已有的那张卡，状态与动作双向同步；给 widget 与 props 时画一份一次性快照，它不在看板上，状态只留在页面上。视图按线上工具名注册在 tool.call.toolview 上，这次调用的载荷由工具经 presentationMeta 投影进结果的 meta，视图只读它。",
+  "en": "A session agent gains widget_show: it draws a widget inline in the answer itself, with no panel switch. Passing an id shows that card from the board, sharing state and actions both ways; passing a widget with props draws a one-off snapshot that is on no board and keeps its state only on the page. The view registers on tool.call.toolview by wire tool name, and the tool projects this call's payload into the result meta through presentationMeta, which is all the view reads."
+}

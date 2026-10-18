@@ -21,6 +21,22 @@ export const MAIN_SLOT = 'main'
  */
 export const SETTINGS_SECTION_SLOT = 'settings.section'
 
+/**
+ * 会话里一次工具调用的视图（D9）：按线上工具名分派，任何名字都能注册。
+ *
+ * 注册已占用的键会替换原先的视图；没注册的那些用具名工具行。视图收到的 owner 属性带
+ * `callId`、`toolName` 与按阶段区分的 `{ phase, block }`，`block` 在结果阶段带这次调用的
+ * `content`、`isError` 与 `meta`（工具自己投影的载荷）。
+ */
+export const TOOL_VIEW_SLOT = 'tool.call.toolview'
+
+/** 一次工具调用视图的注册选项。 */
+export interface ToolViewRegistration {
+  name: typeof TOOL_VIEW_SLOT
+  /** 线上工具名；写错了永远不会被派发。 */
+  key: string
+}
+
 /** 设置页里一节的注册选项。 */
 export interface SettingsSectionRegistration {
   name: typeof SETTINGS_SECTION_SLOT
@@ -44,20 +60,6 @@ export interface PanelRowRegistration {
 /** 中栏页面的注册选项。 */
 export interface PanelPageRegistration {
   name: typeof MAIN_SLOT
-  key: string
-}
-
-/**
- * 会话里的工具视图（D9）：`kind: 'keyed'`、`scope: 'session'`，按线上工具名分派。
- *
- * 出处：`dsh-client-ui-tool/lib/types/client/contract/slots.d.ts`。注册已占用的键会替换原视图；
- * 没有注册视图的工具用宿主的通用行。
- */
-export const TOOL_VIEW_SLOT = 'tool.call.toolview'
-
-/** 工具视图的注册选项：键就是工具名。 */
-export interface ToolViewRegistration {
-  name: typeof TOOL_VIEW_SLOT
   key: string
 }
 

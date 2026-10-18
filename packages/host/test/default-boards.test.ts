@@ -39,7 +39,7 @@ describe('第一次启动的看板', () => {
 
   it('「我的看板」按清单的顺序与位置铺卡：前八张是三列的版面，最后两张在第四列，翻面组占两张卡', () => {
     const [mine] = seedBoards(records)
-    expect(widgetsOf(mine)).toEqual(['board-hero', 'weather', 'pomodoro', 'todo', 'calendar', 'stat', 'chart', 'diff', 'dsh-balance', 'clock', 'heatmap'])
+    expect(widgetsOf(mine)).toEqual(['board-hero', 'weather', 'pomodoro', 'todo', 'clock', 'stat', 'chart', 'diff', 'dsh-balance', 'calendar', 'heatmap'])
     expect(mine.instances.map((instance) => instance.layout)).toEqual([
       { x: 0, y: 0, w: 2, h: 18 },
       { x: 2, y: 0, w: 1, h: 18 },
@@ -85,8 +85,8 @@ describe('第一次启动的看板', () => {
     const builtin = [...records.values()].filter((record) => record.source === 'builtin').map((record) => record.manifest.id)
     expect(widgetsOf(gallery).sort()).toEqual([...builtin].sort())
     expect(widgetsOf(gallery)).toEqual([
-      'stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'diff', 'dsh-balance',
-      'board-hero', 'clock', 'calendar', 'weather', 'pomodoro', 'todo',
+      'stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance',
+      'board-hero', 'clock', 'calendar', 'year-progress', 'weather', 'pomodoro', 'todo', 'links',
       'flip-card', 'holographic-card', 'magnetic-card',
     ])
   })

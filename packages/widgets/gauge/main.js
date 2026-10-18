@@ -39,7 +39,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'GAUGE · 06',
         title: '配额与目标',
         items: [
           { label: '上下文窗口', value: 38, max: 64, note: '38 / 64 K' },
@@ -49,7 +48,6 @@
       }
     }
     return {
-      kicker: 'GAUGE · 06',
       title: 'Quotas',
       items: [
         { label: 'Context window', value: 38, max: 64, note: '38 / 64 K' },
@@ -66,9 +64,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    return typeof props.meta === 'string' ? props.meta : ''
   }
 
   function toneOf(item) {
@@ -169,7 +167,7 @@
     var count = render(items)
     play()
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : count + ' GAUGES')
+    write(el.meta, meta !== '' ? meta : isZh() ? count + ' 个指标' : count + (count === 1 ? ' gauge' : ' gauges'))
   }
 
   applyProps(widget === undefined ? {} : widget.props)

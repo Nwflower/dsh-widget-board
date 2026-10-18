@@ -155,7 +155,7 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
         ].join('\n'),
       }]
     },
-    meta(value) {
+    view(value) {
       return value
     },
   }

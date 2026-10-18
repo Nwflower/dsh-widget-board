@@ -27,7 +27,7 @@
 - props 表单的字段标签从 `text` 的 `props.<key>.label` 与 `props.<key>.hint` 取；字段类型支持字符串、数字、布尔、字符串枚举，其余写法在设置弹窗里用 JSON 编辑。
 - `refresh` 声明刷新策略（D6）：省略或 `{ "mode": "onDemand" }` 表示只由人按刷新、或工具显式读一次；`{ "mode": "interval", "everyMs": 1000 }` 表示看板有人看着的时候按这个间隔读，间隔抬到 1 秒的下限。没有观众时一律不读。
 - manifest 的 `defaultBox` 声明加卡片时的默认宽高；省略时是一列宽、22rem 高。`board-hero` 用 2 列、14rem，让题头的标题、说明与字模图案排得开。
-- 运行时接口 `window.widget`：`props`、`onProps`、`data`、`onData`、`state`、`onState`、`setState`、`size`、`onSize`、`paused`、`onPause`、`action`、`call`、`notify`、`t`、`fit`、`reportError`。`setState` 由浏览器半边按窗口合并，状态总量有额度（D23）；`paused` 与 `onPause` 让组件在卡片离开视口或看板没有选中时停掉计时器（D16、D21）。
+- 运行时接口 `window.widget`：`props`、`onProps`、`data`、`onData`、`state`、`onState`、`setState`、`size`、`onSize`、`paused`、`onPause`、`action`、`call`、`notify`、`t`、`fit`、`reportError`。`setState` 由浏览器半边按窗口合并，状态总量有额度（D23）；`paused` 与 `onPause` 让组件在卡片离开视口或翻面组藏起来时停掉计时器（D16、D21）。
 - CSS 套件提供令牌、动效原语（数字滚动、文字变形、图标切换、骨架闪烁、列表重排）与基础件（`.w-chip`、`.w-meter`、`.w-fit`）。组件用套件即可做出一致的外观与动效（D10）。
 - 精选库：组件在 manifest 的 `libs` 里点名，宿主把随包提供的库内联进这份组件文档，以全局交给组件的脚本（首批 `marked` 与 `highlight`），不联网。加一个库是加一个源文件、一条构建项与它的许可；库的更新随插件版本发布。
 - 内置一批「数据即组件」的通用组件：`stat`、`list`、`table`、`chart`、`markdown`、`progress`、`kv`、`timeline`、`image`。agent 只推数据不写代码就能出一张卡。Markdown 卡用 `marked` 排版、`highlight` 上色，两个库就是精选库的第一批用户。

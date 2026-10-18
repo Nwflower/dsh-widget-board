@@ -31,7 +31,6 @@
 
   function defaults() {
     return {
-      kicker: 'DIFF · 10',
       title: isZh() ? '改动' : 'Changes',
       lines: [
         { type: 'meta', text: 'src/board/layout.ts' },
@@ -55,9 +54,9 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    return typeof props.meta === 'string' ? props.meta : ''
   }
 
   function typeOf(line) {
@@ -91,7 +90,7 @@
     el.list.hidden = rows.length === 0
     el.empty.hidden = rows.length > 0
     var meta = applyProps(widget === undefined ? {} : widget.props)
-    write(el.meta, meta !== '' ? meta : '+' + added + ' -' + removed)
+    write(el.meta, meta !== '' ? meta : '+' + added + ' −' + removed)
     return rows.length
   }
 

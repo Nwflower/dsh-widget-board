@@ -20,7 +20,7 @@ import {
 import { t } from './copy'
 import { frameHostOf } from './page-frames'
 import { SnapshotSurface } from './snapshot-surface'
-import { rootFontSize, useTheme, useWidth } from './tool-show'
+import { rootFontSize, useTheme, useWidth } from './view-hooks'
 
 /** 取任务的最长等待：与宿主那边的时限相同，晚一点也交不回去了。 */
 const JOB_DEADLINE_MS = SELF_CHECK_TIMEOUT_MS - 2000

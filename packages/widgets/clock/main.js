@@ -29,6 +29,7 @@
   var seconds = null
   var timeFormat = null
   var dateFormat = null
+  var timer = 0
 
   function isZh() {
     return widget === undefined || String(widget.lang || 'zh').toLowerCase().indexOf('zh') === 0
@@ -67,7 +68,7 @@
 
   function shortZone(zone) {
     var parts = zone.split('/')
-    return parts[parts.length - 1].replace(/_/g, ' ').toUpperCase()
+    return parts[parts.length - 1].replace(/_/g, ' ')
   }
 
   function half(part, value) {
@@ -204,14 +205,24 @@
     paint(new Date())
   }
 
+  function start() {
+    if (timer === 0) timer = setInterval(tick, TICK_MS)
+  }
+
+  function stop() {
+    if (timer === 0) return
+    clearInterval(timer)
+    timer = 0
+  }
+
   function applyProps(source) {
     var props = source !== null && typeof source === 'object' ? source : {}
     var found = zoneOf(props)
     state.showSeconds = props.showSeconds !== false
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : 'CLOCK · 08')
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : label('zone', isZh() ? '本地时间' : 'Local time'))
-    var meta = typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
-    write(el.meta, meta !== '' ? meta : (found.zone !== '' ? shortZone(found.zone) : 'LOCAL'))
+    var meta = typeof props.meta === 'string' ? props.meta : ''
+    write(el.meta, meta !== '' ? meta : (found.zone !== '' ? shortZone(found.zone) : (isZh() ? '本地' : 'Local')))
     el.meta.title = found.invalid ? label('invalidZone', '') : ''
     state.zone = found.zone
     state.drawn = ''
@@ -224,6 +235,11 @@
   applyProps(widget === undefined ? {} : widget.props)
   if (widget !== undefined) {
     widget.onProps(applyProps)
+    widget.onPause(function (paused) {
+      if (paused) { stop(); return }
+      tick()
+      start()
+    })
   }
-  setInterval(tick, TICK_MS)
+  if (widget === undefined || widget.paused !== true) start()
 })()

@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 11,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "卡片顶部的纵向位置改成每 2rem 一档：拖动与落点吸附到 0、2、4…rem，自动堆叠向下推开时向上取整，整理也落在这张网格上。",
-  "en": "Card tops now snap to 2 rem steps: dragging and dropping land on 0, 2, 4… rem, automatic stacking rounds up to the grid, and Tidy uses the same rows."
-}

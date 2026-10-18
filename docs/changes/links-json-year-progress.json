@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 24,
-  "at": "2026-10-18",
-  "external": false,
-  "zh": "新增三个内置组件：链接、JSON 与年度进度。链接卡把一组地址排成带首字母色块的列表，域名从地址里取；JSON 卡把一段值画成可以逐层折叠的树，值按类型着色；年度进度卡给出今年的百分比、按季度分段的进度条与剩余天数。",
-  "en": "Adds three built-in widgets: links, JSON and year progress. The links card lists addresses with a letter mark and the host taken from each address; the JSON card draws a value as a tree that folds level by level with values colored by type; the year-progress card shows the percentage of the year, a bar split into quarters and the days left."
-}

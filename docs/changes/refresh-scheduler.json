@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 19,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "组件可以在 widget.json 里声明刷新策略：按需（默认），或「看着的时候按间隔读」。宿主上只有一条定时链，按有哪些卡片要刷新、现在有几个看板页在看算出跑不跑、跑多快；没有观众时一律不读。数据源也能声明自己需要的权限，要权限的数据源与动作一样，读之前要有人在卡片上给出授权。",
-  "en": "A widget can declare a refresh policy in widget.json: on demand (the default) or \"read on an interval while watched\". One timer on the host decides whether and how fast to run from which cards ask for it and how many board pages are watching; nothing is read without a viewer. A data source can also declare the permissions it needs, and a gated source is granted on the card before it can be read, exactly like a gated action."
-}

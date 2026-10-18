@@ -8,7 +8,45 @@
 
 [中文](#cn-unreleased) | [English](#en-unreleased)
 
-<h3 id="cn-unreleased">新增功能</h3>
+<h3 id="cn-unreleased">其他变更</h3>
+
+- README 的状态一节写明 npm 上的版本。
+
+<h3 id="en-unreleased">Chores</h3>
+
+- The README status section names the version on npm.
+
+## [0.1.3] - 2026-10-18
+
+[中文](#cn-0.1.3) | [English](#en-0.1.3)
+
+<h3 id="cn-0.1.3">其他变更</h3>
+
+- README 的安装一节与状态一节写明 npm 上的版本。
+- 演示页的安装一节改成从 npm 安装，并列出 npm 包地址；源码仓库的链接留在原处。
+
+<h3 id="en-0.1.3">Chores</h3>
+
+- The README install and status sections name the version on npm.
+- The demo page's install section installs from npm and links the package on npm; the source repository link stays.
+
+## [0.1.2] - 2026-10-18
+
+[中文](#cn-0.1.2) | [English](#en-0.1.2)
+
+<h3 id="cn-0.1.2">其他变更</h3>
+
+- 改从 npm 安装：`dsh plugin add dsh-widget-board`，安装目录里带着构建好的产物，不必再等 `prepare` 在安装时构建。从 GitHub 仓库安装的方式照旧可用。
+
+<h3 id="en-0.1.2">Chores</h3>
+
+- Install from npm with `dsh plugin add dsh-widget-board`: the tarball carries the build output, so nothing has to be built at install time. Installing from the GitHub repository still works the same way.
+
+## [0.1.1] - 2026-10-18
+
+[中文](#cn-0.1.1) | [English](#en-0.1.1)
+
+<h3 id="cn-0.1.1">新增功能</h3>
 
 - widget_define 带自检：调用进行中由看得到这个会话的页面把新组件放进代表性盒子，用组件运行时里的检查器量一遍，结论写进工具结果；没有页面接手时标 unverified。widget_define 的结果在会话正文里画出结论、问题与预览，会话重新打开时按同一份重画。检查器只剩一份，尺寸矩阵也改用它的判定（新增文字与控件被纵向截掉的判据），并且铺满组件库里每个组件。
 - 组件可以调 `widget.notify({ title, body })` 发起通知：侧栏的看板入口右上角滑入未读条数，悬停读到最近一条的标题与正文，点一下看板入口之后清零；番茄钟到点会自己发一条。
@@ -69,7 +107,7 @@
 - 新增尺寸矩阵检查（npm run matrix，并接入 npm run verify）：每个内置组件在代表性的看板盒子与缩略画面里检查横向溢出、空画面、被裁的可见控件与控制台错误。
 - 新增 `node scripts/worktree.mjs remove <路径>`：`.debug/` 下借主树 `node_modules` 的临时工作树先摘掉顶层链接再交给 git，Windows 上不再顺着链接删掉主树的目录；`scripts/lint.mjs` 只允许这一处发出删除工作树的命令，`packages/testing/` 补一条回归测试。
 
-<h3 id="en-unreleased">New Features</h3>
+<h3 id="en-0.1.1">New Features</h3>
 
 - widget_define is self-checked: while the call runs, a page showing the session puts the new widget into representative boxes and measures it with the inspector in the widget runtime; the verdict lands in the tool result, and no page means unverified. The widget_define result shows the verdict, the problems and a preview inline in the conversation, redrawn the same way when the session reopens. The inspector now exists once: the size matrix uses its judgement too (with vertical text and control clipping added) and covers every widget in the library.
 - Widgets can call `widget.notify({ title, body })` to raise a notification: the Board entry in the sidebar slides in the unread count, hovering reads the latest title and body, clicking the entry clears it, and the pomodoro raises one when its session ends.

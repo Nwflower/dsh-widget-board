@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 21,
-  "at": "2026-10-18",
-  "external": false,
-  "zh": "组件可以声明由宿主代发的 HTTPS 请求：widget.json 里写 \"source\": \"http\" 与 request.url，地址里的 {名字} 在读取时换成卡片 props（没有时用 props schema 的默认值），主机必须列在 permissions.hosts 里；回环、内网与 IP 字面量一律拒绝，重定向不跟随，响应有超时与大小上限；request.cacheMs 给出同一个地址的缓存时长，返回的 JSON 原样作为 data 交给组件。",
-  "en": "A widget can declare an HTTPS request the host makes for it: write \"source\": \"http\" and request.url in widget.json. Each {name} in the URL is replaced from the card's props (or the props schema default), and the host must be listed in permissions.hosts. Loopback, private and IP-literal hosts are refused, redirects are not followed, and responses have a timeout and a size cap; request.cacheMs sets how long the same URL is cached, and the returned JSON becomes the widget's data as-is."
-}

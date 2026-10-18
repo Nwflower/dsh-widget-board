@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 12,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "组件库改成按来源分组的网格，每格是组件自己的实时缩略画面；按住一格拖到看板，轻点一格加在末尾。",
-  "en": "The widget library is now a grid grouped by source, each tile showing a live thumbnail of the widget itself; hold a tile to drag it onto the board, or tap one to add it at the end."
-}

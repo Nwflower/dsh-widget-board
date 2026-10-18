@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 18,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "组件库的缩略画面标成 preview 位置，组件可以在这里换一套静态排版；番茄钟的缩略画面收掉快捷时长与开始按钮，待办收掉输入行，只留标题、读数与内容。",
-  "en": "Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content."
-}

@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 20,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。",
-  "en": "Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed."
-}

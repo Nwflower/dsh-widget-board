@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 17,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "删掉一张卡片时，卡片按附件磁贴入场的反向退场：淡出并缩到 0.85，250ms，曲线与磁贴入场同一条；退场走完才换快照，其它卡片这时才开始收拢。",
-  "en": "Removing a card now plays the attachment tile's entrance in reverse — fade out and shrink to 0.85 over 250 ms on the same curve — and the board swaps the snapshot only after the exit, so the other cards start closing in afterwards."
-}

@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 14,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "番茄钟的刻度进度条在矮卡片里也保留，时长范围改成 5 到 60 分钟，读数在卡片中间居中，并在开始按钮上方加了 5 分钟、25 分钟两个快捷按钮：点一下直接开始倒计时，跑起来之后这排按钮收起，不能拿来重新计时。",
-  "en": "The pomodoro keeps its tick progress bar in short cards, spans 5 to 60 minutes, centers the readout in the card, and adds 5-minute and 25-minute buttons above Start that begin the countdown right away; once a session runs, that row is hidden so it cannot restart the clock."
-}

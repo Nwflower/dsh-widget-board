@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 16,
-  "at": "2026-10-17",
-  "external": false,
-  "zh": "组件在 widget.json 里声明的最小盒子（minBox）现在会生效：新卡片与拖动落点抬到下限，缩放停在下限，载入看板与组件库热重载时把低于下限的卡片抬上来；组卡取正反两面的并集。",
-  "en": "The minimum box a widget declares in widget.json now applies: new cards and drop points are raised to it, resizing stops at it, and cards below it are raised when a board loads or the library hot-reloads; a flip group uses the union of both sides."
-}

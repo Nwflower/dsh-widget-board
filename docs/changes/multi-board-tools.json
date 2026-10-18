@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 23,
-  "at": "2026-10-18",
-  "external": false,
-  "zh": "会话工具的看板操作扩展到全部看板：widget_board 列出所有看板并可指定读哪一块，widget_place 可把新卡放到指定的看板，widget_push 与 widget_remove 按全工作区唯一的卡片 id 找到那张卡，不必先切换选中的看板。",
-  "en": "The session tools now work across all boards: widget_board lists every board and reads a chosen one, widget_place can add a card to a chosen board, and widget_push and widget_remove find the card by its workspace-wide instance id without switching the selected board first."
-}

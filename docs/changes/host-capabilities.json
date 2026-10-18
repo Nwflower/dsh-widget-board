@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 22,
-  "at": "2026-10-18",
-  "external": false,
-  "zh": "组件桥多了一条通用的宿主能力调用：组件在 manifest 里声明能力名，用 widget.call 传参数并拿返回值，可以取消、有超时；能力由插件注册，输入与输出按 JSON Schema 校验，要权限的能力先由人授权。内置的 DSH 余额卡声明 dsh.account.balance，直接读当前登录的 DSH 账号充值钱包与赠送钱包，不需要 API key。",
-  "en": "The widget bridge gains a generic host-capability call: a widget declares capability names in its manifest and uses widget.call with arguments and a return value, with cancellation and a timeout; plugins register capabilities, arguments and results are checked against JSON Schema, and one with a permission needs a person's grant first. The built-in DSH balance card declares dsh.account.balance and reads the recharge and bonus wallets of the signed-in DSH account, with no API key."
-}

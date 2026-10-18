@@ -38,7 +38,9 @@ import type { LibraryLoad, WidgetRecord } from './library'
 import { dataError } from './schema'
 import type { Registries } from './sources'
 import { isCardLayout } from '@dsh-widget-board/model'
+import { readJson } from './body'
 import { Refusal } from './refusal'
+import { shareRoutes } from './share'
 import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState } from './state'
 
 /** 卡片状态的请求体上限：界面状态只是几张表单的值，几 KB 足够。 */
@@ -140,31 +142,6 @@ export function snapshot(context: RouteContext): BoardSnapshot {
   return { board: context.board, widgets, library: context.entries, grants }
 }
 
-/**
- * 读一个 JSON 请求体，超过上限就拒绝。
- *
- * @param request - 宿主的请求。
- * @param limit - 允许的最大字节数。
- * @returns 解出来的 JSON；请求体是空的时是 `undefined`。
- * @throws {Refusal} 超过上限（413）或不是合法 JSON（400）。
- */
-async function readJson(request: HostRequest, limit: number): Promise<unknown> {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
-    size += buffer.length
-    if (size > limit) throw new Refusal(413, `请求体超过 ${String(limit)} 字节`)
-    chunks.push(buffer)
-  }
-  const text = Buffer.concat(chunks).toString('utf8')
-  if (text === '') return undefined
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    throw new Refusal(400, '请求体不是合法 JSON')
-  }
-}
 
 /** 普通的 JSON 对象。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -232,7 +209,7 @@ async function saveData(context: RouteContext, id: string, data: unknown): Promi
 }
 
 /** 一条路由：方法、路径、请求体上限与处理器。 */
-interface Route {
+export interface Route {
   method: 'GET' | 'POST'
   pattern: RegExp
   limit: number
@@ -579,7 +556,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = ROUTES.flatMap((route) => {
+    const matched = [...ROUTES, ...shareRoutes(context)].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

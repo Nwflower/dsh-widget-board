@@ -376,6 +376,39 @@ async function addRemovePass(page) {
   check('把加进去的卡移掉了', true)
 }
 
+/**
+ * 分享与导入（D8）：组件库里有导出入口，导出得到的字节能再导入回来；看板导出的包里带着它用到的
+ * 组件。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function sharePass(page) {
+  await openLibrary(page)
+  const link = await page.waitForSelector('[data-dsh-widget-board-export]', { timeout: 15000 })
+  const id = await link.getAttribute('data-dsh-widget-board-export')
+  check('组件库里有导出入口', typeof id === 'string' && id !== '', String(id))
+  const roundTrip = await page.evaluate(async (widget) => {
+    const exported = await fetch(`api/widget-board/library/widget/${encodeURIComponent(widget)}/export`)
+    const bytes = await exported.arrayBuffer()
+    const imported = await fetch('api/widget-board/library/import?replace=true', {
+      method: 'POST',
+      headers: { 'content-type': 'application/zip' },
+      body: bytes,
+    })
+    return { exportStatus: exported.status, type: exported.headers.get('content-type'), bytes: bytes.byteLength, importStatus: imported.status, body: await imported.json() }
+  }, id)
+  check('导出的响应是 zip', roundTrip.exportStatus === 200 && roundTrip.type === 'application/zip' && roundTrip.bytes > 0, `${roundTrip.exportStatus} ${roundTrip.type} ${roundTrip.bytes}`)
+  // 导出的是内置组件：包能解开（否则报的是「不是有效的组件包」），但内置组件不许被覆盖（D8、D17）。
+  check('内置组件的包能解开但不会被覆盖', roundTrip.importStatus === 400 && String(roundTrip.body.error).includes('是内置的'), `${roundTrip.importStatus} ${JSON.stringify(roundTrip.body).slice(0, 80)}`)
+
+  const board = await page.evaluate(async () => {
+    const exported = await fetch('api/widget-board/board/export')
+    const pkg = await exported.json()
+    return { status: exported.status, cards: Array.isArray(pkg.cards) ? pkg.cards.length : -1, widgets: Array.isArray(pkg.widgets) ? pkg.widgets.length : -1 }
+  })
+  check('看板导出带着卡片与用到的组件', board.status === 200 && board.cards > 0 && board.widgets > 0, JSON.stringify(board))
+  await page.keyboard.press('Escape')
+}
 
 /**
  * 三个通用动效模板：翻转、磁吸、全息都由运行时套件驱动，组件本身不挂事件。
@@ -650,6 +683,7 @@ start({ extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) =
     await groupPass(opened.page, check)
     await markdownPass(opened.page, check)
     await providerPass(opened.page, check)
+    await sharePass(opened.page)
     await dockPass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)

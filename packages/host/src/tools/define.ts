@@ -5,11 +5,12 @@
  * 每一份文件都要经一次校验：路径不许越出组件目录，manifest 按 `contracts` 里的 JSON Schema 校验，
  * `index.html` 与 `style.css` 必须给。不合格的写入不落地。
  */
-import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import Ajv from 'ajv'
+import { strToU8 } from 'fflate'
 import type { DefineValue, WidgetManifest, WidgetToolSpec } from '@dsh-widget-board/contracts'
 import { WIDGET_MANIFEST_SCHEMA, WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
+import { writeWidgetDirectory } from '../library'
 import type { ToolContext } from './index'
 
 /** manifest 的校验器：与读组件库时用的是同一份 schema（D7）。 */
@@ -111,16 +112,11 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
       if (replaced && wanted.replace !== true) {
         throw new ToolRefusal(`${wanted.id} 已经在组件库里；要覆盖它就带上 replace: true，要另写一个就换一个 id`)
       }
-      // 覆盖时先清掉旧目录：删掉的文件不该留在新版本里（D7 的版本就是整个目录的内容）。
-      await rm(dir, { recursive: true, force: true })
-      await mkdir(dir, { recursive: true })
       const notes: string[] = []
-      await writeFile(join(dir, 'widget.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-      for (const file of files) {
-        const target = join(dir, file.path)
-        await mkdir(join(target, '..'), { recursive: true })
-        await writeFile(target, file.content, 'utf8')
-      }
+      await writeWidgetDirectory(dir, [
+        { path: 'widget.json', content: strToU8(`${JSON.stringify(manifest, null, 2)}\n`) },
+        ...files.map((file) => ({ path: file.path, content: strToU8(file.content) })),
+      ])
       await context.reload()
       const record = context.route.records.get(wanted.id)
       if (record === undefined) throw new ToolRefusal(`写完了，但组件库重读之后没有 ${wanted.id}；检查目录里的文件`)

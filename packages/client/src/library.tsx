@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { BoardInstance, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
-import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, FLIP_GROUP_ID } from '@dsh-widget-board/contracts'
+import { CLIENT_ROUTE, FLIP_GROUP_BACK, FLIP_GROUP_FRONT, FLIP_GROUP_ID } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { CardSurface } from './card-surface'
 import type { FrameHost } from './frame-host'
@@ -26,6 +26,36 @@ export interface LibraryPanelProps {
   onBeginDrag: (entry: WidgetLibraryEntry, event: ReactPointerEvent<HTMLElement>) => void
   /** 关掉浮窗。 */
   onClose: () => void
+  /** 导入一个组件包之后重读组件库（D8）。 */
+  onImported?: () => void
+}
+
+/**
+ * 一个组件包的下载地址（D8）。
+ *
+ * @param id - 组件 id。
+ * @returns 文档相对的地址；写成 `<a download>` 的 href 就能直接下载。
+ */
+function exportPathOf(id: string): string {
+  return `${CLIENT_ROUTE}/library/widget/${encodeURIComponent(id)}/export`
+}
+
+/**
+ * 把一个 `.dshw` 交给宿主（D8）。
+ *
+ * @param file - 用户选的文件。
+ * @returns 装完之后的结果说明。
+ * @throws {Error} 宿主拒绝时带上它给的原因。
+ */
+async function importWidgetFile(file: File): Promise<string> {
+  const response = await fetch(`${CLIENT_ROUTE}/library/import`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/zip' },
+    body: await file.arrayBuffer(),
+  })
+  const body = await response.json() as { error?: string, entry?: { id: string } }
+  if (!response.ok) throw new Error(body.error ?? `导入失败：HTTP ${response.status}`)
+  return body.entry?.id ?? file.name
 }
 
 /** 一个来源的标题。 */
@@ -201,6 +231,20 @@ function LibraryTile({ entry, widgetId, widget, theme, frames, busy, onAdd, onBe
             : <span className="dsh-widget-board__library-error">{entry.error}</span>}
         </span>
       </div>
+      {unavailable || entry.id === FLIP_GROUP_ID
+        ? null
+        : (
+          <a
+            className="dsh-widget-board__library-export"
+            data-dsh-widget-board-export={entry.id}
+            href={exportPathOf(entry.id)}
+            download={`${entry.id}.dshw`}
+            onPointerDown={(event) => { event.stopPropagation() }}
+            title={t('export')}
+          >
+            {t('export')}
+          </a>
+        )}
     </li>
   )
 }
@@ -214,7 +258,9 @@ function LibraryTile({ entry, widgetId, widget, theme, frames, busy, onAdd, onBe
  * @param props - 组件库、主题、操作回调与关闭。
  * @returns 浮窗。
  */
-export function LibraryPanel({ entries, widgets, theme, frames, busy, onAdd, onBeginDrag, onClose }: LibraryPanelProps): ReactNode {
+export function LibraryPanel({ entries, widgets, theme, frames, busy, onAdd, onBeginDrag, onClose, onImported }: LibraryPanelProps): ReactNode {
+  /** 导入的失败原因：画在头部，不把整个浮窗换成错误页。 */
+  const [importError, setImportError] = useState<string | null>(null)
   const groups = ['builtin', 'user', 'plugin'].map((source) => ({
     source: source as WidgetLibraryEntry['source'],
     items: entries.filter((entry) => entry.source === source),
@@ -226,8 +272,26 @@ export function LibraryPanel({ entries, widgets, theme, frames, busy, onAdd, onB
         <div>
           <h2 className="dsh-widget-board__library-title">{t('library')}</h2>
           <p className="dsh-widget-board__library-hint">{t('libraryHint')}</p>
+          {importError === null ? null : <p className="dsh-widget-board__library-error" role="status">{importError}</p>}
         </div>
-        <button type="button" className="dsh-widget-board__library-close" onClick={onClose}>{t('close')}</button>
+        <div className="dsh-widget-board__library-actions">
+          <label className="dsh-widget-board__library-import">
+            {t('import')}
+            <input
+              type="file"
+              accept=".dshw"
+              data-dsh-widget-board-import=""
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file === undefined) return
+                setImportError(null)
+                importWidgetFile(file).then(() => { onImported?.() }, (error: Error) => { setImportError(error.message) })
+              }}
+            />
+          </label>
+          <button type="button" className="dsh-widget-board__library-close" onClick={onClose}>{t('close')}</button>
+        </div>
       </header>
       {groups.length === 0
         ? <p className="dsh-widget-board__notice">{t('libraryEmpty')}</p>

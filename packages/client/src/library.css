@@ -64,6 +64,58 @@
   line-height: 18px;
 }
 
+/* 导入与关闭并排：导入是一个隐藏的 file input 套着标签（D8）。 */
+.dsh-widget-board__library-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dsh-widget-board__library-import,
+.dsh-widget-board__library-export {
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+  text-decoration: none;
+}
+
+.dsh-widget-board__library-import input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dsh-widget-board__library-import:hover,
+.dsh-widget-board__library-export:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 导出挂在每一格的右上角，压在缩略画面上：缩略画面不接指针，所以这一格仍然整块可拖。 */
+.dsh-widget-board__library-item {
+  position: relative;
+}
+
+.dsh-widget-board__library-export {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.dsh-widget-board__library-item:hover .dsh-widget-board__library-export,
+.dsh-widget-board__library-export:focus-visible {
+  opacity: 1;
+}
+
 .dsh-widget-board__library-group { margin-top: 10px; }
 
 .dsh-widget-board__library-source {

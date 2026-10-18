@@ -443,6 +443,7 @@ export function BoardDock({
               onAdd={onAdd}
               onBeginDrag={beginDrag}
               onClose={onCloseLibrary}
+              onImported={onRefresh}
             />
           </div>
         )

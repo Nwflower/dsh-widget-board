@@ -68,7 +68,8 @@
     "react": "^18.2.0"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.5"
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",

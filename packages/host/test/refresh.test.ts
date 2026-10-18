@@ -62,20 +62,22 @@ describe('调度器', () => {
     expect(test.scheduler.running).toBe(true)
   })
 
-  it('到期的卡被读，没到期的不读', () => {
+  it('开始观察时先读一次，之后只读到期的那几张', async () => {
     const test = harness({ cards: [{ id: 'a', everyMs: 1000 }, { id: 'b', everyMs: 10_000 }] })
     test.scheduler.sync()
-    // 第一次推进只排期，不读。
-    test.timer.tick()
-    expect(test.read).toEqual([])
+    expect(test.read).toEqual(['a', 'b'])
     expect(test.scheduler.due.get('a')).toBeGreaterThan(Date.now())
+    // 第一次读还没落定之前不重复发；等它回来，再推一次也不读（还没到期）。
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    test.timer.tick()
+    expect(test.read).toEqual(['a', 'b'])
     // 把 a 的到期时刻拨到过去，下一次推进就读它。
     ;(test.scheduler.due as Map<string, number>).set('a', Date.now() - 1)
     test.timer.tick()
-    expect(test.read).toEqual(['a'])
+    expect(test.read).toEqual(['a', 'b', 'a'])
     ;(test.scheduler.due as Map<string, number>).set('b', Date.now() - 1)
     test.timer.tick()
-    expect(test.read).toEqual(['a', 'b'])
+    expect(test.read).toEqual(['a', 'b', 'a', 'b'])
   })
 
   it('同一张卡上一次读还没回来时不重复发', () => {
@@ -92,8 +94,6 @@ describe('调度器', () => {
       setTimer: timer.setTimer,
     })
     scheduler.sync()
-    timer.tick()
-    ;(scheduler.due as Map<string, number>).set('a', Date.now() - 1)
     timer.tick()
     ;(scheduler.due as Map<string, number>).set('a', Date.now() - 1)
     timer.tick()
@@ -116,9 +116,6 @@ describe('调度器', () => {
       setTimer: timer.setTimer,
     })
     scheduler.sync()
-    timer.tick()
-    for (const id of ['bad', 'good']) (scheduler.due as Map<string, number>).set(id, Date.now() - 1)
-    timer.tick()
     await new Promise((resolve) => setTimeout(resolve, 10))
     expect(read.sort()).toEqual(['bad', 'good'])
     expect(errors).toEqual(['bad'])

@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 20,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "新加的八个内置组件跟上视觉规范：标题区去掉编号 kicker 与大写计数，右上角改成按语言书写的事实（条数、周数、时区、年份）；字号与间距改读类型令牌与间距令牌；表盘、月历与 JSON 的状态色改用 --w-tone-*，月历的日期格补 aria 标签；每张卡补上 defaultBox 与 minBox；时钟与年度进度在卡片暂停时停下定时器。",
+  "en": "The eight new built-in widgets follow the visual pass: titles drop numbered kickers and uppercase counts, and the top-right meta becomes a factual line in the current language (items, weeks, time zone, year); type and spacing read from the type and spacing tokens; the gauges, calendar and JSON take their status colors from --w-tone-*, and calendar days gain aria labels; every card declares a defaultBox and minBox; the clock and year progress stop their timers while the card is paused."
+}

@@ -58,7 +58,7 @@
     var props = source !== null && typeof source === 'object' ? source : {}
     write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
-    state.meta = typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
+    state.meta = typeof props.meta === 'string' ? props.meta : ''
   }
 
   function startOfDay(date) {
@@ -175,7 +175,7 @@
     write(el.caption, state.caption !== '' ? state.caption : summary.join(' · '))
     write(el.less, label('less', '少'))
     write(el.more, label('more', '多'))
-    write(el.meta, state.meta !== '' ? state.meta : isZh() ? weeks + ' 周' : weeks + ' weeks')
+    write(el.meta, state.meta !== '' ? state.meta : weeks + (isZh() ? ' 周' : ' weeks'))
 
     var empty = Object.keys(days).length === 0
     el.grid.hidden = empty

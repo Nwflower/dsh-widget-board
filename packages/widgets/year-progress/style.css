@@ -1,0 +1,89 @@
+/*
+ * 年度进度的样式：一个大号百分比，下面是一条带季度刻度的进度条，最后一行是第几天与剩余天数。
+ *
+ * 数字用套件的逐位滚动原语，进度条的宽度变化只读时长令牌；减弱动效时两者都直接落到目标（D10）。
+ */
+.year-card__body {
+  align-items: center;
+  justify-content: center;
+  gap: var(--w-space-lg, 16px);
+}
+
+.year-card__face {
+  display: flex;
+  width: 100%;
+  max-width: 420px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--w-space-sm, 8px);
+}
+
+.year-card__percent {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  justify-content: center;
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(52px, 22vw, 96px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.year-card__unit {
+  margin-left: 2px;
+  color: var(--w-color-muted, #6b7684);
+  font-size: 0.4em;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.year-card__track {
+  position: relative;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 8%, transparent);
+}
+
+.year-card__fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--w-color-accent, #2563eb);
+  transition: width var(--w-motion-base) var(--w-motion-ease-smooth);
+}
+
+.year-card__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--w-color-surface, #fff) 70%, transparent);
+}
+
+.year-card__quarters {
+  display: flex;
+  justify-content: space-between;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.year-card__note {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+  text-align: center;
+}
+
+@media (max-height: 260px) {
+  .year-card__quarters { display: none; }
+  .year-card__note { display: none; }
+}
+
+:root[data-motion="reduced"] .year-card__fill { transition: none; }

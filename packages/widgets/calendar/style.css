@@ -32,7 +32,7 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 4px;
+  gap: var(--w-space-xs, 4px);
 }
 
 .calendar-card__step,
@@ -57,7 +57,7 @@
 
 .calendar-card__step {
   padding: 0;
-  font-size: 14px;
+  font-size: var(--w-type-body, 14px);
 }
 
 .calendar-card__step:active,
@@ -86,7 +86,6 @@
   gap: 2px;
   color: var(--w-color-muted, #6b7684);
   font-size: var(--w-type-caption, 12px);
-  letter-spacing: 0;
   line-height: 16px;
   text-align: center;
 }
@@ -106,12 +105,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: var(--w-space-xs, 4px);
   border-radius: 8px;
   color: var(--w-color-fg, #0b1016);
-  font-size: 12px;
+  font-size: var(--w-type-body, 14px);
   font-variant-numeric: tabular-nums;
-  line-height: 16px;
+  line-height: 20px;
 }
 
 .calendar-card__day[data-outside] {
@@ -150,7 +149,7 @@
 .calendar-card__dot[data-tone="danger"] { background: var(--w-tone-danger); }
 
 @media (max-width: 320px) {
-  .calendar-card__month { font-size: var(--w-type-caption, 12px); }
+  .calendar-card__month { font-size: var(--w-type-body, 14px); }
   .calendar-card__day { font-size: var(--w-type-caption, 12px); line-height: 16px; }
   .calendar-card__number { width: 19px; height: 19px; }
 }

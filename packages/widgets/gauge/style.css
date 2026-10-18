@@ -64,7 +64,7 @@
 
 .gauge-card__item[data-tone="warn"] .gauge-card__arc { stroke: var(--w-tone-warn); }
 .gauge-card__item[data-tone="danger"] .gauge-card__arc { stroke: var(--w-tone-danger); }
-.gauge-card__item[data-tone="muted"] .gauge-card__arc { stroke: var(--w-color-muted, #6b7684); }
+.gauge-card__item[data-tone="muted"] .gauge-card__arc { stroke: var(--w-tone-idle); }
 
 .gauge-card__value {
   position: absolute;
@@ -92,8 +92,8 @@
   max-width: 100%;
   overflow: hidden;
   color: var(--w-color-fg, #0b1016);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -103,8 +103,8 @@
   max-width: 100%;
   overflow: hidden;
   color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
   font-size: var(--w-type-caption, 12px);
-  letter-spacing: 0;
   line-height: 16px;
   text-align: center;
   text-overflow: ellipsis;
@@ -118,7 +118,7 @@
 
 @media (max-height: 260px) {
   .gauge-card__note { display: none; }
-  .gauge-card__grid { gap: 8px; }
+  .gauge-card__grid { gap: var(--w-space-sm, 8px); }
 }
 
 :root[data-motion="reduced"] .gauge-card__arc { transition: none; }

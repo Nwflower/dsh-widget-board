@@ -1,0 +1,49 @@
+{
+  "id": "links",
+  "title": {
+    "zh": "链接",
+    "en": "Links"
+  },
+  "description": {
+    "zh": "一组链接：首字母色块、标题、域名与一行说明，适合书签、文档入口与常用服务。",
+    "en": "A set of links with a letter mark, title, host and one line of context; for bookmarks, docs and services."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "defaultBox": { "w": 1, "h": 22 },
+  "minBox": { "w": 1, "h": 10 },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 80 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
+  },
+  "data": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 40,
+        "items": {
+          "type": "object",
+          "required": ["title", "url"],
+          "properties": {
+            "title": { "type": "string", "maxLength": 80 },
+            "url": { "type": "string", "maxLength": 400 },
+            "note": { "type": "string", "maxLength": 80 }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "暂无链接",
+      "en": "No links"
+    }
+  }
+}

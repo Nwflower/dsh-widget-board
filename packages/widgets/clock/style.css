@@ -59,9 +59,9 @@
 .clock-card__date {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
+  font-family: var(--t-mono);
   font-size: var(--w-type-caption, 12px);
-  letter-spacing: 0;
-  line-height: 16px;
+  line-height: 18px;
   text-align: center;
 }
 

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import Ajv from 'ajv'
-import type { Board, BoardEvent, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, BoardValue, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import type { WidgetRecord } from '../src/library'
@@ -40,14 +40,53 @@ function record(id: string, extra: Partial<WidgetRecord['manifest']> = {}): Widg
   }
 }
 
-/** 一张空看板。 */
-function emptyBoard(): Board {
-  return { version: 2, id: 'board', title: '看板', revision: 0, layoutRevision: 0, instances: [] }
+/** 一张看得见的空看板。 */
+function emptyBoard(id = 'board', title = '看板'): Board {
+  return { version: 2, id, title, revision: 0, layoutRevision: 0, instances: [] }
 }
 
 /** 一套替身：看板在内存里，写入链是同步的一次替换。 */
-function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[] } = {}) {
+function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[], boards?: Board[] } = {}) {
   const records = new Map((options.records ?? [record('stat'), record('chart')]).map((entry) => [entry.manifest.id, entry]))
+  const boards = new Map((options.boards ?? [emptyBoard()]).map((board) => [board.id, board]))
+  const active = 'board'
+  const events: BoardEvent[] = []
+  const saveBoard = async (
+    boardId: string,
+    change: (current: Board) => Board,
+    opts: { layoutChanged?: boolean, event: (next: Board, id: string) => BoardEvent },
+  ): Promise<Board> => {
+    const current = boards.get(boardId)
+    if (current === undefined) throw new Error(`没有这块看板：${boardId}`)
+    const next = {
+      ...change(current),
+      revision: current.revision + 1,
+      layoutRevision: current.layoutRevision + (opts.layoutChanged === true ? 1 : 0),
+    }
+    boards.set(boardId, next)
+    events.push(opts.event(next, boardId))
+    return next
+  }
+  const workspace = {
+    activeId: () => active,
+    active: () => boards.get(active) as Board,
+    list: () => [...boards.values()],
+    has: (id: string) => boards.has(id),
+    board: (id: string) => {
+      const board = boards.get(id)
+      if (board === undefined) throw new Error(`没有这块看板：${id}`)
+      return board
+    },
+    findInstance: (id: string) => {
+      for (const board of boards.values()) {
+        const instance = board.instances.find((candidate) => candidate.id === id)
+        if (instance !== undefined) return { board, instance }
+      }
+      return undefined
+    },
+    save: saveBoard,
+    setActive: async () => undefined,
+  }
   const context = {
     records,
     entries: [...records.values()].map((entry) => ({
@@ -60,7 +99,8 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[] } = {
     library: { records, entries: [], errors: [] },
     roots: options.roots ?? [{ dir: '/home/widgets', source: 'user' as const }],
     versions: { remember: async () => undefined, get: async () => undefined },
-    board: emptyBoard(),
+    get board() { return boards.get(active) as Board },
+    workspace,
     save: async () => { throw new Error('未替换') },
     live: {
       assets: { tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} },
@@ -90,17 +130,10 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[] } = {
       forget: async () => 0,
     },
   } as unknown as RouteContext
-  const events: BoardEvent[] = []
-  const save = async (change: (current: Board) => Board, opts: { layoutChanged?: boolean, event: (next: Board) => BoardEvent }): Promise<Board> => {
-    const next = {
-      ...change(context.board),
-      revision: context.board.revision + 1,
-      layoutRevision: context.board.layoutRevision + (opts.layoutChanged === true ? 1 : 0),
-    }
-    context.board = next
-    events.push(opts.event(next))
-    return next
-  }
+  const save = async (
+    change: (current: Board) => Board,
+    opts: { layoutChanged?: boolean, event: (next: Board) => BoardEvent },
+  ): Promise<Board> => await saveBoard(active, change, { ...opts, event: (next) => opts.event(next) })
   const toolContext = createToolContext(context, save, async () => undefined)
   const tools = new Map(toolRegistrations(toolContext).map((tool) => [tool.name, tool]))
   return { context, events, tools, toolContext }
@@ -161,6 +194,25 @@ describe('widget_catalog', () => {
   })
 })
 
+describe('widget_board', () => {
+  it('默认读选中的看板，并列出全部看板', async () => {
+    const harnessed = harness({ boards: [emptyBoard(), emptyBoard('second', '第二块')] })
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.board).execute({}) as BoardValue
+    expect(value.board).toBe('board')
+    expect(value.boards).toEqual([
+      { id: 'board', title: '看板', active: true, cards: 0 },
+      { id: 'second', title: '第二块', active: false, cards: 0 },
+    ])
+  })
+
+  it('按 board 读另一块，没有那块看板时拒绝', async () => {
+    const harnessed = harness({ boards: [emptyBoard(), emptyBoard('second', '第二块')] })
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.board).execute({ board: 'second' }) as BoardValue
+    expect(value.title).toBe('第二块')
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.board).execute({ board: 'ghost' })).rejects.toThrow(ToolRefusal)
+  })
+})
+
 describe('widget_place', () => {
   /** 一个数据源可换的替身：读数据是放卡路径上要判的一环。 */
   function harnessWithSource(read: () => unknown, records = [record('stat', { source: 'demo:count' })]) {
@@ -176,6 +228,18 @@ describe('widget_place', () => {
     expect(harnessed.context.board.instances).toHaveLength(1)
     expect(harnessed.context.board.instances[0]?.layout).toMatchObject({ x: 0, y: 0, w: 2, h: 14 })
     expect(harnessed.context.board.layoutRevision).toBe(1)
+  })
+
+  it('按 board 把新卡放到另一块看板，选中的看板不变', async () => {
+    const harnessed = harness({ boards: [emptyBoard(), emptyBoard('second', '第二块')] })
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', board: 'second' }) as { id: string }
+    expect(harnessed.context.workspace.board('second').instances).toHaveLength(1)
+    expect(harnessed.context.board.instances).toHaveLength(0)
+    // 已有卡改盒子也落在它自己的看板上；点名另一块看板时拒绝。
+    await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', id: placed.id, layout: { x: 1, y: 2 } })
+    expect(harnessed.context.workspace.board('second').instances[0]?.layout).toMatchObject({ x: 1, y: 2 })
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', id: placed.id, board: 'board' })).rejects.toThrow(/另一块看板/)
+    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', board: 'ghost' })).rejects.toThrow(ToolRefusal)
   })
 
   it('组件不在库里时拒绝', async () => {
@@ -256,6 +320,17 @@ describe('widget_push 与 widget_remove', () => {
     await toolOf(harnessed, WIDGET_TOOL_NAMES.remove).execute({ id })
     expect(harnessed.context.board.instances).toHaveLength(0)
     expect(harnessed.context.board.layoutRevision).toBe(before + 1)
+  })
+
+  it('另一块看板上的卡也能推数据与移除', async () => {
+    const harnessed = harness({ boards: [emptyBoard(), emptyBoard('second', '第二块')] })
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat', board: 'second' })
+    const id = (placed as { id: string }).id
+    await toolOf(harnessed, WIDGET_TOOL_NAMES.push).execute({ id, data: { n: 2 } })
+    expect(harnessed.context.workspace.board('second').instances[0]?.data).toEqual({ n: 2 })
+    expect(harnessed.context.board.instances).toHaveLength(0)
+    await toolOf(harnessed, WIDGET_TOOL_NAMES.remove).execute({ id })
+    expect(harnessed.context.workspace.board('second').instances).toHaveLength(0)
   })
 })
 

@@ -70,20 +70,26 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
         },
         props: { type: 'object', description: 'Replaces the card props when given.' },
         source: { type: 'string', description: 'Data source id; the card reads it once after the change.' },
+        board: { type: 'string', description: 'Board id from widget_board; omit to use the selected board. An existing card stays on its own board.' },
       },
     },
     async execute(args) {
       if (!isRecord(args) || typeof args.widget !== 'string' || args.widget === '') throw new ToolRefusal('widget_place 要写明 widget')
-      const wanted = args as { widget: string, id?: unknown, layout?: unknown, props?: unknown, source?: unknown }
+      const wanted = args as { widget: string, id?: unknown, layout?: unknown, props?: unknown, source?: unknown, board?: unknown }
       const record = context.route.records.get(wanted.widget)
       if (record === undefined) throw new ToolRefusal(`组件库里没有可用的组件 ${wanted.widget}，先用 widget_catalog 看有哪些`)
       const layout = layoutOf(wanted.layout)
       if (wanted.props !== undefined && !isRecord(wanted.props)) throw new ToolRefusal('props 要是一个对象')
       if (wanted.source !== undefined && typeof wanted.source !== 'string') throw new ToolRefusal('source 要是一个字符串')
+      if (wanted.board !== undefined && (typeof wanted.board !== 'string' || wanted.board === '')) throw new ToolRefusal('board 要是一个看板 id')
 
       if (typeof wanted.id === 'string' && wanted.id !== '') {
-        const existing = context.route.board.instances.find((instance) => instance.id === wanted.id)
-        if (existing === undefined) throw new ToolRefusal(`看板上没有这张卡：${wanted.id}`)
+        const found = context.route.workspace.findInstance(wanted.id)
+        if (found === undefined) throw new ToolRefusal(`看板上没有这张卡：${wanted.id}`)
+        const existing = found.instance
+        if (typeof wanted.board === 'string' && wanted.board !== found.board.id) {
+          throw new ToolRefusal(`卡片 ${wanted.id} 在「${found.board.title}」上，不在另一块看板上`)
+        }
         if (existing.widget !== wanted.widget) {
           throw new ToolRefusal(`卡片 ${wanted.id} 是 ${existing.widget}，不能改成 ${wanted.widget}；要换组件就移除再放一张`)
         }
@@ -92,7 +98,8 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
           if (problem !== undefined) throw new ToolRefusal(problem)
         }
         const notes: string[] = []
-        const next = await context.save(
+        const next = await context.route.workspace.save(
+          found.board.id,
           (current) => withInstancePatched(current, wanted.id as string, {
             ...(layout === undefined ? {} : { layout }),
             ...(wanted.props === undefined ? {} : { props: wanted.props as Record<string, unknown> }),
@@ -101,10 +108,12 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
           { layoutChanged: layout !== undefined, event: () => ({ type: 'board' }) },
         )
         const instance = next.instances.find((candidate) => candidate.id === wanted.id) as BoardInstance
-        if (wanted.source !== undefined) await readInto(context, instance, notes)
+        if (wanted.source !== undefined) await readInto(context, found.board.id, instance, notes)
         return placed(instance, notes)
       }
 
+      const boardId = typeof wanted.board === 'string' && wanted.board !== '' ? wanted.board : context.route.workspace.activeId()
+      if (!context.route.workspace.has(boardId)) throw new ToolRefusal(`没有这块看板：${boardId}`)
       if (wanted.props !== undefined) {
         const problem = context.propsError(record.manifest.props, wanted.props)
         if (problem !== undefined) throw new ToolRefusal(problem)
@@ -112,7 +121,8 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
       // 调用方没点名数据源时用组件自己声明的那个（D17）；声明的那个现在不在时卡片照样加得进来。
       const declared = record.manifest.source
       const source = wanted.source === undefined ? declared : wanted.source as string
-      const added = await context.save(
+      const added = await context.route.workspace.save(
+        boardId,
         (current) => withInstanceAdded(current, record, {
           ...(source === undefined ? {} : { source }),
           ...(wanted.props === undefined ? {} : { props: wanted.props as Record<string, unknown> }),
@@ -123,7 +133,7 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
       const instance = added.instances.at(-1) as BoardInstance
       const notes: string[] = []
       // 数据源不在时：调用方点名的算错误，组件自己声明的只留一条说明，数据留空（D17）。
-      if (source !== undefined) await readInto(context, instance, notes, wanted.source !== undefined)
+      if (source !== undefined) await readInto(context, boardId, instance, notes, wanted.source !== undefined)
       return placed(instance, notes)
     },
     render(value) {
@@ -139,11 +149,12 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
  * 让这张卡按绑定的数据源读一次，把数据写进卡片。
  *
  * @param context - 工具要动的那些东西。
+ * @param boardId - 卡片所在的看板；卡片 id 全工作区唯一，不能拿选中的看板代替（D21）。
  * @param instance - 卡片。
  * @param notes - 收集要回给模型的说明。
  * @param strict - 数据源不存在时是抛错（调用方点名了它）还是留空（组件自己声明的）。
  */
-async function readInto(context: ToolContext, instance: BoardInstance, notes: string[], strict = false): Promise<void> {
+async function readInto(context: ToolContext, boardId: string, instance: BoardInstance, notes: string[], strict = false): Promise<void> {
   const source = instance.source
   if (source === undefined) return
   let data: unknown
@@ -160,7 +171,7 @@ async function readInto(context: ToolContext, instance: BoardInstance, notes: st
     notes.push(`数据源 ${source} 的数据与组件的 data schema 不符：${problem}`)
     return
   }
-  await context.save((current) => withInstancePatched(current, instance.id, { data }), { event: () => ({ type: 'instance', id: instance.id, data }) })
+  await context.route.workspace.save(boardId, (current) => withInstancePatched(current, instance.id, { data }), { event: () => ({ type: 'instance', id: instance.id, data }) })
   notes.push(`已经按 ${source} 读了一次数据。`)
 }
 
@@ -184,10 +195,12 @@ export function removeTool(context: ToolContext): WidgetToolSpec {
     },
     async execute(args) {
       if (!isRecord(args) || typeof args.id !== 'string' || args.id === '') throw new ToolRefusal('widget_remove 要写明 id')
-      const instance = context.route.board.instances.find((candidate) => candidate.id === args.id)
-      if (instance === undefined) throw new ToolRefusal(`看板上没有这张卡：${args.id}`)
+      const found = context.route.workspace.findInstance(args.id)
+      if (found === undefined) throw new ToolRefusal(`看板上没有这张卡：${args.id}`)
+      const instance = found.instance
       const group = instance.group?.id
-      await context.save(
+      await context.route.workspace.save(
+        found.board.id,
         (current) => (group === undefined
           ? withInstanceRemoved(current, instance.id)
           : { ...current, instances: current.instances.filter((candidate) => candidate.group?.id !== group) }),
@@ -225,11 +238,12 @@ export function pushTool(context: ToolContext): WidgetToolSpec {
     async execute(args) {
       if (!isRecord(args) || typeof args.id !== 'string' || args.id === '') throw new ToolRefusal('widget_push 要写明 id')
       if (!('data' in args)) throw new ToolRefusal('widget_push 要写明 data')
-      const instance = context.route.board.instances.find((candidate) => candidate.id === args.id)
-      if (instance === undefined) throw new ToolRefusal(`看板上没有这张卡：${args.id}`)
+      const found = context.route.workspace.findInstance(args.id)
+      if (found === undefined) throw new ToolRefusal(`看板上没有这张卡：${args.id}`)
+      const instance = found.instance
       const problem = context.dataError(context.route.records.get(instance.widget)?.manifest.data, args.data)
       if (problem !== undefined) throw new ToolRefusal(`数据与 ${instance.widget} 的 data schema 不符：${problem}`)
-      await context.save((current) => withInstancePatched(current, instance.id, { data: args.data }), {
+      await context.route.workspace.save(found.board.id, (current) => withInstancePatched(current, instance.id, { data: args.data }), {
         event: () => ({ type: 'instance', id: instance.id, data: args.data }),
       })
       return { id: instance.id, widget: instance.widget, ok: true }

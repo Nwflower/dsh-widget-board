@@ -9,10 +9,11 @@
 - 六个工具，经 `ctx.tools.register` 注册，跟随总开关注册与撤销。**已实现**：
   - `widget_catalog`：组件类型的说明、尺寸族、props 与 data 的 JSON Schema、来源、提供方与当前版本的哈希；读不出来的目录也列出来并写明原因。
   - `widget_define`：新建或更新组件类型（manifest 与整个目录的文件），返回内容哈希与说明。
-  - `widget_board`：读看板上现在有哪些卡片（组件、props、data、state 与盒子）。
-  - `widget_place`：放一张新卡，或改一张已有卡的位置、大小、props 与数据源。
+  - `widget_board`：读一块看板上的卡片（默认选中的那块），同时列出全部看板与它们的 id，供后续调用点名。
+  - `widget_place`：往看板上放一张新卡（可以用 `board` 指定另一块看板），或按 id 改一张已有卡的位置、大小、props 与数据源。
   - `widget_remove`：移除一张卡（组卡按组移除）。
   - `widget_push`：向一张卡推送数据。调用最频繁、载荷小，单独一个工具。
+- 卡片 id 全工作区唯一：`widget_board`、`widget_place`、`widget_push`、`widget_remove` 都按 id 找卡，跨看板可用，不必先把那块看板切到选中（D21）。
 - **还没有的**：`widget_show`（把实例或一次性快照内联显示在当前会话）与 `widget_library`（导出、导入、复制、回退、删除、检查更新，D8）。两者都要等内联渲染与分享导入就位。
 - 工具的参数是给模型看的 JSON Schema，执行体自己校验输入（直接注册，不经 `defineTool`——本仓库构建时拿不到 `@deepseek-ai/dsh-tools`，那一包由宿主进程提供）。领域上的拒绝抛出并带上原因，宿主把它收敛成 `isError`；工具描述是面向模型的英文。
 - 注册经 `ctx.inject(['tools'], …)`：cordis 只允许读声明过的服务，直接读未声明的属性会抛。`systemPrompt` 与 `skills` 各自等自己的服务，任何一个缺席都不影响工具本身（D1、D11）。

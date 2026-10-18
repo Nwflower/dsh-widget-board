@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import type { CardSettings, CredentialSetting, LocalizedText } from '@dsh-widget-board/contracts'
+import type { ActionPermission, CardSettings, CredentialSetting, GrantKind, LocalizedText } from '@dsh-widget-board/contracts'
 import { sourceLabel, t, textOf } from './copy'
 
 /**
@@ -193,31 +193,56 @@ export function CredentialsPanel({ settings, busy, onSet, onUnset }: Credentials
 export interface DataPanelProps {
   settings: CardSettings
   busy: boolean
-  onGrant: () => Promise<void>
-  onRevoke: () => Promise<void>
+  onGrant: (kind: GrantKind, id: string) => Promise<void>
+  onRevoke: (kind: GrantKind, id: string) => Promise<void>
   onRefresh: () => Promise<void>
 }
 
+/** 一份权限里的主机与命令；没有声明权限时是空表。 */
+function PermissionChips({ permission }: { permission: ActionPermission | undefined }): ReactNode {
+  // 没有声明权限时，facts 里已经写了「不需要额外授权」；这里不再重复一行。
+  if (permission === undefined) return null
+  const hosts = permission.hosts ?? []
+  const commands = permission.commands ?? []
+  if (hosts.length === 0 && commands.length === 0) return null
+  return (
+    <div className="dsh-widget-board__permission-list">
+      {hosts.length === 0 ? null : (
+        <p>
+          <span className="dsh-widget-board__permission-label">{t('permissionHosts')}</span>
+          {hosts.map((host) => <span key={host} className="dsh-widget-board__chip">{host}</span>)}
+        </p>
+      )}
+      {commands.length === 0 ? null : (
+        <p>
+          <span className="dsh-widget-board__permission-label">{t('permissionCommands')}</span>
+          {commands.map((command) => <span key={command} className="dsh-widget-board__chip">{command}</span>)}
+        </p>
+      )}
+    </div>
+  )
+}
+
 /**
- * 数据与权限：数据源、提供方、权限、授权状态与立即刷新。
+ * 数据与权限：数据源、宿主能力、提供方、权限、授权状态与立即刷新（D6、D24）。
  *
  * @param props - 设置读模型与授权、刷新回调。
  * @returns 数据与权限一节。
  */
 export function DataPanel({ settings, busy, onGrant, onRevoke, onRefresh }: DataPanelProps): ReactNode {
-  const [working, setWorking] = useState<'grant' | 'revoke' | 'refresh' | null>(null)
+  const [working, setWorking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshed, setRefreshed] = useState(false)
 
-  /** 跑一个授权或刷新动作，失败原因留在这一节。 */
-  const run = async (kind: 'grant' | 'revoke' | 'refresh', action: () => Promise<void>): Promise<void> => {
+  /** 跑一个授权、撤权或刷新动作，失败原因留在这一节。 */
+  const run = async (key: string, action: () => Promise<void>, refresh = false): Promise<void> => {
     if (working !== null || busy) return
-    setWorking(kind)
+    setWorking(key)
     setError(null)
     setRefreshed(false)
     try {
       await action()
-      if (kind === 'refresh') setRefreshed(true)
+      if (refresh) setRefreshed(true)
     } catch (caught) {
       setError((caught as Error).message)
     } finally {
@@ -225,89 +250,128 @@ export function DataPanel({ settings, busy, onGrant, onRevoke, onRefresh }: Data
     }
   }
 
-  if (settings.sourceError !== undefined) {
-    return <p className="dsh-widget-board__editor-error" role="status">{settings.sourceError}</p>
-  }
-  if (settings.source === undefined) {
-    return <p className="dsh-widget-board__editor-empty">{t('noSource')}</p>
-  }
   const source = settings.source
-  const permission = source.permission
-  const hosts = permission?.hosts ?? []
-  const commands = permission?.commands ?? []
+  const capabilities = settings.capabilities
+  if (source === undefined && capabilities.length === 0) {
+    return settings.sourceError === undefined
+      ? <p className="dsh-widget-board__editor-empty">{t('noSource')}</p>
+      : <p className="dsh-widget-board__editor-error" role="status">{settings.sourceError}</p>
+  }
+
   return (
     <div className="dsh-widget-board__data">
-      <dl className="dsh-widget-board__facts">
-        <div>
-          <dt>{t('source')}</dt>
-          <dd>{source.id}</dd>
-        </div>
-        <div>
-          <dt>{t('provider')}</dt>
-          <dd>{source.provider}</dd>
-        </div>
-        <div>
-          <dt>{t('granted')}</dt>
-          <dd>{permission === undefined || source.granted ? t('granted') : t('notGranted')}</dd>
-        </div>
-      </dl>
-      <section className="dsh-widget-board__permission">
-        <h3 className="dsh-widget-board__editor-heading">{t('dataAndPermissions')}</h3>
-        {permission === undefined
-          ? <p className="dsh-widget-board__editor-empty">{t('permissionNone')}</p>
-          : (
-            <div className="dsh-widget-board__permission-list">
-              {hosts.length === 0 ? null : (
-                <p>
-                  <span className="dsh-widget-board__permission-label">{t('permissionHosts')}</span>
-                  {hosts.map((host) => <span key={host} className="dsh-widget-board__chip">{host}</span>)}
-                </p>
-              )}
-              {commands.length === 0 ? null : (
-                <p>
-                  <span className="dsh-widget-board__permission-label">{t('permissionCommands')}</span>
-                  {commands.map((command) => <span key={command} className="dsh-widget-board__chip">{command}</span>)}
-                </p>
-              )}
-            </div>
-          )}
-        {permission !== undefined && !source.granted
-          ? (
+      {settings.sourceError === undefined ? null : <p className="dsh-widget-board__editor-error" role="status">{settings.sourceError}</p>}
+      {source === undefined
+        ? null
+        : (
+          <>
+            <dl className="dsh-widget-board__facts">
+              <div>
+                <dt>{t('source')}</dt>
+                <dd>{source.id}</dd>
+              </div>
+              <div>
+                <dt>{t('provider')}</dt>
+                <dd>{source.provider}</dd>
+              </div>
+              <div>
+                <dt>{t('granted')}</dt>
+                <dd>{source.permission === undefined ? t('permissionNone') : source.granted ? t('granted') : t('notGranted')}</dd>
+              </div>
+            </dl>
+            <section className="dsh-widget-board__permission">
+              <h3 className="dsh-widget-board__editor-heading">{t('dataAndPermissions')}</h3>
+              <PermissionChips permission={source.permission} />
+              {source.permission !== undefined && !source.granted
+                ? (
+                  <button
+                    type="button"
+                    className="dsh-widget-board__editor-primary"
+                    data-dsh-widget-board-grant-source=""
+                    disabled={working !== null || busy}
+                    onClick={() => { void run('source-grant', () => onGrant('source', source.id)) }}
+                  >
+                    {t('allow')}
+                  </button>
+                )
+                : null}
+              {source.permission !== undefined && source.granted
+                ? (
+                  <button
+                    type="button"
+                    className="dsh-widget-board__editor-ghost"
+                    disabled={working !== null || busy}
+                    onClick={() => { void run('source-revoke', () => onRevoke('source', source.id)) }}
+                  >
+                    {working === 'source-revoke' ? t('saving') : t('revoke')}
+                  </button>
+                )
+                : null}
+            </section>
+          </>
+        )}
+      {capabilities.map((capability) => {
+        const label = capability.title === undefined ? capability.id : textOf(capability.title)
+        const needsGrant = capability.permission !== undefined
+        return (
+          <section className="dsh-widget-board__permission" key={capability.id}>
+            <h3 className="dsh-widget-board__editor-heading">{label}</h3>
+            {capability.description === undefined ? null : <p className="dsh-widget-board__editor-empty">{textOf(capability.description)}</p>}
+            <dl className="dsh-widget-board__facts">
+              <div>
+                <dt>{t('provider')}</dt>
+                <dd>{capability.provider === '' ? '—' : capability.provider}</dd>
+              </div>
+              <div>
+                <dt>{t('granted')}</dt>
+                <dd>{capability.unavailable !== undefined ? '—' : needsGrant ? (capability.granted ? t('granted') : t('notGranted')) : t('permissionNone')}</dd>
+              </div>
+            </dl>
+            {capability.unavailable === undefined ? null : <p className="dsh-widget-board__editor-error" role="status">{capability.unavailable}</p>}
+            <PermissionChips permission={capability.permission} />
+            {needsGrant && capability.unavailable === undefined && !capability.granted
+              ? (
+                <button
+                  type="button"
+                  className="dsh-widget-board__editor-primary"
+                  data-dsh-widget-board-grant-capability={capability.id}
+                  disabled={working !== null || busy}
+                  onClick={() => { void run(`capability-grant:${capability.id}`, () => onGrant('capability', capability.id)) }}
+                >
+                  {t('allow')}
+                </button>
+              )
+              : null}
+            {needsGrant && capability.unavailable === undefined && capability.granted
+              ? (
+                <button
+                  type="button"
+                  className="dsh-widget-board__editor-ghost"
+                  disabled={working !== null || busy}
+                  onClick={() => { void run(`capability-revoke:${capability.id}`, () => onRevoke('capability', capability.id)) }}
+                >
+                  {working === `capability-revoke:${capability.id}` ? t('saving') : t('revoke')}
+                </button>
+              )
+              : null}
+          </section>
+        )
+      })}
+      {source === undefined
+        ? null
+        : (
+          <div className="dsh-widget-board__editor-actions">
             <button
               type="button"
               className="dsh-widget-board__editor-primary"
-              data-dsh-widget-board-grant-source=""
+              data-dsh-widget-board-refresh=""
               disabled={working !== null || busy}
-              onClick={() => { void run('grant', onGrant) }}
+              onClick={() => { void run('refresh', onRefresh, true) }}
             >
-              {t('allow')}
+              {working === 'refresh' ? t('refreshing') : t('refreshNow')}
             </button>
-          )
-          : null}
-        {permission !== undefined && source.granted
-          ? (
-            <button
-              type="button"
-              className="dsh-widget-board__editor-ghost"
-              disabled={working !== null || busy}
-              onClick={() => { void run('revoke', onRevoke) }}
-            >
-              {working === 'revoke' ? t('saving') : t('revoke')}
-            </button>
-          )
-          : null}
-      </section>
-      <div className="dsh-widget-board__editor-actions">
-        <button
-          type="button"
-          className="dsh-widget-board__editor-primary"
-          data-dsh-widget-board-refresh=""
-          disabled={working !== null || busy}
-          onClick={() => { void run('refresh', onRefresh) }}
-        >
-          {working === 'refresh' ? t('refreshing') : t('refreshNow')}
-        </button>
-      </div>
+          </div>
+        )}
       {refreshed ? <p className="dsh-widget-board__editor-ok" role="status">{t('refreshed')}</p> : null}
       {error === null ? null : <p className="dsh-widget-board__editor-error" role="alert">{error}</p>}
     </div>

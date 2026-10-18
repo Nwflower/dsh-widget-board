@@ -6,7 +6,7 @@ import type { GridPlacement } from '@dsh-widget-board/model'
 import { isChinese, t } from './copy'
 import type { FrameHost } from './frame-host'
 import type { ShellTheme } from './theme'
-import { GrantRequiredError, grantInstance, sendInstanceAction } from './snapshot'
+import { GrantRequiredError, callInstanceCapability, grantInstance, sendInstanceAction } from './snapshot'
 import { useNativeWidget } from './native'
 import { NativeBoundary } from './native-boundary'
 import { CARD_CLIP } from './card-shell'
@@ -69,6 +69,8 @@ export function CardSurface({
   const portRef = useRef<MessagePort | null>(null)
   const readyRef = useRef(false)
   const answeredRef = useRef(false)
+  /** 在途的能力调用；组件取消或卡片卸载时中止。 */
+  const callsRef = useRef<Map<string, AbortController>>(new Map())
   const [failure, setFailure] = useState<string | null>(null)
   /** 状态没写进宿主的原因；成功后收起（D23）。 */
   const [saveFailure, setSaveFailure] = useState<string | null>(null)
@@ -134,6 +136,34 @@ export function CardSurface({
     const send = (message: ParentMessage): void => {
       if (live) port.postMessage(message)
     }
+    /** 组件发起的一次能力调用：走宿主路由，结果或错误原样回给组件（D24）。 */
+    const handleCall = (requestId: string, capability: string, args: unknown): void => {
+      const controller = new AbortController()
+      callsRef.current.set(requestId, controller)
+      callInstanceCapability(instance.id, capability, args, controller.signal).then(
+        (result) => {
+          if (!callsRef.current.has(requestId)) return
+          callsRef.current.delete(requestId)
+          const reply = { type: 'call-result' as const, requestId, result }
+          if (!withinLimit(reply)) {
+            send({ type: 'call-error', requestId, code: 'too-large', message: `${capability} 的返回值超过消息长度上限` })
+            return
+          }
+          send(reply)
+        },
+        (error: Error) => {
+          if (!callsRef.current.has(requestId)) return
+          callsRef.current.delete(requestId)
+          if (error instanceof GrantRequiredError) setAsking({ kind: error.kind, id: error.id })
+          send({
+            type: 'call-error',
+            requestId,
+            code: error instanceof GrantRequiredError ? 'grant-required' : 'failed',
+            message: error.message,
+          })
+        },
+      )
+    }
     const watchdog = window.setTimeout(() => {
       if (!live || answeredRef.current) return
       // 通道是新建的，旧文档里握着的端口已经关了：重新导入一次再握手（D11 里可见的失败）。
@@ -169,6 +199,11 @@ export function CardSurface({
       if (message.type === 'action') {
         sendInstanceAction(instance.id, message.id, message.payload).then(() => { settleAction() }, settleAction)
       }
+      if (message.type === 'call') handleCall(message.requestId, message.capability, message.args)
+      if (message.type === 'cancel') {
+        callsRef.current.get(message.requestId)?.abort()
+        callsRef.current.delete(message.requestId)
+      }
     }
     const connect = (): void => {
       if (!live || readyRef.current) return
@@ -198,6 +233,8 @@ export function CardSurface({
     return () => {
       live = false
       window.clearTimeout(watchdog)
+      for (const controller of callsRef.current.values()) controller.abort()
+      callsRef.current.clear()
       detach()
       held?.()
       frame.removeEventListener('load', connect)
@@ -278,6 +315,12 @@ export function CardSurface({
                 action: (id: string, payload?: unknown) => {
                   sendInstanceAction(instance.id, id, payload).then(() => { settleAction() }, settleAction)
                 },
+                call: (capability: string, args?: unknown, options?: { signal?: AbortSignal }) => (
+                  callInstanceCapability(instance.id, capability, args, options?.signal).catch((error: Error) => {
+                    if (error instanceof GrantRequiredError) setAsking({ kind: error.kind, id: error.id })
+                    throw error
+                  })
+                ),
                 notify: (notification?: WidgetNotification) => {
                   notifyRef.current(instance, widget, notification ?? {})
                 },

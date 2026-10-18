@@ -34,6 +34,7 @@ import {
   groupRemovePath,
   groupSlotPath,
   instanceActionPath,
+  instanceCallPath,
   instanceCredentialPath,
   instanceDataPath,
   instanceGrantPath,
@@ -109,6 +110,7 @@ function isCardSettings(value: unknown): value is CardSettings {
   return typeof settings?.instance === 'object' && settings.instance !== null
     && typeof settings.widget === 'object' && settings.widget !== null
     && Array.isArray(settings.credentials)
+    && Array.isArray(settings.capabilities)
     && Array.isArray(settings.grants)
 }
 
@@ -260,6 +262,32 @@ export async function sendInstanceAction(id: string, action: string, payload?: u
     body: JSON.stringify({ id: action, payload }),
   })
   if (!response.ok) throw await failureOf(response, '动作没有执行')
+}
+
+/**
+ * 调用一张卡声明过的一个宿主能力（D24）。
+ *
+ * @param id - 卡片实例的 id。
+ * @param capability - 能力名，必须在组件 manifest 里声明过。
+ * @param args - 参数；宿主按能力的 input schema 校验。
+ * @param signal - 取消这次调用。
+ * @returns 能力的返回值。
+ * @throws {Error | GrantRequiredError} 请求失败、能力失败，或这个能力还没有授权。
+ */
+export async function callInstanceCapability(
+  id: string,
+  capability: string,
+  args: unknown,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const response = await fetch(instanceCallPath(id), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ capability, args }),
+    ...(signal === undefined ? {} : { signal }),
+  })
+  if (!response.ok) throw await failureOf(response, `调用 ${capability} 失败`)
+  return (await response.json() as { result?: unknown }).result ?? null
 }
 
 /**

@@ -14,6 +14,8 @@ export interface HostRequest {
   socket?: { remoteAddress?: string }
   /** 请求体按块读：`for await` 拿到的每一块，POST 的状态写在里面。 */
   [Symbol.asyncIterator](): AsyncIterator<string | Uint8Array>
+  /** 客户端断开时取消在途调用（D24）；测试替身可以没有这一项。 */
+  on?(event: 'aborted', listener: () => void): unknown
 }
 
 /** 宿主交到路由里的响应。 */
@@ -92,4 +94,52 @@ export function connectionOf(context: unknown): HostConnection | undefined {
   if (get === undefined) return undefined
   const connection = get.call(context, 'connection')
   return connection as HostConnection | undefined
+}
+
+/**
+ * 一次账户查询的界面身份（D24）；宿主据此生成 Platform 请求头，里面没有 token。
+ *
+ * 形状按 `dsh-deepseek-account` 的 `AccountClientMetadata` 记一次；本插件只在宿主半边调用它。
+ */
+export interface AccountClientMetadata {
+  /** 发起调用的界面版本。 */
+  version: string
+  /** 当前界面语言；Platform 只取主语言标签。 */
+  locale: string
+  /** 本地时间减 UTC 的秒数，东八区是 28800。 */
+  timezoneOffsetSeconds: number
+}
+
+/** 一个充值钱包或赠送钱包的余额；十进制字符串保留服务端精度。 */
+export interface AccountWallet {
+  currency: 'CNY' | 'USD'
+  balance: string
+}
+
+/** 一次余额查询的结果；失败与成功分开，失败时不带钱包。 */
+export type AccountBalance =
+  | { status: 'ready', value: readonly AccountWallet[], bonusWallets: readonly AccountWallet[] }
+  | { status: 'failed' }
+
+/**
+ * 宿主的 DeepSeek 账户服务里余额查询的一面（D24）。
+ *
+ * 形状按 `ctx.deepseekAccount` 的 `getBalance` 记一次；这是 Host 侧服务，浏览器与组件都拿不到
+ * token。部署里没有这项服务、或账号未登录时，调用方要给出可见的说法（D11）。
+ */
+export interface HostAccount {
+  /** 查一次充值钱包与赠送钱包；未登录或查询期间账号变化时是 `null`。 */
+  getBalance(client: AccountClientMetadata): Promise<AccountBalance | null>
+}
+
+/**
+ * 宿主的 DeepSeek 账户服务；没有安装时是 `undefined`。
+ *
+ * @param context - 宿主交给插件 `apply` 的上下文。
+ * @returns 账户服务，或 `undefined`。
+ */
+export function accountOf(context: unknown): HostAccount | undefined {
+  const get = (context as { get?: (name: string) => unknown }).get
+  if (get === undefined) return undefined
+  return get.call(context, 'deepseekAccount') as HostAccount | undefined
 }

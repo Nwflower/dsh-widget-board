@@ -12,12 +12,16 @@ export const WIDGET_BOARD_SERVICE_NAME = 'widgetBoard'
  *
  * 1 → 2：`registerWidgetType` 返回的不再是一个释放函数，而是一个把手（带 `provider`、`widgets`、
  * `register` 与 `dispose`）；数据源与动作的注册带上 `provider`，动作可以声明 `permission`。
+ *
+ * 2 → 3：新增宿主能力（`CapabilityRegistration`）：组件经 `widget.call` 按名字调用，带参数/结果
+ * schema、权限、凭据与中止信号；把手与服务都多了 `registerCapability`（D24）。
  */
-export const WIDGET_BOARD_API_VERSION = 2
+export const WIDGET_BOARD_API_VERSION = 3
 
 export type {
   ActionPermission,
   ActionRegistration,
+  CapabilityRegistration,
   DataSourceRegistration,
   InstanceFace,
   NativeWidgetRegistration,

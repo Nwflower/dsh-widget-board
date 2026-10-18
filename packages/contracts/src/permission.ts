@@ -12,7 +12,7 @@
 import type { ActionPermission } from './service'
 
 /** 授权指向的一类东西。 */
-export const GRANT_KINDS = ['action', 'source'] as const
+export const GRANT_KINDS = ['action', 'source', 'capability'] as const
 
 /** 一类授权。 */
 export type GrantKind = (typeof GRANT_KINDS)[number]
@@ -20,8 +20,8 @@ export type GrantKind = (typeof GRANT_KINDS)[number]
 /**
  * 一条由人给出的授权。
  *
- * `id` 是数据源或动作的名字（需要时写成 `提供方:名字`）。`key` 由实现从组件版本与 `id` 算出来，
- * 界面不解释它的内容。
+ * `id` 是数据源、动作或能力的名字（需要时写成 `提供方:名字`）。`key` 由实现从组件版本与 `id`
+ * 算出来，界面不解释它的内容。
  */
 export interface Grant {
   key: string

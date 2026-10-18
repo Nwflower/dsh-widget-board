@@ -156,6 +156,13 @@ export interface WidgetManifest {
    */
   source?: string
   actions?: WidgetAction[]
+  /**
+   * 这个组件会调用的宿主能力（D24）：每项是能力注册表里的名字，需要时写成 `提供方:名字`。
+   *
+   * 声明只是允许调用的白名单；真正调用时宿主还会按能力的输入/输出 schema 校验，并按它的
+   * `permission` 要一份人给出的授权。
+   */
+  capabilities?: string[]
   /** 设置弹窗要显示的凭据（D22）；值由宿主的凭据服务保存，不随卡片走。 */
   credentials?: WidgetCredential[]
   permissions?: WidgetPermissions
@@ -253,6 +260,12 @@ export const WIDGET_MANIFEST_SCHEMA = {
           label: { $ref: '#/$defs/text' },
         },
       },
+    },
+    capabilities: {
+      type: 'array',
+      maxItems: 16,
+      uniqueItems: true,
+      items: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
     },
     permissions: {
       type: 'object',

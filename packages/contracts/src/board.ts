@@ -143,6 +143,19 @@ export interface CredentialSetting extends WidgetCredential {
   unavailable?: string
 }
 
+/** 设置弹窗里的一条能力声明与它的当前状态（D24）。 */
+export interface CapabilitySetting {
+  id: string
+  provider: string
+  title?: LocalizedText
+  description?: LocalizedText
+  permission?: ActionPermission
+  /** 当前组件版本上有没有一份覆盖这份权限的授权（D6）。 */
+  granted: boolean
+  /** 提供方不在或读不出来时的原因。 */
+  unavailable?: string
+}
+
 /**
  * 一张卡在设置弹窗里要读的全部东西（D22）。
  *
@@ -172,6 +185,8 @@ export interface CardSettings {
   }
   /** 绑定了数据源但找不到提供方时的原因。 */
   sourceError?: string
+  /** 组件 manifest 声明过的宿主能力（D24），按声明顺序。 */
+  capabilities: CapabilitySetting[]
   /** 与这张卡当前组件版本有关的授权（D6）。 */
   grants: Grant[]
   credentials: CredentialSetting[]
@@ -227,6 +242,21 @@ export interface InstanceDataRequest {
 }
 
 /**
+ * `POST /instance/<id>/call` 的请求体：组件调用一个 manifest 声明过的宿主能力（D24）。
+ *
+ * 省略 `args` 时按 `undefined` 校验；能力自己声明输入 schema。
+ */
+export interface InstanceCallRequest {
+  capability: string
+  args?: unknown
+}
+
+/** `POST /instance/<id>/call` 的回应：能力的返回值。 */
+export interface InstanceCallResponse {
+  result: unknown
+}
+
+/**
  * `POST /instance/<id>/read` 的请求体：按卡片绑定的（或点名的）数据源读一次数据（D6）。
  *
  * 省略 `source` 时用卡片自己绑定的那个。
@@ -237,9 +267,9 @@ export interface InstanceReadRequest {
 
 /** `POST /instance/<id>/grant` 的请求体：人给出一份授权（D6）。 */
 export interface GrantRequest {
-  /** 授权指向的是动作还是数据源；省略时是动作。 */
+  /** 授权指向的是动作、数据源还是宿主能力；省略时是动作。 */
   kind?: GrantKind
-  /** 动作或数据源的名字。 */
+  /** 动作、数据源或能力的名字。 */
   id: string
 }
 

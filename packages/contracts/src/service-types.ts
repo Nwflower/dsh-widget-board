@@ -4,7 +4,8 @@
  * 这个文件只有类型：它经根包的 `exports["./service"]` 发布给其他插件，`import type` 在编译时被抹掉，
  * 不产生模块请求。运行时值留在 `service.ts`；提供方读 `service.apiVersion` 协商版本。
  */
-import type { WidgetNotification, WidgetSize } from './bridge'
+import type { WidgetHandles, WidgetSize } from './bridge'
+import type { LocalizedText, WidgetCredential } from './widget'
 
 /** 读数据或跑动作时能看到的这张卡片。 */
 export interface InstanceFace {
@@ -62,6 +63,39 @@ export interface ActionRegistration extends ProviderRegistration {
   run(instance: InstanceFace, payload: unknown): unknown | Promise<unknown>
 }
 
+/**
+ * 一个宿主能力（D24）：组件经 `widget.call` 按名字调用的通用接口。
+ *
+ * 数据源、动作与一次性查询可以分开注册；能力是给那些需要参数、返回值、超时与取消的调用准备的。
+ * 参数与返回值都可以声明 JSON Schema，宿主在调用前后各校验一次；声明了 `permission` 的能力还要
+ * 一份绑在这张卡当前组件版本上的授权。
+ */
+export interface CapabilityRegistration extends ProviderRegistration {
+  /** 能力的名字；同一时刻全局唯一。 */
+  id: string
+  /** 给人看的名字；省略时界面用 id。 */
+  title?: LocalizedText
+  /** 一句说明，显示在设置弹窗里。 */
+  description?: LocalizedText
+  /** 参数的 JSON Schema；省略时不校验。 */
+  input?: Record<string, unknown>
+  /** 返回值的 JSON Schema；省略时不校验。 */
+  output?: Record<string, unknown>
+  /** 这个能力要的权限；省略表示不问人。 */
+  permission?: ActionPermission
+  /** 这个能力要用的凭据；设置弹窗把它们和组件自己声明的合在一起显示。 */
+  credentials?: WidgetCredential[]
+  /**
+   * 跑一次。`signal` 在调用方取消、超时或连接断开时中止；提供方应当尽快停下。
+   *
+   * @param instance - 发起调用的这张卡片。
+   * @param args - 已经按 `input` 校验过的参数。
+   * @param signal - 中止信号。
+   * @returns 返回值，按 `output` 校验。
+   */
+  call(instance: InstanceFace, args: unknown, signal: AbortSignal): unknown | Promise<unknown>
+}
+
 /** 注册一个插件提供的组件目录（D7 的格式，来源记作 `plugin`）。 */
 export interface WidgetTypeRegistration {
   /** 服务的版本，与 `WIDGET_BOARD_API_VERSION` 相同才被接受。 */
@@ -90,8 +124,8 @@ export interface WidgetTypeHandle {
    * @param registrations - 数据源与动作，任选；一项都没有时可以省略。
    * @returns 释放这一批注册的函数。
    */
-  register(registrations?: { dataSources?: DataSourceRegistration[], actions?: ActionRegistration[] }): () => void
-  /** 撤下这次注册：组件目录与它名下的全部数据源与动作一并释放。 */
+  register(registrations?: { dataSources?: DataSourceRegistration[], actions?: ActionRegistration[], capabilities?: CapabilityRegistration[] }): () => void
+  /** 撤下这次注册：组件目录与它名下的全部数据源、动作与能力一并释放。 */
   dispose(): Promise<void>
 }
 
@@ -112,6 +146,8 @@ export interface WidgetBoardHostService {
   registerDataSource(registration: DataSourceRegistration): () => void
   /** 注册一个动作；返回释放函数。 */
   registerAction(registration: ActionRegistration): () => void
+  /** 注册一个宿主能力；返回释放函数。 */
+  registerCapability(registration: CapabilityRegistration): () => void
 }
 
 /**
@@ -119,7 +155,7 @@ export interface WidgetBoardHostService {
  *
  * 与 `window.widget` 同形：一个组件从沙箱级换成原生级，写法不必改。
  */
-export interface WidgetNativeProps {
+export interface WidgetNativeProps extends WidgetHandles {
   /** 这个盒子的像素尺寸与位置。 */
   size: WidgetSize
   props: Record<string, unknown>
@@ -127,14 +163,6 @@ export interface WidgetNativeProps {
   state: unknown
   /** 这张卡不在视口里：动画与计时可以停下。 */
   paused: boolean
-  /** 把一份局部状态交给宿主保存（D5）。 */
-  setState(patch: unknown): void
-  /** 发出 manifest 里声明过的动作（D6）。 */
-  action(id: string, payload?: unknown): void
-  /** 往看板栏上记一条未读通知（D7）。 */
-  notify(notification?: WidgetNotification): void
-  /** manifest 的 `text` 里的一条文案，按当前语言取。 */
-  t(key: string): string
 }
 
 /** 注册一个原生组件：画在父页面里的 React 组件，画的是宿主组件库里同 id 的那个组件。 */

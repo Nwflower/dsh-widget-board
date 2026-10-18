@@ -42,6 +42,25 @@ export const NOTIFICATION_TITLE_LIMIT = 120
 /** 通知正文的长度上限。 */
 export const NOTIFICATION_BODY_LIMIT = 400
 
+/**
+ * 组件交给宿主的那几件交互，沙箱级与原生级同形（D3、D24）。
+ *
+ * 两种组件都经这几个方法说话：状态、动作、能力调用、通知与文案。分开写会让两边的形状漂移，
+ * 这里只写一次。
+ */
+export interface WidgetHandles {
+  /** 把一份局部状态交给宿主保存（D5）。 */
+  setState(patch: unknown): void
+  /** 发出 manifest 里声明过的动作（D6）。 */
+  action(id: string, payload?: unknown): void
+  /** 调用 manifest 里声明过的宿主能力（D24）。 */
+  call(capability: string, args?: unknown, options?: { signal?: AbortSignal }): Promise<unknown>
+  /** 往看板栏上记一条未读通知（D7）。 */
+  notify(notification?: WidgetNotification): void
+  /** manifest 的 `text` 里的一条文案，按当前语言取。 */
+  t(key: string): string
+}
+
 /** 主题：令牌的计算值、语言与动画档位；握手时给一次，之后变化时再给（D10）。 */
 export interface WidgetTheme {
   /** 宿主令牌的计算值，键是 `组-名`；运行时写成 iframe 根节点的 `--w-*`。 */
@@ -68,12 +87,16 @@ export type ParentMessage =
   | { type: 'theme' } & WidgetTheme
   | { type: 'pause' }
   | { type: 'resume' }
+  | { type: 'call-result', requestId: string, result: unknown }
+  | { type: 'call-error', requestId: string, code: string, message: string }
 
 /** 一条组件发给父页面的消息。 */
 export type WidgetMessage =
   | { type: 'ready' }
   | { type: 'setState', patch: unknown }
   | { type: 'action', id: string, payload?: unknown }
+  | { type: 'call', requestId: string, capability: string, args?: unknown }
+  | { type: 'cancel', requestId: string }
   | { type: 'height', height: number }
   | { type: 'error', message: string }
   | ({ type: 'notify' } & WidgetNotification)
@@ -85,10 +108,10 @@ export const MESSAGE_LIMIT = 64 * 1024
 export const MESSAGE_RATE_LIMIT = 200
 
 /** 父页面消息的类型集合，供两端判定。 */
-export const PARENT_MESSAGE_TYPES = ['init', 'size', 'data', 'props', 'state', 'theme', 'pause', 'resume'] as const
+export const PARENT_MESSAGE_TYPES = ['init', 'size', 'data', 'props', 'state', 'theme', 'pause', 'resume', 'call-result', 'call-error'] as const
 
 /** 组件消息的类型集合，供两端判定。 */
-export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'height', 'error', 'notify'] as const
+export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'call', 'cancel', 'height', 'error', 'notify'] as const
 
 /**
  * 一条消息是否在长度上限之内。
@@ -152,6 +175,11 @@ export function isParentMessage(value: unknown): value is ParentMessage {
       return isRecord(value.props)
     case 'state':
       return 'state' in value
+    case 'call-result':
+      return typeof value.requestId === 'string' && value.requestId !== '' && 'result' in value
+    case 'call-error':
+      return typeof value.requestId === 'string' && value.requestId !== ''
+        && typeof value.code === 'string' && typeof value.message === 'string'
     default:
       return false
   }
@@ -183,6 +211,11 @@ export function isWidgetMessage(value: unknown): value is WidgetMessage {
       return 'patch' in value
     case 'action':
       return typeof value.id === 'string' && value.id !== ''
+    case 'call':
+      return typeof value.requestId === 'string' && value.requestId !== ''
+        && typeof value.capability === 'string' && value.capability !== ''
+    case 'cancel':
+      return typeof value.requestId === 'string' && value.requestId !== ''
     case 'height':
       return typeof value.height === 'number' && Number.isFinite(value.height) && value.height >= 0
     case 'error':

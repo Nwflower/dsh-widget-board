@@ -9,6 +9,7 @@
  * 直接注册时由工具自己校验输入（见 `packages/host/src/tools/`）。
  */
 import type { WidgetCredential, WidgetFamily, WidgetSource } from './widget'
+import type { ActionPermission } from './service'
 /** 工具名（D9）；模型看到的就是这几个。 */
 export const WIDGET_TOOL_NAMES = {
   /** 列出组件库里的组件类型。 */
@@ -196,11 +197,26 @@ export interface CatalogEntry {
   props?: Record<string, unknown>
   /** 设置弹窗要显示的凭据声明（D22）。 */
   credentials?: WidgetCredential[]
+  /** 组件声明的宿主能力与它们的接口（D24）；没装提供方时 `error` 写明原因。 */
+  capabilities?: CatalogCapability[]
   /** data 的 JSON Schema。 */
   data?: Record<string, unknown>
   /** 看板上的最小盒子与默认盒子。 */
   minBox?: { w: number, h: number }
   defaultBox?: { w: number, h: number }
+}
+
+/** 一个宿主能力在组件目录里的说明（D24）。 */
+export interface CatalogCapability {
+  id: string
+  provider?: string
+  title?: { zh: string, en: string }
+  description?: { zh: string, en: string }
+  permission?: ActionPermission
+  input?: Record<string, unknown>
+  output?: Record<string, unknown>
+  /** 提供方不在或读不出来时的原因。 */
+  error?: string
 }
 
 /** `widget_catalog` 的返回值。 */

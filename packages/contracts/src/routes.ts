@@ -82,6 +82,14 @@ export const instanceDataPath = (id: string): string => `${CLIENT_ROUTE}${INSTAN
 export const instanceActionPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/action`
 
 /**
+ * 某张卡调用一个宿主能力的地址，文档相对（D24）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 调用能力的路径。
+ */
+export const instanceCallPath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/call`
+
+/**
  * 某张卡读一次数据的地址，文档相对（D6）。
  *
  * @param id - 卡片实例的 id。

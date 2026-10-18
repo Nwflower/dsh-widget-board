@@ -55,6 +55,14 @@ describe('父页面的消息', () => {
     expect(isParentMessage({ type: 'resume' })).toBe(true)
   })
 
+  it('能力调用的回应要带对应的 requestId', () => {
+    expect(isParentMessage({ type: 'call-result', requestId: 'c1', result: { ok: true } })).toBe(true)
+    expect(isParentMessage({ type: 'call-result', requestId: '', result: null })).toBe(false)
+    expect(isParentMessage({ type: 'call-result', requestId: 'c1' })).toBe(false)
+    expect(isParentMessage({ type: 'call-error', requestId: 'c1', code: 'failed', message: '坏了' })).toBe(true)
+    expect(isParentMessage({ type: 'call-error', requestId: 'c1', code: 'failed' })).toBe(false)
+  })
+
   it('不认识的消息一律不认', () => {
     expect(isParentMessage({ type: 'tokens' })).toBe(false)
     expect(isParentMessage(null)).toBe(false)
@@ -79,6 +87,14 @@ describe('组件的消息', () => {
     expect(isWidgetMessage({ type: 'action', id: '' })).toBe(false)
     expect(isWidgetMessage({ type: 'height', height: -1 })).toBe(false)
     expect(isWidgetMessage({ type: 'error', message: 42 })).toBe(false)
+  })
+
+  it('能力调用要有 requestId 与能力名，取消只认 requestId', () => {
+    expect(isWidgetMessage({ type: 'call', requestId: 'c1', capability: 'dsh.account.balance', args: {} })).toBe(true)
+    expect(isWidgetMessage({ type: 'call', requestId: '', capability: 'x' })).toBe(false)
+    expect(isWidgetMessage({ type: 'call', requestId: 'c1', capability: '' })).toBe(false)
+    expect(isWidgetMessage({ type: 'cancel', requestId: 'c1' })).toBe(true)
+    expect(isWidgetMessage({ type: 'cancel', requestId: '' })).toBe(false)
   })
 
   it('通知只带两段有长度上限的文字', () => {

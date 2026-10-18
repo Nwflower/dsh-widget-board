@@ -128,6 +128,29 @@ export const REFRESH_MIN_MS = 1000
 /** 省略 `everyMs` 时的间隔。 */
 export const REFRESH_DEFAULT_MS = 30_000
 
+/** 宿主代发 HTTP 请求的数据源名（D6）；manifest 里写 `"source": "http"` 并给出 `request.url`。 */
+export const HTTP_DATA_SOURCE = 'http'
+
+/**
+ * 组件让宿主代发的一次 HTTP 请求（D6）。
+ *
+ * 组件自己拿不到网络，所以地址写在 manifest 里，由宿主请求；URL 里的 `{名字}` 在读取时换成卡片
+ * props 里的同名值，没有时换 props schema 给这个属性的默认值。只有 `permissions.hosts` 里列出的
+ * 主机能访问。
+ */
+export interface WidgetRequest {
+  url: string
+  /**
+   * 同一个地址的响应缓存多久（毫秒）；省略或为 0 时不缓存。
+   *
+   * 缓存只活在这一份宿主进程里；按解析后的完整 URL 区分，地址相同就是同一条缓存。
+   */
+  cacheMs?: number
+}
+
+/** 响应缓存允许的最长时间：再久就不该指望它还是当下的数据。 */
+export const HTTP_CACHE_MAX_MS = 86_400_000
+
 /**
  * 看板上这张卡最小能缩到多大：跨列数与根字号的倍数（D16）。
  *
@@ -152,9 +175,12 @@ export interface WidgetManifest {
   /**
    * 这个组件的默认数据源（D17）：加卡片时用它读第一次数据。
    *
-   * 数据源不在时卡片照样加得进来，数据留空——提供方可能只是还没装好。
+   * 数据源不在时卡片照样加得进来，数据留空——提供方可能只是还没装好。`"http"`（或写全的
+   * `"dsh-widget-board:http"`）是宿主自己的数据源，需要同时给出 `request`。
    */
   source?: string
+  /** `source` 是 `"http"` 时，宿主代发的那次请求（D6）。 */
+  request?: WidgetRequest
   actions?: WidgetAction[]
   /**
    * 这个组件会调用的宿主能力（D24）：每项是能力注册表里的名字，需要时写成 `提供方:名字`。
@@ -249,6 +275,15 @@ export const WIDGET_MANIFEST_SCHEMA = {
         },
       },
     },
+    request: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['url'],
+      properties: {
+        url: { type: 'string', minLength: 1, maxLength: 2048 },
+        cacheMs: { type: 'integer', minimum: 0, maximum: HTTP_CACHE_MAX_MS },
+      },
+    },
     actions: {
       type: 'array',
       items: {
@@ -289,6 +324,13 @@ export const WIDGET_MANIFEST_SCHEMA = {
     minBox: { $ref: '#/$defs/box' },
     defaultBox: { $ref: '#/$defs/box' },
   },
+  allOf: [
+    {
+      if: { properties: { source: { type: 'string', pattern: `(^|:)${HTTP_DATA_SOURCE}$` } }, required: ['source'] },
+      // `properties` 在这里只是让 Ajv 的严格模式认得 `required` 指的那一项。
+      then: { required: ['request'], properties: { request: {} } },
+    },
+  ],
   $defs: {
     text: {
       type: 'object',

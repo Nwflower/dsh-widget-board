@@ -16,6 +16,7 @@
 - 组件可以在 widget.json 里声明刷新策略：按需（默认），或「看着的时候按间隔读」。宿主上只有一条定时链，按有哪些卡片要刷新、现在有几个看板页在看算出跑不跑、跑多快；没有观众时一律不读。数据源也能声明自己需要的权限，要权限的数据源与动作一样，读之前要有人在卡片上给出授权。
 - 组件可以导出成 .dshw 再导入回来，看板可以导出成 .dshboard（带上它用到的全部组件；数据与状态默不带，带 ?data=true 才带）。解包前校验路径、扩展名、文件数与大小；同 id 不同内容先回 409 并给出两边的哈希，带上 replace 才覆盖，内置与插件提供的组件永远不被覆盖。组件库浮窗里每一格有「导出」，头部有「导入」。
 - 卡片右上角多了设置弹窗：组件设置、凭据、数据与权限、关于四节；props 由组件自己的 schema 生成表单，保存时宿主按同一个 schema 校验；凭据写进宿主的凭据服务，不进看板文件、导出包与工具结果。翻面组也在弹窗里挑两个槽的组件，换一个槽会重置它自己的设置，另一个槽不动。
+- 组件可以声明由宿主代发的 HTTPS 请求：widget.json 里写 "source": "http" 与 request.url，地址里的 {名字} 在读取时换成卡片 props（没有时用 props schema 的默认值），主机必须列在 permissions.hosts 里；回环、内网与 IP 字面量一律拒绝，重定向不跟随，响应有超时与大小上限；request.cacheMs 给出同一个地址的缓存时长，返回的 JSON 原样作为 data 交给组件。
 - 新增三个内置组件：翻页时钟、表盘与热力图。时钟把时与分逐格翻页、秒用数字滚动，可按 IANA 时区名显示；表盘用环形比例表示配额与目标，支持四种色调；热力图按日铺格子，按盒子宽度显示 16、26 或 53 周，并给出总数、有记录的天数与连续天数。
 - 组件桥多了一条通用的宿主能力调用：组件在 manifest 里声明能力名，用 widget.call 传参数并拿返回值，可以取消、有超时；能力由插件注册，输入与输出按 JSON Schema 校验，要权限的能力先由人授权。内置的 DSH 余额卡声明 dsh.account.balance，直接读当前登录的 DSH 账号充值钱包与赠送钱包，不需要 API key。
 - 新增两个内置组件：月历与改动。月历按周一起头铺出一个月的日期网格，有安排的日期带点，可以翻到前后月份或回到今天，翻月的位置经 state 存在宿主上；改动卡把统一的 diff 按行铺开，新增与删除标出加减号，文件路径作为分节标题。
@@ -37,9 +38,12 @@
 - 内置组件的视觉收了一遍：数据卡的标题区只留标题与一条有事实的右上信息，12px 以下的等宽全大写标签、编号 kicker 与「7 POINTS」这类计数默认不再出现；字号与间距改读类型、间距令牌，数字统一等宽。状态色收进套件的 --w-tone-* 四个变量，列表与时间线再加一行读屏文字，不再只靠颜色。图表补了峰值、最新值与读屏摘要，表格补了 aria 标签与列作用域，进度条的动画从 width 改成 transform。全息卡加了一层压暗文字区的 scrim，磁吸卡把舞台收回成卡片自己的表面、去掉重复的点阵底，翻转卡背面改成前景与底色对调，浅色与深色下都从令牌来。每个内置组件补了与内容量相称的 defaultBox 与 minBox；题头去掉 kicker，说明改成一句具体的用途。
 - 看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。
 - 看板下方的加号菜单与组件库浮窗改成按看板这一栏的中线定位：左右侧栏收放、拖宽时它们跟着卡片区走，不再按整扇窗口居中。
+- 天气卡改用 Open-Meteo 的真实数据：组件自己把原始响应映射成五天预报（WMO 天气代码、双语星期与天气文字、高低温），地点与经纬度从卡片 props 取；按五小时刷新，宿主把 Open-Meteo 的响应按地址缓存同样久，重新打开看板不会连着请求接口；数据没到时显示等待，超时后写明暂时无法获取；内置看板第一次打开时旧的天气卡会自动接上数据源。
 - 组件状态写入由父页面按 250 毫秒窗口合并，宿主按卡 64KB、按看板 1MB 与每秒次数限额拒绝超出的写入并显示原因；状态事件在对象合并时只带补丁；布局提交成功只回这次落定的盒子；定时刷新覆盖全部看板；看板没有选中时卡片也暂停，运行时新增 `paused` 与 `onPause`；同一份组件版本库在启动时不再重写已存在的文件。
 - 定时刷新把同一块看板在同一轮到期的卡片合成一次写入，不再每张卡各写一遍整块看板；读失败的卡只影响自己。
+- 打开看板时，声明了定时刷新的卡片先读一次，之后按间隔读；不用等满一个间隔才看到当下的数据。
 - Windows 桌面端把看板标签条挂进窗口标题栏：标题栏让出那一条、宽度放得下时，标签条靠左挂在 Desktop 菜单之后，比页内小一号、上下留出空隙，圆角 9999；看板内容从标题栏下方开始。标签条换成 transitions.dev 的 Tabs sliding，活动标签的药丸滑过去，首帧不补间。放不下或不在桌面端时仍留在页面顶部。
+- 组件在 widget.json 里声明默认数据源之后，看板上没有绑定数据源的旧卡片在加载时接上它，不必重新加卡。
 - 会话工具的看板操作扩展到全部看板：widget_board 列出所有看板并可指定读哪一块，widget_place 可把新卡放到指定的看板，widget_push 与 widget_remove 按全工作区唯一的卡片 id 找到那张卡，不必先切换选中的看板。
 - 提供方的服务类型现在有一个只含类型的入口（`dsh-widget-board/service`）：用 `import type` 取类型，运行时只走服务，从 `service.apiVersion` 读版本，不复制常量，也不为绕开规则添加 `dsh.client.external`。客户端产物只依赖平台种子，这一条由构建检查；原生组件的重名注册被拒绝并保留先到的那一个，把手名下的数据源与动作必须与把手同名。插件停用或卸载时，组件、数据源、动作与它留下的授权一起撤下，卡片保留并显示不可用，启用之后恢复。
 
@@ -47,6 +51,8 @@
 
 - 从仓库安装时这个包自己构建一次：`prepare` 跑构建，装出来的包里带上 `lib/host/index.js`，不再因为缺宿主半边而启用失败；lint 在发布入口指向 `lib/` 时要求 `scripts.prepare` 存在。
 - 看板页顶部的标签条不再被内容压短：它保持自己的高度，药丸套住活动标签，文字不会再跑到条外、药丸落到文字下方。
+- 加卡片时的第一次数据读取也过授权：要权限的数据源在有人于卡片上给出授权之前不再被读一次，加卡请求按 403 回给界面，卡片留在看板上；请求本身失败时只记一条日志，不再让加卡失败，卡片的数据留空。
+- 加卡片时组件库立刻收起，不等宿主写完：数据源读得慢时，晚收会把用户在这期间重新打开的组件库关掉。
 
 ### 其他变更
 
@@ -61,6 +67,7 @@
 - A widget can declare a refresh policy in widget.json: on demand (the default) or "read on an interval while watched". One timer on the host decides whether and how fast to run from which cards ask for it and how many board pages are watching; nothing is read without a viewer. A data source can also declare the permissions it needs, and a gated source is granted on the card before it can be read, exactly like a gated action.
 - A widget can be exported as .dshw and imported back, and a board as .dshboard with every widget it uses embedded (data and state are left out unless ?data=true). Packages are checked for paths, extensions, file count and size before they are unpacked; the same id with different content answers 409 and names both hashes, and only replace overwrites — built-in and plugin-provided widgets are never overwritten. Each tile in the library panel has an Export, and its header has an Import.
 - Cards gain a settings modal with four sections: widget settings, credentials, data and permissions, and about. Props render from the widget's own schema and the host validates them against the same schema on save; credentials go to the host's credential service and never enter board files, exports or tool output. A flip group also picks its two slot widgets in the modal: replacing one resets that slot's own settings and leaves the other alone.
+- A widget can declare an HTTPS request the host makes for it: write "source": "http" and request.url in widget.json. Each {name} in the URL is replaced from the card's props (or the props schema default), and the host must be listed in permissions.hosts. Loopback, private and IP-literal hosts are refused, redirects are not followed, and responses have a timeout and a size cap; request.cacheMs sets how long the same URL is cached, and the returned JSON becomes the widget's data as-is.
 - Adds three built-in widgets: a flip clock, ring gauges and a heatmap. The clock flips hours and minutes cell by cell and rolls the seconds, and takes an IANA time zone; the gauges show quotas and goals as rings in four tones; the heatmap lays out daily cells across 16, 26 or 53 weeks by box width and reports totals, active days and a streak.
 - The widget bridge gains a generic host-capability call: a widget declares capability names in its manifest and uses widget.call with arguments and a return value, with cancellation and a timeout; plugins register capabilities, arguments and results are checked against JSON Schema, and one with a permission needs a person's grant first. The built-in DSH balance card declares dsh.account.balance and reads the recharge and bonus wallets of the signed-in DSH account, with no API key.
 - Adds two built-in widgets: a calendar and a diff. The calendar lays a month out from Monday with a dot on days that have plans, steps to the previous or next month or back to today, and keeps the shown month in host state; the diff card prints a unified diff line by line with add and remove signs and file paths as section headings.
@@ -82,9 +89,12 @@
 - The built-in widgets had a visual pass. Data cards now show a title plus one factual meta line: the sub-12px uppercase mono labels, numbered kickers and counts such as '7 POINTS' are gone by default, type and spacing read from tokens, and numbers share tabular figures. Status colors live in four suite-level --w-tone-* variables, and list and timeline rows carry a screen-reader status line so color is not the only signal. The chart gains peak and latest values plus a spoken summary; the table gains an aria label and column scopes; the progress bar animates transform instead of width. The holographic card gets a text-side scrim, the magnetic card turns its stage back into the card surface and drops the duplicate dot pattern, and the flip card's back swaps foreground and background, both from tokens in either theme. Every built-in widget declares a defaultBox and minBox suited to its content; the board hero loses its kicker and gains a concrete tagline.
 - Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed.
 - The bottom plus menu and the widget library now centre on the board column: collapsing, expanding or dragging the sidebars keeps them on the card area's midline instead of the window's.
+- The weather card now reads real data from Open-Meteo: the widget itself maps the raw response into a five-day forecast (WMO weather codes, bilingual weekdays and conditions, highs and lows), with the place and coordinates taken from the card props. It refreshes every five hours and the host caches the Open-Meteo response per URL for as long, so reopening the board does not hit the API again; it shows a waiting state until data arrives and names the failure after a timeout. Existing weather cards are bound to the source when their board is first opened.
 - Widget state writes are coalesced in a 250 ms window in the parent page; the host rejects writes over 64 KB per card, 1 MB per board or the per-second write limits and shows the reason. State events carry an object patch, a successful layout commit returns only the boxes it stored, scheduled refresh covers every board, cards pause when their board is not selected, the runtime gains `paused` and `onPause`, and the version store no longer rewrites blobs that already exist at startup.
 - Scheduled refresh batches the cards that are due on the same board into one write instead of rewriting the whole board once per card; a failed read only affects its own card.
+- When a board is opened, cards with an interval refresh read once right away and then on their interval, so current data appears without waiting a full interval.
 - On the Windows desktop the board tab strip now rides in the window's caption row: when the shell reserves that row and the strip fits, it sits at the left after the desktop menu, a size smaller than in the page with air above and below and 9999px corners, and the board starts below it. The strip now uses transitions.dev's Tabs sliding, with the pill sliding to the active tab and no tween on first paint; when it does not fit, or outside the desktop, it stays at the top of the page.
+- Once a widget declares a default data source in widget.json, existing cards on a board that have none are bound to it when the board loads, without re-adding them.
 - The session tools now work across all boards: widget_board lists every board and reads a chosen one, widget_place can add a card to a chosen board, and widget_push and widget_remove find the card by its workspace-wide instance id without switching the selected board first.
 - Provider service types now have a type-only entry (`dsh-widget-board/service`): import types with `import type`, call through the service at runtime, read the version from `service.apiVersion`, and never add `dsh.client.external` to get around the rule. The client artifact depends only on the platform seeds, and the build checks it; a duplicate native widget id is refused with the first registration kept, and a handle's data sources and actions must carry the handle's provider. Disabling or unloading a provider withdraws its widgets, data sources, actions and leftover grants, leaves its cards in place as unavailable, and restores them when it returns.
 
@@ -92,6 +102,8 @@
 
 - The package now builds itself when installed from the repository: `prepare` runs the build, so the installed copy carries `lib/host/index.js` and no longer fails to activate without its host half; lint requires `scripts.prepare` whenever a published entry points into `lib/`.
 - The tab strip at the top of the board page no longer collapses under tall content: it keeps its height and the pill stays on the active tab, so labels no longer sit outside the strip with the pill below them.
+- The first data read when a card is added now goes through grants too: a gated source is not read before a person allows it on the card, the add request answers 403, and the card stays on the board. If the request itself fails, the add still succeeds with empty data and the reason goes to the log.
+- The library panel now closes as soon as a card is added instead of waiting for the host to finish, so a slow data source cannot close the panel the user reopened in the meantime.
 
 ### Chores
 

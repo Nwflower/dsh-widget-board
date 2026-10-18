@@ -4,7 +4,7 @@
  * 只有一条定时链，按「有哪些卡片声明了定时刷新」与「现在有几个页面在看」这两件事算出来：
  *
  * - 没有观众时一律不跑。宿主上不该有没人看的轮询（D5）。
- * - 有观众时按最短的那个间隔跑；每次只读那些到期了的卡片。
+ * - 有观众时按最短的那个间隔跑；开始观察时先读一次，之后每次只读那些到期了的卡片。
  * - 声明了按需（或没声明）的卡片从不被定时读，只有人按刷新或工具显式读一次时才读。
  *
  * 调度器自己不认识组件与数据源：调用方给出「哪些卡片要按什么间隔读」与「怎么读一张卡」，它只管
@@ -100,10 +100,11 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
     const now = Date.now()
     const dueIds: string[] = []
     for (const card of cards) {
-      const at = due.get(card.id)
+      let at = due.get(card.id)
       if (at === undefined) {
-        due.set(card.id, now + card.everyMs)
-        continue
+        // 第一次见到这张卡：先读一次，之后按间隔排期。打开看板就该看到当下的数据。
+        at = now
+        due.set(card.id, at)
       }
       if (at > now || reading.has(card.id)) continue
       due.set(card.id, now + card.everyMs)
@@ -135,7 +136,7 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
       stop()
       return
     }
-    // 卡片表变了就重算到期时刻：新来的卡从下一个间隔开始，走掉的卡不再占位。
+    // 卡片表变了就重算到期时刻：新来的卡在下一轮立刻读一次，走掉的卡不再占位。
     const known = new Set(deps.cards().map((card) => card.id))
     for (const id of [...due.keys()]) {
       if (!known.has(id)) due.delete(id)
@@ -144,6 +145,8 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
     timer?.cancel()
     period = wanted
     timer = setTimer(tick, wanted)
+    // 刚刚有观众（或换成更短的间隔）：立刻读一次，不用等满一个间隔。
+    tick()
   }
 
   return {

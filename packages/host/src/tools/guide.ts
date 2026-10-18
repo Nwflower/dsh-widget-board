@@ -56,6 +56,7 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`props\` 与 \`data\` 是 JSON Schema。\`data\` 用来校验数据源读回来的数据，不合格的不会写进卡片。
 - \`source\` 是默认数据源的名字；要别人装的插件提供，写 \`提供方:名字\`。
 - \`credentials\` 声明组件要用的凭据：\`ref\` 是环境变量名，\`label\` 与 \`description\` 显示在设置弹窗里。**密钥只放这里，不写进 props 或 state**；值由宿主的凭据服务保存，组件读不到它。
+- \`source\` 写 \`"http"\` 时，再用 \`request.url\` 给出宿主代发的地址。URL 里的 \`{名字}\` 在每次读取时换成卡片 props 里的同名值，没有时换成 props schema 给这个属性写的 \`default\`；主机必须列在 \`permissions.hosts\` 里。返回的 JSON 原样作为 \`data\` 交给组件，解析与映射由组件自己的脚本做。\`request.cacheMs\` 可选：给了就让宿主按这个毫秒数缓存同一个地址的响应。
 - \`actions\` 里写插件动作的全名。**没有声明的动作一律被拒绝**；要权限的动作还要有人在卡片上给出授权之后才跑得起来。
 - \`capabilities\` 里写宿主能力的全名（例如 \`dsh.account.balance\`）。**没有声明的调用一律被拒绝**；能力的参数与返回值按提供方声明的 JSON Schema 校验，要权限的能力同样先要一份授权。读当前登录的 DSH 账号余额就用 \`dsh.account.balance\`，不需要 API key。
 - 设置弹窗按 \`props\` schema 生成表单。字段标签与提示写进 \`text\` 的 \`props.<字段>.label\` 与 \`props.<字段>.hint\`；字符串、数字、布尔与字符串枚举直接出控件，对象、数组与其他写法用 JSON 编辑。
@@ -84,7 +85,7 @@ widget.fit()            // 把内容高度报给宿主（内联显示时用）
 widget.reportError(err) // 把失败原因写在这张卡上
 \`\`\`
 
-组件在 iframe 里跑，拿不到网络、cookie 与父页面。要数据就声明数据源，要动手就声明动作，需要参数、返回值或取消就声明能力并调 \`widget.call\`；能力的失败原因会原样回给组件。
+组件在 iframe 里跑，拿不到网络、cookie 与父页面。要数据就声明数据源（要网上的数据用 \`"http"\`，见上面 \`request.url\`），要动手就声明动作，需要参数、返回值或取消就声明能力并调 \`widget.call\`；能力的失败原因会原样回给组件。
 
 \`setState\` 由父页面合并：同一个 250 毫秒窗口里的几条补丁合成一次提交，暂停、页面隐藏与卸载时立即提交。状态有额度（一张卡 64KB，一块看板 1MB），超出的写入会被拒绝并在卡片上显示原因；不要拿它存动画帧或大块数据。
 

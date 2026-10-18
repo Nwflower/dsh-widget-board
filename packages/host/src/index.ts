@@ -22,6 +22,7 @@ import {
 } from '@dsh-widget-board/contracts'
 import { createVersionStore } from './blobs'
 import { loadAssets } from './assets'
+import { createHttpSource } from './http'
 import { openGrants } from './grants'
 import type { GrantStore } from './grants'
 import { loadLibrary } from './library'
@@ -146,6 +147,10 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     },
     credentials: () => credentialsOf(ctx),
   }
+  // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责。
+  const disposeHttpSource = sources.registerDataSource(
+    createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION),
+  )
 
   // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与
   // 刷新按钮同时到来时后一次看得到前一次的结果。
@@ -292,6 +297,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   ctx.effect(() => () => {
     disposeDshAccount()
     tools?.dispose()
+    disposeHttpSource()
     stopWatchingViewers()
     scheduler.stop()
     stopBuiltin()

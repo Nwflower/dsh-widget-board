@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 23,
+  "at": "2026-10-18",
+  "external": false,
+  "zh": "组件在 widget.json 里声明默认数据源之后，看板上没有绑定数据源的旧卡片在加载时接上它，不必重新加卡。",
+  "en": "Once a widget declares a default data source in widget.json, existing cards on a board that have none are bound to it when the board loads, without re-adding them."
+}

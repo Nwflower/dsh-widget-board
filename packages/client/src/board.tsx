@@ -278,9 +278,10 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     if (activeBoard === null) return
     busyRef.current = true
     setBusy(true)
+    // 先收起组件库，等宿主写完再加卡片：数据源读得慢时，晚收会把用户在这期间重新打开的库关掉。
+    setLibraryOpen(false)
     addInstance(activeBoard.id, id).then((next) => {
       apply(next)
-      setLibraryOpen(false)
     }, (error: Error) => { setFailure(error.message) })
       .finally(() => {
         busyRef.current = false
@@ -311,10 +312,11 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     if (widget === FLIP_GROUP_ID) return await addGroupCard({ x: column, y, w: 1, h: DEFAULT_HEIGHT_REM }) !== null
     busyRef.current = true
     setBusy(true)
+    // 落点已经确定：先收起组件库，写入与数据读取在后台完成。
+    setLibraryOpen(false)
     try {
       const next = await addInstance(board.id, widget, { x: column, y, w: 1, h: DEFAULT_HEIGHT_REM })
       apply(next)
-      setLibraryOpen(false)
       return true
     } catch (error) {
       setFailure((error as Error).message)

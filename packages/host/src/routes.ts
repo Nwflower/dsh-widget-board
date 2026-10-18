@@ -335,11 +335,20 @@ const ROUTES: Route[] = [
         event: () => ({ type: 'board' }),
       })
       // 组件默认的数据源不在时卡片照样留着，数据留空：提供方可能只是还没装好（D17）。
-      if (source !== undefined && context.sources.hasDataSource(source)) {
+      const resolved = source === undefined ? undefined : context.sources.resolveDataSource(source)
+      if (source !== undefined && resolved !== undefined) {
         // 写入之后重新取那一块看板：新卡片是这次写入加进去的，先前读到的那一份里没有它。
-        const instance = faceOf(context.workspace.board(boardId), id)
-        const data = await context.sources.readSource(source, instance)
-        await saveData(context, id, data)
+        const board = context.workspace.board(boardId)
+        const instance = faceOf(board, id)
+        // 第一次读也要过授权，和 /read 走同一条规则：没人在卡片上给出「允许」之前不能跑（D6）。
+        requireGrant(grantFacts(context, board), id, 'source', source, resolved.registration.permission, resolved.provider)
+        // 请求本身失败（网络之类）不该让加卡失败：卡片留着，界面按空数据画，原因写进日志。
+        try {
+          const data = await context.sources.readSource(source, instance)
+          await saveData(context, id, data)
+        } catch (error) {
+          console.error(`widget-board: 新卡片 ${id} 第一次读 ${source} 失败：${error instanceof Error ? error.message : String(error)}`)
+        }
       }
       json(response, 201, { id, snapshot: workspaceSnapshot(context) })
     },

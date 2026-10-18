@@ -12,7 +12,7 @@
   <id>/
     widget.json    id、名字与描述（中英）、作者、semver、支持的尺寸族与降级顺序、
                    props 与 data 的 JSON Schema、credentials、actions、capabilities、权限（网络主机、命令）、
-                   刷新策略、所需的库、文案、看板上的默认盒子与最小盒子
+                   数据源与它要代发的网络请求地址（request.url）、看板上的默认盒子与最小盒子
     index.html     标记片段
     style.css
     main.js        可选

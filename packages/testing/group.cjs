@@ -20,6 +20,8 @@ async function groupPass(page, check) {
   const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
   await openLibrary(page)
   await page.waitForSelector('[data-dsh-widget-board-add="flip-group"]', { timeout: 10000 })
+  // 上一张卡片的添加/移除还没落定时，组件库里的格子是禁用的；等它可用再点。
+  await page.waitForFunction(() => document.querySelector('[data-dsh-widget-board-add="flip-group"]')?.getAttribute('aria-disabled') !== 'true', undefined, { timeout: 10000 })
   check('组件库里有翻面组', true)
   await page.locator('[data-dsh-widget-board-add="flip-group"]').click()
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count + 1, before, { timeout: 15000 })

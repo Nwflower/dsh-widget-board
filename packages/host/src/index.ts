@@ -33,6 +33,7 @@ import { readManyInto } from './batch-reads'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
+import { registerDshAccount } from './dsh-account'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
 import type { ToolRegistration } from './tools'
@@ -101,6 +102,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   for (const record of library.records.values()) await versions.remember(record)
   const live = createLive(await loadAssets(runtime))
   const sources = createRegistries()
+  // 内置的 DSH 账户能力（D24）：余额这类宿主服务由一个小提供方按能力注册，看板核心不认它。
+  const disposeDshAccount = registerDshAccount(sources, ctx)
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
   // 卡片增删与组件库重读才改变定时刷新的表；状态、数据与布局写入不重算它（D6）。
   let syncScheduler: () => void = () => {}
@@ -224,6 +227,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     reload,
     registerDataSource: (source) => sources.registerDataSource(source),
     registerAction: (action) => sources.registerAction(action),
+    registerCapability: (capability) => sources.registerCapability(capability),
     forgetGrants: async (provider) => { await grants.forget({ provider }) },
     idsIn: async (root) => await widgetIdsIn(root, async (file) => await readFile(file, 'utf8')),
     watch: watchOnce,
@@ -246,6 +250,10 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     registerAction(registration: { apiVersion: number } & Parameters<typeof sources.registerAction>[0]) {
       if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
       return sources.registerAction(registration)
+    },
+    registerCapability(registration: { apiVersion: number } & Parameters<typeof sources.registerCapability>[0]) {
+      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
+      return sources.registerCapability(registration)
     },
   }
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide
@@ -282,6 +290,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   })
 
   ctx.effect(() => () => {
+    disposeDshAccount()
     tools?.dispose()
     stopWatchingViewers()
     scheduler.stop()

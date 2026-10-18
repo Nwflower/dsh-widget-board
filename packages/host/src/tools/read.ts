@@ -37,6 +37,21 @@ function catalogOf(context: ToolContext): CatalogValue {
       hash: record.hash,
       ...(manifest.source === undefined ? {} : { source_id: manifest.source }),
       ...(manifest.actions === undefined ? {} : { actions: manifest.actions.map((action) => action.id) }),
+      ...(manifest.capabilities === undefined ? {} : {
+        capabilities: manifest.capabilities.map((id) => {
+          const resolved = context.route.sources.resolveCapability(id)
+          if (resolved === undefined) return { id, error: `没有能力 ${id}，提供它的插件可能没有安装` }
+          return {
+            id,
+            provider: resolved.provider,
+            ...(resolved.registration.title === undefined ? {} : { title: resolved.registration.title }),
+            ...(resolved.registration.description === undefined ? {} : { description: resolved.registration.description }),
+            ...(resolved.registration.permission === undefined ? {} : { permission: resolved.registration.permission }),
+            ...(resolved.registration.input === undefined ? {} : { input: resolved.registration.input }),
+            ...(resolved.registration.output === undefined ? {} : { output: resolved.registration.output }),
+          }
+        }),
+      }),
       ...(manifest.credentials === undefined ? {} : { credentials: manifest.credentials }),
       ...(manifest.props === undefined ? {} : { props: manifest.props }),
       ...(manifest.data === undefined ? {} : { data: manifest.data }),
@@ -64,7 +79,7 @@ function catalogOf(context: ToolContext): CatalogValue {
 export function catalogTool(context: ToolContext): WidgetToolSpec {
   return {
     name: WIDGET_TOOL_NAMES.catalog,
-    description: 'List the widget types in the board library: id, title, sizes, source, and the props/data JSON Schema each one declares. Use it before writing a new widget or placing a card.',
+    description: 'List the widget types in the board library: id, title, sizes, source, props/data JSON Schema, credentials, and declared host capabilities. Use it before writing a new widget or placing a card.',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -89,6 +104,9 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
         if (entry.error !== undefined) parts.push(`  不可用：${entry.error}`)
         if (entry.source_id !== undefined) parts.push(`  数据源：${entry.source_id}`)
         if (entry.actions !== undefined && entry.actions.length > 0) parts.push(`  动作：${entry.actions.join('、')}`)
+        if (entry.capabilities !== undefined && entry.capabilities.length > 0) {
+          parts.push(`  能力：${entry.capabilities.map((capability) => capability.id).join('、')}`)
+        }
         if (entry.credentials !== undefined && entry.credentials.length > 0) {
           parts.push(`  凭据：${entry.credentials.map((credential) => credential.ref).join('、')}`)
         }

@@ -38,9 +38,11 @@ import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-boa
 import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import { groupRoutes } from './groups'
+import { capabilityRoutes } from './capabilities'
 import type { GrantStore } from './grants'
 import { isRecord } from './guards'
-import { requireGrant, type GrantFacts } from './permissions'
+import { requireGrant } from './permissions'
+import { faceOf, grantFacts, locate } from './lookup'
 import type { Live } from './live'
 import type { LibraryLoad, WidgetRecord } from './library'
 import { json } from './response'
@@ -67,6 +69,7 @@ const ADD_LIMIT = 32 * 1024
 
 /** 推送数据的请求体上限：数据源读出来的快照可能不小，但仍要有个头。 */
 const DATA_LIMIT = 256 * 1024
+
 
 /** 加卡片、移除卡片与看板管理这类请求体可以没有。 */
 const EMPTY_LIMIT = 1024
@@ -163,34 +166,6 @@ function isBoardLayoutRequest(value: unknown): value is BoardLayoutRequest {
   if (!isRecord(value)) return false
   const { layoutRevision, layouts } = value
   return Number.isSafeInteger(layoutRevision) && (layoutRevision as number) >= 0 && isRecord(layouts)
-}
-
-/**
- * 一张卡在数据源与动作眼里的样子。
- *
- * @param board - 那张卡所在的看板。
- * @param id - 卡片实例的 id。
- * @returns 数据源与动作的参数。
- * @throws {Refusal} 看板上没有这张卡。
- */
-function faceOf(board: Board, id: string): InstanceFace {
-  const instance = board.instances.find((candidate) => candidate.id === id)
-  if (instance === undefined) throw new Refusal(404, `看板上没有这张卡：${id}`)
-  return { id: instance.id, widget: instance.widget, props: instance.props }
-}
-
-/**
- * 按卡片 id 找那张卡与它所在的看板；卡片 id 全工作区唯一，所以不必先知道是哪块看板（D21）。
- *
- * @param context - 路由上下文。
- * @param id - 卡片实例的 id。
- * @returns 那张卡与它所在的看板。
- * @throws {Refusal} 全工作区都没有这张卡。
- */
-function locate(context: RouteContext, id: string): { board: Board, instance: BoardInstance } {
-  const found = context.workspace.findInstance(id)
-  if (found === undefined) throw new Refusal(404, `看板上没有这张卡：${id}`)
-  return found
 }
 
 /**
@@ -490,6 +465,7 @@ const ROUTES: Route[] = [
       json(response, 200, { ok: true, data: data ?? null })
     },
   },
+
   {
     method: 'POST',
     pattern: /^\/instance\/([^/]+)\/grant$/,
@@ -500,10 +476,12 @@ const ROUTES: Route[] = [
       const record = recordOfCard(context, id)
       const action = wanted.kind === 'action' ? context.sources.resolveAction(wanted.id) : undefined
       const source = wanted.kind === 'source' ? context.sources.resolveDataSource(wanted.id) : undefined
+      const capability = wanted.kind === 'capability' ? context.sources.resolveCapability(wanted.id) : undefined
       if (wanted.kind === 'action' && action === undefined) throw new Refusal(400, `没有动作 ${wanted.id}，提供它的插件可能没有安装`)
       if (wanted.kind === 'source' && source === undefined) throw new Refusal(400, `没有数据源 ${wanted.id}，提供它的插件可能没有安装`)
-      const provider = action?.provider ?? source?.provider
-      const permission = action?.registration.permission ?? source?.registration.permission
+      if (wanted.kind === 'capability' && capability === undefined) throw new Refusal(400, `没有能力 ${wanted.id}，提供它的插件可能没有安装`)
+      const provider = action?.provider ?? source?.provider ?? capability?.provider
+      const permission = action?.registration.permission ?? source?.registration.permission ?? capability?.registration.permission
       const grant = await context.grants.grant({
         kind: wanted.kind,
         id: wanted.id,
@@ -582,7 +560,10 @@ async function grantRequestOf(context: RouteContext, request: HostRequest, id: s
   locate(context, id)
   const body = await readJson(request, EMPTY_LIMIT)
   if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '授权或撤权要写明 id')
-  return { kind: body.kind === 'source' ? 'source' : 'action', id: body.id }
+  if (body.kind !== undefined && body.kind !== 'source' && body.kind !== 'action' && body.kind !== 'capability') {
+    throw new Refusal(400, '授权类型只能是 action、source 或 capability')
+  }
+  return { kind: body.kind === 'source' ? 'source' : body.kind === 'capability' ? 'capability' : 'action', id: body.id }
 }
 
 /**
@@ -597,19 +578,6 @@ function recordOfCard(context: RouteContext, id: string): WidgetRecord {
   const record = context.records.get(locate(context, id).instance.widget)
   if (record === undefined) throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来')
   return record
-}
-
-/**
- * 把路由上下文里跟授权有关的那几项收成一份事实（D6）。
- *
- * @param context - 路由上下文。
- * @param board - 这张卡所在的看板；卡片 id 全工作区唯一，不能拿选中的看板代替（D21）。
- * @returns 看板、组件当前的版本哈希与授权表。
- */
-function grantFacts(context: RouteContext, board: Board): GrantFacts {
-  const hashes = new Map<string, string>()
-  for (const [id, record] of context.records) hashes.set(id, record.hash)
-  return { board, hashes, grants: context.grants }
 }
 
 /**
@@ -667,7 +635,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes()].flatMap((route) => {
+    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes()].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

@@ -8,7 +8,7 @@
  * 撤下与注册都排在同一条串行链上：一次撤下与一次注册同时到来时，后一次看得到前一次的结果。
  */
 import { join } from 'node:path'
-import type { DataSourceRegistration, ActionRegistration, WidgetRoot, WidgetTypeHandle } from '@dsh-widget-board/contracts'
+import type { DataSourceRegistration, ActionRegistration, CapabilityRegistration, WidgetRoot, WidgetTypeHandle } from '@dsh-widget-board/contracts'
 
 /** 一次提供方注册要动的那几样东西。 */
 export interface ProviderDeps {
@@ -18,6 +18,7 @@ export interface ProviderDeps {
   reload: () => Promise<void>
   registerDataSource: (source: DataSourceRegistration) => () => void
   registerAction: (action: ActionRegistration) => () => void
+  registerCapability: (capability: CapabilityRegistration) => () => void
   /** 撤下时清掉这个提供方留下的授权。 */
   forgetGrants: (provider: string) => Promise<void>
   /** 读一个组件目录里现在有哪些组件 id。 */
@@ -128,6 +129,12 @@ export function createProviderRegistry(deps: ProviderDeps): ProviderRegistry {
                 throw new Error(`动作 ${action.id} 的 provider 是 ${action.provider}，这次注册的提供方是 ${handle.provider}`)
               }
               added.add(deps.registerAction(action))
+            }
+            for (const capability of registrations.capabilities ?? []) {
+              if (capability.provider !== handle.provider) {
+                throw new Error(`能力 ${capability.id} 的 provider 是 ${capability.provider}，这次注册的提供方是 ${handle.provider}`)
+              }
+              added.add(deps.registerCapability(capability))
             }
           } catch (error) {
             for (const dispose of added) dispose()

@@ -5,12 +5,14 @@
  * 体进宿主的凭据服务，响应里只有状态；看板文件、导出包与工具结果都不经过这里（D6、D22）。
  */
 import type {
+  CapabilitySetting,
   CardSettings,
   CredentialSetting,
   Grant,
   HostCredentials,
   InstanceCredentialRequest,
   InstancePropsRequest,
+  WidgetCredential,
 } from '@dsh-widget-board/contracts'
 import { readJson } from './body'
 import { permissionMatches } from './grants'
@@ -64,8 +66,41 @@ async function settingsOf(context: RouteContext, id: string): Promise<CardSettin
     }
   }
 
+  // 能力声明过的凭据与组件自己声明的合在一起；同一个 ref 只显示一次（D24）。
+  const declaredCapabilities = record.manifest.capabilities ?? []
+  const capabilities: CapabilitySetting[] = declaredCapabilities.map((capabilityId) => {
+    const resolved = context.sources.resolveCapability(capabilityId)
+    if (resolved === undefined) {
+      return {
+        id: capabilityId,
+        provider: '',
+        granted: false,
+        unavailable: `没有能力 ${capabilityId}，提供它的插件可能没有安装`,
+      }
+    }
+    const permission = resolved.registration.permission
+    const granted = permission === undefined || grants.some((grant) => grant.kind === 'capability'
+      && grant.id === capabilityId
+      && permissionMatches(permission, grant.permission))
+    return {
+      id: capabilityId,
+      provider: resolved.provider,
+      ...(resolved.registration.title === undefined ? {} : { title: resolved.registration.title }),
+      ...(resolved.registration.description === undefined ? {} : { description: resolved.registration.description }),
+      ...(permission === undefined ? {} : { permission }),
+      granted,
+    }
+  })
+
+  const declared: WidgetCredential[] = [...(record.manifest.credentials ?? [])]
+  for (const capability of declaredCapabilities) {
+    const resolved = context.sources.resolveCapability(capability)
+    for (const credential of resolved?.registration.credentials ?? []) {
+      if (!declared.some((entry) => entry.ref === credential.ref)) declared.push(credential)
+    }
+  }
+
   const credentials = context.credentials?.()
-  const declared = record.manifest.credentials ?? []
   const credentialSettings: CredentialSetting[] = []
   for (const credential of declared) {
     if (credentials === undefined) {
@@ -94,6 +129,7 @@ async function settingsOf(context: RouteContext, id: string): Promise<CardSettin
     },
     ...(source === undefined ? {} : { source }),
     ...(sourceError === undefined ? {} : { sourceError }),
+    capabilities,
     grants,
     credentials: credentialSettings,
     credentialsAvailable: credentials !== undefined,

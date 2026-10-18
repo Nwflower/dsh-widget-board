@@ -17,7 +17,7 @@ import type { RouteContext } from './routes'
 export function hasSettings(manifest: WidgetManifest): boolean {
   const properties = isRecord(manifest.props) ? manifest.props.properties : undefined
   const hasProps = isRecord(properties) && Object.keys(properties).length > 0
-  return hasProps || (manifest.credentials?.length ?? 0) > 0
+  return hasProps || (manifest.credentials?.length ?? 0) > 0 || (manifest.capabilities?.length ?? 0) > 0
 }
 
 /**

@@ -34,7 +34,7 @@ function pathOf(error: ErrorObject): string {
  * @param value - 要校验的值。
  * @returns 不相符的字段；相符时为 `undefined`。
  */
-function issuesOf(schema: Record<string, unknown> | undefined, value: unknown): SchemaIssue[] | undefined {
+export function issuesOf(schema: Record<string, unknown> | undefined, value: unknown): SchemaIssue[] | undefined {
   if (schema === undefined) return undefined
   const key = JSON.stringify(schema)
   let validate = compiled.get(key)

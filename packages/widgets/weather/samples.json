@@ -1,20 +1,40 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "props": {
+      "place": { "zh": "北京", "en": "Beijing" },
+      "latitude": 39.9042,
+      "longitude": 116.4074
+    },
+    "data": {
+      "current": { "temperature_2m": 15.4, "weather_code": 0 },
+      "daily": {
+        "time": ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"],
+        "weather_code": [3, 3, 51, 0, 2],
+        "temperature_2m_max": [16.9, 17.8, 13.1, 14.3, 15.1],
+        "temperature_2m_min": [10.2, 7.2, 7.0, 3.9, 3.3],
+        "temperature_2m_mean": [13.5, 12.5, 10.0, 9.1, 9.2]
+      }
+    }
   },
   "l": {
     "lang": "zh-CN",
     "motion": "full",
-    "data": {
+    "props": {
       "place": { "zh": "北京", "en": "Beijing" },
-      "days": [
-        { "name": { "zh": "星期一", "en": "Monday" }, "short": { "zh": "周一", "en": "Mon" }, "icon": "sun", "sky": "clear", "condition": { "zh": "晴", "en": "Sunny" }, "temp": 21, "high": 24, "low": 12 },
-        { "name": { "zh": "星期二", "en": "Tuesday" }, "short": { "zh": "周二", "en": "Tue" }, "icon": "cloud", "sky": "cloudy", "condition": { "zh": "阴", "en": "Overcast" }, "temp": 18, "high": 20, "low": 11 },
-        { "name": { "zh": "星期三", "en": "Wednesday" }, "short": { "zh": "周三", "en": "Wed" }, "icon": "rain", "sky": "rain", "condition": { "zh": "中雨", "en": "Rain" }, "temp": 15, "high": 17, "low": 10 },
-        { "name": { "zh": "星期四", "en": "Thursday" }, "short": { "zh": "周四", "en": "Thu" }, "icon": "bolt", "sky": "storm", "condition": { "zh": "雷阵雨", "en": "Thunderstorms" }, "temp": 14, "high": 16, "low": 9 },
-        { "name": { "zh": "星期五", "en": "Friday" }, "short": { "zh": "周五", "en": "Fri" }, "icon": "sun", "sky": "clear", "condition": { "zh": "晴", "en": "Sunny" }, "temp": 20, "high": 23, "low": 13 }
-      ]
+      "latitude": 39.9042,
+      "longitude": 116.4074
+    },
+    "data": {
+      "current": { "temperature_2m": 15.4, "weather_code": 0 },
+      "daily": {
+        "time": ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"],
+        "weather_code": [3, 3, 51, 0, 2],
+        "temperature_2m_max": [16.9, 17.8, 13.1, 14.3, 15.1],
+        "temperature_2m_min": [10.2, 7.2, 7.0, 3.9, 3.3],
+        "temperature_2m_mean": [13.5, 12.5, 10.0, 9.1, 9.2]
+      }
     }
   }
 }

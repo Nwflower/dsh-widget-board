@@ -5,13 +5,21 @@
     "en": "Weather"
   },
   "description": {
-    "zh": "iOS 风格的天气卡：切换预报日时，天空背景、图标、温度与天气文字一起过渡。",
-    "en": "An iOS-style weather card whose living sky, icon, temperature and condition transition together as you switch forecast days."
+    "zh": "iOS 风格的天气卡：数据由 Open-Meteo 提供，组件把原始响应映射成五天预报；切换预报日时，天空背景、图标、温度与天气文字一起过渡。",
+    "en": "An iOS-style weather card: Open-Meteo supplies the raw reading and the widget maps it into a five-day forecast; the living sky, icon, temperature and condition transition together as you switch days."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
-  "data": {
+  "source": "http",
+  "request": {
+    "url": "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean&timezone=auto&forecast_days=5",
+    "cacheMs": 18000000
+  },
+  "permissions": {
+    "hosts": ["api.open-meteo.com"]
+  },
+  "props": {
     "type": "object",
     "properties": {
       "place": {
@@ -20,45 +28,60 @@
         "properties": {
           "zh": { "type": "string" },
           "en": { "type": "string" }
+        },
+        "default": { "zh": "北京", "en": "Beijing" }
+      },
+      "latitude": {
+        "type": "number",
+        "minimum": -90,
+        "maximum": 90,
+        "default": 39.9042
+      },
+      "longitude": {
+        "type": "number",
+        "minimum": -180,
+        "maximum": 180,
+        "default": 116.4074
+      }
+    }
+  },
+  "data": {
+    "type": "object",
+    "required": ["current", "daily"],
+    "properties": {
+      "current": {
+        "type": "object",
+        "required": ["temperature_2m", "weather_code"],
+        "properties": {
+          "temperature_2m": { "type": "number" },
+          "weather_code": { "type": "integer" }
         }
       },
-      "days": {
-        "type": "array",
-        "minItems": 1,
-        "maxItems": 7,
-        "items": {
-          "type": "object",
-          "required": ["name", "short", "icon", "sky", "condition", "temp", "high", "low"],
-          "properties": {
-            "name": {
-              "type": "object",
-              "required": ["zh", "en"],
-              "properties": { "zh": { "type": "string" }, "en": { "type": "string" } }
-            },
-            "short": {
-              "type": "object",
-              "required": ["zh", "en"],
-              "properties": { "zh": { "type": "string" }, "en": { "type": "string" } }
-            },
-            "icon": { "enum": ["sun", "cloud", "rain", "bolt"] },
-            "sky": { "enum": ["clear", "cloudy", "rain", "storm"] },
-            "condition": {
-              "type": "object",
-              "required": ["zh", "en"],
-              "properties": { "zh": { "type": "string" }, "en": { "type": "string" } }
-            },
-            "temp": { "type": "number" },
-            "high": { "type": "number" },
-            "low": { "type": "number" }
-          }
+      "daily": {
+        "type": "object",
+        "required": ["time", "weather_code", "temperature_2m_max", "temperature_2m_min", "temperature_2m_mean"],
+        "properties": {
+          "time": { "type": "array", "minItems": 5, "items": { "type": "string" } },
+          "weather_code": { "type": "array", "minItems": 5, "items": { "type": "integer" } },
+          "temperature_2m_max": { "type": "array", "minItems": 5, "items": { "type": "number" } },
+          "temperature_2m_min": { "type": "array", "minItems": 5, "items": { "type": "number" } },
+          "temperature_2m_mean": { "type": "array", "minItems": 5, "items": { "type": "number" } }
         }
       }
     }
   },
+  "refresh": {
+    "mode": "interval",
+    "everyMs": 18000000
+  },
   "text": {
-    "forecast": {
-      "zh": "未来五天",
-      "en": "Five-day forecast"
+    "loading": {
+      "zh": "正在获取天气",
+      "en": "Fetching weather"
+    },
+    "unavailable": {
+      "zh": "暂时无法获取天气",
+      "en": "Weather unavailable"
     }
   }
 }

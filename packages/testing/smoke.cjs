@@ -143,25 +143,28 @@ async function mainPass(page, problems) {
   check('卡片文档按哈希取到', weather.url().includes('/widget/'), weather.url().replace(/^.*\/api/, '/api').slice(0, 52))
   check('天气卡画出来了', await weather.evaluate(() => document.querySelector('.wx') !== null))
   check('五个预报日', (await weather.evaluate(() => document.querySelectorAll('.t-tab').length)) === 5)
-  // 卡片里的文案来自 manifest 的 text，只有握手接上才拿得到；拿不到时组件会退回键名。
-  check('天气卡的地点由数据填上', (await weather.evaluate(() => document.querySelector('#wx-place')?.textContent)) === '旧金山')
-
+  // 实际天气每天不同，这里只看结构：地点来自 props，切换到第三个预报日后文字与图标换成那一天的值。
   const day = await weather.evaluate(() => document.querySelector('#wx-day')?.textContent ?? '')
+  check('天气卡的地点由 props 填上', (await weather.evaluate(() => document.querySelector('#wx-place')?.textContent)) === '北京')
   await weather.locator('#wx-tab-3').click()
-  await weather.waitForFunction(() => document.querySelector('.wx-bg')?.getAttribute('data-wx') === 'storm', undefined, { timeout: 5000 })
+  await weather.waitForFunction((previous) => {
+    const selected = document.querySelector('.t-tab[aria-selected="true"]')
+    const dayText = document.querySelector('#wx-day')?.textContent ?? ''
+    return selected?.id === 'wx-tab-3' && dayText !== '' && dayText !== previous
+  }, day, { timeout: 5000 })
   await sleep(400)
   const after = await weather.evaluate(() => ({
     sky: document.querySelector('.wx-bg')?.getAttribute('data-wx'),
     day: document.querySelector('#wx-day')?.textContent,
-    temp: document.querySelector('#wx-temp')?.textContent,
+    temp: document.querySelector('#wx-temp')?.textContent ?? '',
     digits: document.querySelectorAll('#wx-temp .t-digit').length,
-    icon: document.querySelector('.wx-big .t-icon[data-key="bolt"]')?.hasAttribute('data-active'),
+    icon: document.querySelector('.wx-big .t-icon[data-active]')?.getAttribute('data-key'),
   }))
-  check('天空切到雷雨', after.sky === 'storm')
+  check('天空是四种天气之一', ['clear', 'cloudy', 'rain', 'storm'].includes(after.sky), after.sky)
   check('预报日跟着变', after.day !== day && after.day !== '', `${day} → ${after.day}`)
-  check('温度换成新的数字', after.temp === '15', after.temp)
-  check('数字走逐位动画', after.digits === 2)
-  check('图标换到闪电', after.icon === true)
+  check('温度是数字', /^-?\d+$/.test(after.temp), after.temp)
+  check('数字走逐位动画', after.digits === after.temp.length, `${after.digits} / ${after.temp.length}`)
+  check('图标是四种天气图标之一', ['sun', 'cloud', 'rain', 'bolt'].includes(after.icon), String(after.icon))
 
   const pomodoro = await frameOf(page, POMODORO_FRAME)
   check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
@@ -640,9 +643,10 @@ async function reloadPass(page) {
     const reloaded = await settledFrame.evaluate(() => ({
       place: document.querySelector('#wx-place')?.textContent,
       day: document.querySelector('#wx-day')?.textContent ?? '',
+      selected: document.querySelector('.t-tab[aria-selected="true"]')?.id ?? '',
     }))
-    check('重挂之后选中的预报日还在', reloaded.day === '星期四', reloaded.day)
-    check('重挂之后文案也接上了', reloaded.place === '旧金山', reloaded.place)
+    check('重挂之后选中的预报日还在', reloaded.selected === 'wx-tab-3' && reloaded.day !== '', `${reloaded.selected} / ${reloaded.day}`)
+    check('重挂之后文案也接上了', reloaded.place === '北京', reloaded.place)
   } finally {
     await writeFile(target, original)
   }

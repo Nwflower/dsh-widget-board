@@ -39,7 +39,6 @@
   function defaults() {
     if (isZh()) {
       return {
-        kicker: 'CALENDAR · 09',
         title: '日程',
         events: [
           { date: todayIso(0), title: '站会', tone: 'accent' },
@@ -51,7 +50,6 @@
       }
     }
     return {
-      kicker: 'CALENDAR · 09',
       title: 'Schedule',
       events: [
         { date: todayIso(0), title: 'Standup', tone: 'accent' },
@@ -187,7 +185,8 @@
 
     el.grid.replaceChildren.apply(el.grid, cells)
     write(el.month, new Intl.DateTimeFormat(isZh() ? 'zh-CN' : 'en', { year: 'numeric', month: 'long' }).format(base))
-    write(el.meta, state.meta !== '' ? state.meta : countEvents(events) + ' EVENTS')
+    var total = countEvents(events)
+    write(el.meta, state.meta !== '' ? state.meta : isZh() ? total + ' 个安排' : total + (total === 1 ? ' event' : ' events'))
   }
 
   function countEvents(events) {
@@ -199,7 +198,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
-    write(el.kicker, typeof props.kicker === 'string' && props.kicker.trim() !== '' ? props.kicker : base.kicker)
+    write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     state.meta = typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }

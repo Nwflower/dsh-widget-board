@@ -1,0 +1,50 @@
+name: Pages
+
+# 演示页（D25）：`npm run demo` 写出一个静态目录，部署到 GitHub Pages 的项目地址
+# https://nwflower.github.io/dsh-widget-board/ 。页面里的地址都是文档相对的，放在子路径下照样能跑。
+#
+# 仓库的 Pages 来源要设成 GitHub Actions；`npm ci` 的 `prepare` 先构建一次插件，演示脚本自己再构建
+# 一次它读的那份。
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# 同一时间只部署一次，进行中的部署不被后来的推送打断。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/demo.mjs --out _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

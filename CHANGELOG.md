@@ -28,6 +28,10 @@
 - 看板页顶部多了一条标签：每块看板一个标签，活动标签的药丸滑过去；标签条上只放一个新建入口，切换标签时不重挂任何组件——所有看板的卡片同时挂载，看不见的那些照旧暂停。
 - 看板的重命名、移除与选中收进设置页里的「看板」一节：列出每块看板的标题与卡片数，标题可以就地改，只剩一块时不给移除。
 
+### 问题修复
+
+- 从仓库安装时这个包自己构建一次：`prepare` 跑构建，装出来的包里带上 `lib/host/index.js`，不再因为缺宿主半边而启用失败；lint 在发布入口指向 `lib/` 时要求 `scripts.prepare` 存在。
+
 ### 其他变更
 
 - 新增尺寸矩阵检查（npm run matrix，并接入 npm run verify）：每个内置组件在代表性的看板盒子与缩略画面里检查横向溢出、空画面、被裁的可见控件与控制台错误。
@@ -52,6 +56,10 @@
 - Library thumbnails now carry the preview placement so a widget can switch to a static layout there; the pomodoro thumbnail drops the quick-length and Start buttons, and the to-do thumbnail drops the input row, keeping the title, readout and content.
 - The board page gains a tab strip: one tab per board with a pill that slides to the active one, a single New entry on the strip, and no widget is remounted when you switch — every board's cards stay mounted, and the ones you cannot see stay paused.
 - Renaming, removing and selecting a board move into a Board section in settings: it lists each board with its title and card count, the title can be edited in place, and the last remaining board cannot be removed.
+
+### Bug Fixes
+
+- The package now builds itself when installed from the repository: `prepare` runs the build, so the installed copy carries `lib/host/index.js` and no longer fails to activate without its host half; lint requires `scripts.prepare` whenever a published entry points into `lib/`.
 
 ### Chores
 

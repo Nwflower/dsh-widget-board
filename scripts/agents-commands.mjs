@@ -62,8 +62,10 @@ function statedPurpose(file) {
 function table() {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
   const rows = ['| 命令 | 做什么 |', '|---|---|']
-  rows.push('| `npm install` | 开发依赖：TypeScript、esbuild、jscpd、Vitest、Playwright 与 React 的类型 |')
+  rows.push('| `npm install` | 开发依赖：TypeScript、esbuild、jscpd、Vitest、Playwright 与 React 的类型；安装时 `prepare` 顺带构建一次 |')
   for (const [name, command] of Object.entries(pkg.scripts)) {
+    // `prepare` 是安装时自己跑的生命周期脚本，不是给人敲的命令。
+    if (name === 'prepare') continue
     const override = OVERRIDES[name]
     const file = command.match(SCRIPT_FILE)?.[1]
     const purpose = override ?? (file === undefined ? null : statedPurpose(file))

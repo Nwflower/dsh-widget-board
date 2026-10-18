@@ -18,6 +18,24 @@ A widget board plugin for DeepSeek Harness. It adds a "Board" entry to the sideb
 - **Follows the host's look**: colors, radii, durations and curves come from the host's tokens; switching light and dark or changing the skin updates the cards in place, together with the interface language.
 - **Isolated**: every widget runs in its own sandboxed iframe with no access to your sessions, cookies or the network; widget documents carry a strict CSP, and images and fonts are inlined as `data:` addresses.
 
+## Install
+
+Not on npm yet, so install it from the GitHub repository:
+
+```sh
+dsh plugin add github:Nwflower/dsh-widget-board
+```
+
+`lib/` is a build artifact and is never committed, so the package builds itself once at install time (`prepare` runs `node scripts/build.mjs`). pnpm blocks dependency build scripts by default and will stop the first install: approve it with "Allow build scripts and retry" in the plugin market, or add the `allowBuilds` line pnpm prints to the profile's `pnpm-workspace.yaml` and retry.
+
+When working from a checkout, build it first and install by directory:
+
+```sh
+npm install
+npm run build
+dsh plugin add <path to this repository>
+```
+
 ## Widget library
 
 The Add action in the bottom menu opens the library, grouped by source and laid out as a grid. Each tile is a live thumbnail of the widget itself. Hold a tile, drop it on the board and the card lands in that column; tap a tile to add at the shortest column. Remove a card from its top-right corner; a broken widget only takes itself out, and its card shows the reason.

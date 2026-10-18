@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
+    "prepare": "node scripts/build.mjs",
     "dev": "node scripts/dev.mjs",
     "host": "node packages/testing/dsh-web.cjs",
     "lint": "node scripts/lint.mjs",

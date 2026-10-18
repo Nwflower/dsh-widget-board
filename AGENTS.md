@@ -94,7 +94,7 @@
 
 | 命令 | 做什么 |
 |---|---|
-| `npm install` | 开发依赖：TypeScript、esbuild、jscpd、Vitest、Playwright 与 React 的类型 |
+| `npm install` | 开发依赖：TypeScript、esbuild、jscpd、Vitest、Playwright 与 React 的类型；安装时 `prepare` 顺带构建一次 |
 | `npm run build` | 写出宿主半边、浏览器半边、组件运行时与内置组件，类型检查是其中一步 |
 | `npm run dev` | 构建读到的东西一改就重新构建 |
 | `npm run host` | 一个装了本仓库的临时 dsh web 实例，以及它上面的一个浏览器页面 |

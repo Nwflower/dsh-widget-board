@@ -206,7 +206,24 @@ for (const file of sources) {
   else problems.push(`${relative(file)}: 直接删除工作树；用 node scripts/worktree.mjs remove <路径>，它先摘掉链接再交给 git（AGENTS.md）`)
 }
 
-// 9. 抄来的代码（jscpd，扫描范围见 .jscpd.json）：同一段逻辑出现第二处，就是它该进共享层的时候。
+// 9. 安装时构建（D2）：`lib/` 不提交，而发布入口就在它下面，所以从源码装的包（git 依赖、本地
+// 目录）只有安装时构建一次才有宿主半边；少了 `prepare`，装出来的包里没有 `lib/host/index.js`。
+const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
+const entries = []
+const collectEntries = (value) => {
+  if (typeof value === 'string') entries.push(value)
+  else if (value !== null && typeof value === 'object') Object.values(value).forEach(collectEntries)
+}
+collectEntries(manifest.main)
+collectEntries(manifest.exports)
+const builtEntries = [...new Set(entries.map((entry) => entry.replace(/^\.\//, '')).filter((entry) => entry.startsWith('lib/')))]
+if (builtEntries.length === 0) {
+  problems.push('lint: package.json 里没有指向 lib/ 的发布入口，安装时构建的规则匹配不上')
+} else if (manifest.scripts?.prepare !== 'node scripts/build.mjs') {
+  problems.push(`lint: package.json 的 ${builtEntries.join('、')} 是构建产物（lib/ 不提交，D2），安装时必须构建；scripts.prepare 要跑 node scripts/build.mjs`)
+}
+
+// 10. 抄来的代码（jscpd，扫描范围见 .jscpd.json）：同一段逻辑出现第二处，就是它该进共享层的时候。
 const copies = spawnSync(process.execPath, [
   path.join(ROOT, 'node_modules', 'jscpd', 'run-jscpd.js'),
   '--threshold', '0',
@@ -229,5 +246,5 @@ if (problems.length > 0) {
   console.error(`lint: ${problems.length} 处问题，查了 ${sources.length} 份源码与 ${markdown.length} 份文档`)
   process.exitCode = 1
 } else {
-  console.log(`lint: ${sources.length} 份源码、${markdown.length} 份文档、${links} 条链接、${citations} 处决策引用、${directions} 处包导入、${modelFiles} 份模型源码、${lookups} 处文档查询、${guarded} 处 try，全部通过（停止线 ${MAX_LINES} 行；没有抄来的代码）`)
+  console.log(`lint: ${sources.length} 份源码、${markdown.length} 份文档、${links} 条链接、${citations} 处决策引用、${directions} 处包导入、${modelFiles} 份模型源码、${lookups} 处文档查询、${guarded} 处 try，全部通过（停止线 ${MAX_LINES} 行；${builtEntries.length} 条发布入口指向构建产物、安装时构建；没有抄来的代码）`)
 }

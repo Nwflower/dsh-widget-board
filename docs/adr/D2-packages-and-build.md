@@ -12,6 +12,7 @@
 - React、`react-dom/client` 与宿主包外部化，由宿主提供。其余运行时库（Ajv 等）在构建时内联进产物，包的 `dependencies` 只留一个：配置表单要用的 `@deepseek-ai/schemastery`，与任务看板同样随包安装，宿主加载器的表单与插件用的是同一份类型。
 - 不为避开依赖而重造轮子：JSON Schema 校验用 Ajv，打包与分享的 zip 读写用 fflate（D8），宿主配置表单用 `@deepseek-ai/schemastery`。卡片的拖动与缩放由外壳自己画，位移的整理在 `model` 的纯函数里——卡片是 iframe，不能换父节点，交给栅格库反而要绕开它的重排（D16）。
 - `lib/` 是构建产物，被 gitignore，从不提交；发布由持续集成构建。
+- 从源码安装（git 依赖、本地目录）由 `prepare` 在安装的那一刻构建一次：发布入口都在 `lib/` 下，装出来的包必须自带宿主半边与浏览器半边；lint 在入口指向 `lib/` 时要求 `scripts.prepare` 存在。
 - 一个源文件接近 750 行时停下拆分；重复代码由 jscpd 检查；两条都写进 lint。
 
 ## 后果

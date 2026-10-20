@@ -243,7 +243,8 @@ async function main() {
     watch(page, errors)
     await open(page, url)
     const cards = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
-    check('真实的看板出现，卡片都在', cards >= 10, `${cards} 张`)
+    // 默认看板：七张单卡加一组日历组，组卡在页面上是一个盒子。
+    check('真实的看板出现，卡片都在', cards >= 8, `${cards} 张`)
     await frameOf(page, 'iframe.dsh-widget-board__frame[title="看板题头"]')
     check('卡片的沙箱文档接上了握手', true)
     const sandbox = await page.evaluate(() => Array.from(document.querySelectorAll('iframe.dsh-widget-board__frame')).every((frame) => frame.getAttribute('sandbox') === 'allow-scripts'))

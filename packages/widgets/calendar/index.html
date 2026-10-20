@@ -1,21 +1,21 @@
-<div class="t-data calendar-card">
-  <header class="t-data__head">
-    <div>
-      <p class="t-data__kicker" data-field="kicker"></p>
-      <h2 class="t-data__title" data-field="title">日程</h2>
+<div class="t-data cal" data-role="cal">
+  <header class="t-data__head cal-head">
+    <div class="cal-head__text">
+      <p class="t-data__title cal-month">
+        <span data-field="month">十月</span>
+        <span class="cal-month__year" data-field="year">2026</span>
+        <span class="cal-nav" data-role="nav">
+          <button type="button" class="cal-btn cal-btn--step" data-step="-1" aria-label="上个月">‹</button>
+          <button type="button" class="cal-btn cal-btn--today" data-role="today">今天</button>
+          <button type="button" class="cal-btn cal-btn--step" data-step="1" aria-label="下个月">›</button>
+        </span>
+      </p>
+      <p class="t-data__kicker cal-sub" data-field="sub">农历九月 · 丙午马年</p>
     </div>
-    <span class="t-data__meta" data-field="meta"></span>
   </header>
-  <div class="t-data__body calendar-card__body">
-    <div class="calendar-card__bar">
-      <span class="calendar-card__month" data-field="month">2026年10月</span>
-      <div class="calendar-card__nav">
-        <button type="button" class="calendar-card__step" data-step="-1" data-field="previous" aria-label="上个月">‹</button>
-        <button type="button" class="calendar-card__today" data-role="today">今天</button>
-        <button type="button" class="calendar-card__step" data-step="1" data-field="next" aria-label="下个月">›</button>
-      </div>
-    </div>
-    <div class="calendar-card__weekdays" data-role="weekdays" aria-hidden="true"></div>
-    <div class="calendar-card__grid" data-role="grid" role="grid"></div>
+
+  <div class="t-data__body cal-pane">
+    <div class="cal-week" data-role="week" aria-hidden="true"></div>
+    <div class="cal-grid" data-role="grid" role="grid" aria-label="月历"></div>
   </div>
 </div>

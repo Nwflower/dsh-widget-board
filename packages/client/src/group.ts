@@ -10,10 +10,10 @@ export type BoardCard =
 export const FLIP_GROUP_ENTRY: WidgetLibraryEntry = {
   id: FLIP_GROUP_ID,
   source: 'builtin',
-  title: { zh: '翻面组', en: 'Flip group' },
+  title: { zh: '日历组', en: 'Calendar group' },
   description: {
-    zh: '正反各一张卡，鼠标移上去翻面；暂固定为数字与图表。',
-    en: 'Two cards, one per side, flipped by hover; fixed to stat and chart for now.',
+    zh: '正面是月历，移上去翻到今日运势；两面共用一个盒子。',
+    en: 'A month calendar on the front, today’s fortune on the back; both share one box.',
   },
   sizes: ['s', 'l'],
 }

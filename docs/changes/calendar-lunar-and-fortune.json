@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 0,
+  "at": "2026-10-20",
+  "external": true,
+  "zh": "月历重做：日期格第二行写农历，按「节气 → 节日 → 初一写月名 → 农历日」取一条，节气与节日各有颜色；日期格的字按格子的实际宽高算出来，一到四列、六到三十行的盒子各有自己的排版，宽盒子里日程写成条目，很矮的盒子只留网格；卡片没有数据时不编样例日程，格子里不会冒出假的安排。新增内置组件「今日运势」：分数只由当天的黄道黑道、建除十二值星、星宿吉凶与宜忌条数加权，同一天永远同一个数，另排日期、农历、节气、建除、星宿、值神与当天的宜忌。组件组换成「日历组」：正面月历、背面今日运势，共用一个盒子，右上角的翻面按钮换面；换面不再接管指针，月历自己的翻月按钮因此点得动。组件格式新增 `scripts`，随组件发布的第三方库放在 `vendor/` 下。",
+  "en": "The month calendar is redone: the second line of every day carries the lunar date, picked as solar term, then festival, then the month name on the first day, then the lunar day, with terms and festivals coloured; the type in a day cell is derived from the cell's measured width and height, so one to four columns and six to thirty rem boxes each get their own layout, a wide box writes plans out as bars and a very short box keeps the grid alone, and a card without data invents no sample plans, so no fake entries appear in the cells. New built-in widget \"Today's fortune\": the score is weighted only by the day's auspicious or inauspicious deity, the twelve duty officers, the mansion's luck and the length of the almanac lists, so the same day always scores the same, beside the date, lunar date, solar terms, duty officer, mansion, deity and the day's do and avoid lists. The default group is now the calendar group: a month calendar on the front and today's fortune on the back sharing one box, flipped by the button in the top right corner; flipping no longer takes the pointer, so the calendar's own month buttons stay clickable. The widget format gained `scripts`, and a third-party library shipped with a widget lives under `vendor/`."
+}

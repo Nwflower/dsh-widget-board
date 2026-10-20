@@ -5,21 +5,22 @@
     "en": "Calendar"
   },
   "description": {
-    "zh": "一个月的日期网格，有安排的日期带点，可以翻到前后月份或回到今天。",
-    "en": "A month grid with a dot on days that have something planned, and steps to the previous or next month or back to today."
+    "zh": "一个月的日期网格，第二行写农历、节气与节日；有安排的日期带点，宽盒子里日程写成条目。可以翻到前后月份或回到今天。",
+    "en": "A month grid whose second line carries the lunar date, solar terms and festivals; days with plans get a dot or, in a wide box, a bar with the title. Steps to the previous or next month or back to today."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 22 },
-  "minBox": { "w": 1, "h": 16 },
+  "minBox": { "w": 1, "h": 10 },
+  "scripts": ["vendor/lunar.js"],
   "props": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
       "kicker": { "type": "string", "maxLength": 40 },
       "title": { "type": "string", "maxLength": 80 },
-      "meta": { "type": "string", "maxLength": 40 }
+      "weekStart": { "type": "string", "enum": ["mon", "sun"], "default": "mon" }
     }
   },
   "data": {
@@ -52,6 +53,14 @@
     "today": {
       "zh": "今天",
       "en": "Today"
+    },
+    "props.weekStart.label": {
+      "zh": "一周从哪天起",
+      "en": "Week starts on"
+    },
+    "props.weekStart.hint": {
+      "zh": "周一起排是默认；周日起排把星期日放在第一列。",
+      "en": "Monday by default; Sunday puts Sunday in the first column."
     }
   }
 }

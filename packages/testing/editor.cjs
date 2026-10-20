@@ -65,16 +65,20 @@ async function propsOf(page, id) {
  * @param check - 记一条判据的函数。
  */
 async function editorPass(page, check) {
-  // 找一张普通的数字卡：它声明了 kicker/title/meta 三个 props（D7）。
+  // 找一张活动看板上带 kicker/title/meta 的普通卡片（D7）：设置按钮只在挂载着的看板上点得动。
   const id = await page.evaluate(async () => {
     const snapshot = await (await fetch('api/widget-board/boards')).json()
-    return snapshot.boards.flatMap((board) => board.instances)
-      .find((instance) => instance.widget === 'stat' && instance.group === undefined)?.id ?? ''
+    const active = snapshot.boards.find((board) => board.id === snapshot.active)
+    const withTitle = (board) => (board?.instances ?? [])
+      .find((instance) => instance.group === undefined && instance.widget === 'clock')?.id
+    return withTitle(active) ?? ''
   })
-  check('看板上有一张数字卡可以设置', id !== '')
+  check('看板上有一张可以设置的普通卡', id !== '')
   if (id === '') return
   const card = `[data-instance="${id}"]`
 
+  await page.evaluate((selector) => document.querySelector(selector)?.scrollIntoView({ block: 'center' }), card)
+  await sleep(200)
   await page.locator(card).hover()
   await page.locator(`${card} [data-dsh-widget-board-handle="settings"]`).click()
   await page.waitForSelector('[data-dsh-widget-board-editor]', { timeout: 10000 })
@@ -141,9 +145,9 @@ async function editorPass(page, check) {
   const group = `[data-instance="${groupId}"]`
   await page.waitForSelector(`${group} iframe[title="待办"]`, { timeout: 30000 }).catch(() => null)
   const front = await page.locator(`${group} iframe[title="待办"]`).count()
-  const back = await page.locator(`${group} iframe[title="图表"]`).count()
+  const back = await page.locator(`${group} iframe[title="今日运势"]`).count()
   check('组卡正面重挂成待办', front === 1)
-  check('组卡背面仍是图表', back === 1)
+  check('组卡背面仍是今日运势', back === 1)
 
   await page.locator(`${group} [data-dsh-widget-board-handle="remove"]`).click()
   await page.waitForFunction((count) => document.querySelectorAll('[data-instance]').length === count, before, { timeout: 10000 })

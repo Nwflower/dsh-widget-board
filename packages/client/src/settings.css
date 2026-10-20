@@ -111,10 +111,3 @@
 }
 
 .dsh-widget-board__board-settings-notice--error { color: var(--dsw-alias-state-error-primary); }
-
-.dsh-widget-board__board-settings-hint {
-  margin: 0;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
-}

@@ -74,15 +74,28 @@ export function FlipGroupCard({
   onDragEnd,
   onDragCancel,
 }: FlipGroupCardProps): ReactNode {
-  const [hovered, setHovered] = useState(false)
+  const [focusWithin, setFocusWithin] = useState(false)
+  const [showBack, setShowBack] = useState(false)
   const [paused, setPaused] = useState(false)
-  const flipped = hovered
+  // 翻面只有一个入口：右上角那枚按钮。指针停在卡片上时，两张画面各自要接自己的点击，接指针的
+  // 悬停层会把这些点击吃掉（D19），所以翻面不再挂在悬停上。
+  const flipped = showBack || focusWithin
   const content: GridPlacement = { id: front.id, x: 0, y: 0, width: placement.width, height: placement.height, columns: placement.columns }
 
   useEffect(() => controls.register(front.id, {
     pause: () => setPaused(true),
     resume: () => setPaused(false),
   }), [controls, front.id])
+
+  /**
+   * 藏起来的那一面不接指针，也不进 Tab 顺序：`inert` 写在属性上，React 的类型里还没有它。
+   *
+   * @param hidden - 这一面现在藏起来了。
+   * @returns 给 `ref` 的回调。
+   */
+  const inertWhen = (hidden: boolean) => (node: HTMLDivElement | null): void => {
+    if (node !== null) node.toggleAttribute('inert', hidden)
+  }
 
   return (
     <CardShell
@@ -103,7 +116,13 @@ export function FlipGroupCard({
         data-flipped={flipped ? 'true' : undefined}
       >
         <div className={`dsh-widget-board__flip-inner${flipped ? ' is-flipped' : ''}`}>
-          <div className="dsh-widget-board__flip-face dsh-widget-board__flip-face--front" aria-hidden={flipped}>
+          <div
+            className="dsh-widget-board__flip-face dsh-widget-board__flip-face--front"
+            aria-hidden={flipped}
+            ref={inertWhen(flipped)}
+            onFocusCapture={() => setFocusWithin(true)}
+            onBlurCapture={() => setFocusWithin(false)}
+          >
             {frontWidget === undefined
               ? <MissingFace instance={front} />
               : (
@@ -119,7 +138,13 @@ export function FlipGroupCard({
                 />
               )}
           </div>
-          <div className="dsh-widget-board__flip-face dsh-widget-board__flip-face--back" aria-hidden={!flipped}>
+          <div
+            className="dsh-widget-board__flip-face dsh-widget-board__flip-face--back"
+            aria-hidden={!flipped}
+            ref={inertWhen(!flipped)}
+            onFocusCapture={() => setFocusWithin(true)}
+            onBlurCapture={() => setFocusWithin(false)}
+          >
             {backWidget === undefined
               ? <MissingFace instance={back} />
               : (
@@ -137,15 +162,23 @@ export function FlipGroupCard({
           </div>
         </div>
       </div>
-      {/* 指针在 iframe 上方时父文档收不到悬停，翻面靠这层透明的接指针面；组里的两张卡暂时是静态画面。 */}
-      <div
-        className="dsh-widget-board__flip-hover"
-        data-dsh-widget-board-flip-hover=""
-        aria-hidden="true"
-        title={t('flipHint')}
-        onPointerEnter={() => setHovered(true)}
-        onPointerLeave={() => setHovered(false)}
-      />
+      {/* 触屏与键盘的翻面入口：点一下换到另一面，再点一下换回来。 */}
+      <button
+        type="button"
+        className="dsh-widget-board__flip-toggle"
+        data-dsh-widget-board-handle="flip"
+        title={showBack ? t('flipFront') : t('flipBack')}
+        aria-label={showBack ? t('flipFront') : t('flipBack')}
+        aria-pressed={showBack}
+        disabled={exiting}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={() => setShowBack(!showBack)}
+      >
+        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <path d="M3.5 6.5A5 5 0 0 1 12.6 5M12.5 9.5A5 5 0 0 1 3.4 11" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+          <path d="M12.8 2.8v2.6h-2.6M3.2 13.2v-2.6h2.6" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
     </CardShell>
   )
 }

@@ -37,23 +37,23 @@ describe('第一次启动的看板', () => {
     expect(mine.id).not.toBe(gallery.id)
   })
 
-  it('「我的看板」按清单的顺序与位置铺卡：前八张是三列的版面，最后两张在第四列，翻面组占两张卡', () => {
+  it('「我的看板」按清单的顺序与位置铺卡：前两行各三张，日历组与余额卡在第三行，热力图在第四列', () => {
     const [mine] = seedBoards(records)
-    expect(widgetsOf(mine)).toEqual(['board-hero', 'weather', 'pomodoro', 'todo', 'clock', 'stat', 'chart', 'diff', 'dsh-balance', 'calendar', 'heatmap'])
+    expect(widgetsOf(mine)).toEqual(['board-hero', 'weather', 'pomodoro', 'todo', 'clock', 'calendar', 'fortune', 'dsh-balance', 'heatmap'])
     expect(mine.instances.map((instance) => instance.layout)).toEqual([
       { x: 0, y: 0, w: 2, h: 18 },
       { x: 2, y: 0, w: 1, h: 18 },
       { x: 0, y: 20, w: 1, h: 14 },
       { x: 1, y: 20, w: 1, h: 14 },
       { x: 2, y: 20, w: 1, h: 14 },
-      { x: 0, y: 36, w: 1, h: 14 },
-      { x: 0, y: 36, w: 1, h: 14 },
-      { x: 1, y: 36, w: 1, h: 14 },
-      { x: 2, y: 36, w: 1, h: 14 },
+      { x: 0, y: 36, w: 2, h: 22 },
+      { x: 0, y: 36, w: 2, h: 22 },
+      { x: 2, y: 36, w: 1, h: 22 },
       { x: 3, y: 0, w: 1, h: 18 },
-      { x: 3, y: 20, w: 1, h: 14 },
     ])
     const [front, back] = mine.instances.filter((instance) => instance.group !== undefined)
+    expect(front?.widget).toBe('calendar')
+    expect(back?.widget).toBe('fortune')
     expect(front?.group).toMatchObject({ template: 'flip', side: 'front' })
     expect(back?.group).toMatchObject({ template: 'flip', side: 'back' })
     expect(front?.group?.id).toBe(back?.group?.id)
@@ -71,13 +71,15 @@ describe('第一次启动的看板', () => {
         expect(apart, `${first.widget} 与 ${second.widget} 重叠`).toBe(true)
       }
     }
-    // 三列的窗口：前八个盒子留在原位，第四列的两个落到第三列的底部（组卡的两面是同一个盒子）。
+    // 三列的窗口：三列之内的盒子留在原位，第四列的热力图上落到第三列的底部（组卡的两面是同一个盒子）。
     const placed = resolveLayout(cards.map((instance) => ({ id: instance.id, layout: instance.layout })), gridMetrics(1120)).layouts
     expect(gridMetrics(1120).columns).toBe(3)
-    for (const instance of cards.slice(0, 8)) {
+    for (const instance of cards.filter((card) => card.layout.x + card.layout.w <= 3)) {
       expect(placed[instance.id]?.y, `${instance.widget} 在三列里被推开`).toBe(instance.layout.y)
     }
-    for (const instance of cards.slice(8)) expect((placed[instance.id] as CardLayout).y).toBeGreaterThanOrEqual(50)
+    for (const instance of cards.filter((card) => card.layout.x === 3)) {
+      expect((placed[instance.id] as CardLayout).y).toBeGreaterThanOrEqual(20)
+    }
   })
 
   it('画廊把每个内置组件各铺一张，类别的次序固定', () => {
@@ -85,8 +87,8 @@ describe('第一次启动的看板', () => {
     const builtin = [...records.values()].filter((record) => record.source === 'builtin').map((record) => record.manifest.id)
     expect(widgetsOf(gallery).sort()).toEqual([...builtin].sort())
     expect(widgetsOf(gallery)).toEqual([
-      'stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance',
-      'board-hero', 'clock', 'calendar', 'year-progress', 'weather', 'pomodoro', 'todo', 'links',
+      'stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance', 'github-issues',
+      'board-hero', 'clock', 'calendar', 'fortune', 'year-progress', 'weather', 'pomodoro', 'todo', 'links',
       'flip-card', 'holographic-card', 'magnetic-card',
     ])
   })

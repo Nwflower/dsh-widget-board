@@ -28,11 +28,13 @@ type MyBoardEntry =
   | { group: { front: string, back: string }, layout: CardLayout }
 
 /**
- * 「我的看板」：前八张是三列的版面（三行，每行铺满三列），最后两张在第四列。
+ * 「我的看板」：第一行三张，第二行三张，日历组与余额卡占第三行；第四列的热力图排在清单最后。
  *
  * 看板按容器宽度在一到四列之间取列数，1440 宽的窗口加侧栏只有三列：第四列的卡片放在清单最后，
- * 三列时它们按 D16 的规则落到第三列的底部，前三行不被推乱；四列时它们补上第一、二行的右端。
- * 行高第一行 18rem，第二、三行 14rem，纵向位置是上一行的 y 加高度再留 2rem。
+ * 三列时它们按 D16 的规则落到第三列的底部，前面的卡片不被推乱；四列时热力图上补第一行右端。
+ * 行高第一行 18rem，第二行 14rem，第三行 22rem，纵向位置是上一行的 y 加高度再留 2rem。
+ *
+ * 日历组占第三行左侧两列：正面月历要这么高才写得下农历行，背面今日运势分到同一个盒子。
  */
 const MY_BOARD: readonly MyBoardEntry[] = [
   { widget: 'board-hero', layout: { x: 0, y: 0, w: 2, h: 18 } },
@@ -40,11 +42,9 @@ const MY_BOARD: readonly MyBoardEntry[] = [
   { widget: 'pomodoro', layout: { x: 0, y: 20, w: 1, h: 14 } },
   { widget: 'todo', layout: { x: 1, y: 20, w: 1, h: 14 } },
   { widget: 'clock', layout: { x: 2, y: 20, w: 1, h: 14 } },
-  { group: { front: 'stat', back: 'chart' }, layout: { x: 0, y: 36, w: 1, h: 14 } },
-  { widget: 'diff', layout: { x: 1, y: 36, w: 1, h: 14 } },
-  { widget: 'dsh-balance', layout: { x: 2, y: 36, w: 1, h: 14 } },
-  { widget: 'calendar', layout: { x: 3, y: 0, w: 1, h: 18 } },
-  { widget: 'heatmap', layout: { x: 3, y: 20, w: 1, h: 14 } },
+  { group: { front: 'calendar', back: 'fortune' }, layout: { x: 0, y: 36, w: 2, h: 22 } },
+  { widget: 'dsh-balance', layout: { x: 2, y: 36, w: 1, h: 22 } },
+  { widget: 'heatmap', layout: { x: 3, y: 0, w: 1, h: 18 } },
 ]
 
 /** 画廊按三列排：1440 宽的窗口加侧栏只有三列，更宽时右边留空，也比三列窗口里卡片被推乱好。 */
@@ -52,8 +52,8 @@ const GALLERY_COLUMNS = 3
 
 /** 画廊的类别，按显示的先后；每个类别里的组件也按这里的先后，相邻的几个正好排满一行。 */
 const GALLERY_CATEGORIES: readonly { title: string, widgets: readonly string[] }[] = [
-  { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance'] },
-  { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'year-progress', 'weather', 'pomodoro', 'todo', 'links'] },
+  { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance', 'github-issues'] },
+  { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'fortune', 'year-progress', 'weather', 'pomodoro', 'todo', 'links'] },
   { title: '动效模板', widgets: ['flip-card', 'holographic-card', 'magnetic-card'] },
 ]
 

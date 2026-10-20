@@ -440,13 +440,6 @@
   transform: rotateY(180deg);
 }
 
-/* iframe 上方的指针事件不回到父文档：用一层透明的面接住悬停，翻面才有鼠标入口。 */
-.dsh-widget-board__flip-hover {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-}
-
 .dsh-widget-board__flip-missing {
   display: flex;
   align-items: center;
@@ -506,9 +499,10 @@
   line-height: 18px;
 }
 
-/* 右上角的两枚小按钮：设置与移除，悬停卡片时一起露出来。 */
+/* 右上角的三枚小按钮：设置、移除与翻面，悬停卡片时一起露出来。 */
 .dsh-widget-board__remove,
-.dsh-widget-board__settings {
+.dsh-widget-board__settings,
+.dsh-widget-board__flip-toggle {
   position: absolute;
   top: 6px;
   z-index: 2;
@@ -536,7 +530,19 @@
   place-items: center;
 }
 
-.dsh-widget-board__settings svg {
+/*
+ * 翻面按钮是组卡唯一的翻面入口，所以它一直露着：指针停在卡片上时两张画面各自要接自己的点击，
+ * 接指针的悬停层会把这些点击吃掉，翻面因此不挂在悬停上（D19）。
+ */
+.dsh-widget-board__flip-toggle {
+  right: 54px;
+  display: grid;
+  place-items: center;
+  opacity: 0.9;
+}
+
+.dsh-widget-board__settings svg,
+.dsh-widget-board__flip-toggle svg {
   display: block;
   pointer-events: none;
 }
@@ -544,14 +550,17 @@
 .dsh-widget-board__cell:hover .dsh-widget-board__remove,
 .dsh-widget-board__cell:hover .dsh-widget-board__settings,
 .dsh-widget-board__remove:focus-visible,
-.dsh-widget-board__settings:focus-visible {
+.dsh-widget-board__settings:focus-visible,
+.dsh-widget-board__flip-toggle:focus-visible,
+.dsh-widget-board__flip-toggle:hover {
   opacity: 1;
 }
 
-/* 缩放时遮罩是唯一的前景：拖动、设置与移除的把手收起来，松开后再回来。
+/* 缩放时遮罩是唯一的前景：拖动、设置、移除与翻面的把手收起来，松开后再回来。
  * 与上面的悬停规则同样具体，所以这条必须排在它们后面。 */
 .dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__grip,
 .dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__settings,
+.dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__flip-toggle,
 .dsh-widget-board__cell[data-gesture="resize"] .dsh-widget-board__remove {
   opacity: 0;
   pointer-events: none;

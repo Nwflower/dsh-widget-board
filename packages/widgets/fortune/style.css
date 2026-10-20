@@ -1,0 +1,233 @@
+/*
+ * 今日运势：分数、判词、日期与农历、四条黄历事实、今天的宜忌。
+ *
+ * 分数那一行的左边是吉凶印，右边是日期；卡片的右上角留给外壳的设置、移除与翻面按钮，所以这里
+ * 不往那个角上放东西（D19）。字号按卡片的宽高档位放大：窄盒子里日期另起一行，宽或高的盒子里
+ * 四条事实排成一行，宜忌多写几条。
+ */
+.fortune-card__head {
+  align-items: center;
+}
+
+.fortune-card__seal {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--w-color-fg) 12%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--w-color-fg) 5%, transparent);
+  color: var(--w-color-muted);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.fortune-card__seal[data-tone="good"] {
+  border-color: color-mix(in srgb, var(--w-tone-ok) 42%, transparent);
+  background: color-mix(in srgb, var(--w-tone-ok) 12%, transparent);
+  color: var(--w-tone-ok);
+}
+
+.fortune-card__seal[data-tone="bad"] {
+  border-color: color-mix(in srgb, var(--w-tone-danger) 38%, transparent);
+  background: color-mix(in srgb, var(--w-tone-danger) 10%, transparent);
+  color: var(--w-tone-danger);
+}
+
+.fortune-card__body {
+  gap: 8px;
+}
+
+.fortune-card__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.fortune-card__score {
+  color: var(--w-color-fg);
+  font-size: clamp(40px, 9vw, 64px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+}
+
+.fortune-card__unit {
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+}
+
+.fortune-card__day {
+  margin-left: auto;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+  text-align: right;
+}
+
+.fortune-card__meter {
+  position: relative;
+  height: 5px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-color-fg) 9%, transparent);
+}
+
+.fortune-card__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--w-tone-ok);
+  transition: width var(--w-motion-base) var(--w-motion-ease-smooth);
+}
+
+.fortune-card__fill[data-tone="warn"] { background: var(--w-tone-warn); }
+.fortune-card__fill[data-tone="danger"] { background: var(--w-tone-danger); }
+
+.fortune-card__line {
+  margin: 0;
+  color: var(--w-color-fg);
+  font-size: var(--w-type-body);
+  line-height: 20px;
+}
+
+.fortune-card__facts {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 10px;
+}
+
+.fortune-card__facts div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.fortune-card__facts dt {
+  flex: none;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  line-height: 18px;
+}
+
+.fortune-card__facts dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--w-color-fg);
+  font-size: var(--w-type-caption);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fortune-card__almanac {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--w-color-fg) 8%, transparent);
+}
+
+.fortune-card__row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.fortune-card__tag {
+  display: grid;
+  width: 22px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--w-tone-ok) 13%, transparent);
+  color: var(--w-tone-ok);
+  font-size: var(--w-type-caption);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.fortune-card__tag[data-kind="ji"] {
+  background: color-mix(in srgb, var(--w-tone-danger) 11%, transparent);
+  color: var(--w-tone-danger);
+}
+
+.fortune-card__list {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--w-color-fg);
+  font-size: var(--w-type-caption);
+  line-height: 20px;
+}
+
+.fortune-card__note {
+  margin: 0;
+  overflow: hidden;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fortune-card__note:empty {
+  display: none;
+}
+
+/* 宽或高的盒子：分数更大，事实排成一行，宜忌多写几条。 */
+:root[data-box-width="wide"] .fortune-card__score,
+:root[data-box-height="tall"] .fortune-card__score {
+  font-size: clamp(56px, 6vw, 96px);
+}
+
+:root[data-box-width="wide"] .fortune-card__facts,
+:root[data-box-height="tall"] .fortune-card__facts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+:root[data-box-width="wide"] .fortune-card__list,
+:root[data-box-height="tall"] .fortune-card__list {
+  -webkit-line-clamp: 3;
+}
+
+/* 矮盒子：只留分数、判词与宜忌。 */
+:root[data-box-height="short"] .fortune-card__day,
+:root[data-box-height="short"] .fortune-card__facts {
+  display: none;
+}
+
+:root[data-box-height="short"] .fortune-card__score {
+  font-size: clamp(32px, 8vw, 48px);
+}
+
+/* 窄盒子：分数与日期各占一行。 */
+:root[data-box-width="narrow"] .fortune-card__day {
+  margin-left: 0;
+  text-align: left;
+}
+
+/* 预览：缩略画面里只画分数与判词。 */
+:root[data-placement="preview"] .fortune-card__facts,
+:root[data-placement="preview"] .fortune-card__almanac {
+  display: none;
+}
+
+:root[data-motion="reduced"] .fortune-card__fill {
+  transition: none;
+}

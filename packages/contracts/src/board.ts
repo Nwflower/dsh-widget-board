@@ -63,11 +63,11 @@ export interface BoardInstance {
 /** 翻面组在组件库里的 id；它不是一张组件卡，添加时由宿主建出正反两张卡。 */
 export const FLIP_GROUP_ID = 'flip-group'
 
-/** 翻面组的正面固定用这个组件，背面固定用下一个；原型阶段不做自由配置（D19）。 */
-export const FLIP_GROUP_FRONT = 'stat'
+/** 翻面组的正面固定用这个组件，背面固定用下一个（D19）：「日历与今日运势」是一组。 */
+export const FLIP_GROUP_FRONT = 'calendar'
 
-/** 翻面组的背面组件。 */
-export const FLIP_GROUP_BACK = 'chart'
+/** 翻面组的背面组件：与日历共用一个盒子的今日运势。 */
+export const FLIP_GROUP_BACK = 'fortune'
 
 /** 看板题头组件的 id；旧看板升级时补上这一张卡（D16）。 */
 export const BOARD_HERO_ID = 'board-hero'

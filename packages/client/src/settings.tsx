@@ -84,8 +84,6 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
   }, [write])
 
   const boards = snapshot === null ? [] : snapshot.boards
-  /** 只剩一块时不能移除：看板页总得有一块可以显示（D21）。 */
-  const last = boards.length <= 1
 
   return (
     <div className="dsh-widget-board__board-settings" data-dsh-widget-board-settings="">
@@ -156,8 +154,8 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
                       <button
                         type="button"
                         className="dsh-widget-board__board-settings-action"
-                        disabled={busy || last}
-                        title={last ? t('lastBoard') : t('removeBoard')}
+                        disabled={busy}
+                        title={t('removeBoard')}
                         onClick={() => { onRemove(board.id) }}
                       >
                         {t('removeBoard')}
@@ -168,7 +166,6 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
             ))}
           </ul>
         )}
-      {last && snapshot !== null ? <p className="dsh-widget-board__board-settings-hint">{t('lastBoard')}</p> : null}
     </div>
   )
 }

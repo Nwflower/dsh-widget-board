@@ -146,6 +146,13 @@ export function buildDocument(record: WidgetRecord, assets: DocumentAssets, nonc
     if (code === undefined) throw new Error(`组件 ${name} 要求的库 ${id} 没有随包提供`)
     return `<script nonce="${nonce}">${scriptSafe(code, `库 ${id}`)}</script>`
   })
+  // 组件自己的额外脚本：排在 main.js 之前，与它同处一个全局作用域（D7）。
+  const parts = (record.manifest.scripts ?? []).map((path) => {
+    const content = record.files.get(path)
+    if (content === undefined) throw new Error(`组件 ${name} 声明的脚本 ${path} 不在组件目录里`)
+    const code = inlineAssets(content.toString('utf8'), record, `${name}/${path}`)
+    return `<script nonce="${nonce}">${scriptSafe(code, `${name}/${path}`)}</script>`
+  })
   return `<!doctype html>
 <html lang="${escapeText(options.lang)}">
 <head>
@@ -160,6 +167,7 @@ export function buildDocument(record: WidgetRecord, assets: DocumentAssets, nonc
 ${markup}
 ${libs.join('\n')}
 <script nonce="${nonce}">${scriptSafe(assets.runtimeJs, '组件运行时')}</script>
+${parts.join('\n')}
 ${script === undefined ? '' : `<script nonce="${nonce}">${scriptSafe(script, `${name}/main.js`)}</script>`}
 </body>
 </html>

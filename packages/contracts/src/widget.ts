@@ -195,6 +195,13 @@ export interface WidgetManifest {
   /** 刷新策略（D6）；省略时按需。 */
   refresh?: WidgetRefresh
   libs?: string[]
+  /**
+   * 组件目录里的额外脚本，按顺序排在 `main.js` 之前（D7）。
+   *
+   * 路径相对组件目录，如 `world.js`；组件写到需要按职责拆开时用它，不必把全部逻辑塞进一份。
+   * 这些文件与 `main.js` 同处一个文档、同一个全局作用域，互相只能靠约定的全局名字通信。
+   */
+  scripts?: string[]
   text?: Record<string, LocalizedText>
   /** 看板上的最小盒子（D16）。 */
   minBox?: WidgetMinBox
@@ -320,6 +327,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
       },
     },
     libs: { type: 'array', items: { type: 'string', minLength: 1 } },
+    scripts: { type: 'array', items: { type: 'string', minLength: 1 } },
     text: { type: 'object', additionalProperties: { $ref: '#/$defs/text' } },
     minBox: { $ref: '#/$defs/box' },
     defaultBox: { $ref: '#/$defs/box' },

@@ -57,6 +57,27 @@ describe('文档', () => {
     expect(() => buildDocument(widget, ASSETS, 'n1', { lang: 'zh-CN' })).toThrow(/没有随包提供/)
   })
 
+  it('组件自己的额外脚本排在 main.js 之前', () => {
+    const widget = record({
+      'index.html': '<p></p>',
+      'style.css': 'p{}',
+      'world.js': 'window.WxWorld={}',
+      'glass.js': 'window.WxGlass={}',
+      'main.js': 'go()',
+    })
+    widget.manifest.scripts = ['world.js', 'glass.js']
+    const html = buildDocument(widget, ASSETS, 'n1', { lang: 'zh-CN' })
+    expect(html.match(/nonce="n1"/g)).toHaveLength(4)
+    expect(html.indexOf('window.WxWorld')).toBeLessThan(html.indexOf('window.WxGlass'))
+    expect(html.indexOf('window.WxGlass')).toBeLessThan(html.indexOf('go()'))
+  })
+
+  it('点名了不存在的额外脚本时拒绝拼装', () => {
+    const widget = record({ 'index.html': '<p></p>', 'style.css': 'p{}', 'main.js': 'go()' })
+    widget.manifest.scripts = ['gone.js']
+    expect(() => buildDocument(widget, ASSETS, 'n1', { lang: 'zh-CN' })).toThrow(/不在组件目录里/)
+  })
+
   it('样式的结束标签让文档拒绝拼装', () => {
     expect(() => buildDocument(record({ 'index.html': '<p></p>', 'style.css': 'p{} </style><b>' }), ASSETS, 'n', { lang: 'zh-CN' }))
       .toThrow(/<\/style/)

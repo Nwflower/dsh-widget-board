@@ -18,7 +18,9 @@
     main.js        可选
     samples.json   每个尺寸族的样例 props 与 data
     assets/        可选，图片与字体
-  ```
+   ```
+
+- 逻辑多到一份装不下时，manifest 的 `scripts` 点名组件目录里的额外脚本，按顺序在 `main.js` 之前内联。它们与 `main.js` 同处一个文档、一个全局作用域，只适合按职责拆开，不做模块隔离。
 
 - `widget.json` 按 `contracts` 里的 JSON Schema 校验，校验用 Ajv。manifest 不合格的组件不进入组件库，错误原样返回给作者。
 - `source` 可以写裸名字，也可以写 `提供方:名字` 点名某个插件注册的数据源；两端都按组件 id 的字母表校验。

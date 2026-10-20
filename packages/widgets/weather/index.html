@@ -1,38 +1,24 @@
-<div class="wx">
-  <div class="wx-bg" data-wx="clear" aria-hidden="true">
-    <div class="wx-sky" data-key="clear">
-      <span class="wx-blob wx-blob--cool"></span>
-      <span class="wx-blob wx-blob--glow"></span>
-    </div>
-    <div class="wx-sky" data-key="cloudy">
-      <span class="wx-blob wx-blob--cloud1"></span>
-      <span class="wx-blob wx-blob--cloud2"></span>
-    </div>
-    <div class="wx-sky" data-key="rain">
-      <span class="wx-blob wx-blob--mist"></span>
-      <span class="wx-rain" data-count="14"></span>
-    </div>
-    <div class="wx-sky" data-key="storm">
-      <span class="wx-blob wx-blob--storm"></span>
-      <span class="wx-rain" data-count="20"></span>
-      <span class="wx-flash"></span>
-    </div>
-  </div>
+<div class="wx" data-scene="cloudy">
+  <canvas class="wx-canvas" data-role="scene" aria-hidden="true"></canvas>
+  <div class="wx-glass" aria-hidden="true"></div>
+  <div class="wx-sheen" aria-hidden="true"></div>
 
   <div class="wx-body" role="tabpanel" id="wx-panel" aria-labelledby="wx-tab-0">
-    <div class="wx-place" id="wx-place">San Francisco</div>
-    <div class="wx-day"><span class="t-morph" id="wx-day">Monday</span></div>
+    <div class="wx-place" id="wx-place">北京</div>
+    <div class="wx-day"><span class="t-morph" id="wx-day">星期一</span></div>
     <div class="wx-hero">
       <div class="wx-temp"><span class="t-digit-group" id="wx-temp">24</span><span class="wx-deg">°</span></div>
       <div class="wx-big t-icon-swap" aria-hidden="true">
         <span class="t-icon" data-key="sun" data-active><span class="wx-idle wx-idle--spin"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg></span></span>
+        <span class="t-icon" data-key="moon"><span class="wx-idle wx-idle--float"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg></span></span>
         <span class="t-icon" data-key="cloud"><span class="wx-idle wx-idle--float"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z"/></svg></span></span>
         <span class="t-icon" data-key="rain"><span class="wx-idle wx-idle--float"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z"/></svg></span><span class="wx-drops"><span></span><span></span><span></span></span></span>
+        <span class="t-icon" data-key="snow"><span class="wx-idle wx-idle--float"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19M2.8 7.25l18.4 10.5M21.2 7.25 2.8 17.75M12 6.4l2.6-2.1M12 6.4 9.4 4.3M12 17.6l2.6 2.1M12 17.6l-2.6 2.1"/></svg></span></span>
         <span class="t-icon" data-key="bolt"><span class="wx-idle wx-idle--flicker"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/></svg></span></span>
       </div>
     </div>
-    <div class="wx-cond"><span class="t-text-swap" id="wx-cond">Sunny</span></div>
-    <div class="wx-hl">H:<span class="t-digit-group" id="wx-hi">26</span>° L:<span class="t-digit-group" id="wx-lo">17</span>°</div>
+    <div class="wx-cond"><span class="t-text-swap" id="wx-cond">晴</span></div>
+    <div class="wx-hl"><span>H:<span class="t-digit-group" id="wx-hi">26</span>°</span><span>L:<span class="t-digit-group" id="wx-lo">17</span>°</span></div>
   </div>
 
   <div class="wx-tabs t-tabs" role="tablist">

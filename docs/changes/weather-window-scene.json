@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 0,
+  "at": "2026-10-20",
+  "external": true,
+  "zh": "天气卡改成「窗外是一幅画，卡片是它前面的一层玻璃」。晴天与多云是一幅清朗的窗景：蓝天、太阳或月亮、一朵朵有体积的积云——云面沿受光方向从亮到暗，鼓出来的地方有高光，上缘一道受光的亮边，日月从云后透出一圈光；云飘在城市后面，画面不闪。夜里换成月亮与满天星，晴朗的夜空里月亮不会被云盖住。阴天从多云里分出来，有了自己的天空。下雨下雪时，水珠落在玻璃上长大、顺着玻璃滑下并留下水痕，每颗大水珠真折射出它身后的世界；水珠会一直补足，长时间开着也不会滚空。雷暴另有闪电，两三秒一次，一亮一暗再补一下。组件格式新增 `scripts`：组件可以把逻辑按职责拆成目录里的多份脚本。",
+  "en": "The weather card is now a view outside a window with the card as the glass in front of it. Clear and cloudy days are a crisp window view: blue sky, a sun or moon, and cumulus clouds with real volume — each cloud shades from lit to shadowed along the light direction, its bumps catch highlights, its upper edge carries a lit rim, and the sun or moon bleeds a glow through it. The clouds drift behind the city and nothing strobes. At night the moon and stars take over, and a clear night leaves the moon unobstructed. Overcast is its own sky rather than a shade of cloudy. In rain and snow, droplets land on the glass, grow, slide down leaving wet trails, and the large ones genuinely refract the world behind them; the glass keeps replenishing its droplets, so it never runs dry however long the card stays open. A thunderstorm adds lightning every two or three seconds, a bright strike with a second, fainter pulse. The widget format gained `scripts`, so a widget can split its logic into several files by responsibility."
+}

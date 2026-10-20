@@ -5,22 +5,23 @@
     "en": "Weather"
   },
   "description": {
-    "zh": "iOS 风格的天气卡：数据由 Open-Meteo 提供，组件把原始响应映射成五天预报；切换预报日时，天空背景、图标、温度与天气文字一起过渡。",
-    "en": "An iOS-style weather card: Open-Meteo supplies the raw reading and the widget maps it into a five-day forecast; the living sky, icon, temperature and condition transition together as you switch days."
+    "zh": "窗景天气卡：数据由 Open-Meteo 提供，组件把原始响应映射成五天预报。背景是一幅现画的窗外景：晴有光晕、夜里有月亮与星，雨雪落在玻璃上顺着玻璃流；切换预报日时整片天空跟着换。",
+    "en": "A window-view weather card: Open-Meteo supplies the raw reading and the widget maps it into a five-day forecast. The background is a painted view outside the window — sun glare, a moon and stars at night, rain and snow running down the glass — and switching days changes the whole sky."
   },
   "author": "dsh-widget-board",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 22 },
   "minBox": { "w": 1, "h": 16 },
   "source": "http",
   "request": {
-    "url": "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean&timezone=auto&forecast_days=5",
+    "url": "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean&timezone=auto&forecast_days=5",
     "cacheMs": 18000000
   },
   "permissions": {
     "hosts": ["api.open-meteo.com"]
   },
+  "scripts": ["world.js", "glass.js"],
   "props": {
     "type": "object",
     "properties": {
@@ -57,7 +58,8 @@
         "required": ["temperature_2m", "weather_code"],
         "properties": {
           "temperature_2m": { "type": "number" },
-          "weather_code": { "type": "integer" }
+          "weather_code": { "type": "integer" },
+          "is_day": { "type": "integer" }
         }
       },
       "daily": {

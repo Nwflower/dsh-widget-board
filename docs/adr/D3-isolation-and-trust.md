@@ -7,7 +7,7 @@
 ## 决定
 
 - 两级信任。沙箱组件：用户、agent、导入与内置的组件，运行在 iframe 里。原生组件：已安装的插件经 `widgetBoard` 服务注册的 React 组件，画在父页面里。两级共用同一份 manifest、同一套尺寸族与同一个尺寸矩阵。
-- iframe 只给 `sandbox="allow-scripts"`，不给 same-origin、forms、popups、top-navigation。文档的来源是不透明的，读不到宿主的 cookie 与存储，它发出的请求过不了宿主的请求栅栏。
+- iframe 只给 `sandbox="allow-scripts"`，不给 same-origin、forms、popups、top-navigation。文档的来源是不透明的，读不到宿主的 cookie 与存储，它发出的请求过不了宿主的请求栅栏。页面导航一次都不给，要开链接就交给宿主页面（D26）。
 - 组件文档由插件路由按内容哈希提供，响应头带 CSP：`default-src 'none'; script-src 'nonce-…'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'`。运行时、组件脚本与精选库都以同一个 nonce 内联进文档。不用 srcdoc：srcdoc 文档继承父页面的 CSP，组件能否运行会取决于宿主的 CSP 设置。
 - 组件拿不到网络。它需要的数据全部由宿主的数据源推进来（D6）。
 - 桥：iframe 加载后父页面递给它一个 `MessagePort`，握手只认 `event.source === iframe.contentWindow`，之后的通信只走这个端口。两端都按 `contracts` 里的消息结构校验，限制载荷大小与频率；超限的消息被拒绝并报告。

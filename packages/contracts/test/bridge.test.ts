@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ParentMessage, WidgetMessage, WidgetSize } from '../src/index'
 import { isParentMessage, isWidgetMessage, isWidgetSize, withinLimit } from '../src/index'
+import { OPEN_URL_LIMIT } from '../src/bridge'
 
 /** 一份完整的尺寸。 */
 const SIZE: WidgetSize = { w: 320, h: 220, placement: 'board', family: 'board', cols: 1 }
@@ -71,7 +72,7 @@ describe('父页面的消息', () => {
 })
 
 describe('组件的消息', () => {
-  it('认下组件会发的六种消息', () => {
+  it('认下组件会发的七种消息', () => {
     const messages: WidgetMessage[] = [
       { type: 'ready' },
       { type: 'setState', patch: { a: 1 } },
@@ -79,8 +80,21 @@ describe('组件的消息', () => {
       { type: 'height', height: 120 },
       { type: 'error', message: '坏了' },
       { type: 'notify', title: '番茄钟', body: '这一段结束了' },
+      { type: 'open', url: 'https://github.com/o/r/issues/1' },
     ]
     for (const message of messages) expect(isWidgetMessage(message)).toBe(true)
+  })
+
+  it('跳转只收 http 与 https 的完整地址', () => {
+    expect(isWidgetMessage({ type: 'open', url: 'https://github.com/o/r/issues/1' })).toBe(true)
+    expect(isWidgetMessage({ type: 'open', url: 'http://127.0.0.1:8080/x' })).toBe(true)
+    // 宿主页面的 window.open 跑在会话的来源里：脚本地址、相对路径、空串全不开。
+    expect(isWidgetMessage({ type: 'open', url: 'javascript:alert(1)' })).toBe(false)
+    expect(isWidgetMessage({ type: 'open', url: 'data:text/html,<script>x</script>' })).toBe(false)
+    expect(isWidgetMessage({ type: 'open', url: '/issues/1' })).toBe(false)
+    expect(isWidgetMessage({ type: 'open', url: '' })).toBe(false)
+    expect(isWidgetMessage({ type: 'open', url: `https://github.com/${'a'.repeat(OPEN_URL_LIMIT)}` })).toBe(false)
+    expect(isWidgetMessage({ type: 'open' })).toBe(false)
   })
 
   it('动作要有名字，高度要是非负数，错误要有原因', () => {

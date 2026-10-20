@@ -64,6 +64,8 @@ index.html      画面
 style.css       样式，只用运行时套件的令牌
 main.js         可选
 samples.json    可选，每个尺寸族的样例
+scripts         可选，按顺序排在 main.js 之前的额外脚本
+vendor/         可选，随组件发布的第三方库（各自的许可照原样保留）
 ```
 
 保存后宿主重读组件库，在线页面上的卡片换成新版本。
@@ -84,7 +86,9 @@ samples.json    可选，每个尺寸族的样例
 
 ### 数据与调用
 
-`source` 写 `提供方:名字` 时点名插件注册的数据源。`credentials` 让设置弹窗出现密钥输入框，值由宿主的凭据服务保存，组件读不到。在 manifest 里声明能力后经 `widget.call(id, args)` 调用，参数与结果按 JSON Schema 校验。
+`source` 写 `提供方:名字` 时点名插件注册的数据源。`credentials` 让设置弹窗出现密钥输入框，值由宿主的凭据服务保存，组件读不到。在 manifest 里声明能力后经 `widget.call(id, args)` 调用，参数与结果按 JSON Schema 校验。内置组件「今日宜休」就是这么拿到的账号：「凭据」里填一个 `GITHUB_TOKEN`，卡上列出自己维护的仓库里还开着的 issue，用户名不用另填；点一行就在新标签页里打开那一条。
+
+组件自己不能导航，也不弹窗。要把链接开出去，用 `widget.open(url)` 交给包着它的页面，写在点击处理里；地址限 `http` 与 `https`。
 
 <hr>
 

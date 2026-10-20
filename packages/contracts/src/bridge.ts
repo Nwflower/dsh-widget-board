@@ -44,6 +44,32 @@ export const NOTIFICATION_TITLE_LIMIT = 120
 /** 通知正文的长度上限。 */
 export const NOTIFICATION_BODY_LIMIT = 400
 
+/** 组件可以请父页面打开的地址长度上限。 */
+export const OPEN_URL_LIMIT = 2048
+
+/** 组件可以请父页面打开的协议：只有网页能出去，`javascript:` 之类的一律当形状不对。 */
+export const OPEN_URL_PROTOCOLS = ['http:', 'https:'] as const
+
+/**
+ * 这个地址能不能请宿主打开。
+ *
+ * 组件在 iframe 里导航不了，点开一条链接要由父页面代劳；新页是宿主页面开的，所以只收 http 与
+ * https 的完整地址，其余一律不开。
+ *
+ * @param value - 外来值。
+ * @returns 可以交给父页面打开时为真。
+ */
+export function isOpenableUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value === '' || value.length > OPEN_URL_LIMIT) return false
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  return (OPEN_URL_PROTOCOLS as readonly string[]).includes(url.protocol)
+}
+
 /**
  * 组件交给宿主的那几件交互，沙箱级与原生级同形（D3、D24）。
  *
@@ -59,6 +85,8 @@ export interface WidgetHandles {
   call(capability: string, args?: unknown, options?: { signal?: AbortSignal }): Promise<unknown>
   /** 往看板栏上记一条未读通知（D7）。 */
   notify(notification?: WidgetNotification): void
+  /** 请父页面在新标签页里打开一个网页（D26）。得由一次点击引发，否则浏览器拦下弹窗。 */
+  open(url: string): void
   /** manifest 的 `text` 里的一条文案，按当前语言取。 */
   t(key: string): string
 }
@@ -104,6 +132,8 @@ export type WidgetMessage =
   | { type: 'height', height: number }
   | { type: 'error', message: string }
   | ({ type: 'notify' } & WidgetNotification)
+  /** 请父页面开一个新页；地址必须是 http 或 https（D26）。 */
+  | { type: 'open', url: string }
   /** 检查器的结果，回应同一 `requestId` 的 `inspect`。 */
   | ({ type: 'report', requestId: string } & InspectionResult)
 
@@ -117,7 +147,7 @@ export const MESSAGE_RATE_LIMIT = 200
 export const PARENT_MESSAGE_TYPES = ['init', 'size', 'data', 'props', 'state', 'theme', 'pause', 'resume', 'call-result', 'call-error', 'inspect'] as const
 
 /** 组件消息的类型集合，供两端判定。 */
-export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'call', 'cancel', 'height', 'error', 'notify', 'report'] as const
+export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'call', 'cancel', 'height', 'error', 'notify', 'open', 'report'] as const
 
 /**
  * 一条消息是否在长度上限之内。
@@ -231,6 +261,8 @@ export function isWidgetMessage(value: unknown): value is WidgetMessage {
     case 'notify':
       return isOptionalText(value.title, NOTIFICATION_TITLE_LIMIT)
         && isOptionalText(value.body, NOTIFICATION_BODY_LIMIT)
+    case 'open':
+      return isOpenableUrl(value.url)
     case 'report':
       return typeof value.requestId === 'string' && value.requestId !== ''
         && isInspectionReport(value.report)

@@ -11,6 +11,7 @@ import type { ParentMessage, WidgetMessage, WidgetSize } from '@dsh-widget-board
 import { MESSAGE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import type { FrameHost } from './frame-host'
 import type { ShellTheme } from './theme'
+import { openInNewTab } from './open-url'
 
 /** 快照画面要画的东西。 */
 export interface SnapshotSurfaceProps {
@@ -142,6 +143,10 @@ export function SnapshotSurface({
         case 'setState':
           // 只读的快照：状态留在这一帧里，不回写宿主（D5 的唯一写入者是看板）。
           localState.current = mergeState(localState.current, message.patch)
+          return
+        case 'open':
+          // 跳转不需要宿主，快照里的卡片也能把链接开出去（D26）。
+          openInNewTab(message.url)
           return
         case 'action':
         case 'call':

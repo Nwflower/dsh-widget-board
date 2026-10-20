@@ -64,6 +64,8 @@ index.html      the picture
 style.css       styles, using only the runtime tokens
 main.js         optional
 samples.json    optional, one sample per size family
+scripts         optional, extra scripts inlined before main.js
+vendor/         optional, third-party libraries shipped with the widget (their licences kept as they are)
 ```
 
 Save it and the host re-reads the library; cards on open pages switch to the new version.
@@ -84,7 +86,9 @@ The runtime suite owns pointer and keyboard behaviour for flip, magnetic and hol
 
 ### Data and calls
 
-A `source` of `provider:name` names a data source a plugin registered. `credentials` adds key fields to the settings modal; the value goes to the host's credential service and the widget cannot read it. Declare a capability in the manifest and call it with `widget.call(id, args)`; arguments and results are checked against JSON Schema.
+A `source` of `provider:name` names a data source a plugin registered. `credentials` adds key fields to the settings modal; the value goes to the host's credential service and the widget cannot read it. Declare a capability in the manifest and call it with `widget.call(id, args)`; arguments and results are checked against JSON Schema. The built-in "Rest today" widget gets its account this way: add a `GITHUB_TOKEN` under Credentials and the card lists the open issues on the repositories you maintain, with no username to fill in, and a click on a row opens it in a new tab.
+
+A widget cannot navigate or open popups itself. To send a link out, call `widget.open(url)` from inside a click handler and the page wrapping the widget opens it; only `http` and `https` addresses are accepted.
 
 <hr>
 

@@ -276,6 +276,7 @@ function install(): void {
       ...(notification?.title === undefined ? {} : { title: notification.title }),
       ...(notification?.body === undefined ? {} : { body: notification.body }),
     }),
+    open: (url) => send({ type: 'open', url }),
     fit: () => send({ type: 'height', height: root.scrollHeight }),
     t: (key) => {
       const entry = text[key]

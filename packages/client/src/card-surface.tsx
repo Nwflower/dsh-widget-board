@@ -11,6 +11,7 @@ import { useNativeWidget } from './native'
 import { NativeBoundary } from './native-boundary'
 import { CARD_CLIP } from './card-shell'
 import { createStateQueue } from './state-queue'
+import { openInNewTab } from './open-url'
 
 /** 卡片这么久没有收到组件的任何一条消息，就重新连一次（D11）。 */
 const ANSWER_TIMEOUT_MS = 6000
@@ -215,6 +216,8 @@ export function CardSurface({
       if (message.type === 'error') setFailure(message.message)
       if (message.type === 'setState') queue.push(message.patch)
       if (message.type === 'notify') notifyRef.current(instance, widget, message)
+      // 组件自己导航不了，链接由包着它的页面开：用户激活跟着端口过来，弹窗不会被拦（D26）。
+      if (message.type === 'open') openInNewTab(message.url)
       if (message.type === 'action') {
         // 一次性快照不在看板上，动作没有去处：把这件事写在画面上（D11）。
         if (detachedRef.current) {
@@ -348,6 +351,8 @@ export function CardSurface({
                 notify: (notification?: WidgetNotification) => {
                   notifyRef.current(instance, widget, notification ?? {})
                 },
+                // 原生组件本来就在宿主页面里，直接开新页；与沙箱组件经桥过来的那一条同一条规则（D26）。
+                open: (url: string) => { openInNewTab(url) },
                 t: (key: string) => {
                   const entry = widget.text?.[key]
                   if (entry === undefined) return key

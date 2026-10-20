@@ -671,7 +671,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
       }
       const message = error instanceof Error ? error.message : String(error)
       // 卡片或看板在核对与写入之间被另一个窗口移除了：这是 404，不是服务器的故障。
-      if (/^看板上没有这张卡/.test(message) || /^没有这块看板/.test(message) || /^至少要留一块看板/.test(message)) {
+      if (/^看板上没有这张卡/.test(message) || /^没有这块看板/.test(message)) {
         json(response, 404, { error: message })
         return
       }

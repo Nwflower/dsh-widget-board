@@ -194,8 +194,8 @@ export async function renameBoard(id: string, title: string): Promise<WorkspaceS
  * 移除一块看板（D21）。
  *
  * @param id - 看板 id。
- * @returns 移除之后的工作区。
- * @throws {Error} 请求失败；只剩一块看板时宿主会拒绝并说明原因。
+ * @returns 移除之后的工作区；移除的是最后一块时，里面是补上的那块空看板。
+ * @throws {Error} 请求失败。
  */
 export async function removeBoard(id: string): Promise<WorkspaceSnapshot> {
   const response = await fetch(boardRemovePath(id), { method: 'POST' })

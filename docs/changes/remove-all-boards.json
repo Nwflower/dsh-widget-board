@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 0,
+  "at": "2026-10-19",
+  "external": false,
+  "zh": "设置页的看板列表可以移除全部看板：移除最后一块时宿主补一块空的「未命名看板」并选中它，看板页始终有一块可以显示。",
+  "en": "The board list in settings can now remove every board: removing the last one leaves a fresh empty \"Untitled board\" selected, so the board page always has one to show."
+}

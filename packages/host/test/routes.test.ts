@@ -287,9 +287,17 @@ describe('看板的增删改与选中', () => {
     expect((JSON.parse(response.body) as { boards: Board[] }).boards).toHaveLength(1)
   })
 
-  it('只剩一块时不移除', async () => {
-    const response = await (await harness()).send('POST', '/boards/board/remove')
-    expect(response.status).toBe(404)
+  it('移除最后一块看板时回补上的一块空看板', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/boards/board/remove')
+    expect(response.status).toBe(200)
+    const body = JSON.parse(response.body) as { active: string, boards: Board[] }
+    expect(body.boards).toHaveLength(1)
+    const replacement = body.boards[0] as Board
+    expect(replacement.id).not.toBe('board')
+    expect(body.active).toBe(replacement.id)
+    expect(replacement.instances).toEqual([])
+    expect(test.events.at(-1)).toEqual({ type: 'board' })
   })
 
   it('选中另一块看板推出 active 事件，不重取快照', async () => {
@@ -585,10 +593,10 @@ describe('加卡片与移除卡片', () => {
 })
 
 describe('翻面组', () => {
-  /** 一套装好 stat 与 chart 的替身：加组卡时宿主按固定 id 找它们。 */
+  /** 一套装好 calendar 与 fortune 的替身：加组卡时宿主按固定 id 找它们。 */
   async function groupHarness(): Promise<Harness> {
     const test = await harness()
-    for (const id of ['stat', 'chart']) {
+    for (const id of ['calendar', 'fortune']) {
       test.context.records.set(id, { ...RECORD, manifest: { ...RECORD.manifest, id, title: { zh: id, en: id } } })
     }
     return test
@@ -609,7 +617,7 @@ describe('翻面组', () => {
     expect(test.events).toEqual([{ type: 'board' }])
   })
 
-  it('没有 stat 或 chart 时回 400', async () => {
+  it('日历与运势不在组件库里时回 400', async () => {
     const response = await (await harness()).send('POST', '/boards/board/group', JSON.stringify({}))
     expect(response.status).toBe(400)
   })

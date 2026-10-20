@@ -85,7 +85,7 @@ export interface Workspace {
    */
   rename(id: string, title: string): Promise<void>
   /**
-   * 移除一块看板；只剩一块时拒绝。
+   * 移除一块看板；移除最后一块时补一块空看板并选中它。
    *
    * @param id - 看板 id。
    */
@@ -308,11 +308,22 @@ export async function openWorkspace(
     },
     async remove(id) {
       board(id)
-      if (current.boards.length === 1) throw new Error('至少要留一块看板')
       await queue(async () => {
         const rest = current.boards.filter((entry) => entry !== id)
         boards.delete(id)
-        current = { version: INDEX_FORMAT, active: current.active === id ? (rest[0] as string) : current.active, boards: rest }
+        // 最后一块被移除时补一块空看板：看板页总得有一块可以显示（D21）。先写新看板的文件再写索引，
+        // 两步之间停下来时磁盘上仍是原来那一份。
+        const replacement = rest.length === 0 ? emptyBoard(nextTitle()) : undefined
+        if (replacement !== undefined) {
+          await writeBoard(boardFileOf(home, replacement.id), replacement)
+          boards.set(replacement.id, replacement)
+        }
+        const kept = replacement === undefined ? rest : [replacement.id]
+        current = {
+          version: INDEX_FORMAT,
+          active: kept.includes(current.active) ? current.active : kept[0] as string,
+          boards: kept,
+        }
         await writeIndex()
         await rm(boardFileOf(home, id), { force: true })
         notify({ type: 'board' })

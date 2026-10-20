@@ -183,7 +183,7 @@ describe('看板的增删改与选中', () => {
     expect(stored.title).toBe('工作')
   })
 
-  it('移除一块看板：文件删掉、索引不再提它；只剩一块时拒绝', async () => {
+  it('移除一块看板：文件删掉、索引不再提它', async () => {
     const home = await tempHome()
     const { workspace } = await openStarted(home)
     const first = workspace.activeId()
@@ -192,7 +192,29 @@ describe('看板的增删改与选中', () => {
     expect(workspace.list().map((entry) => entry.id)).toEqual([first])
     expect(existsSync(join(home, 'boards', `${second.id}.json`))).toBe(false)
     expect(workspace.activeId()).toBe(first)
-    await expect(workspace.remove(first)).rejects.toThrow(/至少要留一块看板/)
+  })
+
+  it('移除最后一块看板时补一块空看板并选中它', async () => {
+    const home = await tempHome()
+    const { workspace, events } = await openStarted(home)
+    const first = workspace.activeId()
+    const before = events.length
+    await workspace.remove(first)
+    const boards = workspace.list()
+    expect(boards).toHaveLength(1)
+    const replacement = boards[0] as Board
+    expect(replacement.id).not.toBe(first)
+    expect(replacement.title).toBe('未命名看板')
+    expect(replacement.instances).toEqual([])
+    expect(workspace.activeId()).toBe(replacement.id)
+    expect(existsSync(join(home, 'boards', `${first}.json`))).toBe(false)
+    expect(existsSync(join(home, 'boards', `${replacement.id}.json`))).toBe(true)
+    expect(events.slice(before)).toEqual([{ type: 'board' }])
+    const index = JSON.parse(await readFile(join(home, 'boards.json'), 'utf8')) as { active: string, boards: string[] }
+    expect(index).toEqual({ version: 1, active: replacement.id, boards: [replacement.id] })
+    const reopened = (await open(home)).workspace
+    expect(reopened.list().map((entry) => entry.id)).toEqual([replacement.id])
+    expect(reopened.activeId()).toBe(replacement.id)
   })
 
   it('选中只改索引，同一块重复选中不再写', async () => {

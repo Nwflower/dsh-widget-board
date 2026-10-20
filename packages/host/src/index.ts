@@ -35,6 +35,7 @@ import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimit
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
 import { registerDshAccount } from './dsh-account'
+import { registerGithub } from './github'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
 import { createSelfChecks } from './selfcheck'
@@ -106,6 +107,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const sources = createRegistries()
   // 内置的 DSH 账户能力（D24）：余额这类宿主服务由一个小提供方按能力注册，看板核心不认它。
   const disposeDshAccount = registerDshAccount(sources, ctx)
+  // GitHub 的 issue 列表（D24）：令牌从卡片设置的凭据服务现取，看板核心不碰 GitHub。
+  const disposeGithub = registerGithub(sources, () => credentialsOf(ctx))
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
   // 卡片增删与组件库重读才改变定时刷新的表；状态、数据与布局写入不重算它（D6）。
   let syncScheduler: () => void = () => {}
@@ -298,6 +301,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
 
   ctx.effect(() => () => {
     disposeDshAccount()
+    disposeGithub()
     tools?.dispose()
     disposeHttpSource()
     stopWatchingViewers()

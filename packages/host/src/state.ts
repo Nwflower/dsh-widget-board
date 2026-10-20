@@ -66,6 +66,8 @@ function mergeMinBox(left: WidgetMinBox | undefined, right: WidgetMinBox | undef
 /**
  * 一个组件的一张新卡。
  *
+ * 没有点名数据源时接上组件声明的默认源（D17），新加的卡片第一次画出来就有数据。
+ *
  * @param record - 组件记录。
  * @param existing - 已经摆放好的卡片，用来找最矮的一列。
  * @param options - 数据源、props 与拖放落点。
@@ -76,11 +78,12 @@ export function instanceOf(
   existing: readonly BoardInstance[],
   options: { source?: string, props?: Record<string, unknown>, layout?: CardLayout } = {},
 ): BoardInstance {
+  const source = options.source ?? record.manifest.source
   return {
     id: randomUUID(),
     widget: record.manifest.id,
     hash: record.hash,
-    ...(options.source === undefined ? {} : { source: options.source }),
+    ...(source === undefined ? {} : { source }),
     props: options.props ?? {},
     data: null,
     state: null,

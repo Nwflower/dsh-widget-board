@@ -140,6 +140,10 @@ function memoryCredentials(options: { configured?: boolean, source?: string, wri
     async describe() {
       return { configured, ...(configured && source !== undefined ? { source } : {}), writable: options.writable ?? true }
     },
+    async resolve(ref) {
+      void ref
+      return configured ? { value: `value-of-${ref}`, source: source ?? 'file' } : undefined
+    },
     async set(ref, value) {
       writes.push({ kind: 'set', ref, value })
       configured = true

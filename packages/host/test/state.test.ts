@@ -162,6 +162,14 @@ describe('加卡片与移除卡片', () => {
     expect(instance?.layout).toEqual({ x: 2, y: 0, w: 2, h: 14 })
   })
 
+  it('新卡片接上组件声明的默认数据源，调用方点名的源盖过它', () => {
+    const sourced = record('weather')
+    sourced.manifest.source = 'http'
+    expect(withInstanceAdded(board(), sourced).board.instances[2]?.source).toBe('http')
+    expect(withInstanceAdded(board(), sourced, { source: 'demo:count' }).board.instances[2]?.source).toBe('demo:count')
+    expect(withInstanceAdded(board(), record('todo')).board.instances[2]?.source).toBeUndefined()
+  })
+
   it('默认盒子与拖放落点都不低于最小盒子', () => {
     const sized = record('sized', { w: 2, h: 14 })
     sized.manifest.defaultBox = { w: 1, h: 6 }

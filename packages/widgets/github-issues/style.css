@@ -1,0 +1,217 @@
+/*
+ * 今日宜休卡片的样式。
+ *
+ * 一条 issue 一行：标题，下面一行写仓库与编号（带标签），右边写开了多久与回复数。整行是按钮，
+ * 按下去开那一条的页（D26）。骨架（底色、边框、标题区）来自套件的 `.t-data`，颜色、间距与动效
+ * 从套件令牌读（D10）；列表在卡片里自己滚动，不撑高盒子。
+ *
+ * 盒子变小时按重要程度让位：矮盒子收掉仓库那一行与回复数，窄盒子收掉标签；标题始终留着，它是一条
+ * issue 唯一不可省的东西。
+ */
+.gh__aside {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--w-space-xs, 4px);
+  padding-top: 1px;
+}
+
+.gh__refresh {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 90%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--w-color-muted, #6b7684);
+  cursor: pointer;
+  transition: color var(--w-motion-fast, 150ms) linear, border-color var(--w-motion-fast, 150ms) linear;
+}
+
+.gh__refresh svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
+.gh__refresh:hover {
+  border-color: var(--w-color-border, #d5dae1);
+  color: var(--w-color-fg, #0b1016);
+}
+
+.gh__refresh:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: 2px;
+}
+
+.gh__refresh:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 读取中：图标转一圈，说明文字同时写着正在读，不只靠转动表达。 */
+.gh[data-state="loading"] .gh__refresh svg {
+  animation: gh-spin var(--w-motion-spin, 30s) linear infinite;
+}
+
+.gh[data-state="loading"] .gh__refresh svg path { opacity: 0.4; }
+
+@keyframes gh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+:root[data-motion="reduced"] .gh[data-state="loading"] .gh__refresh svg { animation: none; }
+
+/* 缩略画面是静态样例：没有可点的刷新按钮。 */
+:root[data-placement="preview"] .gh__refresh { display: none; }
+
+.gh__list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 一行一条 issue：标题与仓库占左边，天数与回复数靠右。整行是按钮，按下去开这一条的页（D26）。 */
+.gh__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--w-space-sm, 8px);
+  width: 100%;
+  margin: 0;
+  padding: var(--w-space-sm, 8px) 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 62%, transparent);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gh__row:first-child { border-top: 0; }
+
+.gh__row:hover .gh__title { color: var(--w-color-accent, #2563eb); }
+
+.gh__row:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: 1px;
+  border-radius: var(--w-radius-card, 10px);
+}
+
+.gh__row:disabled { cursor: default; }
+
+.gh__row:disabled:hover .gh__title { color: var(--w-color-fg, #0b1016); }
+
+.gh__text {
+  min-width: 0;
+}
+
+.gh__title {
+  overflow: hidden;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh__sub {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--w-space-xs, 4px);
+  overflow: hidden;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.gh__repo {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-family: var(--t-mono);
+  text-overflow: ellipsis;
+}
+
+.gh__number {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 标签：两三个短句并排，放不下时先截短仓库名，标签自己不被撑开。 */
+.gh__labels {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--w-space-xs, 4px);
+  overflow: hidden;
+}
+
+.gh__label {
+  max-width: 8rem;
+  flex: none;
+  overflow: hidden;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 12%, transparent);
+  color: color-mix(in srgb, var(--w-color-accent, #2563eb) 78%, var(--w-color-fg, #0b1016));
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+  text-overflow: ellipsis;
+}
+
+.gh__age {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-self: center;
+  gap: 2px;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 回复数：字数明显少于天数，降一档亮度，不与天数争。 */
+.gh__replies {
+  color: color-mix(in srgb, var(--w-color-muted, #6b7684) 78%, transparent);
+}
+
+/*
+ * 说明文字：没有配令牌、令牌被拒、读到空列表与读取失败共用这一处居中说明。
+ * 长句子在中间宽的盒子里折行，不撑出卡片。
+ */
+.gh__note {
+  overflow-wrap: anywhere;
+}
+
+/* 令牌被拒与读取失败用错误色；没有配令牌与空列表是正常状态，用中性的说明色。 */
+.gh[data-tone="error"] .gh__note { color: var(--w-tone-danger); }
+
+/* 矮盒子：收掉仓库那一行，只留标题与天数、回复数，一行一条排得更多。 */
+:root[data-box-height="short"] .gh__sub { display: none; }
+
+:root[data-box-height="short"] .gh__row {
+  padding: var(--w-space-xs, 4px) 0;
+}
+
+:root[data-box-height="short"] .gh__replies { display: none; }
+
+/*
+ * 窄盒子：标签让位给仓库名，开了几天留着——它比一个标签更能说明这条 issue 现在还有没有人管。
+ */
+:root[data-box-width="narrow"] .gh__labels { display: none; }
+
+:root[data-box-width="narrow"] .gh__refresh { width: 20px; height: 20px; }
+
+/* 窄与矮同时成立时，编号也放不下：收掉，标题与状态点就够认。 */
+:root[data-box-width="narrow"][data-box-height="short"] .gh__number { display: none; }

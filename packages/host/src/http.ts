@@ -92,6 +92,45 @@ export function requestUrlOf(manifest: WidgetManifest, props: Record<string, unk
 }
 
 /**
+ * 请求一次并读回 JSON。
+ *
+ * 响应正文边读边数：来自外部的响应可能比上限大得多，不先整份读进内存再判断。
+ *
+ * @param response - 已经确认是 2xx 的响应。
+ * @param host - 回应这条请求的主机，出错的说明里用它。
+ * @returns 解析出来的值。
+ * @throws {Error} 没有正文、正文超出上限或不是 JSON。
+ */
+export async function readJsonBody(response: Response, host: string): Promise<unknown> {
+  const body = response.body
+  if (body === null) throw new Error(`请求 ${host} 没有响应正文`)
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  let bytes = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      bytes += value.byteLength
+      if (bytes > HTTP_BODY_LIMIT) {
+        await reader.cancel()
+        throw new Error(`请求 ${host} 的响应超过 ${String(HTTP_BODY_LIMIT)} 字节`)
+      }
+      text += decoder.decode(value, { stream: true })
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  text += decoder.decode()
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    throw new Error(`请求 ${host} 返回的不是 JSON`)
+  }
+}
+
+/**
  * 请求一次并读回 JSON；`request.cacheMs` 大于零时先看缓存。
  *
  * @param manifest - 组件的 manifest。
@@ -126,34 +165,7 @@ export async function readHttpSource(
     throw new Error(`请求 ${host} 失败：${error instanceof Error ? error.message : String(error)}`)
   }
   if (!response.ok) throw new Error(`请求 ${host} 返回 ${String(response.status)}`)
-  const body = response.body
-  if (body === null) throw new Error(`请求 ${host} 没有响应正文`)
-  // 边读边数：不先整份读进内存再判断，来自外部的响应可能比上限大得多。
-  const reader = body.getReader()
-  const decoder = new TextDecoder()
-  let text = ''
-  let bytes = 0
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      bytes += value.byteLength
-      if (bytes > HTTP_BODY_LIMIT) {
-        await reader.cancel()
-        throw new Error(`请求 ${host} 的响应超过 ${String(HTTP_BODY_LIMIT)} 字节`)
-      }
-      text += decoder.decode(value, { stream: true })
-    }
-  } finally {
-    reader.releaseLock()
-  }
-  text += decoder.decode()
-  let value: unknown
-  try {
-    value = JSON.parse(text) as unknown
-  } catch {
-    throw new Error(`请求 ${host} 返回的不是 JSON`)
-  }
+  const value = await readJsonBody(response, host)
   if (cacheMs > 0 && cache !== undefined) {
     cache.set(url, { value, at: now() })
     if (cache.size > HTTP_CACHE_ENTRIES) {

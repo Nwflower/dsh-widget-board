@@ -29,6 +29,7 @@ const { openBoard } = require('./panel.cjs')
 const { tabsPass } = require('./tabs.cjs')
 const { titlebarPass } = require('./titlebar.cjs')
 const { providerPass } = require('./provider.cjs')
+const { githubPass } = require('./github.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -133,6 +134,8 @@ async function mainPass(page, problems) {
   // 实际天气每天不同，这里只看结构：地点来自 props，切换到第三个预报日后文字与图标换成那一天的值。
   const day = await weather.evaluate(() => document.querySelector('#wx-day')?.textContent ?? '')
   check('天气卡的地点由 props 填上', (await weather.evaluate(() => document.querySelector('#wx-place')?.textContent)) === '北京')
+  // 切换前的读数：温度没变时卡片不会重建逐位数字，这与变了之后每一位都是 span 是两条规则。
+  const beforeTemp = await weather.evaluate(() => document.querySelector('#wx-temp')?.textContent ?? '')
   await weather.locator('#wx-tab-3').click()
   await weather.waitForFunction((previous) => {
     const selected = document.querySelector('.t-tab[aria-selected="true"]')
@@ -141,17 +144,27 @@ async function mainPass(page, problems) {
   }, day, { timeout: 5000 })
   await sleep(400)
   const after = await weather.evaluate(() => ({
-    sky: document.querySelector('.wx-bg')?.getAttribute('data-wx'),
+    sky: document.querySelector('.wx')?.getAttribute('data-scene'),
     day: document.querySelector('#wx-day')?.textContent,
     temp: document.querySelector('#wx-temp')?.textContent ?? '',
     digits: document.querySelectorAll('#wx-temp .t-digit').length,
     icon: document.querySelector('.wx-big .t-icon[data-active]')?.getAttribute('data-key'),
+    // 窗外那一幅景画在 canvas 上：宽度不为零就说明画布按盒子建起来了。
+    canvas: (() => {
+      const node = document.querySelector('.wx-canvas')
+      return node === null ? null : { w: node.width, h: node.height }
+    })(),
   }))
-  check('天空是四种天气之一', ['clear', 'cloudy', 'rain', 'storm'].includes(after.sky), after.sky)
+  check('天空是六种之一', ['clear', 'cloudy', 'overcast', 'rain', 'snow', 'storm'].includes(after.sky), String(after.sky))
+  check('窗外的景画到了画布上', after.canvas !== null && after.canvas.w > 0 && after.canvas.h > 0, JSON.stringify(after.canvas))
   check('预报日跟着变', after.day !== day && after.day !== '', `${day} → ${after.day}`)
   check('温度是数字', /^-?\d+$/.test(after.temp), after.temp)
-  check('数字走逐位动画', after.digits === after.temp.length, `${after.digits} / ${after.temp.length}`)
-  check('图标是四种天气图标之一', ['sun', 'cloud', 'rain', 'bolt'].includes(after.icon), String(after.icon))
+  check(
+    '数字走逐位动画',
+    after.temp === beforeTemp ? after.digits === 0 : after.digits === after.temp.length,
+    `${beforeTemp} → ${after.temp}，${after.digits} 个逐位数字`,
+  )
+  check('图标是天气图标之一', ['sun', 'moon', 'cloud', 'rain', 'snow', 'bolt'].includes(String(after.icon)), String(after.icon))
 
   const pomodoro = await frameOf(page, POMODORO_FRAME)
   check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
@@ -308,8 +321,13 @@ async function mainPass(page, problems) {
   }))
   check('重载之后待办还在', kept.rows === 1 && kept.done === 1 && kept.text === '写第二张卡片', `${kept.rows} 条 / ${kept.done} 条已完成`)
   await todoAgain.locator('.todo-row .todo-remove').first().click()
-  await sleep(300)
-  check('删掉这一条', (await todoAgain.evaluate(() => document.querySelectorAll('.todo-row').length)) === 0)
+  // 删掉一行是同步的，但重画与回写状态各走一步：等行真的没了再判，不用固定时长赌。
+  const removed = await todoAgain.waitForFunction(
+    () => document.querySelectorAll('.todo-row').length === 0,
+    undefined,
+    { timeout: 5000 },
+  ).then(() => true, () => false)
+  check('删掉这一条', removed, String(await todoAgain.evaluate(() => document.querySelectorAll('.todo-row').length)))
 
   const live = await page.evaluate(async () => {
     const response = await fetch('api/widget-board/events', { headers: { accept: 'text/event-stream' } })
@@ -612,13 +630,24 @@ async function reducedPass(page) {
   const weather = await frameOf(page, WEATHER_FRAME)
   check('根部标着减弱动效', (await weather.evaluate(() => document.documentElement.dataset.motion)) === 'reduced')
   const still = await weather.evaluate(() => ({
-    blob: getComputedStyle(document.querySelector('.wx-blob')).animationName,
-    flash: getComputedStyle(document.querySelector('.wx-flash')).display,
+    sheen: getComputedStyle(document.querySelector('.wx-sheen')).animationName,
+    icon: getComputedStyle(document.querySelector('.wx-idle')).animationName,
     tabTransition: getComputedStyle(document.querySelector('.t-tabs-pill')).transitionDuration,
+    // 减弱动效时画布只留一帧：再等一会儿，两张截图应当逐像素一样。
+    canvas: (() => {
+      const node = document.querySelector('.wx-canvas')
+      return node === null ? 0 : node.width * node.height
+    })(),
   }))
-  check('飘动的光斑停住', still.blob === 'none', still.blob)
-  check('闪电不画', still.flash === 'none', still.flash)
+  check('镜面反光与图标都不再动', still.sheen === 'none' && still.icon === 'none', `${still.sheen} / ${still.icon}`)
   check('切换栏不做过渡', still.tabTransition === '0s', still.tabTransition)
+  check('画布仍按盒子画了一帧', still.canvas > 0, String(still.canvas))
+
+  // 静止的雨窗：同一张卡隔半秒再拍一张，逐像素一致。
+  const shotOne = await weather.evaluate(() => document.querySelector('.wx-canvas').toDataURL())
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const shotTwo = await weather.evaluate(() => document.querySelector('.wx-canvas').toDataURL())
+  check('减弱动效下雨窗是静帧', shotOne === shotTwo)
 }
 
 const home = scratchHome('smoke-')
@@ -645,6 +674,7 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (h
     await editorPass(opened.page, check)
     await capabilityPass(opened.page, check)
     await markdownPass(opened.page, check)
+    await githubPass(opened.page, check)
     await providerPass(opened.page, check, host.home)
     await sharePass(opened.page)
     await dockPass(opened.page, check)

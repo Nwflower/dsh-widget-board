@@ -42,8 +42,8 @@ const COPY = {
     en: 'Drag the handle at the top of a card to move it, drag the corner to resize, and hover a flip card to turn it. The layout is stored in this browser and survives a reload.',
   },
   boardNoteIntro: {
-    zh: '这个演示页的宿主是只读的，没有数据源和宿主能力。需要它们的组件没有放进来：',
-    en: 'The host on this page is read-only and has no data sources or host capabilities. Widgets that need them are left out: ',
+    zh: '这个演示页的宿主是只读的，没有数据源、宿主能力与凭据。需要它们的组件没有放进来：',
+    en: 'The host on this page is read-only and has no data sources, host capabilities or credentials. Widgets that need them are left out: ',
   },
   boardNoteOutro: {
     zh: '。装上插件后它们在组件库里。',

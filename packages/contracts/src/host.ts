@@ -65,6 +65,11 @@ export function webServerOf(context: unknown): HostWebServer {
  */
 export interface HostCredentials {
   describe(ref: string): Promise<{ configured: boolean, source?: string, writable: boolean }>
+  /**
+   * 读出当前的值与它来自哪一层。只有宿主半边发请求时用它：值进了插件的进程就不再交给界面，
+   * 设置弹窗读的仍是 `describe`（D22）。
+   */
+  resolve(ref: string): Promise<{ value: string, source: string } | undefined>
   set(ref: string, value: string): Promise<void>
   unset(ref: string): Promise<void>
 }

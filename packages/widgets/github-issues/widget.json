@@ -1,0 +1,98 @@
+{
+  "id": "github-issues",
+  "title": {
+    "zh": "今日宜休",
+    "en": "Rest today"
+  },
+  "description": {
+    "zh": "列出自己维护的仓库里还开着的 issue：仓库、编号、标题、标签与开了几天，点一行就开对应的页；令牌在卡片设置里填。",
+    "en": "Lists the open issues on the repositories you maintain, with repository, number, title, labels and age; click a row to open it. The token goes in the card settings."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "capabilities": ["github.issues"],
+  "credentials": [
+    {
+      "ref": "GITHUB_TOKEN",
+      "label": {
+        "zh": "GitHub 令牌",
+        "en": "GitHub token"
+      },
+      "description": {
+        "zh": "只读公开仓库的令牌就够了；账号由令牌决定，不用另填用户名。",
+        "en": "A read-only token is enough; the account comes from the token, so there is no username to fill in."
+      },
+      "required": true
+    }
+  ],
+  "defaultBox": { "w": 1, "h": 22 },
+  "minBox": { "w": 1, "h": 12 },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kicker": { "type": "string", "maxLength": 40 },
+      "title": { "type": "string", "maxLength": 40 },
+      "limit": { "type": "integer", "minimum": 3, "maximum": 30 }
+    }
+  },
+  "text": {
+    "title": {
+      "zh": "今日宜休",
+      "en": "Rest today"
+    },
+    "kicker": {
+      "zh": "还开着的 issue",
+      "en": "Open issues"
+    },
+    "refresh": {
+      "zh": "重新读一次",
+      "en": "Read again"
+    },
+    "loading": {
+      "zh": "读取 issue…",
+      "en": "Reading issues…"
+    },
+    "empty": {
+      "zh": "自己维护的仓库里没有还开着的 issue",
+      "en": "No open issues on your repositories"
+    },
+    "unconfigured": {
+      "zh": "在卡片设置里填入 GitHub 令牌，就能看到自己维护的仓库里还开着的 issue。",
+      "en": "Add a GitHub token in the card settings to see the open issues on the repositories you maintain."
+    },
+    "rejected": {
+      "zh": "GitHub 不认这个令牌：它可能过期、被撤掉了，或者没有读这些仓库的权限。",
+      "en": "GitHub rejected the token: it may be expired, revoked, or unable to read these repositories."
+    },
+    "failed": {
+      "zh": "读不到 issue",
+      "en": "Issues unavailable"
+    },
+    "props.kicker.label": {
+      "zh": "眉题",
+      "en": "Kicker"
+    },
+    "props.kicker.hint": {
+      "zh": "显示在标题上方，例如「本月」",
+      "en": "Shown above the title, for example “This month”"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.title.hint": {
+      "zh": "卡片的标题，默认是「今日宜休」",
+      "en": "The card title; “Rest today” by default"
+    },
+    "props.limit.label": {
+      "zh": "最多显示几条",
+      "en": "How many to show"
+    },
+    "props.limit.hint": {
+      "zh": "3 到 30 之间，默认 8 条",
+      "en": "Between 3 and 30; 8 by default"
+    }
+  }
+}

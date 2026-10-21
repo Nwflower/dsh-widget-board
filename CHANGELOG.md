@@ -8,11 +8,33 @@
 
 [中文](#cn-unreleased) | [English](#en-unreleased)
 
-<h3 id="cn-unreleased">问题修复</h3>
+<h3 id="cn-unreleased">新增功能</h3>
+
+- 新增内置组件「今日宜休」：按卡片设置里的 GitHub 令牌认账号，列出这个账号名下还开着的 issue，带仓库、编号、标签与开了几天；点一行就在新标签页里打开那一条。组件自己不能导航，跳转交给宿主页面完成。
+- 组件可以把链接交给宿主打开：`widget.open(url)` 发一条桥消息，由宿主页面在新标签页里开出这一页，协议只限 http 与 https。沙箱仍然不给导航与弹窗，组件拿到的只是「请宿主开一个网页」这一件事；会话里内联显示的卡片同样可用。
+
+### 体验优化
+
+- 月历重做：日期格第二行写农历，按「节气 → 节日 → 初一写月名 → 农历日」取一条，节气与节日各有颜色；日期格的字按格子的实际宽高算出来，一到四列、六到三十行的盒子各有自己的排版，宽盒子里日程写成条目，很矮的盒子只留网格；卡片没有数据时不编样例日程，格子里不会冒出假的安排。新增内置组件「今日运势」：分数只由当天的黄道黑道、建除十二值星、星宿吉凶与宜忌条数加权，同一天永远同一个数，另排日期、农历、节气、建除、星宿、值神与当天的宜忌。组件组换成「日历组」：正面月历、背面今日运势，共用一个盒子，右上角的翻面按钮换面；换面不再接管指针，月历自己的翻月按钮因此点得动。组件格式新增 `scripts`，随组件发布的第三方库放在 `vendor/` 下。
+- 设置页的看板列表可以移除全部看板：移除最后一块时宿主补一块空的「未命名看板」并选中它，看板页始终有一块可以显示。
+- 天气卡改成「窗外是一幅画，卡片是它前面的一层玻璃」。晴天与多云是一幅清朗的窗景：蓝天、太阳或月亮、一朵朵有体积的积云——云面沿受光方向从亮到暗，鼓出来的地方有高光，上缘一道受光的亮边，日月从云后透出一圈光；云飘在城市后面，画面不闪。夜里换成月亮与满天星，晴朗的夜空里月亮不会被云盖住。阴天从多云里分出来，有了自己的天空。下雨下雪时，水珠落在玻璃上长大、顺着玻璃滑下并留下水痕，每颗大水珠真折射出它身后的世界；水珠会一直补足，长时间开着也不会滚空。雷暴另有闪电，两三秒一次，一亮一暗再补一下。组件格式新增 `scripts`：组件可以把逻辑按职责拆成目录里的多份脚本。
+
+### 问题修复
 
 - 月历与翻页时钟在矮盒子里不再被截断：盒子落到 6rem 高时，月历收掉导航按钮与星期行、把日期数字收小，翻页时钟的字号下界跟着盒子高度收小。尺寸矩阵的纵向截断判据下全部组件通过。DSH 余额卡的读数改成始终保留两位小数、十亿起只留整数并标近似号，窄盒子放不下时依次收货币代码、收紧一档、折行；卡片多一个可选的标签（kicker）。
 
-<h3 id="en-unreleased">Bug Fixes</h3>
+<h3 id="en-unreleased">New Features</h3>
+
+- New built-in widget "Rest today": uses the GitHub token from the card settings to find the account and lists the open issues on its repositories, with repository, number, labels and age; clicking a row opens it in a new tab. Widgets cannot navigate themselves, so the host page opens the link.
+- Widgets can hand a link to the host: `widget.open(url)` sends one bridge message and the host page opens it in a new tab, limited to http and https. The sandbox still grants no navigation or popups — a widget only gets to ask the host to open a page, and inline cards in a session can do it too.
+
+### Improvements
+
+- The month calendar is redone: the second line of every day carries the lunar date, picked as solar term, then festival, then the month name on the first day, then the lunar day, with terms and festivals coloured; the type in a day cell is derived from the cell's measured width and height, so one to four columns and six to thirty rem boxes each get their own layout, a wide box writes plans out as bars and a very short box keeps the grid alone, and a card without data invents no sample plans, so no fake entries appear in the cells. New built-in widget "Today's fortune": the score is weighted only by the day's auspicious or inauspicious deity, the twelve duty officers, the mansion's luck and the length of the almanac lists, so the same day always scores the same, beside the date, lunar date, solar terms, duty officer, mansion, deity and the day's do and avoid lists. The default group is now the calendar group: a month calendar on the front and today's fortune on the back sharing one box, flipped by the button in the top right corner; flipping no longer takes the pointer, so the calendar's own month buttons stay clickable. The widget format gained `scripts`, and a third-party library shipped with a widget lives under `vendor/`.
+- The board list in settings can now remove every board: removing the last one leaves a fresh empty "Untitled board" selected, so the board page always has one to show.
+- The weather card is now a view outside a window with the card as the glass in front of it. Clear and cloudy days are a crisp window view: blue sky, a sun or moon, and cumulus clouds with real volume — each cloud shades from lit to shadowed along the light direction, its bumps catch highlights, its upper edge carries a lit rim, and the sun or moon bleeds a glow through it. The clouds drift behind the city and nothing strobes. At night the moon and stars take over, and a clear night leaves the moon unobstructed. Overcast is its own sky rather than a shade of cloudy. In rain and snow, droplets land on the glass, grow, slide down leaving wet trails, and the large ones genuinely refract the world behind them; the glass keeps replenishing its droplets, so it never runs dry however long the card stays open. A thunderstorm adds lightning every two or three seconds, a bright strike with a second, fainter pulse. The widget format gained `scripts`, so a widget can split its logic into several files by responsibility.
+
+### Bug Fixes
 
 - The calendar and the flip clock are no longer clipped in short boxes: at 6rem the calendar drops its nav buttons and weekday row and shrinks the day numbers, and the flip clock's minimum font size follows the box height. Every widget now passes the size matrix's vertical-clipping check. The DSH balance card keeps two decimals up to a billion and shows whole numbers with an approximation mark above that; in narrow boxes it drops the currency code, tightens a step, then wraps. The card gains an optional kicker label.
 

@@ -96,7 +96,9 @@ async function placeTarget(page, target, box, metrics) {
 async function waitBox(frame, width, height) {
   let seen = { w: 0, h: 0 }
   for (let attempt = 0; attempt < 20; attempt += 1) {
+    // 刚挂上的卡片可能还在换文档：执行上下文被销毁时这一次读不到，等下一轮重试。
     seen = await frame.evaluate(() => ({ w: innerWidth, h: innerHeight }))
+      .catch(() => seen)
     if (Math.abs(seen.w - width) <= 2 && Math.abs(seen.h - height) <= 2) return seen
     await sleep(80)
   }

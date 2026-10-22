@@ -17,9 +17,6 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "kicker": { "type": "string", "maxLength": 40 },
-      "title": { "type": "string", "maxLength": 80 },
-      "meta": { "type": "string", "maxLength": 40 },
       "kind": { "enum": ["line", "area", "bar"] }
     }
   },
@@ -42,6 +39,10 @@
     }
   },
   "text": {
+    "props.kind.label": {
+      "zh": "图表类型",
+      "en": "Chart kind"
+    },
     "empty": {
       "zh": "暂无采样点",
       "en": "No samples"

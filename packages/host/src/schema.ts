@@ -11,7 +11,7 @@ import type { ErrorObject, ValidateFunction } from 'ajv'
 const ajv = new Ajv({ allErrors: true, strict: false })
 const compiled = new Map<string, ValidateFunction>()
 
-/** 一条 schema 校验不过的字段：路径与原因（D22）。 */
+/** 一条 schema 校验不过的字段：路径与原因（D27）。 */
 export interface SchemaIssue {
   /** JSON Pointer 形状的路径，例如 `/title`；顶层是 `/`。 */
   path: string
@@ -63,7 +63,7 @@ export function dataError(schema: Record<string, unknown> | undefined, value: un
 }
 
 /**
- * 一份 props 与组件的 props schema 的差距（D22）：设置弹窗按字段路径逐项显示。
+ * 一份 props 与组件的 props schema 的差距（D27）：设置弹窗按字段路径逐项显示。
  *
  * @param schema - manifest 里的 `props`；没有声明时不校验。
  * @param value - 准备存进卡片的 props。

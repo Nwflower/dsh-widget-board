@@ -58,7 +58,7 @@ export function webServerOf(context: unknown): HostWebServer {
 }
 
 /**
- * 宿主凭据服务里设置弹窗要用的那一面（D22）：查状态、写值、移除值。
+ * 宿主凭据服务里设置弹窗要用的那一面（D27）：查状态、写值、移除值。
  *
  * 形状按 `dsh-credentials` 的 `CredentialProvider` 记一次；值的品牌只在宿主侧编译期存在，这里用
  * 字符串接收，运行时按普通字符串传。`describe` 永远不回值。
@@ -67,7 +67,7 @@ export interface HostCredentials {
   describe(ref: string): Promise<{ configured: boolean, source?: string, writable: boolean }>
   /**
    * 读出当前的值与它来自哪一层。只有宿主半边发请求时用它：值进了插件的进程就不再交给界面，
-   * 设置弹窗读的仍是 `describe`（D22）。
+   * 设置弹窗读的仍是 `describe`（D27）。
    */
   resolve(ref: string): Promise<{ value: string, source: string } | undefined>
   set(ref: string, value: string): Promise<void>

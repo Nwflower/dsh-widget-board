@@ -25,12 +25,13 @@
 | [D19](D19-card-groups.md) | 组卡：两张普通卡片共享一个盒子 | — |
 | [D20](D20-component-box-contract.md) | 组件的盒子契约 | — |
 | [D21](D21-multiple-boards.md) | 多块看板 | — |
-| [D22](D22-card-editor.md) | 卡片设置弹窗与组槽选择 | — |
 | [D23](D23-write-budget.md) | 状态写入的预算与合并 | — |
 | [D24](D24-host-capabilities.md) | 宿主能力：一条通用调用与能力注册表 | — |
 | [D25](D25-demo-host.md) | 演示页与只读的浏览器端宿主 | — |
 | [D26](D26-widget-open-links.md) | 组件请宿主打开链接 | — |
+| [D27](D27-card-editor.md) | 卡片设置弹窗：配置、日志与关于 | D22 |
+| [D28](D28-widget-requests.md) | 组件对外的请求由宿主代发 | — |
 
 ## 作废的编号
 
-D4（由 D16 取代）、D15（由 D16 取代）。
+D4（由 D16 取代）、D15（由 D16 取代）、D22（由 D27 取代）。

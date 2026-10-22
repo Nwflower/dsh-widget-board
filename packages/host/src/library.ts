@@ -72,7 +72,7 @@ export function contentHash(files: Map<string, Buffer>): string {
 }
 
 /**
- * 一份 manifest 的问题（D7、D22）：schema 校验与凭据引用的唯一性。
+ * 一份 manifest 的问题（D7、D27）：schema 校验与凭据引用的唯一性。
  *
  * 读组件库与 `widget_define` 共用这一条，免得两处对同一份 manifest 给出不同的判定。
  *

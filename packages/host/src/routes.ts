@@ -43,6 +43,7 @@ import type { GrantStore } from './grants'
 import { isRecord } from './guards'
 import { requireGrant } from './permissions'
 import { faceOf, grantFacts, locate } from './lookup'
+import type { RequestLog } from './request-log'
 import type { Live } from './live'
 import type { LibraryLoad, WidgetRecord } from './library'
 import { json } from './response'
@@ -114,10 +115,12 @@ export interface RouteContext {
   grants: GrantStore
   /** 状态写入的预算：按卡与按看板各一份（D23）。 */
   limits: { stateCard: RateLimiter, stateBoard: RateLimiter }
-  /** 宿主的凭据服务（D22）；没装时是 `undefined`，设置弹窗给出可见的说法。 */
+  /** 宿主的凭据服务（D27）；没装时是 `undefined`，设置弹窗给出可见的说法。 */
   credentials?: () => HostCredentials | undefined
   /** `widget_define` 的自检：任务与报告经它在工具与会话页面之间交接（D9）。 */
   selfChecks: SelfChecks
+  /** 组件对外请求的日志（D28）：按卡片记最近几十条。 */
+  requests: RequestLog
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */

@@ -125,7 +125,7 @@ export interface BoardGridProps {
   onFailure: (message: string | null) => void
   /** 这次写宿主要不要挡住菜单与拖动。 */
   onBusyChange: (busy: boolean) => void
-  /** 打开一张卡或一组的设置（D22）；`button` 用来在关闭后还焦点。 */
+  /** 打开一张卡或一组的设置（D27）；`button` 用来在关闭后还焦点。 */
   onSettings: (kind: 'instance' | 'group', id: string, button: HTMLButtonElement) => void
   /** 组件交出来的界面状态（D5）。 */
   onState: (id: string, patch: unknown) => Promise<void>
@@ -405,7 +405,7 @@ export function BoardGrid({
                   frames={frames}
                   onState={onState}
                   onNotify={onNotify}
-                  // 组卡总有槽条可换，不跟着某一面的 props 走（D22）。
+                  // 组卡总有槽条可换，不跟着某一面的 props 走（D27）。
                   onSettings={(button: HTMLButtonElement) => { onSettings('group', card.id, button) }}
                   onRemoveGroup={() => onRemoveGroup(card.id)}
                   controls={controls}

@@ -17,9 +17,7 @@
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {
-      "kicker": { "type": "string", "maxLength": 40 }
-    }
+    "properties": {}
   },
   "text": {
     "title": {
@@ -53,14 +51,6 @@
     "empty": {
       "zh": "账号没有钱包记录",
       "en": "No wallet on this account"
-    },
-    "props.kicker.label": {
-      "zh": "标签",
-      "en": "Label"
-    },
-    "props.kicker.hint": {
-      "zh": "显示在标题上方，例如「工作账号」",
-      "en": "Shown above the title, for example “Work account”"
     }
   }
 }

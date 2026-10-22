@@ -1,8 +1,8 @@
 /**
- * 卡片设置弹窗的宿主半边（D22）：读一份卡的设置、保存 props、写一项凭据。
+ * 卡片的设置与日志的宿主半边（D27、D28）：读一份卡的设置、保存 props、写一项凭据、读它对外请求的日志。
  *
- * 三条路由都只从人的界面调用：`GET` 给弹窗读模型，`props` 与 `credential` 由弹窗保存。凭据值从请求
- * 体进宿主的凭据服务，响应里只有状态；看板文件、导出包与工具结果都不经过这里（D6、D22）。
+ * 这几条路由都只从人的界面调用：`GET` 给弹窗读模型与日志，`props` 与 `credential` 由弹窗保存。凭据值
+ * 从请求体进宿主的凭据服务，响应里只有状态；看板文件、导出包与工具结果都不经过这里（D6、D27）。
  */
 import type {
   CapabilitySetting,
@@ -15,6 +15,7 @@ import type {
   WidgetCredential,
 } from '@dsh-widget-board/contracts'
 import { readJson } from './body'
+import { REQUEST_LOG_LIMIT } from '@dsh-widget-board/contracts'
 import { permissionMatches } from './grants'
 import { isRecord } from './guards'
 import { Refusal } from './refusal'
@@ -23,8 +24,11 @@ import type { Route, RouteContext } from './routes'
 import { propsIssues } from './schema'
 import { withInstancePatched } from './state'
 
-/** 保存 props 的请求体上限：一张卡的表单值，几十 KB 足够。 */
+/** 保存 props 的请求体上限：一张卡的元数据，几十 KB 足够。 */
 const PROPS_LIMIT = 32 * 1024
+
+/** 请求日志是一份只读的回应，不带请求体。 */
+const LOG_LIMIT = 0
 
 /** 写凭据的请求体上限：密钥是一小段文本。 */
 const CREDENTIAL_LIMIT = 8 * 1024
@@ -163,6 +167,17 @@ export function settingsRoutes(): Route[] {
       async handle(context, _request, response, match) {
         const id = decodeURIComponent(match[1] as string)
         json(response, 200, await settingsOf(context, id))
+      },
+    },
+    {
+      method: 'GET',
+      pattern: /^\/instance\/([^/]+)\/log$/,
+      limit: LOG_LIMIT,
+      async handle(context, _request, response, match) {
+        const id = decodeURIComponent(match[1] as string)
+        const found = context.workspace.findInstance(id)
+        if (found === undefined) throw new Refusal(404, `看板上没有这张卡：${id}`)
+        json(response, 200, { entries: context.requests.of(id), limit: REQUEST_LOG_LIMIT })
       },
     },
     {

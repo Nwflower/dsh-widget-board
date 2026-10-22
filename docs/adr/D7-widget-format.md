@@ -12,7 +12,7 @@
   <id>/
     widget.json    id、名字与描述（中英）、作者、semver、支持的尺寸族与降级顺序、
                    props 与 data 的 JSON Schema、credentials、actions、capabilities、权限（网络主机、命令）、
-                   数据源与它要代发的网络请求地址（request.url）、看板上的默认盒子与最小盒子
+                   数据源与它要代发的网络请求（request：地址、方法、请求头、请求体与附上的凭据）、看板上的默认盒子与最小盒子
     index.html     标记片段
     style.css
     main.js        可选
@@ -24,9 +24,9 @@
 
 - `widget.json` 按 `contracts` 里的 JSON Schema 校验，校验用 Ajv。manifest 不合格的组件不进入组件库，错误原样返回给作者。
 - `source` 可以写裸名字，也可以写 `提供方:名字` 点名某个插件注册的数据源；两端都按组件 id 的字母表校验。
-- `credentials` 声明组件要用的凭据引用（`ref` 是环境变量名），设置弹窗据此显示状态与输入框。密钥只进宿主的凭据服务，不写进 `props` 或 `state`（D22）。
+- `credentials` 声明组件要用的凭据引用（`ref` 是环境变量名），设置弹窗据此显示状态与输入框。密钥只进宿主的凭据服务，不写进 `props` 或 `state`（D27）。
 - `capabilities` 声明组件会调用的宿主能力；声明只是白名单，能力的输入/输出 schema 与权限由提供方注册（D24）。
-- props 表单的字段标签从 `text` 的 `props.<key>.label` 与 `props.<key>.hint` 取；字段类型支持字符串、数字、布尔、字符串枚举，其余写法在设置弹窗里用 JSON 编辑。
+- props 的字段标签从 `text` 的 `props.<key>.label` 与 `props.<key>.hint` 取；设置弹窗的配置一节按 schema 里的类型各出控件，对象与数组只说明要用 JSON 工具写（D27）。
 - `refresh` 声明刷新策略（D6）：省略或 `{ "mode": "onDemand" }` 表示只由人按刷新、或工具显式读一次；`{ "mode": "interval", "everyMs": 1000 }` 表示看板有人看着的时候按这个间隔读，间隔抬到 1 秒的下限。没有观众时一律不读。
 - manifest 的 `defaultBox` 声明加卡片时的默认宽高；省略时是一列宽、22rem 高。`board-hero` 用 2 列、14rem，让题头的标题、说明与字模图案排得开。
 - 运行时接口 `window.widget`：`props`、`onProps`、`data`、`onData`、`state`、`onState`、`setState`、`size`、`onSize`、`paused`、`onPause`、`action`、`call`、`notify`、`t`、`fit`、`reportError`。`setState` 由浏览器半边按窗口合并，状态总量有额度（D23）；`paused` 与 `onPause` 让组件在卡片离开视口或翻面组藏起来时停掉计时器（D16、D21）。

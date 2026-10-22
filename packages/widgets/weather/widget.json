@@ -80,6 +80,22 @@
     "everyMs": 18000000
   },
   "text": {
+    "props.place.label": {
+      "zh": "地点",
+      "en": "Place"
+    },
+    "props.place.hint": {
+      "zh": "显示在卡片上的地名",
+      "en": "The place name shown on the card"
+    },
+    "props.latitude.label": {
+      "zh": "纬度",
+      "en": "Latitude"
+    },
+    "props.longitude.label": {
+      "zh": "经度",
+      "en": "Longitude"
+    },
     "loading": {
       "zh": "正在获取天气",
       "en": "Fetching weather"

@@ -1,7 +1,7 @@
 /**
- * 卡片设置弹窗（D22）：单卡与翻面组共用一个编辑器。
+ * 卡片设置弹窗（D27）：单卡与翻面组共用一个编辑器。
  *
- * 单卡有「设置 / 凭据 / 数据与权限 / 关于」四节；组卡在四节之上多一条槽条，每个槽仍是一张普通卡片，
+ * 单卡有「配置 / 日志 / 关于」三节；组卡在三节之上多一条槽条，每个槽仍是一张普通卡片，
  * 换组件只改选中的槽。弹窗只盖看板页自己的矩形，宿主侧栏照常可用（D1）。
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -20,9 +20,10 @@ import type {
 } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_ID } from '@dsh-widget-board/contracts'
 import { sourceLabel, t, textOf } from './copy'
-import { AboutPanel, CredentialsPanel, DataPanel } from './editor-panels'
+import { AboutPanel } from './editor-panels'
+import { ConfigPanel } from './fields'
 import type { FrameHost } from './frame-host'
-import { PropsForm } from './props-form'
+import { RequestLogPanel } from './log-panel'
 import {
   GrantRequiredError,
   changeGroupSlot,
@@ -41,8 +42,8 @@ export type EditorTarget =
   | { kind: 'instance', id: string }
   | { kind: 'group', id: string }
 
-/** 弹窗里的四节。 */
-type EditorTab = 'props' | 'credentials' | 'data' | 'about'
+/** 弹窗里的三节：配置、日志与关于（D27）。 */
+type EditorTab = 'config' | 'log' | 'about'
 
 /** 槽的前后次序。 */
 const SIDE_ORDER: Record<GroupSide, number> = { front: 0, back: 1 }
@@ -70,9 +71,8 @@ export interface CardEditorProps {
  * @returns 当前语言下的标签。
  */
 function tabLabel(tab: EditorTab): string {
-  if (tab === 'props') return t('componentSettings')
-  if (tab === 'credentials') return t('credentials')
-  if (tab === 'data') return t('dataAndPermissions')
+  if (tab === 'config') return t('config')
+  if (tab === 'log') return t('log')
   return t('about')
 }
 
@@ -116,7 +116,7 @@ export function CardEditorDialog({
   onSnapshot,
 }: CardEditorProps): ReactNode {
   const [rect, setRect] = useState<DOMRect | null>(null)
-  const [tab, setTab] = useState<EditorTab>('props')
+  const [tab, setTab] = useState<EditorTab>('config')
   const [side, setSide] = useState<GroupSide>('front')
   const [settings, setSettings] = useState<CardSettings | null>(null)
   const [loading, setLoading] = useState(false)
@@ -176,7 +176,7 @@ export function CardEditorDialog({
     if (!dirty) setConfirmClose(false)
   }, [dirty])
 
-  // 卡片或组被别处移除、或切到另一块看板时，弹窗跟着收起来（D22）。
+  // 卡片或组被别处移除、或切到另一块看板时，弹窗跟着收起来（D27）。
   useEffect(() => {
     if (board === null) return
     const exists = target.kind === 'instance'
@@ -318,7 +318,7 @@ export function CardEditorDialog({
       onSnapshot(next)
       setMode('settings')
       setPending(null)
-      setTab('props')
+      setTab('config')
       setRefreshKey((key) => key + 1)
     } catch (error) {
       setPickerError((error as Error).message)
@@ -472,7 +472,7 @@ export function CardEditorDialog({
                             if (dirty || writing) return
                             setSide(entrySide)
                             setMode('settings')
-                            setTab('props')
+                            setTab('config')
                             setPending(null)
                           }}
                         >
@@ -518,7 +518,7 @@ export function CardEditorDialog({
                 : null}
 
               <div className="dsh-widget-board__editor-tabs" role="tablist" aria-label={t('cardSettings')}>
-                {(['props', 'credentials', 'data', 'about'] as EditorTab[]).map((candidate) => (
+                {(['config', 'log', 'about'] as EditorTab[]).map((candidate) => (
                   <button
                     key={candidate}
                     type="button"
@@ -526,7 +526,7 @@ export function CardEditorDialog({
                     aria-selected={tab === candidate}
                     data-dsh-widget-board-tab={candidate}
                     className="dsh-widget-board__editor-tab"
-                    data-warning={candidate === 'data' && settings !== null
+                    data-warning={candidate === 'about' && settings !== null
                       && (settings.sourceError !== undefined
                         || (settings.source !== undefined && settings.source.permission !== undefined && !settings.source.granted)
                         || settings.capabilities.some((capability) => capability.unavailable !== undefined
@@ -562,28 +562,22 @@ export function CardEditorDialog({
                         ? null
                         : (
                           <>
-                            <div role="tabpanel" hidden={tab !== 'props'}>
-                              <PropsForm
-                                key={settings.instance.id}
-                                schema={settings.widget.propsSchema}
-                                text={settings.widget.text}
-                                value={settings.instance.props}
-                                busy={writing}
-                                onSave={saveProps}
-                                onDirtyChange={setDirty}
-                              />
-                            </div>
-                            <div role="tabpanel" hidden={tab !== 'credentials'}>
-                              <CredentialsPanel
+                            <div role="tabpanel" hidden={tab !== 'config'}>
+                              <ConfigPanel
                                 key={settings.instance.id}
                                 settings={settings}
                                 busy={writing}
-                                onSet={saveCredential}
-                                onUnset={removeCredential}
+                                onSaveProps={saveProps}
+                                onSetCredential={saveCredential}
+                                onUnsetCredential={removeCredential}
+                                onDirtyChange={setDirty}
                               />
                             </div>
-                            <div role="tabpanel" hidden={tab !== 'data'}>
-                              <DataPanel
+                            <div role="tabpanel" hidden={tab !== 'log'}>
+                              <RequestLogPanel instanceId={settings.instance.id} />
+                            </div>
+                            <div role="tabpanel" hidden={tab !== 'about'}>
+                              <AboutPanel
                                 key={settings.instance.id}
                                 settings={settings}
                                 busy={writing}
@@ -591,9 +585,6 @@ export function CardEditorDialog({
                                 onRevoke={revoke}
                                 onRefresh={refreshData}
                               />
-                            </div>
-                            <div role="tabpanel" hidden={tab !== 'about'}>
-                              <AboutPanel key={settings.instance.id} settings={settings} />
                             </div>
                           </>
                         )}

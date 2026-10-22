@@ -81,7 +81,7 @@ export interface WidgetAction {
 }
 
 /**
- * 组件声明的一项凭据（D22）：值由宿主的凭据服务保存，组件只拿到它想用到的名字。
+ * 组件声明的一项凭据（D27）：值由宿主的凭据服务保存，组件只拿到它想用到的名字。
  *
  * 密钥不写进 props 与 state：设置弹窗按这条声明画输入框，提供方的数据源或动作按同一个 `ref`
  * 解析。`label` 与 `description` 是设置弹窗里的文案，`required` 决定未配置时要不要醒目提示。
@@ -131,15 +131,43 @@ export const REFRESH_DEFAULT_MS = 30_000
 /** 宿主代发 HTTP 请求的数据源名（D6）；manifest 里写 `"source": "http"` 并给出 `request.url`。 */
 export const HTTP_DATA_SOURCE = 'http'
 
+/** 宿主代发请求时允许的方法。 */
+export const WIDGET_REQUEST_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
+
+/** 一种请求方法。 */
+export type WidgetRequestMethod = (typeof WIDGET_REQUEST_METHODS)[number]
+
 /**
- * 组件让宿主代发的一次 HTTP 请求（D6）。
+ * 把一项凭据附在请求上的方式。
  *
- * 组件自己拿不到网络，所以地址写在 manifest 里，由宿主请求；URL 里的 `{名字}` 在读取时换成卡片
- * props 里的同名值，没有时换 props schema 给这个属性的默认值。只有 `permissions.hosts` 里列出的
- * 主机能访问。
+ * `bearer` 与 `basic` 写 `authorization` 头；`header` 写 `header` 指定的那个头。值只由宿主读，
+ * 不经过组件代码（D28）。
+ */
+export interface WidgetRequestAuth {
+  /** 凭据的 `ref`，必须是 manifest 的 `credentials` 里声明过的一项。 */
+  credential: string
+  scheme: 'bearer' | 'basic' | 'header'
+  /** `scheme` 是 `header` 时写入的请求头名，例如 `x-api-key`。 */
+  header?: string
+}
+
+/**
+ * 组件让宿主代发的一次 HTTP 请求（D6、D28）。
+ *
+ * 组件自己拿不到网络，所以地址写在 manifest 里，由宿主请求；URL 与请求体里的 `{名字}` 在读取
+ * 时换成卡片 props 里的同名值，没有时换 props schema 给这个属性的默认值。只有 `permissions.hosts`
+ * 里列出的主机能访问。
  */
 export interface WidgetRequest {
   url: string
+  /** 请求方法；省略时是 `GET`。 */
+  method?: WidgetRequestMethod
+  /** 一起发出去的固定请求头；`auth` 要写的那个头由宿主拼。 */
+  headers?: Record<string, string>
+  /** 请求体（JSON 文本，`{名字}` 同样会被换成 props 里同名的值）；`GET` 与 `DELETE` 不带。 */
+  body?: string
+  /** 附一项凭据；省略时不带认证。 */
+  auth?: WidgetRequestAuth
   /**
    * 同一个地址的响应缓存多久（毫秒）；省略或为 0 时不缓存。
    *
@@ -147,6 +175,9 @@ export interface WidgetRequest {
    */
   cacheMs?: number
 }
+
+/** 请求体的上限：请求是组件自己写的，不能让它拿宿主的连接发一大块过去。 */
+export const REQUEST_BODY_LIMIT = 32 * 1024
 
 /** 响应缓存允许的最长时间：再久就不该指望它还是当下的数据。 */
 export const HTTP_CACHE_MAX_MS = 86_400_000
@@ -189,7 +220,7 @@ export interface WidgetManifest {
    * `permission` 要一份人给出的授权。
    */
   capabilities?: string[]
-  /** 设置弹窗要显示的凭据（D22）；值由宿主的凭据服务保存，不随卡片走。 */
+  /** 设置弹窗要显示的凭据（D27）；值由宿主的凭据服务保存，不随卡片走。 */
   credentials?: WidgetCredential[]
   permissions?: WidgetPermissions
   /** 刷新策略（D6）；省略时按需。 */
@@ -288,6 +319,23 @@ export const WIDGET_MANIFEST_SCHEMA = {
       required: ['url'],
       properties: {
         url: { type: 'string', minLength: 1, maxLength: 2048 },
+        method: { enum: WIDGET_REQUEST_METHODS as unknown as string[] },
+        headers: {
+          type: 'object',
+          maxProperties: 8,
+          additionalProperties: { type: 'string', maxLength: 512 },
+        },
+        body: { type: 'string', maxLength: 32768 },
+        auth: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['credential', 'scheme'],
+          properties: {
+            credential: { type: 'string', pattern: '^[A-Z][A-Z0-9_]{2,63}$' },
+            scheme: { enum: ['bearer', 'basic', 'header'] },
+            header: { type: 'string', pattern: '^[a-z0-9-]{1,64}$' },
+          },
+        },
         cacheMs: { type: 'integer', minimum: 0, maximum: HTTP_CACHE_MAX_MS },
       },
     },

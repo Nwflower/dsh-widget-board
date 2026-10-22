@@ -40,7 +40,7 @@ export interface ToolContext {
   reload: () => Promise<void>
   /** 组件声明的 data schema 校验（D6）。 */
   dataError: (schema: Record<string, unknown> | undefined, data: unknown) => string | undefined
-  /** 组件声明的 props schema 校验（D22）。 */
+  /** 组件声明的 props schema 校验（D27）。 */
   propsError: (schema: Record<string, unknown> | undefined, props: unknown) => string | undefined
   /** 组件的默认数据源读一次（D17）。 */
   readSource: (id: string, instance: InstanceFace) => Promise<unknown>

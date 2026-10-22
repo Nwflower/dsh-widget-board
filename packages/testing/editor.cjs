@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * editor.cjs — 卡片设置弹窗的真实宿主检查（D22）。
+ * editor.cjs — 卡片设置弹窗的真实宿主检查（D27）。
  *
- * 单卡：从卡片右上角的设置按钮打开，改 props，保存后卡片与宿主都换；有未保存修改时关闭先确认。
- * 组卡：槽条有两个槽，换一个槽的组件，另一个不动，关闭之后两面各自重挂。
+ * 单卡：三节（配置、日志、关于），在配置一节改字段，保存后宿主的 props 跟着换；日志一节打得开，
+ * 绑了数据源的卡片在里面看得到自己发出的请求。有未保存修改时关闭先确认。组卡：槽条有两个槽，
+ * 换一个槽的组件，另一个不动，关闭之后两面各自重挂。
  *
  * 只查找插件自己写在节点上的标记（`data-dsh-widget-board-*`），宿主换了内部结构也不会让判据失真。
  */
@@ -85,29 +86,29 @@ async function editorPass(page, check) {
   check('设置按钮打开卡片设置弹窗', true)
   check('弹窗落在看板页里', await editorInsideBoard(page))
   const tabs = await page.locator('[data-dsh-widget-board-editor] [data-dsh-widget-board-tab]').count()
-  check('单卡有四节设置', tabs === 4, String(tabs))
+  check('单卡有三节设置', tabs === 3, String(tabs))
+  const order = await page.locator('[data-dsh-widget-board-editor] [data-dsh-widget-board-tab]')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-dsh-widget-board-tab')))
+  check('三节的次序是配置、日志、关于', order.join(',') === 'config,log,about', order.join(','))
 
-  // 用带时间戳的标题：同一份临时 home 上一次冒烟留下的值不会让 fill 变成一次空操作。
-  const titleText = `冒烟标题 ${Date.now()}`
-  const title = page.locator('[data-dsh-widget-board-field="title"]').first()
-  await title.waitFor({ timeout: 10000 })
-  await title.fill(titleText)
-  await page.locator('[data-dsh-widget-board-props-save]').click()
+  // 用带时间戳的时区名：同一份临时 home 上一次冒烟留下的值不会让填写变成一次空操作。
+  const zoneText = `Asia/Tokyo+${String(Date.now())}`
+  const zone = page.locator('[data-dsh-widget-board-field="zone"]').first()
+  await zone.waitFor({ timeout: 10000 })
+  await zone.fill(zoneText)
+  await page.locator('[data-dsh-widget-board-config-save]').click()
   const savedProps = await waitFor(async () => {
     const props = await propsOf(page, id)
-    return props?.title === titleText
+    return props?.zone === zoneText
   })
-  check('设置弹窗把 props 存到宿主', savedProps)
-  let frameText = ''
-  const frame = page.frameLocator(`${card} iframe`)
-  await waitFor(async () => {
-    frameText = await frame.locator('body').innerText().catch(() => '')
-    return frameText.includes(titleText)
-  })
-  check('保存之后卡片画面跟着换', frameText.includes(titleText), frameText.slice(0, 40))
+  check('配置一节把字段存到宿主', savedProps)
+  await page.locator('[data-dsh-widget-board-tab="log"]').click()
+  await page.waitForSelector('[data-dsh-widget-board-log]', { timeout: 10000 })
+  check('日志一节打得开', true)
+  await page.locator('[data-dsh-widget-board-tab="config"]').click()
 
   // 有未保存修改时关闭先确认；确认之后宿主上的值不变。
-  await title.fill('不保存')
+  await zone.fill('不保存')
   await page.locator('[data-dsh-widget-board-editor-done]').click()
   await page.waitForSelector('[data-dsh-widget-board-editor-keep]', { timeout: 10000 })
   check('有未保存修改时关闭先确认', true)
@@ -117,7 +118,28 @@ async function editorPass(page, check) {
   await page.locator('[data-dsh-widget-board-editor-discard]').click()
   await page.waitForSelector('[data-dsh-widget-board-editor]', { state: 'detached', timeout: 10000 })
   const afterDiscard = await propsOf(page, id)
-  check('放弃修改不会写宿主', afterDiscard?.title === titleText, JSON.stringify(afterDiscard))
+  check('放弃修改不会写宿主', afterDiscard?.zone === zoneText, JSON.stringify(afterDiscard))
+
+  // 天气卡绑了数据源：它的日志里应该看得到刚发出的请求。
+  const weatherId = await page.evaluate(async () => {
+    const snapshot = await (await fetch('api/widget-board/boards')).json()
+    const active = snapshot.boards.find((board) => board.id === snapshot.active)
+    return (active?.instances ?? []).find((instance) => instance.widget === 'weather')?.id ?? ''
+  })
+  if (weatherId !== '') {
+    const weatherCard = `[data-instance="${weatherId}"]`
+    await page.evaluate((selector) => document.querySelector(selector)?.scrollIntoView({ block: 'center' }), weatherCard)
+    await page.locator(weatherCard).hover()
+    await page.locator(`${weatherCard} [data-dsh-widget-board-handle="settings"]`).click()
+    await page.waitForSelector('[data-dsh-widget-board-editor]', { timeout: 10000 })
+    await page.locator('[data-dsh-widget-board-tab="log"]').click()
+    await page.waitForSelector('[data-dsh-widget-board-log]', { timeout: 10000 })
+    await sleep(400)
+    const rows = await page.locator('[data-dsh-widget-board-log-row]').count()
+    check('日志里看得到这张卡发出的请求', rows > 0, String(rows))
+    await page.locator('[data-dsh-widget-board-editor-done]').click()
+    await page.waitForSelector('[data-dsh-widget-board-editor]', { state: 'detached', timeout: 10000 })
+  }
 
   // 组卡：加一组，弹窗直接打开；槽条有两个槽，换掉正面那个。
   const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)

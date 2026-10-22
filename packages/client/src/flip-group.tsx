@@ -24,7 +24,7 @@ export interface FlipGroupCardProps {
   onState: (id: string, patch: unknown) => Promise<void>
   /** 组件发到看板栏上的一条通知（D7）。 */
   onNotify: (instance: BoardInstance, widget: WidgetSummary, notification: WidgetNotification) => void
-  /** 打开整组的设置：槽条里挑两个槽的组件（D22）。 */
+  /** 打开整组的设置：槽条里挑两个槽的组件（D27）。 */
   onSettings?: (button: HTMLButtonElement) => void
   /** 整组一起移除（D19）。 */
   onRemoveGroup: () => void
@@ -49,7 +49,7 @@ function MissingFace({ instance }: { instance: BoardInstance }): ReactNode {
  * 固定的翻面组（D19）：一个卡片外壳里放两个普通组件画面，正面与背面各一张卡。
  *
  * 两张卡仍是看板上的普通实例，各自的 props、data、state 与实例路由不变；组只负责把两层画面放进
- * 同一个盒子，指针移上去转背面、离开转正面。两面各放哪个组件由设置弹窗的槽条选（D22）。
+ * 同一个盒子，指针移上去转背面、离开转正面。两面各放哪个组件由设置弹窗的槽条选（D27）。
  *
  * @param props - 正反两张卡、它们的元信息、盒子与回调。
  * @returns 翻面组。

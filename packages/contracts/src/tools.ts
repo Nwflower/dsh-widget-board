@@ -222,7 +222,7 @@ export interface CatalogEntry {
   actions?: string[]
   /** props 的 JSON Schema。 */
   props?: Record<string, unknown>
-  /** 设置弹窗要显示的凭据声明（D22）。 */
+  /** 设置弹窗要显示的凭据声明（D27）。 */
   credentials?: WidgetCredential[]
   /** 组件声明的宿主能力与它们的接口（D24）；没装提供方时 `error` 写明原因。 */
   capabilities?: CatalogCapability[]

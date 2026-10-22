@@ -17,10 +17,13 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "kicker": { "type": "string", "maxLength": 40 },
-      "title": { "type": "string", "maxLength": 80 },
-      "text": { "type": "string", "maxLength": 220 },
-      "meta": { "type": "string", "maxLength": 60 }
+      "text": { "type": "string", "maxLength": 220 }
+    }
+  },
+  "text": {
+    "props.text.label": {
+      "zh": "正文",
+      "en": "Text"
     }
   }
 }

@@ -17,7 +17,6 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "kicker": { "type": "string", "maxLength": 40 },
       "lead": { "type": "string", "maxLength": 20 },
       "accent": { "type": "string", "maxLength": 20 },
       "tail": { "type": "string", "maxLength": 20 },
@@ -25,6 +24,30 @@
     }
   },
   "text": {
+    "props.lead.label": {
+      "zh": "主句",
+      "en": "Lead sentence"
+    },
+    "props.lead.hint": {
+      "zh": "卡片上最大的一行",
+      "en": "The largest line on the card"
+    },
+    "props.accent.label": {
+      "zh": "强调词",
+      "en": "Accent"
+    },
+    "props.accent.hint": {
+      "zh": "主句里换一种颜色的词",
+      "en": "The word in the lead that changes color"
+    },
+    "props.tail.label": {
+      "zh": "补句",
+      "en": "Tail"
+    },
+    "props.tagline.label": {
+      "zh": "副句",
+      "en": "Tagline"
+    },
     "lead": {
       "zh": "一块",
       "en": "A"

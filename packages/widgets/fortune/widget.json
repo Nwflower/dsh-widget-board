@@ -17,10 +17,7 @@
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {
-      "kicker": { "type": "string", "maxLength": 40 },
-      "title": { "type": "string", "maxLength": 80 }
-    }
+    "properties": {}
   },
   "data": {
     "type": "object",

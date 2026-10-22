@@ -66,7 +66,6 @@ const OTHER_CATEGORY = '其他'
  */
 const GALLERY_CONTENT: Readonly<Record<string, CardContent>> = {
   table: {
-    props: { kicker: '运行状态', title: '服务状态', meta: '示例数据' },
     data: {
       columns: [
         { key: 'name', label: '服务' },
@@ -82,7 +81,6 @@ const GALLERY_CONTENT: Readonly<Record<string, CardContent>> = {
     },
   },
   kv: {
-    props: { kicker: '运行信息', title: '看板概览', meta: '示例数据' },
     data: {
       items: [
         { key: '插件', value: 'dsh-widget-board', note: '组件看板' },

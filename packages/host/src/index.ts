@@ -23,6 +23,7 @@ import {
 import { createVersionStore } from './blobs'
 import { loadAssets } from './assets'
 import { createHttpSource } from './http'
+import { createRequestLog } from './request-log'
 import { openGrants } from './grants'
 import type { GrantStore } from './grants'
 import { loadLibrary } from './library'
@@ -131,6 +132,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     })
   }
 
+  /** 组件对外请求的日志（D28）：按卡片记在进程里。 */
+  const requests = createRequestLog()
+
   const context: RouteContext = {
     records: library.records,
     entries: library.entries,
@@ -151,10 +155,14 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     },
     credentials: () => credentialsOf(ctx),
     selfChecks: createSelfChecks(),
+    requests,
   }
-  // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责。
+  // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责；每次请求记进这张卡的日志（D28）。
   const disposeHttpSource = sources.registerDataSource(
-    createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION),
+    createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION, {
+      credentials: () => credentialsOf(ctx),
+      record: (id, entry) => { requests.add(id, entry) },
+    }),
   )
 
   // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与

@@ -25,7 +25,7 @@ export interface WidgetCardProps {
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
   frames: FrameHost
-  /** 打开这张卡的设置（D22）；没有可配置项时不传。 */
+  /** 打开这张卡的设置（D27）；没有可配置项时不传。 */
   onSettings?: (button: HTMLButtonElement) => void
   /** 组件交出来的界面状态，看板写给宿主（D5）。 */
   onState: (id: string, patch: unknown) => Promise<void>

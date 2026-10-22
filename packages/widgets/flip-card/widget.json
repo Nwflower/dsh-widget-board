@@ -26,6 +26,30 @@
     }
   },
   "text": {
+    "props.frontKicker.label": {
+      "zh": "正面眉题",
+      "en": "Front kicker"
+    },
+    "props.frontTitle.label": {
+      "zh": "正面标题",
+      "en": "Front title"
+    },
+    "props.frontText.label": {
+      "zh": "正面正文",
+      "en": "Front text"
+    },
+    "props.backKicker.label": {
+      "zh": "背面眉题",
+      "en": "Back kicker"
+    },
+    "props.backTitle.label": {
+      "zh": "背面标题",
+      "en": "Back title"
+    },
+    "props.backText.label": {
+      "zh": "背面正文",
+      "en": "Back text"
+    },
     "hint": {
       "zh": "悬停或轻点翻转",
       "en": "Hover or tap to flip"

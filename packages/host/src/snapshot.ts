@@ -2,7 +2,7 @@
  * 工作区快照（D5、D21）：全部看板、当前选中、卡片要用的组件元信息、组件库与授权。
  *
  * 每次 `GET /boards`、写入之后与组卡换槽都从同一处拼出来；设置弹窗的读模型不在这里，它按需单独取
- * （D22）。
+ * （D27）。
  */
 import type { WidgetManifest, WidgetSummary, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
@@ -18,7 +18,7 @@ export type SnapshotContext = Pick<RouteContext, 'records' | 'entries'> & {
 }
 
 /**
- * 一个组件有没有设置弹窗要展示的项（D22）：非空 props 表单或凭据声明。
+ * 一个组件有没有设置弹窗要展示的项（D27）：非空 props schema 或凭据声明。
  *
  * @param manifest - 组件 manifest。
  * @returns 有可配置项时为真。
@@ -26,7 +26,11 @@ export type SnapshotContext = Pick<RouteContext, 'records' | 'entries'> & {
 export function hasSettings(manifest: WidgetManifest): boolean {
   const properties = isRecord(manifest.props) ? manifest.props.properties : undefined
   const hasProps = isRecord(properties) && Object.keys(properties).length > 0
-  return hasProps || (manifest.credentials?.length ?? 0) > 0 || (manifest.capabilities?.length ?? 0) > 0
+  return hasProps
+    || (manifest.credentials?.length ?? 0) > 0
+    || (manifest.capabilities?.length ?? 0) > 0
+    // 绑了数据源的卡片没有可改的项，但它的日志看得见（D28）。
+    || manifest.source !== undefined
 }
 
 /**

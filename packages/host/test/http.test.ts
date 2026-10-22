@@ -165,6 +165,88 @@ describe('缓存', () => {
   })
 })
 
+describe('带凭据的请求', () => {
+  /** 一份声明了 GITHUB_TOKEN 的 manifest。 */
+  function authed(request: WidgetManifest['request']): WidgetManifest {
+    return manifest({
+      id: 'issues',
+      request,
+      credentials: [{ ref: 'GITHUB_TOKEN', label: { zh: '令牌', en: 'Token' }, required: true }],
+    })
+  }
+
+  /** 一份总是回答给定 JSON 的请求替身，并把每次请求记下来。 */
+  function recording(body: unknown = { ok: true }): { fetch: FetchLike, calls: Array<{ url: string, init: RequestInit }> } {
+    const calls: Array<{ url: string, init: RequestInit }> = []
+    return {
+      calls,
+      fetch: async (url, init) => {
+        calls.push({ url, init })
+        return new Response(JSON.stringify(body), { status: 200 })
+      },
+    }
+  }
+
+  /** 一份只有一项凭据的凭据服务替身。 */
+  function credentials(value: string | undefined) {
+    return () => ({
+      describe: async () => ({ configured: value !== undefined, writable: true }),
+      resolve: async () => (value === undefined ? undefined : { value, source: 'file' }),
+      set: async () => undefined,
+      unset: async () => undefined,
+    })
+  }
+
+  it('bearer 方式把值拼进 authorization 头', async () => {
+    const { fetch, calls } = recording()
+    const request = { url: 'https://api.open-meteo.com/v1/forecast', auth: { credential: 'GITHUB_TOKEN', scheme: 'bearer' as const } }
+    await readHttpSource(authed(request), {}, { fetch, credentials: credentials('ghp_secret') })
+    expect((calls[0]?.init.headers as Record<string, string>).authorization).toBe('Bearer ghp_secret')
+  })
+
+  it('header 方式写进指定的请求头', async () => {
+    const { fetch, calls } = recording()
+    const request = { url: 'https://api.open-meteo.com/v1/forecast', auth: { credential: 'GITHUB_TOKEN', scheme: 'header' as const, header: 'x-api-key' } }
+    await readHttpSource(authed(request), {}, { fetch, credentials: credentials('k-1') })
+    expect((calls[0]?.init.headers as Record<string, string>)['x-api-key']).toBe('k-1')
+  })
+
+  it('没有配置这一项时报错，不发出请求', async () => {
+    const { fetch, calls } = recording()
+    const request = { url: 'https://api.open-meteo.com/v1/forecast', auth: { credential: 'GITHUB_TOKEN', scheme: 'bearer' as const } }
+    await expect(readHttpSource(authed(request), {}, { fetch, credentials: credentials(undefined) })).rejects.toThrow(/还没有配置/)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('manifest 没有声明的凭据不能附在请求上', async () => {
+    const { fetch } = recording()
+    const request = { url: 'https://api.open-meteo.com/v1/forecast', auth: { credential: 'OTHER_TOKEN', scheme: 'bearer' as const } }
+    await expect(readHttpSource(authed(request), {}, { fetch, credentials: credentials('x') })).rejects.toThrow(/没有在 credentials 里声明/)
+  })
+
+  it('POST 带请求体，占位符按 JSON 转义', async () => {
+    const { fetch, calls } = recording()
+    const request = {
+      url: 'https://api.open-meteo.com/v1/forecast',
+      method: 'POST' as const,
+      body: '{"q":"{q}"}',
+    }
+    const withQuery = manifest({ request, props: { type: 'object', properties: { q: { type: 'string' } } } })
+    await readHttpSource(withQuery, { q: 'a"b' }, { fetch })
+    expect(calls[0]?.init.method).toBe('POST')
+    expect(calls[0]?.init.body).toBe('{"q":"a\\"b"}')
+  })
+
+  it('每次请求都记一条日志，失败也记', async () => {
+    const entries: Array<{ method: string, host: string, status: number, error?: string }> = []
+    const record = (entry: { method: string, host: string, status: number, error?: string }): void => { entries.push(entry) }
+    await readHttpSource(manifest(), {}, { fetch: answering('{"a":1}'), record })
+    await expect(readHttpSource(manifest(), {}, { fetch: answering('nope', 500), record })).rejects.toThrow(/500/)
+    expect(entries[0]).toMatchObject({ method: 'GET', host: 'api.open-meteo.com', status: 200 })
+    expect(entries[1]).toMatchObject({ status: 500, error: 'HTTP 500' })
+  })
+})
+
 describe('注册项', () => {
   it('名字是 http，组件不在库里时读不了', async () => {
     const source = createHttpSource(() => new Map(), 'dsh-widget-board', 2)

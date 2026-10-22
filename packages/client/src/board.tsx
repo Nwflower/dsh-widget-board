@@ -101,7 +101,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const [exiting, setExiting] = useState<ReadonlySet<string>>(() => new Set())
   /** 刷新一次就让每张卡换一个 key：卡片文档重新挂载，组件里的本地画面也跟着重来。 */
   const [refreshGeneration, setRefreshGeneration] = useState(0)
-  /** 正在编辑的卡片或组；`null` 时弹窗关着（D22）。 */
+  /** 正在编辑的卡片或组；`null` 时弹窗关着（D27）。 */
   const [editor, setEditor] = useState<EditorTarget | null>(null)
   const shellRef = useRef<HTMLDivElement | null>(null)
   const boardsRef = useRef<HTMLDivElement | null>(null)
@@ -149,7 +149,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [])
 
-  /** 打开一张卡或一组的设置；记下按钮，关掉弹窗之后把焦点还回去（D22）。 */
+  /** 打开一张卡或一组的设置；记下按钮，关掉弹窗之后把焦点还回去（D27）。 */
   const openEditor = useCallback((kind: 'instance' | 'group', id: string, button: HTMLButtonElement | null): void => {
     returnFocusRef.current = button
     setLibraryOpen(false)
@@ -250,7 +250,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       })
   }, [apply])
 
-  /** 加一张翻面组（D19）：两张卡的落点相同；加完直接打开槽条，让用户挑两面（D22）。 */
+  /** 加一张翻面组（D19）：两张卡的落点相同；加完直接打开槽条，让用户挑两面（D27）。 */
   const addGroupCard = useCallback((layout?: CardLayout): Promise<string | null> => {
     if (busyRef.current || activeBoard === null) return Promise.resolve(null)
     busyRef.current = true

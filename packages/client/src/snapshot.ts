@@ -21,6 +21,7 @@ import type {
   InstanceCredentialRequest,
   InstancePropsRequest,
   InstanceStateRequest,
+  RequestLogEntry,
   WorkspaceSnapshot,
 } from '@dsh-widget-board/contracts'
 import {
@@ -38,6 +39,7 @@ import {
   instanceCredentialPath,
   instanceDataPath,
   instanceGrantPath,
+  instanceLogPath,
   instancePropsPath,
   instanceReadPath,
   instanceRemovePath,
@@ -64,7 +66,7 @@ export class GrantRequiredError extends Error {
   }
 }
 
-/** 一条 props 字段错误（D22）。 */
+/** 一条 props 字段错误（D27）。 */
 export interface PropsIssue {
   path: string
   message: string
@@ -104,7 +106,7 @@ function isWorkspace(value: unknown): value is WorkspaceSnapshot {
   return Array.isArray((value as WorkspaceSnapshot | undefined)?.boards)
 }
 
-/** 一份响应体是不是卡片设置读模型（D22）。 */
+/** 一份响应体是不是卡片设置读模型（D27）。 */
 function isCardSettings(value: unknown): value is CardSettings {
   const settings = value as CardSettings | undefined
   return typeof settings?.instance === 'object' && settings.instance !== null
@@ -417,7 +419,7 @@ export async function addGroup(boardId: string, layout?: CardLayout): Promise<{ 
 }
 
 /**
- * 读一张卡的设置读模型（D22）。
+ * 读一张卡的设置读模型（D27）。
  *
  * @param id - 卡片实例的 id。
  * @returns 只含状态与 schema 的设置。
@@ -432,7 +434,22 @@ export async function fetchInstanceSettings(id: string): Promise<CardSettings> {
 }
 
 /**
- * 保存一张卡的 props（D22）：宿主按组件的 props schema 校验，失败时带逐字段原因。
+ * 读一张卡对外请求的日志（D28）。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 最近的请求，按发生的先后。
+ * @throws {Error} 请求失败或响应不是日志。
+ */
+export async function fetchInstanceLog(id: string): Promise<RequestLogEntry[]> {
+  const response = await fetch(instanceLogPath(id), { headers: { accept: 'application/json' } })
+  if (!response.ok) throw new Error(await errorOf(response, '读不了这张卡的日志'))
+  const value = await response.json() as { entries?: unknown }
+  if (!Array.isArray(value.entries)) throw new Error('读不了这张卡的日志：响应里没有请求列表')
+  return value.entries as RequestLogEntry[]
+}
+
+/**
+ * 保存一张卡的 props（D27）：宿主按组件的 props schema 校验，失败时带逐字段原因。
  *
  * @param id - 卡片实例的 id。
  * @param props - 整份 props。
@@ -462,7 +479,7 @@ export async function saveInstanceProps(id: string, props: Record<string, unknow
 }
 
 /**
- * 写一张卡的一项凭据（D22）：值只往宿主走，返回值没有密钥。
+ * 写一张卡的一项凭据（D27）：值只往宿主走，返回值没有密钥。
  *
  * @param id - 卡片实例的 id。
  * @param ref - 凭据名，必须在组件的 manifest 里声明过。
@@ -488,7 +505,7 @@ export async function setInstanceCredential(
 }
 
 /**
- * 把组卡的一个槽换成另一个组件（D22）。
+ * 把组卡的一个槽换成另一个组件（D27）。
  *
  * @param groupId - 组 id。
  * @param side - 换哪一侧。

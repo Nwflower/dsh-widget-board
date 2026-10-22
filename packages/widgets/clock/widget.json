@@ -17,14 +17,23 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "kicker": { "type": "string", "maxLength": 40 },
-      "title": { "type": "string", "maxLength": 80 },
-      "meta": { "type": "string", "maxLength": 40 },
       "zone": { "type": "string", "maxLength": 40 },
       "showSeconds": { "type": "boolean" }
     }
   },
   "text": {
+    "props.zone.label": {
+      "zh": "时区",
+      "en": "Time zone"
+    },
+    "props.zone.hint": {
+      "zh": "IANA 名字，例如 Asia/Shanghai",
+      "en": "An IANA name such as Asia/Shanghai"
+    },
+    "props.showSeconds.label": {
+      "zh": "显示秒",
+      "en": "Show seconds"
+    },
     "zone": {
       "zh": "本地时间",
       "en": "Local time"

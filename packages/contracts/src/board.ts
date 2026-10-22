@@ -98,7 +98,7 @@ export interface WidgetSummary {
   provider?: string
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
-  /** 这个类型有没有可配置的 props 或凭据（D22）：设置按钮据此决定出不出现。 */
+  /** 这个类型有没有可配置的 props 或凭据（D27）：设置按钮据此决定出不出现。 */
   settings?: boolean
 }
 
@@ -125,7 +125,7 @@ export interface BoardLayoutSaved {
 }
 
 /**
- * 一项凭据在设置弹窗里的状态（D22）：只有是否存在、来自哪一层、能不能写，永远没有值。
+ * 一项凭据在设置弹窗里的状态（D27）：只有是否存在、来自哪一层、能不能写，永远没有值。
  *
  * 与宿主 `ctx.credentials.describe()` 的答复同形；看板不引宿主包，所以形状在这里记一次。
  */
@@ -136,7 +136,7 @@ export interface CredentialStatus {
   writable: boolean
 }
 
-/** 设置弹窗里的一条凭据声明与它的当前状态（D22）。 */
+/** 设置弹窗里的一条凭据声明与它的当前状态（D27）。 */
 export interface CredentialSetting extends WidgetCredential {
   info?: CredentialStatus
   /** 凭据服务缺席或读不出来时的原因。 */
@@ -156,8 +156,38 @@ export interface CapabilitySetting {
   unavailable?: string
 }
 
+/** 一张卡对外请求的日志里最多留多少条；再早的被挤掉。 */
+export const REQUEST_LOG_LIMIT = 40
+
 /**
- * 一张卡在设置弹窗里要读的全部东西（D22）。
+ * 一张卡对外发出的一次请求（D28）。
+ *
+ * 只记能说明「谁被访问了、成不成」的几列：方法、主机与路径、状态码、花了多久。凭据不在里面，
+ * 查询串里如果带了卡片自己写进去的值也照原样记。
+ */
+export interface RequestLogEntry {
+  /** 发出去的时刻（毫秒）。 */
+  at: number
+  method: string
+  host: string
+  path: string
+  /** 没有拿到响应时是 0。 */
+  status: number
+  /** 从发出去到读完响应头的毫秒数；失败时是到报错为止。 */
+  ms: number
+  /** 失败原因；成功时缺席。 */
+  error?: string
+}
+
+/** `GET /instance/<id>/log` 的响应。 */
+export interface RequestLogValue {
+  entries: RequestLogEntry[]
+  /** 这份日志最多留多少条。 */
+  limit: number
+}
+
+/**
+ * 一张卡在设置弹窗里要读的全部东西（D27）。
  *
  * `propsSchema` 来自当前组件版本；`source` 带上它的权限与当前授权状态；`credentials` 只有状态。
  * 读模型按需取，不放进每次工作区快照。
@@ -194,13 +224,13 @@ export interface CardSettings {
   credentialsAvailable: boolean
 }
 
-/** `POST /instance/<id>/props` 的请求体：设置弹窗保存整份 props（D22）。 */
+/** `POST /instance/<id>/props` 的请求体：设置弹窗保存整份 props（D27）。 */
 export interface InstancePropsRequest {
   props: Record<string, unknown>
 }
 
 /**
- * `POST /instance/<id>/credential` 的请求体（D22）。
+ * `POST /instance/<id>/credential` 的请求体（D27）。
  *
  * 只接受这张卡的组件 manifest 声明过的 `ref`；`set` 要带非空 `value`，`unset` 不带。
  */
@@ -210,7 +240,7 @@ export interface InstanceCredentialRequest {
   value?: string
 }
 
-/** `POST /group/<id>/slot` 的请求体：把组的一个槽换成另一个组件（D22）。 */
+/** `POST /group/<id>/slot` 的请求体：把组的一个槽换成另一个组件（D27）。 */
 export interface GroupSlotRequest {
   side: GroupSide
   widget: string

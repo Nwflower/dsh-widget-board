@@ -273,7 +273,7 @@ export class StateLimitError extends Refusal {
 }
 
 /** 一份状态序列化之后的字节数；`null` 与 `undefined` 按 0 算。 */
-function stateBytes(value: unknown): number {
+export function stateBytes(value: unknown): number {
   if (value === undefined || value === null) return 0
   const text = JSON.stringify(value)
   return text === undefined ? 0 : Buffer.byteLength(text, 'utf8')

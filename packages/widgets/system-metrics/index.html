@@ -1,0 +1,71 @@
+<article class="t-data metrics" data-state="empty">
+  <header class="t-data__head">
+    <div class="metrics__heading">
+      <p class="t-data__kicker" data-field="kicker"></p>
+      <h2 class="t-data__title" data-field="title">运行成本</h2>
+    </div>
+    <p class="t-data__meta metrics__stamp" data-field="stamp" hidden></p>
+  </header>
+
+  <div class="t-data__body metrics__body">
+    <p class="metrics__notice" data-field="empty" hidden>等待第一次采样</p>
+
+    <div class="metrics__readout">
+      <p class="metrics__value">
+        <span class="metrics__number" data-field="rss">—</span>
+        <span class="metrics__unit" data-field="rssUnit"></span>
+      </p>
+      <p class="metrics__scope" data-field="scope"></p>
+    </div>
+
+    <ul class="metrics__parts" data-field="parts" aria-label="宿主内存分项">
+      <li class="metrics__part">
+        <span class="metrics__part-label" data-label="heap"></span>
+        <span class="metrics__part-value" data-field="heap"></span>
+        <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="heap"></span></span>
+      </li>
+      <li class="metrics__part">
+        <span class="metrics__part-label" data-label="external"></span>
+        <span class="metrics__part-value" data-field="external"></span>
+        <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="external"></span></span>
+      </li>
+      <li class="metrics__part">
+        <span class="metrics__part-label" data-label="arrayBuffers"></span>
+        <span class="metrics__part-value" data-field="arrayBuffers"></span>
+        <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="arrayBuffers"></span></span>
+      </li>
+    </ul>
+
+    <dl class="metrics__facts w-hide-narrow" data-field="facts">
+      <div class="metrics__fact">
+        <dt data-label="cards"></dt>
+        <dd data-field="cards">—</dd>
+      </div>
+      <div class="metrics__fact">
+        <dt data-label="state"></dt>
+        <dd data-field="state">—</dd>
+      </div>
+      <div class="metrics__fact">
+        <dt data-label="documents"></dt>
+        <dd data-field="documents">—</dd>
+      </div>
+      <div class="metrics__fact">
+        <dt data-label="library"></dt>
+        <dd data-field="library">—</dd>
+      </div>
+    </dl>
+
+    <figure class="metrics__trend" data-field="trend" hidden>
+      <figcaption class="metrics__trend-caption" data-field="trendCaption"></figcaption>
+      <svg class="metrics__spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path class="metrics__spark-area" data-field="trendArea" d=""></path>
+        <path class="metrics__spark-line" data-field="trendLine" d="" vector-effect="non-scaling-stroke"></path>
+      </svg>
+    </figure>
+
+    <footer class="metrics__limits">
+      <p class="metrics__limit" data-field="unmeasurable">单张卡片的内存无法从宿主侧测量</p>
+      <p class="metrics__limit-sub" data-field="boundary"></p>
+    </footer>
+  </div>
+</article>

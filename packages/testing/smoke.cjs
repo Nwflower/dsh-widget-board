@@ -49,6 +49,7 @@ const TODO_FRAME = 'iframe.dsh-widget-board__frame[title="待办"]'
 const FLIP_FRAME = 'iframe.dsh-widget-board__frame[title="翻转卡"]'
 const MAGNETIC_FRAME = 'iframe.dsh-widget-board__frame[title="磁吸卡"]'
 const HOLO_FRAME = 'iframe.dsh-widget-board__frame[title="全息卡"]'
+const METRICS_FRAME = 'iframe.dsh-widget-board__frame[title="运行成本"]'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -92,6 +93,42 @@ async function timeOf(frame) {
 }
 
 /**
+ * 运行成本卡（issue #5）：数据源在真实宿主里返回完整结构，卡片把宿主读数与不可测的那一句画出来。
+ *
+ * 不核对具体字节数：它随机器与当时的负载变化。单卡内存没有数字可查，卡片上那句说明本身就是判据。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function metricsPass(page) {
+  const frame = await frameOf(page, METRICS_FRAME)
+  await frame.waitForSelector('.metrics[data-state="ready"]', { timeout: 30000 })
+  const view = await frame.evaluate(() => ({
+    rss: document.querySelector('[data-field="rss"]')?.textContent ?? '',
+    unit: document.querySelector('[data-field="rssUnit"]')?.textContent ?? '',
+    unmeasurable: document.querySelector('[data-field="unmeasurable"]')?.textContent ?? '',
+    facts: Array.from(document.querySelectorAll('[data-field="cards"], [data-field="state"], [data-field="documents"]'))
+      .map((node) => node.textContent ?? ''),
+  }))
+  check('运行成本卡读到宿主读数', /^[\d.,]+$/.test(view.rss) && view.unit !== '', `${view.rss} ${view.unit}`)
+  check('运行成本卡写明单卡内存不可测', view.unmeasurable.includes('单张卡片的内存无法'), view.unmeasurable)
+  check('运行成本卡的次读不是空的', view.facts.length === 3 && view.facts.every((text) => text !== '' && text !== '—'), view.facts.join(' / '))
+  const data = await page.evaluate(async () => {
+    const workspace = await (await fetch('api/widget-board/boards')).json()
+    const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
+    return board.instances.find((entry) => entry.widget === 'system-metrics')?.data ?? null
+  })
+  check(
+    '运行成本的数据源返回完整结构',
+    data !== null && typeof data.host?.rss === 'number' && typeof data.host?.heapUsed === 'number' &&
+      typeof data.board?.cards === 'number' && typeof data.board?.stateBytes === 'number' &&
+      typeof data.board?.documentsBytes === 'number' && typeof data.library?.widgets === 'number' &&
+      typeof data.library?.versions === 'number' && data.host.rss > 0 && data.board.documentsBytes > 0 &&
+      !Number.isNaN(Date.parse(data.sampledAt)),
+    data === null ? '没有数据' : `rss ${data.host.rss} / cards ${data.board.cards} / docs ${data.board.documentsBytes}`,
+  )
+}
+
+/**
  * 主路径：入口、卡片栅格、天气卡切预报日、番茄钟开合。
  *
  * @param page - 宿主页面。
@@ -116,6 +153,7 @@ async function mainPass(page, problems) {
   check('卡片大小由布局给出', weatherBox.height > 300, `天气 ${weatherBox.width}×${weatherBox.height}`)
   check('组件填满卡片', Math.abs(weatherBox.frameWidth - weatherBox.width) <= 1 && Math.abs(weatherBox.frameHeight - weatherBox.height) <= 1, `iframe ${weatherBox.frameWidth}×${weatherBox.frameHeight}`)
   await settled(page)
+  await metricsPass(page)
 
   const boxes = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
     const rect = node.getBoundingClientRect()

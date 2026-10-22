@@ -36,6 +36,7 @@ import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimit
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
 import { registerDshAccount } from './dsh-account'
+import { createSystemMetricsSource } from './system-metrics'
 import { registerGithub } from './github'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
@@ -157,6 +158,13 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     selfChecks: createSelfChecks(),
     requests,
   }
+  // 运行成本的数据源（issue #5）：只读宿主自己的内存与工作区、组件库，不声明权限（D6）。
+  const disposeSystemMetrics = sources.registerDataSource(createSystemMetricsSource({
+    workspace,
+    records: () => context.records,
+    versions,
+    assets: () => live.assets,
+  }))
   // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责；每次请求记进这张卡的日志（D28）。
   const disposeHttpSource = sources.registerDataSource(
     createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION, {
@@ -311,6 +319,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeDshAccount()
     disposeGithub()
     tools?.dispose()
+    disposeSystemMetrics()
     disposeHttpSource()
     stopWatchingViewers()
     scheduler.stop()

@@ -1,0 +1,342 @@
+/*
+ * 运行成本卡的样式（issue #5）。
+ *
+ * 骨架（配色、边框、标题区）来自套件的 `.t-data`；这里排主读数、三项分项、次读、走势与限制说明。
+ * 颜色、间距与动效全部从令牌读（D10）：浅色与深色的可读性由令牌保证，卡片不写死颜色。
+ *
+ * 盒子契约按运行时写下的两个方向档位走（D20）：窄盒子收掉次读，矮盒子把分项改成一行并收掉范围
+ * 说明，高盒子才补走势。单卡内存不可测这一句在任何盒子里都留着。
+ */
+.metrics__heading {
+  min-width: 0;
+}
+
+.metrics__stamp {
+  flex: none;
+  white-space: nowrap;
+}
+
+.metrics__body {
+  gap: var(--w-space-sm, 8px);
+  justify-content: flex-start;
+  container-type: inline-size;
+}
+
+:root[data-box-height="tall"] .metrics__body {
+  gap: var(--w-space-md, 12px);
+}
+
+/* 空态：还没有第一份采样时，正文中央给一句话，读数不编造。 */
+.metrics__notice {
+  display: flex;
+  min-height: 64px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 1px dashed color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
+  border-radius: 12px;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+  text-align: center;
+}
+
+.metrics__readout {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metrics__value {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--w-space-sm, 8px);
+  margin: 0;
+  line-height: 1;
+}
+
+.metrics__number {
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(32px, 10cqi, 48px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+:root[data-box-height="tall"] .metrics__number {
+  font-size: clamp(40px, 12cqi, 64px);
+}
+
+:root[data-box-height="short"] .metrics__number {
+  font-size: clamp(24px, 10cqi, 32px);
+}
+
+.metrics__unit {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-body, 14px);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.metrics__scope {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+/* 分项：标签与数值一行，条形图贴在同一行的下面；中宽与宽盒子里三项并排。 */
+.metrics__parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:root[data-box-width="regular"] .metrics__parts,
+:root[data-box-width="wide"] .metrics__parts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--w-space-sm, 8px);
+}
+
+.metrics__part {
+  display: grid;
+  min-width: 0;
+  grid-template-areas:
+    "label value"
+    "bar bar";
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px var(--w-space-sm, 8px);
+  align-items: baseline;
+}
+
+.metrics__part-label {
+  grid-area: label;
+  min-width: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.metrics__part-value {
+  grid-area: value;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.metrics__bar {
+  display: block;
+  height: 3px;
+  grid-area: bar;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-color-border, #d5dae1) 60%, transparent);
+}
+
+.metrics__bar-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--w-color-accent, #2563eb);
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left center;
+  transition: transform var(--w-motion-base, 250ms) var(--w-motion-ease-smooth, ease);
+}
+
+:root[data-motion="reduced"] .metrics__bar-fill {
+  transition: none;
+}
+
+/* 次读：四格小字，宽盒子里排成一行。 */
+.metrics__facts {
+  display: grid;
+  margin: 0;
+  padding-top: var(--w-space-sm, 8px);
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 62%, transparent);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--w-space-sm, 8px) var(--w-space-md, 12px);
+}
+
+:root[data-box-width="wide"] .metrics__facts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metrics__fact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.metrics__fact dt {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.metrics__fact dd {
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-body, 14px);
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* 走势：只在高盒子里出现，用内联 SVG 画，不引入图表库。 */
+.metrics__trend {
+  display: none;
+  margin: 0;
+  padding-top: var(--w-space-sm, 8px);
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 62%, transparent);
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-height="tall"] .metrics__trend {
+  display: flex;
+}
+
+.metrics__trend-caption {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.metrics__spark {
+  display: block;
+  width: 100%;
+  height: 56px;
+  overflow: visible;
+}
+
+.metrics__spark-line {
+  fill: none;
+  stroke: var(--w-color-accent, #2563eb);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.metrics__spark-area {
+  fill: color-mix(in srgb, var(--w-color-accent, #2563eb) 14%, transparent);
+  stroke: none;
+}
+
+/* 限制说明：单卡内存不可测是这张卡的一部分，任何盒子都留着。 */
+.metrics__limits {
+  display: flex;
+  margin-top: auto;
+  padding-top: var(--w-space-sm, 8px);
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 62%, transparent);
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metrics__limit {
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.metrics__limit-sub {
+  display: none;
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+/* 范围说明只在放得下的盒子里出现：高盒子，或次读已经收起的窄盒子。 */
+:root[data-box-height="tall"] .metrics__limit-sub,
+:root[data-box-height="regular"][data-box-width="narrow"] .metrics__limit-sub {
+  display: block;
+}
+
+/* 缩略画面：只留主读数与不可测那一句；标题、分项、次读与范围说明都让位。 */
+:root[data-placement="preview"] .metrics .t-data__head {
+  display: none;
+}
+
+:root[data-placement="preview"] .metrics__body {
+  justify-content: center;
+  gap: var(--w-space-sm, 8px);
+}
+
+:root[data-placement="preview"] .metrics__number {
+  font-size: 28px;
+}
+
+:root[data-placement="preview"] .metrics__parts,
+:root[data-placement="preview"] .metrics__facts,
+:root[data-placement="preview"] .metrics__scope,
+:root[data-placement="preview"] .metrics__limit-sub,
+:root[data-placement="preview"] .metrics__trend {
+  display: none;
+}
+
+:root[data-placement="preview"] .metrics__limits {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* 中宽的常规盒子：次读排成两行，范围说明让位，主读数与分项仍在一屏里。 */
+:root[data-box-width="regular"][data-box-height="regular"] .metrics__scope {
+  display: none;
+}
+
+/* 矮盒子：主读数收一档，分项改成一行、去掉条形，次读与范围说明让位，限制说明保留。 */
+:root[data-box-height="short"] .metrics__body {
+  gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-height="short"] .metrics__number {
+  font-size: clamp(24px, 10cqi, 40px);
+}
+
+:root[data-box-height="short"] .metrics__scope,
+:root[data-box-height="short"] .metrics__facts {
+  display: none;
+}
+
+:root[data-box-height="short"] .metrics__parts {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--w-space-xs, 4px) var(--w-space-md, 12px);
+}
+
+:root[data-box-height="short"] .metrics__part {
+  display: flex;
+  gap: var(--w-space-xs, 4px);
+  align-items: baseline;
+}
+
+:root[data-box-height="short"] .metrics__bar {
+  display: none;
+}
+
+:root[data-box-height="short"] .metrics__limits {
+  padding-top: var(--w-space-xs, 4px);
+}
+
+/* 窄盒子：次读已经按 `.w-hide-narrow` 收起；标题与采样时间挤在一行时收紧一档。 */
+:root[data-box-width="narrow"] .metrics__number {
+  font-size: clamp(26px, 13cqi, 44px);
+}
+
+:root[data-box-width="narrow"] .metrics__fact dd {
+  font-size: var(--w-type-caption, 12px);
+}

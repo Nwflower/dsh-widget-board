@@ -1,0 +1,202 @@
+{
+  "id": "system-metrics",
+  "title": {
+    "zh": "运行成本",
+    "en": "Running cost"
+  },
+  "description": {
+    "zh": "宿主进程的内存，以及看板与组件库自身的体积；单张卡片、渲染进程与 GPU 的内存不可测，卡片上写明。",
+    "en": "Host process memory plus the weight of the board and the widget library; per-card, renderer and GPU memory cannot be measured, and the card says so."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": [
+    "m",
+    "l"
+  ],
+  "source": "widget-board:system.metrics",
+  "scripts": [
+    "view.js"
+  ],
+  "refresh": {
+    "mode": "interval",
+    "everyMs": 5000
+  },
+  "defaultBox": {
+    "w": 2,
+    "h": 18
+  },
+  "minBox": {
+    "w": 1,
+    "h": 12
+  },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "data": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sampledAt",
+      "host",
+      "board",
+      "library"
+    ],
+    "properties": {
+      "sampledAt": {
+        "type": "string"
+      },
+      "host": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rss",
+          "heapUsed",
+          "heapTotal",
+          "external",
+          "arrayBuffers"
+        ],
+        "properties": {
+          "rss": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heapUsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heapTotal": {
+            "type": "number",
+            "minimum": 0
+          },
+          "external": {
+            "type": "number",
+            "minimum": 0
+          },
+          "arrayBuffers": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "board": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cards",
+          "boards",
+          "stateBytes",
+          "documentsBytes"
+        ],
+        "properties": {
+          "cards": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "boards": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stateBytes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "documentsBytes": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "library": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "widgets",
+          "versions"
+        ],
+        "properties": {
+          "widgets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "versions": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "title": {
+      "zh": "运行成本",
+      "en": "Running cost"
+    },
+    "kicker": {
+      "zh": "整个宿主进程",
+      "en": "Whole host process"
+    },
+    "scope": {
+      "zh": "宿主进程常驻内存 · 含看板以外的工作",
+      "en": "Host process RSS · includes work outside the board"
+    },
+    "stamp": {
+      "zh": "采样于 {time}",
+      "en": "Sampled at {time}"
+    },
+    "heap": {
+      "zh": "堆",
+      "en": "Heap"
+    },
+    "external": {
+      "zh": "外部内存",
+      "en": "External"
+    },
+    "arrayBuffers": {
+      "zh": "ArrayBuffer",
+      "en": "ArrayBuffer"
+    },
+    "cardsLabel": {
+      "zh": "卡片（{boards} 块看板）",
+      "en": "Cards ({boards} boards)"
+    },
+    "stateLabel": {
+      "zh": "状态总量",
+      "en": "Card state"
+    },
+    "documentsLabel": {
+      "zh": "文档体积",
+      "en": "Documents"
+    },
+    "libraryLabel": {
+      "zh": "组件库",
+      "en": "Library"
+    },
+    "libraryValue": {
+      "zh": "{widgets} 类 · {versions} 版本",
+      "en": "{widgets} types · {versions} versions"
+    },
+    "trend": {
+      "zh": "最近 {n} 次采样",
+      "en": "Last {n} samples"
+    },
+    "empty": {
+      "zh": "等待第一次采样",
+      "en": "Waiting for the first sample"
+    },
+    "unmeasurable": {
+      "zh": "单张卡片的内存无法从宿主侧测量",
+      "en": "Per-card memory cannot be measured from the host"
+    },
+    "boundary": {
+      "zh": "渲染进程与 GPU 内存不向插件开放；每张卡片是一份独立文档与一个 iframe",
+      "en": "Renderer and GPU memory are not exposed to plugins; each card is its own document and iframe"
+    },
+    "previewKicker": {
+      "zh": "示例数据",
+      "en": "Sample data"
+    }
+  }
+}

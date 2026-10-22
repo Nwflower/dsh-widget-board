@@ -4,7 +4,7 @@
  * 卡片文档按哈希取，会话里内联显示过的组件也要按当时的版本重画，所以版本要跨重启留着。每个版本
  * 存成 `blobs/<hash>.json`：来源与 base64 的文件表。内存只留最近用到的若干份，其余从磁盘读。
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { WidgetSource } from '@dsh-widget-board/contracts'
 import { contentHash, type WidgetRecord } from './library'
@@ -15,6 +15,8 @@ export interface VersionStore {
   remember(record: WidgetRecord): Promise<void>
   /** 按哈希取一个版本：先查内存，再从磁盘读。 */
   get(hash: string): Promise<WidgetRecord | undefined>
+  /** 磁盘上保存的版本数：成本卡片报组件库的历史体积时读它。 */
+  count(): Promise<number>
 }
 
 /** 磁盘上一份版本的样子。 */
@@ -36,8 +38,11 @@ export function createVersionStore(dir: string, limit = 32): VersionStore {
   const memory = new Map<string, WidgetRecord>()
   /** 这一进程里已经写到磁盘的哈希：同一次启动内不重复写。 */
   const written = new Set<string>()
+  /** 上一次数过的版本数；remember 之后再数一遍。 */
+  let savedCount: number | undefined
 
   const remember = async (record: WidgetRecord): Promise<void> => {
+    savedCount = undefined
     memory.delete(record.hash)
     memory.set(record.hash, record)
     for (const hash of memory.keys()) {
@@ -94,5 +99,23 @@ export function createVersionStore(dir: string, limit = 32): VersionStore {
     return record
   }
 
-  return { remember, get }
+  /**
+   * 磁盘上的版本数：一次读先数一遍，下一次 remember 之后重新数。
+   *
+   * @returns 版本文件的个数；目录还不存在时是 0。
+   */
+  const count = async (): Promise<number> => {
+    if (savedCount !== undefined) return savedCount
+    let names: string[]
+    try {
+      names = await readdir(dir)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      names = []
+    }
+    savedCount = names.filter((name) => /^[0-9a-f]{64}\.json$/.test(name)).length
+    return savedCount
+  }
+
+  return { remember, get, count }
 }

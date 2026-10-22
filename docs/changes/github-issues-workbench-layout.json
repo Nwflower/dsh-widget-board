@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 2,
+  "at": "2026-10-21",
+  "external": true,
+  "zh": "「今日宜休」按 GitHub 工作台那种排法重画：一行三段——左边状态点，中间标题加副行（仓库、编号、谁开的、标签、回复数），右边一列写「更新」与其下的时刻；标签用 GitHub 自带的颜色，列表上方多一行开放数。能力回的结果随之加上「最后更新时刻」「作者」与带颜色的标签。",
+  "en": "The Rest today card is redrawn after the GitHub workbench layout: each row has a state dot on the left, the title plus a sub line (repository, number, author, labels, replies) in the middle, and an \"Updated\" column with the time on the right; labels keep their GitHub colors, and a count line sits above the list. The capability result now carries the last-updated time, the author, and colored labels."
+}

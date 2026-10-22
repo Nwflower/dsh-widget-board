@@ -40,14 +40,25 @@ const ACCOUNT_CACHE_ENTRIES = 8
 /** 能力的接口地址。 */
 const API = 'https://api.github.com'
 
+/** 一个标签：名字与 GitHub 给的颜色（六位十六进制，没有 `#`）。 */
+export interface GithubLabel {
+  name: string
+  /** 空串表示这条标签没带颜色。 */
+  color: string
+}
+
 /** 一条 issue 的样子；字段是卡片画一行需要的全部。 */
 export interface GithubIssue {
   number: number
   title: string
   repository: string
+  /** 开这条 issue 的账号；读不出来时是空串。 */
+  author: string
   createdAt: string
+  /** 最后一次改动的时刻；卡片右边那一列写「更新」。 */
+  updatedAt: string
   comments: number
-  labels: string[]
+  labels: GithubLabel[]
   /** issue 自己的地址，点一行时交给宿主打开。 */
   url: string
 }
@@ -66,14 +77,25 @@ class TokenRejected extends Error {}
 const ISSUE = {
   type: 'object',
   additionalProperties: false,
-  required: ['number', 'title', 'repository', 'createdAt', 'comments', 'labels', 'url'],
+  required: ['number', 'title', 'repository', 'author', 'createdAt', 'updatedAt', 'comments', 'labels', 'url'],
   properties: {
     number: { type: 'integer', minimum: 1 },
     title: { type: 'string' },
     repository: { type: 'string' },
+    author: { type: 'string' },
     createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
     comments: { type: 'integer', minimum: 0 },
-    labels: { type: 'array', maxItems: LABEL_LIMIT, items: { type: 'string' } },
+    labels: {
+      type: 'array',
+      maxItems: LABEL_LIMIT,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'color'],
+        properties: { name: { type: 'string' }, color: { type: 'string', pattern: '^([0-9a-fA-F]{6})?$' } },
+      },
+    },
     url: { type: 'string' },
   },
 } as const
@@ -193,19 +215,29 @@ function issueOf(raw: unknown): GithubIssue | undefined {
   const entry = raw as Record<string, unknown>
   const repository = repositoryOf(entry.repository_url)
   if (typeof entry.number !== 'number' || typeof entry.title !== 'string' || repository === '') return undefined
-  const labels = Array.isArray(entry.labels)
-    ? entry.labels
-      .map((label) => (label !== null && typeof label === 'object' ? (label as { name?: unknown }).name : undefined))
-      .filter((name): name is string => typeof name === 'string' && name.trim() !== '')
-      .slice(0, LABEL_LIMIT)
+  const labels: GithubLabel[] = Array.isArray(entry.labels)
+    ? entry.labels.flatMap((label): GithubLabel[] => {
+      if (label === null || typeof label !== 'object') return []
+      const name = (label as { name?: unknown }).name
+      if (typeof name !== 'string' || name.trim() === '') return []
+      const color = (label as { color?: unknown }).color
+      const hex = typeof color === 'string' ? color.replace(/^#/, '') : ''
+      return [{ name, color: /^[0-9a-fA-F]{6}$/.test(hex) ? hex : '' }]
+    }).slice(0, LABEL_LIMIT)
     : []
   // 地址自己拼：搜索结果的 html_url 是有的，但卡片一定要 `https:` 开头，不依赖它给什么。
   const url = `https://github.com/${repository}/issues/${String(entry.number)}`
+  const createdAt = typeof entry.created_at === 'string' ? entry.created_at : ''
+  const author = entry.user !== null && typeof entry.user === 'object' && typeof (entry.user as { login?: unknown }).login === 'string'
+    ? (entry.user as { login: string }).login
+    : ''
   return {
     number: entry.number,
     title: entry.title.trim() === '' ? `#${String(entry.number)}` : entry.title,
     repository,
-    createdAt: typeof entry.created_at === 'string' ? entry.created_at : '',
+    author,
+    createdAt,
+    updatedAt: typeof entry.updated_at === 'string' ? entry.updated_at : createdAt,
     comments: typeof entry.comments === 'number' && entry.comments >= 0 ? entry.comments : 0,
     labels,
     url,
@@ -316,7 +348,7 @@ export function githubIssuesCapability(options: {
     },
     input: INPUT,
     output: OUTPUT,
-    // 不声明权限：令牌是人自己填进卡片设置的，读的也只是它所属账号名下的 issue（D22、D24）。
+    // 不声明权限：令牌是人自己填进卡片设置的，读的也只是它所属账号名下的 issue（D27、D24）。
     credentials: [
       {
         ref: GITHUB_TOKEN_REF,

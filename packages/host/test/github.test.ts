@@ -32,9 +32,12 @@ function searchItem(number: number, extra: Record<string, unknown> = {}): Record
     title: `issue ${String(number)}`,
     state: 'open',
     created_at: '2026-10-01T00:00:00Z',
+    updated_at: '2026-10-03T00:00:00Z',
     comments: 2,
+    html_url: `https://github.com/owner/repo-${String(number)}/issues/${String(number)}`,
+    user: { login: 'octocat' },
     repository_url: `https://api.github.com/repos/owner/repo-${String(number)}`,
-    labels: [{ name: 'perf' }, { name: 'ui' }],
+    labels: [{ name: 'perf', color: 'd73a4a' }, { name: 'ui', color: 'a2eeef' }],
     ...extra,
   }
 }
@@ -86,8 +89,8 @@ describe('GitHub 的 issue 能力', () => {
       account: 'Nwflower',
       total: 42,
       items: [
-        { number: 7, title: 'issue 7', repository: 'owner/repo-7', createdAt: '2026-10-01T00:00:00Z', comments: 2, labels: ['perf', 'ui'], url: 'https://github.com/owner/repo-7/issues/7' },
-        { number: 9, title: 'issue 9', repository: 'owner/repo-9', createdAt: '2026-10-01T00:00:00Z', comments: 2, labels: [], url: 'https://github.com/owner/repo-9/issues/9' },
+        { number: 7, title: 'issue 7', repository: 'owner/repo-7', author: 'octocat', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z', comments: 2, labels: [{ name: 'perf', color: 'd73a4a' }, { name: 'ui', color: 'a2eeef' }], url: 'https://github.com/owner/repo-7/issues/7' },
+        { number: 9, title: 'issue 9', repository: 'owner/repo-9', author: 'octocat', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z', comments: 2, labels: [], url: 'https://github.com/owner/repo-9/issues/9' },
       ],
     })
     expect(fetchImpl.calls.map((call) => call.url)).toEqual([
@@ -123,7 +126,7 @@ describe('GitHub 的 issue 能力', () => {
   it('读不出编号或仓库的条目跳过，标签最多留三个', async () => {
     const fetchImpl = fakeGithub({
       items: [
-        searchItem(1, { labels: [{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }] }),
+        searchItem(1, { labels: [{ name: 'a', color: 'ff0000' }, { name: 'b' }, { name: 'c' }, { name: 'd' }] }),
         { title: '没有编号', repository_url: 'https://api.github.com/repos/o/r' },
         searchItem(3, { repository_url: 'https://api.github.com/elsewhere' }),
         searchItem(4, { title: '   ' }),
@@ -135,9 +138,16 @@ describe('GitHub 的 issue 能力', () => {
     expect(result.status).toBe('ready')
     if (result.status !== 'ready') return
     expect(result.items.map((item) => item.number)).toEqual([1, 4])
-    expect(result.items[0]?.labels).toEqual(['a', 'b', 'c'])
+    // 颜色照 GitHub 给的原样带着，没带颜色的留空串。
+    expect(result.items[0]?.labels).toEqual([{ name: 'a', color: 'ff0000' }, { name: 'b', color: '' }, { name: 'c', color: '' }])
     // 标题是空白时用编号顶上，卡片上不会出现一行空白的标题。
     expect(result.items[1]?.title).toBe('#4')
+    // 最后改动时刻缺失时退到创建时刻，右列不会空着。
+    expect(result.items[0]?.updatedAt).toBe('2026-10-03T00:00:00Z')
+    const createdOnly = searchItem(5, { updated_at: undefined })
+    const second = fakeGithub({ items: [createdOnly] })
+    const again = await githubIssuesCapability({ credentials: () => credentialsWith('t'), fetch: second }).call(FACE, {}, SIGNAL)
+    expect(again.status === 'ready' ? again.items[0]?.updatedAt : '').toBe('2026-10-01T00:00:00Z')
   })
 
   it('每一条都带自己的地址，按编号拼出来而不是用接口给的', async () => {

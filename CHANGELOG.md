@@ -19,6 +19,7 @@
 - 设置页的看板列表可以移除全部看板：移除最后一块时宿主补一块空的「未命名看板」并选中它，看板页始终有一块可以显示。
 - 天气卡改成「窗外是一幅画，卡片是它前面的一层玻璃」。晴天与多云是一幅清朗的窗景：蓝天、太阳或月亮、一朵朵有体积的积云——云面沿受光方向从亮到暗，鼓出来的地方有高光，上缘一道受光的亮边，日月从云后透出一圈光；云飘在城市后面，画面不闪。夜里换成月亮与满天星，晴朗的夜空里月亮不会被云盖住。阴天从多云里分出来，有了自己的天空。下雨下雪时，水珠落在玻璃上长大、顺着玻璃滑下并留下水痕，每颗大水珠真折射出它身后的世界；水珠会一直补足，长时间开着也不会滚空。雷暴另有闪电，两三秒一次，一亮一暗再补一下。组件格式新增 `scripts`：组件可以把逻辑按职责拆成目录里的多份脚本。
 - 卡片设置弹窗改成三节：配置、日志、关于。配置一节是一张两列的表，字段按组件自己声明的类型出输入框、数字、开关或下拉，组件声明的凭据与它们排在一起，值由宿主保存、界面只显示状态。日志一节列出这张卡对外的每一次请求（方法、主机与路径、状态与耗时）。内置组件去掉了「标题」「眉题」这类只换一行字的占位字段，剩下的字段补上了中英文名字。
+- 「今日宜休」按 GitHub 工作台那种排法重画：一行三段——左边状态点，中间标题加副行（仓库、编号、谁开的、标签、回复数），右边一列写「更新」与其下的时刻；标签用 GitHub 自带的颜色，列表上方多一行开放数。能力回的结果随之加上「最后更新时刻」「作者」与带颜色的标签。
 
 ### 问题修复
 
@@ -35,6 +36,7 @@
 - The board list in settings can now remove every board: removing the last one leaves a fresh empty "Untitled board" selected, so the board page always has one to show.
 - The weather card is now a view outside a window with the card as the glass in front of it. Clear and cloudy days are a crisp window view: blue sky, a sun or moon, and cumulus clouds with real volume — each cloud shades from lit to shadowed along the light direction, its bumps catch highlights, its upper edge carries a lit rim, and the sun or moon bleeds a glow through it. The clouds drift behind the city and nothing strobes. At night the moon and stars take over, and a clear night leaves the moon unobstructed. Overcast is its own sky rather than a shade of cloudy. In rain and snow, droplets land on the glass, grow, slide down leaving wet trails, and the large ones genuinely refract the world behind them; the glass keeps replenishing its droplets, so it never runs dry however long the card stays open. A thunderstorm adds lightning every two or three seconds, a bright strike with a second, fainter pulse. The widget format gained `scripts`, so a widget can split its logic into several files by responsibility.
 - The card settings dialog now has three sections: configuration, log and about. Configuration is a two-column table — each field gets a text input, number input, switch or dropdown according to the type the widget declares, and the widget's credentials sit in the same table, stored by the host with only their status on screen. The log section lists every request the card makes, with method, host and path, status and time. Built-in widgets dropped the placeholder title/kicker fields, and the remaining fields gained labels.
+- The Rest today card is redrawn after the GitHub workbench layout: each row has a state dot on the left, the title plus a sub line (repository, number, author, labels, replies) in the middle, and an "Updated" column with the time on the right; labels keep their GitHub colors, and a count line sits above the list. The capability result now carries the last-updated time, the author, and colored labels.
 
 ### Bug Fixes
 

@@ -5,11 +5,11 @@
     "en": "Rest today"
   },
   "description": {
-    "zh": "列出自己维护的仓库里还开着的 issue：仓库、编号、标题、标签与开了几天，点一行就开对应的页；令牌在卡片设置里填。",
-    "en": "Lists the open issues on the repositories you maintain, with repository, number, title, labels and age; click a row to open it. The token goes in the card settings."
+    "zh": "列出自己维护的仓库里还开着的 issue：一行一条，左边状态点，中间是仓库、编号与标签，右边是最后一次更新的时间，点一行就开对应的页；令牌在卡片设置里填。",
+    "en": "Lists the open issues on the repositories you maintain, one per row: a state dot, the repository, number and labels, and the last update on the right; click a row to open it. The token goes in the card settings."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "capabilities": ["github.issues"],
   "credentials": [
@@ -32,8 +32,6 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "kicker": { "type": "string", "maxLength": 40 },
-      "title": { "type": "string", "maxLength": 40 },
       "limit": { "type": "integer", "minimum": 3, "maximum": 30 }
     }
   },
@@ -70,21 +68,25 @@
       "zh": "读不到 issue",
       "en": "Issues unavailable"
     },
-    "props.kicker.label": {
-      "zh": "眉题",
-      "en": "Kicker"
+    "updated": {
+      "zh": "更新",
+      "en": "Updated"
     },
-    "props.kicker.hint": {
-      "zh": "显示在标题上方，例如「本月」",
-      "en": "Shown above the title, for example “This month”"
+    "open": {
+      "zh": "开放",
+      "en": "open"
     },
-    "props.title.label": {
-      "zh": "标题",
-      "en": "Title"
+    "more": {
+      "zh": "最近的 {n} 条 · 共 {total} 条",
+      "en": "latest {n} of {total}"
     },
-    "props.title.hint": {
-      "zh": "卡片的标题，默认是「今日宜休」",
-      "en": "The card title; “Rest today” by default"
+    "replies": {
+      "zh": "{n} 条回复",
+      "en": "{n} replies"
+    },
+    "reply": {
+      "zh": "1 条回复",
+      "en": "1 reply"
     },
     "props.limit.label": {
       "zh": "最多显示几条",

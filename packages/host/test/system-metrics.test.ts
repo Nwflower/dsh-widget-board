@@ -14,7 +14,7 @@ import type { DocumentAssets } from '../src/document'
 import type { WidgetRecord } from '../src/library'
 import type { Workspace } from '../src/workspace'
 import { dataError } from '../src/schema'
-import { SYSTEM_METRICS_NAME, SYSTEM_METRICS_PROVIDER, SYSTEM_METRICS_SOURCE, createSystemMetricsSource } from '../src/system-metrics'
+import { SYSTEM_METRICS_ACTION, SYSTEM_METRICS_NAME, SYSTEM_METRICS_PROVIDER, SYSTEM_METRICS_SOURCE, createSystemMetricsAction, createSystemMetricsSource } from '../src/system-metrics'
 
 const WIDGET_DIR = fileURLToPath(new URL('../../widgets/system-metrics/', import.meta.url))
 const FACE: InstanceFace = { id: 'card', widget: 'system-metrics', props: {} }
@@ -60,6 +60,7 @@ describe('运行成本的数据源', () => {
       records: () => new Map(),
       versions: { count: async () => 0 },
       assets: () => ASSETS,
+      diskPath: WIDGET_DIR,
     })
     expect(source.provider).toBe(SYSTEM_METRICS_PROVIDER)
     expect(source.id).toBe(SYSTEM_METRICS_SOURCE)
@@ -74,6 +75,7 @@ describe('运行成本的数据源', () => {
       records: () => new Map([['demo', demo]]),
       versions: { count: async () => 12 },
       assets: () => ASSETS,
+      diskPath: WIDGET_DIR,
     })
     const metrics = await source.read(FACE)
     expect(dataError(demo.manifest.data, metrics)).toBeUndefined()
@@ -94,6 +96,7 @@ describe('运行成本的数据源', () => {
       records: () => new Map([['demo', demo]]),
       versions: { count: async () => 7 },
       assets: () => ASSETS,
+      diskPath: WIDGET_DIR,
     })
     const metrics = await source.read(FACE)
     const document = Buffer.byteLength(buildDocument(demo, ASSETS, '', { lang: 'zh-CN' }), 'utf8')
@@ -109,6 +112,40 @@ describe('运行成本的数据源', () => {
       expect(value).toBeGreaterThanOrEqual(0)
       expect(Number.isInteger(value)).toBe(true)
     }
+    expect(metrics.readMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('机器读数从 node:os 与看板数据所在卷读出来', async () => {
+    const demo = await record()
+    const source = createSystemMetricsSource({
+      workspace: { list: () => [] } as Pick<Workspace, 'list'>,
+      records: () => new Map([['demo', demo]]),
+      versions: { count: async () => 0 },
+      assets: () => ASSETS,
+      diskPath: WIDGET_DIR,
+    })
+    const { system } = await source.read(FACE)
+    expect(system.platform).not.toBe('')
+    expect(system.cpus).toBeGreaterThanOrEqual(1)
+    expect(system.totalMemory).toBeGreaterThan(0)
+    expect(system.freeMemory).toBeGreaterThanOrEqual(0)
+    expect(system.freeMemory).toBeLessThanOrEqual(system.totalMemory)
+    expect(system.loadAverage === null || system.loadAverage >= 0).toBe(true)
+    if (system.disk !== null) {
+      expect(system.disk.total).toBeGreaterThan(0)
+      expect(system.disk.available).toBeGreaterThanOrEqual(0)
+      expect(system.disk.available).toBeLessThanOrEqual(system.disk.total)
+    }
+  })
+
+  it('「再测一次」的动作走给定的重读函数', async () => {
+    const sampled: string[] = []
+    const action = createSystemMetricsAction(async (id) => { sampled.push(id) })
+    expect(action.provider).toBe(SYSTEM_METRICS_PROVIDER)
+    expect(action.id).toBe(SYSTEM_METRICS_ACTION)
+    expect(action.permission).toBeUndefined()
+    await expect(action.run(FACE, {})).resolves.toBeNull()
+    expect(sampled).toEqual(['card'])
   })
 
   it('同一版本被多张卡使用时只拼一次文档', async () => {
@@ -128,6 +165,7 @@ describe('运行成本的数据源', () => {
       records: () => new Map([['demo', demo]]),
       versions: { count: async () => 1 },
       assets: () => counting,
+      diskPath: WIDGET_DIR,
     })
     await source.read(FACE)
     const afterFirst = built

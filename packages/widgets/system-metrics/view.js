@@ -1,5 +1,5 @@
 /*
- * 运行成本卡的纯视图逻辑（issue #5）：字节格式化、历史裁剪与走势路径。
+ * 运行成本卡的纯视图逻辑（issue #5）：字节格式化、历史裁剪、走势路径与一次采样的排版数据。
  *
  * 这里不碰 DOM，也不发消息；`main.js` 负责排版与状态写入。文件同时以经典脚本内联进组件文档、以
  * 副作用模块被单元测试载入，两处读到的是同一份实现。
@@ -167,12 +167,19 @@
     var locale = lang === undefined || lang === '' ? 'en' : lang
     if (data === null || typeof data !== 'object') return { state: 'empty' }
     var host = data.host
+    var system = data.system
     var board = data.board
     var library = data.library
-    if (host === null || typeof host !== 'object' || board === null || typeof board !== 'object' || library === null || typeof library !== 'object') {
+    if (host === null || typeof host !== 'object' || system === null || typeof system !== 'object' || board === null || typeof board !== 'object' || library === null || typeof library !== 'object') {
       return { state: 'empty' }
     }
     if (!number(host.rss) || !number(host.heapUsed) || !number(host.heapTotal) || !number(host.external) || !number(host.arrayBuffers)) {
+      return { state: 'empty' }
+    }
+    if (typeof system.platform !== 'string' || system.platform.trim() === '' || !number(system.cpus) || system.cpus < 1) {
+      return { state: 'empty' }
+    }
+    if (!number(system.totalMemory) || !number(system.freeMemory) || system.freeMemory > system.totalMemory) {
       return { state: 'empty' }
     }
     if (!number(board.cards) || !number(board.boards) || !number(board.stateBytes) || !number(board.documentsBytes)) {
@@ -180,34 +187,48 @@
     }
     if (!number(library.widgets) || !number(library.versions)) return { state: 'empty' }
 
-    var parts = [
-      { key: 'heap', value: host.heapUsed },
-      { key: 'external', value: host.external },
-      { key: 'arrayBuffers', value: host.arrayBuffers }
-    ].map(function (part) {
-      var formatted = formatBytes(part.value, locale)
-      return {
-        key: part.key,
-        value: formatted.value,
-        unit: formatted.unit,
-        text: formatted.text,
-        fill: ratio(part.value, host.rss)
+    var load = number(system.loadAverage) ? system.loadAverage : null
+    var usedMemory = Math.max(0, system.totalMemory - system.freeMemory)
+    var disk = null
+    if (system.disk !== null && typeof system.disk === 'object' && number(system.disk.available) && number(system.disk.total) && system.disk.total > 0) {
+      disk = {
+        available: formatBytes(system.disk.available, locale),
+        total: formatBytes(system.disk.total, locale),
+        ratio: ratio(system.disk.total - system.disk.available, system.disk.total)
       }
-    })
+    }
 
     return {
       state: 'ready',
       stamp: stampOf(data.sampledAt, locale),
+      readMs: number(data.readMs) ? Math.round(data.readMs * 10) / 10 : null,
       rss: formatBytes(host.rss, locale),
-      parts: parts,
-      facts: {
+      heap: {
+        used: formatBytes(host.heapUsed, locale),
+        total: formatBytes(host.heapTotal, locale),
+        ratio: ratio(host.heapUsed, host.heapTotal)
+      },
+      external: formatBytes(host.external, locale),
+      arrayBuffers: formatBytes(host.arrayBuffers, locale),
+      system: {
+        platform: system.platform,
+        cpus: Math.floor(system.cpus),
+        load: load,
+        loadRatio: load === null ? null : ratio(load, system.cpus),
+        memory: {
+          used: formatBytes(usedMemory, locale),
+          total: formatBytes(system.totalMemory, locale),
+          ratio: ratio(usedMemory, system.totalMemory)
+        },
+        disk: disk
+      },
+      board: {
         cards: board.cards,
         boards: board.boards,
         state: formatBytes(board.stateBytes, locale),
-        documents: formatBytes(board.documentsBytes, locale),
-        widgets: library.widgets,
-        versions: library.versions
+        documents: formatBytes(board.documentsBytes, locale)
       },
+      library: { widgets: library.widgets, versions: library.versions },
       trend: trendOf(samples)
     }
   }

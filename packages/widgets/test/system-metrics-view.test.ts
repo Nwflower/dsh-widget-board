@@ -26,12 +26,22 @@ interface ViewApi {
 
 const view = (globalThis as unknown as { SystemMetricsView: ViewApi }).SystemMetricsView
 const MB = 1024 * 1024
+const GB = 1024 * 1024 * 1024
 const KB = 1024
 
 /** 一份完整的采样数据。 */
 const DATA = {
   sampledAt: '2026-10-22T10:00:00.000Z',
+  readMs: 0.4,
   host: { rss: 184 * MB, heapUsed: 42 * MB, heapTotal: 58 * MB, external: 11 * MB, arrayBuffers: 4 * MB },
+  system: {
+    platform: 'Windows 11 Pro',
+    cpus: 16,
+    loadAverage: null,
+    totalMemory: 50 * GB,
+    freeMemory: 28 * GB,
+    disk: { available: 715 * GB, total: 999 * GB },
+  },
   board: { cards: 24, boards: 3, stateBytes: 18 * KB, documentsBytes: Math.round(7.2 * MB) },
   library: { widgets: 27, versions: 61 },
 }
@@ -100,31 +110,70 @@ describe('空态', () => {
 
   it('数据缺项时也是空态，不拿缺失的字段当 0', () => {
     expect(view.viewOf({}, [], 'zh-CN')).toEqual({ state: 'empty' })
-    expect(view.viewOf({ host: {}, board: {}, library: {} }, [], 'zh-CN')).toEqual({ state: 'empty' })
+    expect(view.viewOf({ host: {}, system: {}, board: {}, library: {} }, [], 'zh-CN')).toEqual({ state: 'empty' })
     expect(view.viewOf({ ...DATA, host: { ...DATA.host, rss: undefined } }, [], 'zh-CN')).toEqual({ state: 'empty' })
+    expect(view.viewOf({ ...DATA, system: { ...DATA.system, freeMemory: DATA.system.totalMemory + 1 } }, [], 'zh-CN')).toEqual({ state: 'empty' })
   })
 
-  it('数据完整时给出主读数、分项与次读', () => {
+  it('数据完整时给出宿主、机器、看板与组件库的读数', () => {
     const model = view.viewOf(DATA, [], 'en-US') as {
       state: string
       rss: Formatted
-      parts: { key: string, text: string, fill: number }[]
-      facts: { cards: number, boards: number, state: Formatted, documents: Formatted, widgets: number, versions: number }
+      heap: { used: Formatted, total: Formatted, ratio: number }
+      external: Formatted
+      arrayBuffers: Formatted
+      system: {
+        platform: string
+        cpus: number
+        load: number | null
+        loadRatio: number | null
+        memory: { used: Formatted, total: Formatted, ratio: number }
+        disk: { available: Formatted, total: Formatted, ratio: number } | null
+      }
+      board: { cards: number, boards: number, state: Formatted, documents: Formatted }
+      library: { widgets: number, versions: number }
+      readMs: number | null
       trend: unknown
       stamp: string
     }
     expect(model.state).toBe('ready')
     expect(model.rss.unit).toBe('MB')
-    expect(model.parts.map((part) => part.key)).toEqual(['heap', 'external', 'arrayBuffers'])
-    expect(model.parts[0]?.fill).toBeCloseTo(42 / 184, 4)
-    expect(model.facts.cards).toBe(24)
-    expect(model.facts.boards).toBe(3)
-    expect(model.facts.state.text).toBe('18 KB')
-    expect(model.facts.documents.text).toBe('7.2 MB')
-    expect(model.facts.widgets).toBe(27)
-    expect(model.facts.versions).toBe(61)
+    expect(model.heap.used.text).toBe('42 MB')
+    expect(model.heap.total.text).toBe('58 MB')
+    expect(model.heap.ratio).toBeCloseTo(42 / 58, 4)
+    expect(model.external.text).toBe('11 MB')
+    expect(model.arrayBuffers.text).toBe('4 MB')
+    expect(model.system.platform).toBe('Windows 11 Pro')
+    expect(model.system.cpus).toBe(16)
+    expect(model.system.load).toBeNull()
+    expect(model.system.loadRatio).toBeNull()
+    expect(model.system.memory.used.text).toBe('22 GiB')
+    expect(model.system.memory.total.text).toBe('50 GiB')
+    expect(model.system.memory.ratio).toBeCloseTo(22 / 50, 4)
+    expect(model.system.disk?.available.text).toBe('715 GiB')
+    expect(model.system.disk?.total.text).toBe('999 GiB')
+    expect(model.system.disk?.ratio).toBeCloseTo((999 - 715) / 999, 4)
+    expect(model.board.cards).toBe(24)
+    expect(model.board.boards).toBe(3)
+    expect(model.board.state.text).toBe('18 KB')
+    expect(model.board.documents.text).toBe('7.2 MB')
+    expect(model.library.widgets).toBe(27)
+    expect(model.library.versions).toBe(61)
+    expect(model.readMs).toBe(0.4)
     expect(model.trend).toBeNull()
     expect(model.stamp).not.toBe('')
+  })
+
+  it('负载是数字时给出比例；磁盘读不到时是 null', () => {
+    const model = view.viewOf({
+      ...DATA,
+      system: { ...DATA.system, loadAverage: 2.5, disk: null },
+    }, [], 'en-US') as {
+      system: { load: number | null, loadRatio: number | null, disk: unknown }
+    }
+    expect(model.system.load).toBe(2.5)
+    expect(model.system.loadRatio).toBeCloseTo(2.5 / 16, 4)
+    expect(model.system.disk).toBeNull()
   })
 })
 

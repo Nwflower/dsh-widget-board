@@ -30,12 +30,13 @@ import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
-import { createHandler } from './routes'
+import { createHandler, readInto } from './routes'
 import { readManyInto } from './batch-reads'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
 import { registerDshAccount } from './dsh-account'
+import { createSystemMetricsAction, createSystemMetricsSource } from './system-metrics'
 import { registerGithub } from './github'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
@@ -157,6 +158,18 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     selfChecks: createSelfChecks(),
     requests,
   }
+  // 运行成本的数据源（issue #5）：只读宿主自己的内存与工作区、组件库，不声明权限（D6）。
+  const disposeSystemMetrics = sources.registerDataSource(createSystemMetricsSource({
+    workspace,
+    records: () => context.records,
+    versions,
+    assets: () => live.assets,
+    diskPath: join(home, 'boards'),
+  }))
+  // 卡片上的「再测一次」：走同一条 readInto，读、校验、写入都不另开路径（D6）。
+  const disposeSystemMetricsAction = sources.registerAction(
+    createSystemMetricsAction(async (id) => await readInto(context, id)),
+  )
   // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责；每次请求记进这张卡的日志（D28）。
   const disposeHttpSource = sources.registerDataSource(
     createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION, {
@@ -311,6 +324,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeDshAccount()
     disposeGithub()
     tools?.dispose()
+    disposeSystemMetrics()
+    disposeSystemMetricsAction()
     disposeHttpSource()
     stopWatchingViewers()
     scheduler.stop()

@@ -1,0 +1,335 @@
+{
+  "id": "system-metrics",
+  "title": {
+    "zh": "运行成本",
+    "en": "Running cost"
+  },
+  "description": {
+    "zh": "宿主进程与整台机器的读数：常驻内存、堆、系统内存、CPU、磁盘与系统版本，以及看板卡片数、状态总量、文档体积和组件库规模。",
+    "en": "Readings from the host process and the machine: resident memory, heap, system memory, CPU, disk and OS, plus the board's card count, state size, document weight and library size."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.2.1",
+  "sizes": [
+    "m",
+    "l"
+  ],
+  "source": "widget-board:system.metrics",
+  "scripts": [
+    "view.js"
+  ],
+  "actions": [
+    {
+      "id": "system-metrics.sample",
+      "label": {
+        "zh": "再测一次",
+        "en": "Measure again"
+      }
+    }
+  ],
+  "refresh": {
+    "mode": "interval",
+    "everyMs": 5000
+  },
+  "defaultBox": {
+    "w": 2,
+    "h": 18
+  },
+  "minBox": {
+    "w": 1,
+    "h": 12
+  },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "data": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sampledAt",
+      "readMs",
+      "host",
+      "system",
+      "board",
+      "library"
+    ],
+    "properties": {
+      "sampledAt": {
+        "type": "string"
+      },
+      "readMs": {
+        "type": "number",
+        "minimum": 0
+      },
+      "host": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rss",
+          "heapUsed",
+          "heapTotal",
+          "external",
+          "arrayBuffers"
+        ],
+        "properties": {
+          "rss": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heapUsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heapTotal": {
+            "type": "number",
+            "minimum": 0
+          },
+          "external": {
+            "type": "number",
+            "minimum": 0
+          },
+          "arrayBuffers": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "system": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "platform",
+          "cpus",
+          "loadAverage",
+          "totalMemory",
+          "freeMemory",
+          "disk"
+        ],
+        "properties": {
+          "platform": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cpus": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "loadAverage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "totalMemory": {
+            "type": "number",
+            "minimum": 0
+          },
+          "freeMemory": {
+            "type": "number",
+            "minimum": 0
+          },
+          "disk": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "available",
+                  "total"
+                ],
+                "properties": {
+                  "available": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "total": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "board": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cards",
+          "boards",
+          "stateBytes",
+          "documentsBytes"
+        ],
+        "properties": {
+          "cards": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "boards": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stateBytes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "documentsBytes": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "library": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "widgets",
+          "versions"
+        ],
+        "properties": {
+          "widgets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "versions": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "title": {
+      "zh": "运行成本",
+      "en": "Running cost"
+    },
+    "kicker": {
+      "zh": "整个宿主进程",
+      "en": "Whole host process"
+    },
+    "scope": {
+      "zh": "宿主进程常驻内存 · 含看板以外的工作",
+      "en": "Host process RSS · includes work outside the board"
+    },
+    "done": {
+      "zh": "采样完成",
+      "en": "Sample complete"
+    },
+    "stamp": {
+      "zh": "采样于 {time}",
+      "en": "Sampled at {time}"
+    },
+    "sampleCount": {
+      "zh": "第 {n} 次采样",
+      "en": "Sample {n}"
+    },
+    "readMs": {
+      "zh": "耗时 {ms} ms",
+      "en": "{ms} ms"
+    },
+    "heap": {
+      "zh": "堆",
+      "en": "Heap"
+    },
+    "external": {
+      "zh": "外部内存",
+      "en": "External"
+    },
+    "arrayBuffers": {
+      "zh": "ArrayBuffer",
+      "en": "ArrayBuffer"
+    },
+    "systemMemory": {
+      "zh": "系统内存",
+      "en": "RAM"
+    },
+    "cpu": {
+      "zh": "CPU",
+      "en": "CPU"
+    },
+    "cores": {
+      "zh": "{n} 核",
+      "en": "{n} cores"
+    },
+    "load": {
+      "zh": "负载 {load}",
+      "en": "load {load}"
+    },
+    "loadUnavailable": {
+      "zh": "负载不可用",
+      "en": "load unavailable"
+    },
+    "disk": {
+      "zh": "磁盘",
+      "en": "Disk"
+    },
+    "available": {
+      "zh": "可用",
+      "en": "free"
+    },
+    "unavailable": {
+      "zh": "不可用",
+      "en": "unavailable"
+    },
+    "system": {
+      "zh": "系统",
+      "en": "System"
+    },
+    "board": {
+      "zh": "看板",
+      "en": "Board"
+    },
+    "cardsValue": {
+      "zh": "{cards} 张卡 · {boards} 块看板",
+      "en": "cards {cards} · boards {boards}"
+    },
+    "boardNote": {
+      "zh": "状态 {state} · 文档 {documents}",
+      "en": "state {state} · documents {documents}"
+    },
+    "library": {
+      "zh": "组件库",
+      "en": "Library"
+    },
+    "libraryValue": {
+      "zh": "{widgets} 类 · {versions} 版本",
+      "en": "types {widgets} · versions {versions}"
+    },
+    "again": {
+      "zh": "再测一次",
+      "en": "Measure again"
+    },
+    "sampling": {
+      "zh": "采样中…",
+      "en": "Sampling…"
+    },
+    "trend": {
+      "zh": "最近 {n} 次采样",
+      "en": "Last {n} samples"
+    },
+    "empty": {
+      "zh": "等待第一次采样",
+      "en": "Waiting for the first sample"
+    },
+    "previewKicker": {
+      "zh": "示例数据",
+      "en": "Sample data"
+    },
+    "usedLabel": {
+      "zh": "已用",
+      "en": "used"
+    },
+    "totalLabel": {
+      "zh": "总",
+      "en": "total"
+    }
+  }
+}

@@ -68,6 +68,8 @@
 - **浏览器侧的 cordis 服务也能用 `provide` 发布**：与宿主侧同一条写法，`typeof ctx.provide === 'function'` 时调用；提供方在 `apply` 里声明 `inject = ['widgetBoard']` 就能等到它出现。出处：任务看板 `src/client/index.ts`；本仓库的 `packages/client/src/entry.ts` 与 `packages/testing/fixtures/provider/client.js`。
 - **一个外部包能同时带宿主半边与浏览器半边**：`package.json` 的 `exports["."]`、`exports["./client"]`、`dsh.bundle.patch` 与 `dsh.client` 四项齐全时，`dsh plugin --profile web add <目录>` 装进去，两半都起来。冒烟把 `packages/testing/fixtures/provider/` 这样一个包装进临时宿主，核对组件库里出现它、原生组件渲染出数据源的数据、要权限的动作在授权前被拦下、在卡片上授权之后放行、撤下后消失。出处：本仓库的 `packages/testing/dsh-web.cjs`（`extras`）与 `packages/testing/smoke.cjs`。
 - **服务面版本不匹配要由提供方自己核对**：宿主侧的服务带 `apiVersion`，提供方按自己的版本注册；对不上时注册抛出（`versionMismatch`）。冒烟用的提供方在启动时按一个不存在的版本试注册一次，核对它确实抛出。出处：本仓库的 `packages/contracts/src/service.ts` 与 `packages/testing/fixtures/provider/host.js`。
+- **宿主半边与浏览器半边不在同一个进程里，`process.memoryUsage()` 只覆盖宿主进程**（D16）：宿主半边由加载器在 DSH 的 Node 进程里 `apply`，注册路由与看板存储；浏览器半边由宿主页面加载，组件在沙箱 iframe 里。`process.memoryUsage()` 读到的常驻、堆、外部内存与 ArrayBuffer 因此是整个宿主进程，包含看板以外的工作，不含浏览器页面、渲染进程与 GPU。桌面壳与服务端形态都是同一个宿主进程，差别只在谁托管它。出处：本仓库的 `packages/host/src/index.ts`（`ctx.webServer.register`）与 `packages/client/src/entry.ts`；在 0.2.1-rc.2 的真实临时宿主里由「运行成本」卡读到（`packages/host/src/system-metrics.ts`、`packages/testing/matrix.cjs`）。
+- **单张 iframe 的内存没有受支持的接口**（D16）：宿主只拿得到整个进程的读数，归不到某张卡；`performance.memory` 是页面级近似，卡片读不到父页面；`measureUserAgentSpecificMemory` 需要跨源隔离，DevTools 协议不对插件开放；渲染进程与 GPU 内存由 Electron 持有，不向插件暴露。「运行成本」卡因此只报整进程读数与每张卡要加载的文档字节，不画每卡内存的数字。出处：本仓库的 `docs/system-metrics.md` 与 `packages/widgets/system-metrics/`。
 
 ## 待在真实宿主上核实
 
@@ -76,4 +78,3 @@
 - **右侧栏标签页类型的注册入口**（D1）：类型声明里只看到外壳读取的 `tabTypes`，注册类型定义的方法要在 `dsh-client-ui-sidebar-right` 的 `client/service.d.ts` 与实现里找到，并在页面上打开一个自定义类型的标签页。
 - **工具视图在真实会话里的样子与会话重新打开后的重画**（D9）：`presentationMeta` → `tool/result.meta` → `block.meta` 的类型链已经核对；还缺有人在场的一次端到端（让模型调一次 `widget_define` 与 `widget_show`，看视图画出来，刷新之后还在）。
 - **`theme/change` 与 `--dsw-*` 计算值**（D10）：切换浅色、深色与皮肤时事件是否触发，从页面根节点读到的值是否已经是皮肤改写后的值。
-- **iframe 的进程与内存成本**（D16）：一页放 30 张卡片时的内存占用，以及暂停与卸载策略的效果。

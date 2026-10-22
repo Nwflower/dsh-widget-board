@@ -1,0 +1,422 @@
+/*
+ * 运行成本卡的样式（issue #5）。
+ *
+ * 骨架（配色、边框、圆角）来自套件的 `.t-data`；卡片左边是宿主进程的主读数与「再测一次」，
+ * 右边是一块带条形图的体检面板：堆、系统内存、CPU、磁盘、系统、看板与组件库。颜色、间距与动效
+ * 全部从令牌读（D10），浅色与深色由令牌保证。
+ *
+ * 盒子契约按运行时写下的两个方向档位走（D20）：窄盒子叠成一列并隐藏按钮，矮盒子把面板收成
+ * 四行带条形图的读数，高盒子补走势。
+ */
+.metrics {
+  gap: 0;
+}
+
+.metrics__body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  container-type: inline-size;
+  grid-template-areas:
+    "hero panel"
+    "trend trend";
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--w-space-sm, 8px) var(--w-space-md, 12px);
+}
+
+/* 左栏：范围、标题、常驻内存主读数与重测按钮。 */
+.metrics__hero {
+  display: flex;
+  min-width: 0;
+  grid-area: hero;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+}
+
+.metrics__heading {
+  min-width: 0;
+}
+
+.metrics__value {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--w-space-sm, 8px);
+  margin: 0;
+  line-height: 1;
+}
+
+.metrics__number {
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(34px, 7cqi, 56px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.metrics__unit {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-body, 14px);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.metrics__scope {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.metrics__empty {
+  display: flex;
+  min-height: 56px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin: var(--w-space-xs, 4px) 0 0;
+  border: 1px dashed color-mix(in srgb, var(--w-color-fg, #0b1016) 16%, transparent);
+  border-radius: 12px;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+  text-align: center;
+}
+
+/* 参考卡里的那颗按钮：按下后由宿主重新读一次数据。 */
+.metrics__again {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 0 var(--w-space-md, 12px);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--w-color-accent, #2563eb);
+  color: var(--w-color-on-accent, #fff);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--w-type-caption, 12px);
+  font-weight: 600;
+  line-height: 1;
+  transition: filter var(--w-motion-fast, 150ms) linear, opacity var(--w-motion-fast, 150ms) linear;
+}
+
+.metrics__again:hover {
+  filter: brightness(1.06);
+}
+
+.metrics__again:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: 2px;
+}
+
+.metrics__again:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* 右栏：体检面板。底色比卡片浅一层或深一层，在两种配色里都读得出这是一块内嵌面板。 */
+.metrics__panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  grid-area: panel;
+  flex-direction: column;
+  padding: var(--w-space-sm, 8px) var(--w-space-md, 12px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 72%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 3%, transparent);
+  container: panel / inline-size;
+}
+
+.metrics__panel-head {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 2px;
+}
+
+.metrics__panel-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-caption, 12px);
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics__panel-meta {
+  margin: 0;
+  overflow: hidden;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics__rows {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.metrics__row {
+  display: grid;
+  min-width: 0;
+  grid-template-areas: "label bar value note";
+  grid-template-columns: 56px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0 var(--w-space-sm, 8px);
+  min-height: 20px;
+}
+
+.metrics__row-label {
+  overflow: hidden;
+  grid-area: label;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics__bar {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  grid-area: bar;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-color-border, #d5dae1) 82%, transparent);
+}
+
+.metrics__bar-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--w-color-accent, #2563eb);
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left center;
+  transition: transform var(--w-motion-base, 250ms) var(--w-motion-ease-smooth, ease);
+}
+
+:root[data-motion="reduced"] .metrics__bar-fill {
+  transition: none;
+}
+
+.metrics__row-value {
+  grid-area: value;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.metrics__row-note {
+  overflow: hidden;
+  grid-area: note;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 没有比例的项（系统、看板、组件库）不画条形，也不给它留那一列：值直接跟在标签后面。 */
+.metrics__row[data-empty="true"] {
+  grid-template-areas: "label value note";
+  grid-template-columns: 56px auto minmax(0, 1fr);
+}
+
+.metrics__row[data-empty="true"] .metrics__bar {
+  display: none;
+}
+
+.metrics__row[data-empty="true"] .metrics__row-note {
+  text-align: left;
+}
+
+/* 面板窄到放不下四列时收掉说明；值与标签仍在。 */
+@container panel (max-width: 400px) {
+  .metrics__row-note {
+    display: none;
+  }
+
+  .metrics__row {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+  }
+
+  .metrics__row[data-empty="true"] {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+}
+
+/* 走势：只在高盒子里出现，用内联 SVG 画，不引入图表库。 */
+.metrics__trend {
+  display: none;
+  min-width: 0;
+  grid-area: trend;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+  margin: 0;
+  padding-top: var(--w-space-xs, 4px);
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 62%, transparent);
+}
+
+:root[data-box-height="tall"] .metrics__trend {
+  display: flex;
+}
+
+.metrics__trend-caption {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+}
+
+.metrics__spark {
+  display: block;
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+}
+
+.metrics__spark-line {
+  fill: none;
+  stroke: var(--w-color-accent, #2563eb);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.metrics__spark-area {
+  fill: color-mix(in srgb, var(--w-color-accent, #2563eb) 14%, transparent);
+  stroke: none;
+}
+
+/* 缩略画面：只留主读数。 */
+:root[data-placement="preview"] .metrics__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--w-space-sm, 8px);
+}
+
+:root[data-placement="preview"] .metrics__panel,
+:root[data-placement="preview"] .metrics__trend,
+:root[data-placement="preview"] .metrics__again,
+:root[data-placement="preview"] .metrics__scope {
+  display: none;
+}
+
+:root[data-placement="preview"] .metrics__number {
+  font-size: 28px;
+}
+
+/* 窄盒子：叠成一列，按钮让位给面板；主读数收一档。 */
+:root[data-box-width="narrow"] .metrics__body {
+  grid-template-areas:
+    "hero"
+    "panel"
+    "trend";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+}
+
+:root[data-box-width="narrow"] .metrics__number {
+  font-size: clamp(28px, 12cqi, 44px);
+}
+
+:root[data-box-width="narrow"] .metrics__scope,
+:root[data-box-width="narrow"] .metrics__again {
+  display: none;
+}
+
+/* 矮盒子：面板收成四行带条形图的读数，系统、看板与组件库让位。 */
+:root[data-box-height="short"] .metrics__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-height="short"] .metrics__hero {
+  gap: 2px;
+}
+
+:root[data-box-height="short"] .metrics__value {
+  margin: 0;
+}
+
+:root[data-box-height="short"] .metrics__number {
+  font-size: clamp(24px, 12cqi, 36px);
+}
+
+:root[data-box-height="short"] .metrics__scope,
+:root[data-box-height="short"] .metrics__again {
+  display: none;
+}
+
+:root[data-box-height="short"] .metrics__panel {
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: none;
+}
+
+:root[data-box-height="short"] .metrics__panel-head {
+  display: none;
+}
+
+:root[data-box-height="short"] .metrics__rows {
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  overflow: visible;
+}
+
+:root[data-box-height="short"] .metrics__row {
+  min-height: 18px;
+  grid-template-areas: "label bar value";
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 0 var(--w-space-xs, 4px);
+}
+
+:root[data-box-height="short"] .metrics__row[data-row="system"],
+:root[data-box-height="short"] .metrics__row[data-row="board"],
+:root[data-box-height="short"] .metrics__row[data-row="library"] {
+  display: none;
+}
+
+:root[data-box-height="short"] .metrics__row-note {
+  display: none;
+}
+
+:root[data-box-height="short"] .metrics__bar {
+  display: block;
+  height: 2px;
+}
+
+:root[data-box-height="short"] .metrics__row-value {
+  line-height: 16px;
+}

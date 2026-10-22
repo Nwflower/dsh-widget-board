@@ -89,7 +89,7 @@ describe('第一次启动的看板', () => {
     expect(widgetsOf(gallery)).toEqual([
       'stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance', 'github-issues',
       'board-hero', 'clock', 'calendar', 'fortune', 'year-progress', 'weather', 'pomodoro', 'todo', 'links',
-      'flip-card', 'holographic-card', 'magnetic-card',
+      'flip-card', 'holographic-card', 'magnetic-card', 'system-metrics',
     ])
   })
 

@@ -1,0 +1,77 @@
+<article class="t-data metrics" data-state="empty">
+  <div class="metrics__body">
+    <section class="metrics__hero">
+      <div class="metrics__heading">
+        <p class="t-data__kicker" data-field="kicker"></p>
+        <h2 class="t-data__title" data-field="title">运行成本</h2>
+      </div>
+      <p class="metrics__value">
+        <span class="metrics__number" data-field="rss">—</span>
+        <span class="metrics__unit" data-field="rssUnit"></span>
+      </p>
+      <p class="metrics__scope" data-field="scope"></p>
+      <p class="metrics__empty" data-field="empty" hidden>等待第一次采样</p>
+      <button class="metrics__again" data-field="again" type="button" hidden></button>
+    </section>
+
+    <section class="metrics__panel" data-field="panel" hidden>
+      <header class="metrics__panel-head">
+        <p class="metrics__panel-title" data-field="panelTitle"></p>
+        <p class="metrics__panel-meta" data-field="panelMeta"></p>
+      </header>
+      <ul class="metrics__rows">
+        <li class="metrics__row" data-row="heap">
+          <span class="metrics__row-label" data-label="heap"></span>
+          <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="heap"></span></span>
+          <span class="metrics__row-value" data-field="heap"></span>
+          <span class="metrics__row-note" data-field="heapNote"></span>
+        </li>
+        <li class="metrics__row" data-row="systemMemory">
+          <span class="metrics__row-label" data-label="systemMemory"></span>
+          <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="systemMemory"></span></span>
+          <span class="metrics__row-value" data-field="systemMemory"></span>
+          <span class="metrics__row-note" data-field="systemMemoryNote"></span>
+        </li>
+        <li class="metrics__row" data-row="cpu">
+          <span class="metrics__row-label" data-label="cpu"></span>
+          <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="cpu"></span></span>
+          <span class="metrics__row-value" data-field="cpu"></span>
+          <span class="metrics__row-note" data-field="cpuNote"></span>
+        </li>
+        <li class="metrics__row" data-row="disk">
+          <span class="metrics__row-label" data-label="disk"></span>
+          <span class="metrics__bar" aria-hidden="true"><span class="metrics__bar-fill" data-fill="disk"></span></span>
+          <span class="metrics__row-value" data-field="disk"></span>
+          <span class="metrics__row-note" data-field="diskNote"></span>
+        </li>
+        <li class="metrics__row" data-row="system" data-empty="true">
+          <span class="metrics__row-label" data-label="system"></span>
+          <span class="metrics__bar" aria-hidden="true"></span>
+          <span class="metrics__row-value" data-field="system"></span>
+          <span class="metrics__row-note" data-field="systemNote"></span>
+        </li>
+        <li class="metrics__row" data-row="board" data-empty="true">
+          <span class="metrics__row-label" data-label="board"></span>
+          <span class="metrics__bar" aria-hidden="true"></span>
+          <span class="metrics__row-value" data-field="board"></span>
+          <span class="metrics__row-note" data-field="boardNote"></span>
+        </li>
+        <li class="metrics__row" data-row="library" data-empty="true">
+          <span class="metrics__row-label" data-label="library"></span>
+          <span class="metrics__bar" aria-hidden="true"></span>
+          <span class="metrics__row-value" data-field="library"></span>
+          <span class="metrics__row-note" data-field="libraryNote"></span>
+        </li>
+      </ul>
+    </section>
+
+    <figure class="metrics__trend" data-field="trend" hidden>
+      <figcaption class="metrics__trend-caption" data-field="trendCaption"></figcaption>
+      <svg class="metrics__spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path class="metrics__spark-area" data-field="trendArea" d=""></path>
+        <path class="metrics__spark-line" data-field="trendLine" d="" vector-effect="non-scaling-stroke"></path>
+      </svg>
+    </figure>
+
+  </div>
+</article>

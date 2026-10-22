@@ -44,6 +44,20 @@ describe('版本库', () => {
     expect(await readFile(file, 'utf8')).toBe('sentinel')
   })
 
+  it('数出磁盘上保存的版本；目录不在时是 0', async () => {
+    await mkdir(join(ROOT, '.debug'), { recursive: true })
+    const home = await mkdtemp(join(ROOT, '.debug', 'blobs-test-'))
+    homes.push(home)
+    expect(await createVersionStore(join(home, 'missing')).count()).toBe(0)
+    const dir = join(home, 'blobs')
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, `${'a'.repeat(64)}.json`), '{}', 'utf8')
+    const store = createVersionStore(dir)
+    expect(await store.count()).toBe(1)
+    await store.remember(record())
+    expect(await store.count()).toBe(2)
+  })
+
   it('文件不在时写一份，换一个版本库实例也能读回来', async () => {
     await mkdir(join(ROOT, '.debug'), { recursive: true })
     const home = await mkdtemp(join(ROOT, '.debug', 'blobs-test-'))

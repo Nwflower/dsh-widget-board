@@ -5,7 +5,7 @@
  * 在用的实现，不是另写一份样例。
  */
 import { describe, expect, it } from 'vitest'
-import '../system-metrics/view.js'
+import '../../widgets/system-metrics/view.js'
 
 interface Formatted {
   value: string

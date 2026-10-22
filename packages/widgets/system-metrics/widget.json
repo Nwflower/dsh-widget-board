@@ -5,11 +5,11 @@
     "en": "Running cost"
   },
   "description": {
-    "zh": "宿主进程与整台机器的读数：常驻内存、堆、系统内存、CPU、磁盘与系统版本，以及看板卡片数、状态总量、文档体积和组件库规模；单张卡片、渲染进程与 GPU 的内存不可测，卡片上写明。",
-    "en": "Readings from the host process and the machine: resident memory, heap, system memory, CPU, disk and OS, plus the board's card count, state size, document weight and library size. Per-card, renderer and GPU memory cannot be measured, and the card says so."
+    "zh": "宿主进程与整台机器的读数：常驻内存、堆、系统内存、CPU、磁盘与系统版本，以及看板卡片数、状态总量、文档体积和组件库规模。",
+    "en": "Readings from the host process and the machine: resident memory, heap, system memory, CPU, disk and OS, plus the board's card count, state size, document weight and library size."
   },
   "author": "dsh-widget-board",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "sizes": [
     "m",
     "l"
@@ -318,14 +318,6 @@
     "empty": {
       "zh": "等待第一次采样",
       "en": "Waiting for the first sample"
-    },
-    "unmeasurable": {
-      "zh": "单张卡片的内存无法从宿主侧测量",
-      "en": "Per-card memory cannot be measured from the host"
-    },
-    "boundary": {
-      "zh": "渲染进程与 GPU 内存不向插件开放；每张卡片是一份独立文档与一个 iframe",
-      "en": "Renderer and GPU memory are not exposed to plugins; each card is its own document and iframe"
     },
     "previewKicker": {
       "zh": "示例数据",

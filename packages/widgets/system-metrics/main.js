@@ -112,8 +112,6 @@
     write(fields.kicker, label('kicker', '整个宿主进程'))
     write(fields.scope, label('scope', '宿主进程常驻内存 · 含看板以外的工作'))
     write(fields.empty, label('empty', '等待第一次采样'))
-    write(fields.unmeasurable, label('unmeasurable', '单张卡片的内存无法从宿主侧测量'))
-    write(fields.boundary, label('boundary', '渲染进程与 GPU 内存不向插件开放；每张卡片是一份独立文档与一个 iframe'))
     write(labels.heap, label('heap', '堆'))
     write(labels.systemMemory, label('systemMemory', '系统内存'))
     write(labels.cpu, label('cpu', 'CPU'))

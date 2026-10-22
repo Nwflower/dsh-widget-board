@@ -6,7 +6,7 @@
  * 全部从令牌读（D10），浅色与深色由令牌保证。
  *
  * 盒子契约按运行时写下的两个方向档位走（D20）：窄盒子叠成一列并隐藏按钮，矮盒子把面板收成
- * 一行标签，高盒子补走势。单卡内存不可测这一句在任何盒子里都留着。
+ * 四行带条形图的读数，高盒子补走势。
  */
 .metrics {
   gap: 0;
@@ -19,10 +19,9 @@
   container-type: inline-size;
   grid-template-areas:
     "hero panel"
-    "trend trend"
-    "limits limits";
+    "trend trend";
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--w-space-sm, 8px) var(--w-space-md, 12px);
 }
 
@@ -315,39 +314,7 @@
   stroke: none;
 }
 
-/* 限制说明：单卡内存不可测是这张卡的一部分，任何盒子都留着。 */
-.metrics__limits {
-  display: flex;
-  min-width: 0;
-  grid-area: limits;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: var(--w-space-xs, 4px);
-  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 62%, transparent);
-}
-
-.metrics__limit {
-  margin: 0;
-  color: var(--w-color-fg, #0b1016);
-  font-size: var(--w-type-caption, 12px);
-  line-height: 16px;
-}
-
-.metrics__limit-sub {
-  display: none;
-  margin: 0;
-  color: var(--w-color-muted, #6b7684);
-  font-size: var(--w-type-caption, 12px);
-  line-height: 16px;
-}
-
-/* 范围说明只在放得下的盒子里出现：高盒子，或主读数已经收起的窄盒子。 */
-:root[data-box-height="tall"] .metrics__limit-sub,
-:root[data-box-height="regular"][data-box-width="narrow"] .metrics__limit-sub {
-  display: block;
-}
-
-/* 缩略画面：只留主读数与不可测那一句。 */
+/* 缩略画面：只留主读数。 */
 :root[data-placement="preview"] .metrics__body {
   display: flex;
   flex-direction: column;
@@ -366,20 +333,14 @@
   font-size: 28px;
 }
 
-:root[data-placement="preview"] .metrics__limits {
-  padding-top: 0;
-  border-top: 0;
-}
-
 /* 窄盒子：叠成一列，按钮让位给面板；主读数收一档。 */
 :root[data-box-width="narrow"] .metrics__body {
   grid-template-areas:
     "hero"
     "panel"
-    "trend"
-    "limits";
+    "trend";
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto;
+  grid-template-rows: auto auto auto;
 }
 
 :root[data-box-width="narrow"] .metrics__number {
@@ -391,7 +352,7 @@
   display: none;
 }
 
-/* 矮盒子：面板收成一行标签，次读与范围说明让位，不可测那一句保留。 */
+/* 矮盒子：面板收成四行带条形图的读数，系统、看板与组件库让位。 */
 :root[data-box-height="short"] .metrics__body {
   display: flex;
   flex-direction: column;
@@ -427,26 +388,35 @@
 }
 
 :root[data-box-height="short"] .metrics__rows {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: var(--w-space-xs, 4px) var(--w-space-md, 12px);
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
   margin: 0;
   overflow: visible;
 }
 
 :root[data-box-height="short"] .metrics__row {
-  display: flex;
-  min-height: 0;
-  gap: var(--w-space-xs, 4px);
-  align-items: baseline;
+  min-height: 18px;
+  grid-template-areas: "label bar value";
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 0 var(--w-space-xs, 4px);
 }
 
+:root[data-box-height="short"] .metrics__row[data-row="system"],
 :root[data-box-height="short"] .metrics__row[data-row="board"],
 :root[data-box-height="short"] .metrics__row[data-row="library"] {
   display: none;
 }
 
-:root[data-box-height="short"] .metrics__bar,
 :root[data-box-height="short"] .metrics__row-note {
   display: none;
+}
+
+:root[data-box-height="short"] .metrics__bar {
+  display: block;
+  height: 2px;
+}
+
+:root[data-box-height="short"] .metrics__row-value {
+  line-height: 16px;
 }

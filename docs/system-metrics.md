@@ -1,6 +1,6 @@
 # 运行成本
 
-内置组件 `system-metrics`（「运行成本」）报告宿主进程、整台机器与看板自身的可测量成本，并写明不可测量的部分。数据源在宿主半边（`packages/host/src/system-metrics.ts`），组件在 `packages/widgets/system-metrics/`；宿主接入面的核实结论见 [host-surfaces.md](host-surfaces.md)。
+内置组件 `system-metrics`（「运行成本」）报告宿主进程、整台机器与看板自身的可测量成本。单张卡片、渲染进程与 GPU 的内存不可测，这些数字不进入数据，卡片上也不画。数据源在宿主半边（`packages/host/src/system-metrics.ts`），组件在 `packages/widgets/system-metrics/`；宿主接入面的核实结论见 [host-surfaces.md](host-surfaces.md)。
 
 ## 数据源
 
@@ -56,9 +56,9 @@ interface SystemMetrics {
 | `board.documentsBytes` | `buildDocument` 按每张卡的当前组件版本拼出的 HTML 字节数，加上令牌、套件、运行时与精选库 | 近似：按中文界面拼装、省略 nonce，实际请求因语言与 nonce 有几字节到几百字节的差；同一版本被多张卡使用时按张数累加，因为每张卡各自加载一份文档。 |
 | `library.widgets` | 组件库里可用的组件数 | 精确。 |
 | `library.versions` | 版本库 `blobs/` 下的版本文件数 | 精确：磁盘上留着的版本，含旧版本。 |
-| 单张卡片的内存 | 没有受支持的接口 | 拿不到。卡片上写明「单张卡片的内存无法从宿主侧测量」。 |
+| 单张卡片的内存 | 没有受支持的接口 | 拿不到，不进入数据；卡片不画每卡内存的数字。 |
 | 浏览器页面 JS 堆 | Chromium 的 `performance.memory` | 页面级近似，沙箱卡片读不到父页面，不进入数据。 |
-| 渲染进程与 GPU 内存 | Electron 进程不向插件暴露 | 拿不到。卡片上写明这一句。 |
+| 渲染进程与 GPU 内存 | Electron 进程不向插件暴露 | 拿不到，不进入数据。 |
 
 ## 刷新、历史与「再测一次」
 
@@ -88,8 +88,6 @@ interface SystemMetrics {
 | 按钮 | 再测一次 / 采样中… | Measure again / Sampling… |
 | 走势 | 最近 {n} 次采样 | Last {n} samples |
 | 空态 | 等待第一次采样 | Waiting for the first sample |
-| 不可测 | 单张卡片的内存无法从宿主侧测量 | Per-card memory cannot be measured from the host |
-| 边界 | 渲染进程与 GPU 内存不向插件开放；每张卡片是一份独立文档与一个 iframe | Renderer and GPU memory are not exposed to plugins; each card is its own document and iframe |
 | 预览 | 示例数据 | Sample data |
 
 ## 核实结论
@@ -103,13 +101,13 @@ interface SystemMetrics {
 
 - 临时宿主（0.2.1-rc.2，独立的 `$DSH_HOME`，没有登录与会话）里卡片进入 `ready`：面板显示 Windows 11 Pro、16 核、负载不可用、系统内存 20/47 GiB、磁盘可用 666 GiB（总 930 GiB），以及宿主进程的堆、外部内存与 ArrayBuffer。
 - 「再测一次」按下后宿主重读，卡片上的采样时间与次数很快更新；动作没有额外权限。
-- 浅色中文与深色英文各核对一次：默认 2×18rem、1×12rem 与 2×30rem 三个盒子都没有溢出或截断；高盒子里走势出现，窄盒子里面板收成一行标签。
+- 浅色中文与深色英文各核对一次：默认 2×18rem、1×12rem 与 2×30rem 三个盒子都没有溢出或截断；高盒子里走势出现，矮盒子保留四行带条形图的读数（堆、系统内存、CPU、磁盘）。
 - 卡片移出视口后根节点带 `data-paused`，7 秒内状态里的采样数不变；页面隐藏（iframe 的 `visibilityState` 为 `hidden`）同样不变，恢复后继续增长。2 到 5 个采样时状态是 163 到 263 字节，60 个采样由单元测试核对低于 64 KB。
 - 单元测试与尺寸矩阵都是可重复的检查；这一段记的是 issue #5 与后续机器体检扩展的验收核对，命令见下一节。
 
 ## 检查
 
-- 单元测试：`packages/host/test/system-metrics.test.ts` 核对计数、状态字节、文档体积、机器读数与组件 manifest 的 data schema；`packages/widgets/test/system-metrics-view.test.ts` 覆盖字节格式化、历史裁剪、空态、系统读数与走势路径。
+- 单元测试：`packages/host/test/system-metrics.test.ts` 核对计数、状态字节、文档体积、机器读数与组件 manifest 的 data schema；`packages/testing/test/system-metrics-view.test.ts` 覆盖字节格式化、历史裁剪、空态、系统读数与走势路径。
 - 尺寸矩阵：`npm run matrix` 把组件放进一列、两列、四列与 6 到 30rem 的高度，检查溢出、截断、空白与脚本错误。
 - 真实宿主：`npm run smoke` 在临时宿主里打开看板并核对数据源结构与卡片文案。
 

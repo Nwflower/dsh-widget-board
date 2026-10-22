@@ -93,9 +93,9 @@ async function timeOf(frame) {
 }
 
 /**
- * 运行成本卡（issue #5）：数据源在真实宿主里返回完整结构，卡片把宿主读数与不可测的那一句画出来。
+ * 运行成本卡（issue #5）：数据源在真实宿主里返回完整结构，卡片把宿主、机器与看板的读数画出来。
  *
- * 不核对具体字节数：它随机器与当时的负载变化。单卡内存没有数字可查，卡片上那句说明本身就是判据。
+ * 不核对具体字节数：它随机器与当时的负载变化；只核对数据源结构、面板字段与文案接上了。
  *
  * @param page - 宿主页面，看板已经打开。
  */
@@ -105,14 +105,12 @@ async function metricsPass(page) {
   const view = await frame.evaluate(() => ({
     rss: document.querySelector('[data-field="rss"]')?.textContent ?? '',
     unit: document.querySelector('[data-field="rssUnit"]')?.textContent ?? '',
-    unmeasurable: document.querySelector('[data-field="unmeasurable"]')?.textContent ?? '',
     panelTitle: document.querySelector('[data-field="panelTitle"]')?.textContent ?? '',
     system: document.querySelector('[data-field="system"]')?.textContent ?? '',
     board: document.querySelector('[data-field="board"]')?.textContent ?? '',
     library: document.querySelector('[data-field="library"]')?.textContent ?? '',
   }))
   check('运行成本卡读到宿主读数', /^[\d.,]+$/.test(view.rss) && view.unit !== '', `${view.rss} ${view.unit}`)
-  check('运行成本卡写明单卡内存不可测', view.unmeasurable.includes('单张卡片的内存无法'), view.unmeasurable)
   check('运行成本卡画出系统、看板与组件库', view.panelTitle !== '' && view.system !== '' && view.board !== '' && view.library !== '', `${view.panelTitle} / ${view.system} / ${view.board} / ${view.library}`)
   const data = await page.evaluate(async () => {
     const workspace = await (await fetch('api/widget-board/boards')).json()

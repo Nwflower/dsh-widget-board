@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 2,
+  "at": "2026-10-22",
+  "external": true,
+  "zh": "天气卡改成按城市名取天气：设置里写「杭州」或「Hangzhou」，保存时由设置界面解析成经纬度与双语地名，卡片按它取 Open-Meteo 的五天预报；旁边新增「定位」，先问浏览器位置，拿不到时按网络出口确定城市。城市名、地名与坐标由同一份配置一起写进卡片，城市名与坐标不会再各说各的。组件的 props schema 新增两个可选的 `format`：`city` 是一个可以定位的城市名，`fills` 指明解析出的地名与坐标写到哪几个字段；`hidden` 的字段不出控件，留给这类派生值。",
+  "en": "The weather card now takes a city name: type “杭州” or “Hangzhou” in the settings, and the dialog resolves it into coordinates and a bilingual place name that the card uses for the five-day Open-Meteo forecast; a new Locate button asks the browser first and falls back to the city of this network. The name, place and coordinates are written together, so the city shown and the weather fetched no longer disagree. The widget props schema gained two optional formats: `city` marks a locatable city name, with `fills` naming the props that receive the resolved place and coordinates; `hidden` fields get no control and are left for those derived values."
+}

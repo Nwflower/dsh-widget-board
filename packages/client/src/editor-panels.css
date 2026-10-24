@@ -75,6 +75,18 @@
   gap: 8px;
 }
 
+/* 城市字段与它的「定位」按钮并排；输入框可以让出宽度。 */
+.dsh-widget-board__city {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dsh-widget-board__city .dsh-widget-board__input { min-width: 0; }
+
+.dsh-widget-board__locate { padding-inline: 12px; white-space: nowrap; }
+
 /* 开关。 */
 .dsh-widget-board__switch {
   position: relative;

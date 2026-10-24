@@ -59,6 +59,30 @@ describe('配置字段', () => {
     expect(fieldsOf(undefined, undefined)).toEqual([])
     expect(fieldsOf({ type: 'object' }, undefined)).toEqual([])
   })
+
+  it('城市字段带定位与落点，隐藏字段不出控件', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        city: {
+          type: 'string',
+          format: 'city',
+          fills: { place: 'place', latitude: 'latitude', longitude: 'longitude' },
+        },
+        place: { type: 'object', format: 'hidden' },
+        latitude: { type: 'number', format: 'hidden' },
+        note: { type: 'string' },
+      },
+    }
+    const fields = fieldsOf(schema, undefined)
+    expect(fields.map((field) => field.key)).toEqual(['city', 'note'])
+    expect(fields.find((field) => field.key === 'city')).toMatchObject({
+      kind: 'string',
+      locate: true,
+      fills: { place: 'place', latitude: 'latitude', longitude: 'longitude' },
+    })
+    expect(fields.find((field) => field.key === 'note')?.locate).toBeUndefined()
+  })
 })
 
 describe('凭据状态', () => {

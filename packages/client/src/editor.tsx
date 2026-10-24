@@ -256,13 +256,16 @@ export function CardEditorDialog({
     }
   }
 
-  /** 保存 props；宿主存下来的那一份换进读模型。 */
+  /** 保存 props；宿主存下来的那一份换进读模型，再按新的 props 读一次数据。 */
   const saveProps = async (props: Record<string, unknown>): Promise<void> => {
     if (slot === undefined) return
     const saved = await saveInstanceProps(slot.id, props)
     setSettings((previous) => previous !== null && previous.instance.id === slot.id
       ? { ...previous, instance: { ...previous.instance, props: saved } }
       : previous)
+    // props 变了，上一份数据多半对不上（城市换了，天气还留在原来的地方）：立刻按新的读一次。
+    // 读不出来是卡片自己的状态，不报成保存失败——props 已经存下去了。
+    await readInstanceData(slot.id).catch(() => undefined)
   }
 
   /** 保存一项凭据；值只往宿主走。 */

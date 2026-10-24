@@ -60,6 +60,7 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`actions\` 里写插件动作的全名。**没有声明的动作一律被拒绝**；要权限的动作还要有人在卡片上给出授权之后才跑得起来。
 - \`capabilities\` 里写宿主能力的全名（例如 \`dsh.account.balance\`）。**没有声明的调用一律被拒绝**；能力的参数与返回值按提供方声明的 JSON Schema 校验，要权限的能力同样先要一份授权。读当前登录的 DSH 账号余额就用 \`dsh.account.balance\`，不需要 API key；读某个 GitHub 账号创建的 issue 用 \`github.issues\`，它按卡片上配的 \`GITHUB_TOKEN\` 认账号。
 - 设置弹窗的配置一节按 \`props\` schema 出控件：字符串、数值、布尔与字符串枚举各出对应的输入，对象与数组只说明要用 JSON 工具写。只声明这张卡用得上的字段；字段的中英文名字与说明写进 \`text\` 的 \`props.<字段>.label\` 与 \`props.<字段>.hint\`。
+- 两个可选的 \`format\`：\`"city"\` 把字符串字段当城市名，控件旁边多一个「定位」按钮，保存时先把名字解析成坐标，\`fills\` 再把解析出的双语地名、纬度与经度写到它指出的 props 上（\`{"place": "place", "latitude": "latitude", "longitude": "longitude"}\`）；\`"hidden"\` 的字段不出控件，留给这类派生值，人不能直接改。
 - \`libs\`：\`marked\`、\`highlight\` 由宿主内联进这份文档，组件里直接用全局名。
 - \`scripts\`：组件目录里的额外脚本，按顺序在 \`main.js\` 之前内联，与它共用同一个全局作用域。一份 \`main.js\` 写到太长时用它按职责拆开，例如把绘图与交互分开。
 - \`minBox\` 是这张卡缩到多小还排得下；低于它的缩放会被停在下限。

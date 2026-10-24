@@ -16,7 +16,7 @@
   var root = document.documentElement
   var canvas = card.querySelector('[data-role="scene"]')
 
-  /** 默认地点；与 widget.json 里 props schema 的默认值一致。 */
+  /** 没有配置城市时的地点；与 widget.json 里 props schema 的默认值一致。 */
   var DEFAULT_PLACE = { zh: '北京', en: 'Beijing' }
 
   /** 卡片能放下的预报天数。 */
@@ -351,10 +351,17 @@
     return new Intl.DateTimeFormat(locale, { weekday: style }).format(date)
   }
 
-  /** 卡片上的地点：props 给了双语名字就用它，否则用默认地点。 */
+  /**
+   * 卡片上的地点：设置里解析出的双语地名优先，其次是人写的城市名，都没有时是默认地点。
+   *
+   * 城市名只由设置界面解析成坐标与双语地名，组件自己拿不到网络（D3）；这里不再回填 `place`，
+   * 一次只读一次 props 给出的东西。
+   */
   function placeOf(props) {
     var value = props && props.place
     if (value && typeof value.zh === 'string' && typeof value.en === 'string') return value
+    var city = props && typeof props.city === 'string' ? props.city.trim() : ''
+    if (city !== '') return { zh: city, en: city }
     return DEFAULT_PLACE
   }
 

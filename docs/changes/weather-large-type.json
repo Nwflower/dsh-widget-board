@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 3,
+  "at": "2026-10-22",
+  "external": true,
+  "zh": "天气卡在大盒子里把城市、温度与天气文字一起放大：字号按卡片的实际宽高计算，温度再按高度收住，城市最大 40px、温度最大 200px，天气文字与高低温、预报栏跟着变大；城市、温度与天气各自压一层更厚的投影与上下柔光，浅色与深色下都更容易读。窄盒子把天气与高低温排成可以折行的一行，矮盒子收掉预报栏与日期，只留城市、天气、温度与高低温。",
+  "en": "In large boxes the weather card scales the city, temperature and condition together: type sizes come from the card's measured width and height, the temperature is further capped by height, the city grows to 40px and the temperature to 200px, and the condition, highs and lows and forecast bar grow with them; a stronger shadow and top/bottom scrim keep all three readable in light and dark. Narrow boxes let the condition and highs wrap onto one line, and short boxes drop the forecast bar and the date, keeping the city, condition, temperature and highs."
+}

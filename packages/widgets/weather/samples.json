@@ -3,9 +3,10 @@
     "lang": "zh-CN",
     "motion": "reduced",
     "props": {
-      "place": { "zh": "北京", "en": "Beijing" },
-      "latitude": 39.9042,
-      "longitude": 116.4074
+      "city": "杭州",
+      "place": { "zh": "杭州", "en": "Hangzhou" },
+      "latitude": 30.29365,
+      "longitude": 120.16142
     },
     "data": {
       "current": { "temperature_2m": 15.4, "weather_code": 0 },
@@ -22,9 +23,10 @@
     "lang": "zh-CN",
     "motion": "full",
     "props": {
-      "place": { "zh": "北京", "en": "Beijing" },
-      "latitude": 39.9042,
-      "longitude": 116.4074
+      "city": "杭州",
+      "place": { "zh": "杭州", "en": "Hangzhou" },
+      "latitude": 30.29365,
+      "longitude": 120.16142
     },
     "data": {
       "current": { "temperature_2m": 15.4, "weather_code": 0 },

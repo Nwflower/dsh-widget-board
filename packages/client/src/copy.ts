@@ -62,6 +62,12 @@ const COPY = {
   config: { zh: '配置', en: 'Configuration' },
   log: { zh: '日志', en: 'Log' },
   noConfig: { zh: '这个组件没有可配置的项', en: 'This widget has nothing to configure' },
+  locate: { zh: '定位', en: 'Locate' },
+  locating: { zh: '定位中…', en: 'Locating…' },
+  locateFailed: { zh: '拿不到当前位置，也问不到网络所在的城市', en: 'Could not get your location or the city of this network' },
+  cityEmpty: { zh: '先写一个城市名', en: 'Enter a city name first' },
+  cityLookupFailed: { zh: '城市查不到坐标', en: 'Could not resolve the city' },
+  cityNotFound: { zh: '找不到这个城市，换一个名字试试', en: 'City not found; try another name' },
   noRequests: { zh: '这张卡还没有发出请求', en: 'This card has not made any requests yet' },
   requestLogHint: {
     zh: '只记方法、主机、状态与耗时；凭据不在里面。',

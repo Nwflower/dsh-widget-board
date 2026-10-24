@@ -699,9 +699,9 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (h
     await sleep(500)
     log = host.log()
   }
-  // 宿主把注册过的工具名连在一行里（D9）：看名字就够了，视图的注册失败会让插件整条起不来。
+  // 宿主把注册过的工具名连在一行里（D9）：启动时只有入口工具，其余工具等会话点名才注册。
   const registeredTools = log.split('\n').find((line) => line.includes('widget-board: 注册了')) ?? ''
-  check('宿主里注册了面向会话的工具', registeredTools.includes('widget_catalog') && registeredTools.includes('widget_show'), registeredTools === '' ? log.split('\n').filter((line) => line.includes('widget-board')).join(' / ') : registeredTools)
+  check('宿主里注册了入口工具', registeredTools.includes('widget_catalog') && !registeredTools.includes('widget_show'), registeredTools === '' ? log.split('\n').filter((line) => line.includes('widget-board')).join(' / ') : registeredTools)
   let opened
   let reduced
   try {

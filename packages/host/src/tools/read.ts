@@ -6,6 +6,28 @@
 import type { BoardValue, CatalogEntry, CatalogValue, WidgetToolSpec } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { ToolContext } from './index'
+import { OPTIONAL_TOOLS } from './index'
+
+/**
+ * 把点名要启用的工具加进集合，并回读启用后的全部名单（D9）。
+ *
+ * @param value - 模型给的 `expose`。
+ * @returns 启用之后的工具名，按 `OPTIONAL_TOOLS` 的次序。
+ * @throws {ToolRefusal} 点名的工具不在可启用的范围里。
+ */
+function exposeOf(value: unknown, context: ToolContext): string[] {
+  if (value !== undefined) {
+    if (!Array.isArray(value)) throw new ToolRefusal('expose 要是工具名的数组')
+    const unknown = value.filter((name) => typeof name !== 'string' || !OPTIONAL_TOOLS.includes(name))
+    if (unknown.length > 0) {
+      throw new ToolRefusal(`不能点名这些工具：${unknown.map((name) => String(name)).join('、')}；可以点名 ${OPTIONAL_TOOLS.join('、')}`)
+    }
+    for (const name of value) context.enabled.add(name as string)
+    // 点名之后立刻注册：下一次请求的工具表里就多出这几个（D9）。
+    context.reveal?.(OPTIONAL_TOOLS.filter((name) => context.enabled.has(name)))
+  }
+  return OPTIONAL_TOOLS.filter((name) => context.enabled.has(name))
+}
 
 /** 把一组组件拼成目录说明。 */
 function catalogOf(context: ToolContext): CatalogValue {
@@ -71,7 +93,9 @@ function catalogOf(context: ToolContext): CatalogValue {
 }
 
 /**
- * `widget_catalog`：列出组件库里的组件类型与它们的声明。
+ * `widget_catalog`：列出组件库里的组件类型与它们的声明，并点名要启用的工具（D9）。
+ *
+ * 它是常驻的那个入口工具：其余六个工具经 `expose` 点名之后才出现在模型面前。
  *
  * @param context - 工具要动的那些东西。
  * @returns 工具的注册项。
@@ -79,26 +103,34 @@ function catalogOf(context: ToolContext): CatalogValue {
 export function catalogTool(context: ToolContext): WidgetToolSpec {
   return {
     name: WIDGET_TOOL_NAMES.catalog,
-    description: 'List the widget types in the board library: id, title, sizes, source, props/data JSON Schema, credentials, and declared host capabilities. Use it before writing a new widget or placing a card.',
+    description: 'List the widget types in the board library: id, title, sizes, source, props/data JSON Schema, credentials, and declared host capabilities. Also the entry to the other widget tools: name them in `expose` and they appear among your tools from the next step on. Use it before writing a new widget or placing a card.',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
         id: { type: 'string', description: 'Only this widget id.' },
         source: { type: 'string', enum: ['builtin', 'user', 'plugin'], description: 'Only widgets from this source.' },
+        expose: {
+          type: 'array',
+          items: { type: 'string', enum: [...OPTIONAL_TOOLS] },
+          description: 'Widget tools to make available from the next step on. They stay available for the rest of the session.',
+        },
       },
     },
     async execute(args) {
-      const wanted = (args ?? {}) as { id?: unknown, source?: unknown }
+      const wanted = (args ?? {}) as { id?: unknown, source?: unknown, expose?: unknown }
+      const enabled = exposeOf(wanted.expose, context)
       const catalog = catalogOf(context)
       const widgets = catalog.widgets.filter((entry) => (typeof wanted.id !== 'string' || entry.id === wanted.id)
         && (typeof wanted.source !== 'string' || entry.source === wanted.source))
-      return { widgets, errors: catalog.errors }
+      return { widgets, errors: catalog.errors, enabled }
     },
     render(value) {
-      const catalog = value as CatalogValue
-      if (catalog.widgets.length === 0) return [{ type: 'text', text: '组件库里没有符合条件的组件。' }]
-      const lines = catalog.widgets.map((entry) => {
+      const catalog = value as CatalogValue & { enabled?: string[] }
+      const enabled = catalog.enabled ?? []
+      const lines: string[] = []
+      if (catalog.widgets.length === 0) lines.push('组件库里没有符合条件的组件。')
+      else lines.push(...catalog.widgets.map((entry) => {
         const head = `- ${entry.id}（${entry.title.zh}）${entry.version} · ${entry.source}${entry.provider === undefined ? '' : `/${entry.provider}`} · ${entry.sizes.join('/') || '—'}`
         const parts = [head]
         if (entry.error !== undefined) parts.push(`  不可用：${entry.error}`)
@@ -112,9 +144,13 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
         }
         if (entry.hash !== undefined) parts.push(`  版本哈希：${entry.hash.slice(0, 12)}`)
         return parts.join('\n')
-      })
-      const errors = catalog.errors.map((error) => `- ${error.dir}：${error.message}`)
-      return [{ type: 'text', text: [lines.join('\n'), ...(errors.length === 0 ? [] : ['', '读不出来的目录：', ...errors])].join('\n') }]
+      }))
+      if (catalog.errors.length > 0) lines.push('', '读不出来的目录：', ...catalog.errors.map((error) => `- ${error.dir}：${error.message}`))
+      // 启用状态每次都报：模型据此判断下一步能调用哪个工具（D9）。
+      const missing = OPTIONAL_TOOLS.filter((name) => !enabled.includes(name))
+      lines.push('', enabled.length === 0 ? '现在只有这个入口工具。' : `已经启用的工具：${enabled.join('、')}。`)
+      if (missing.length > 0) lines.push(`再要用别的，在下一次调用的 expose 里点名：${missing.join('、')}。`)
+      return [{ type: 'text', text: lines.join('\n') }]
     },
   }
 }

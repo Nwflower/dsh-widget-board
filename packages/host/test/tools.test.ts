@@ -14,7 +14,7 @@ import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createSelfChecks } from '../src/selfcheck'
 import type { WidgetRecord } from '../src/library'
-import { createToolContext, toolRegistrations } from '../src/tools'
+import { createToolContext, OPTIONAL_TOOLS, registerTools, toolRegistrations } from '../src/tools'
 import { dataError } from '../src/schema'
 
 const roots: string[] = []
@@ -188,6 +188,32 @@ describe('工具的定义', () => {
 })
 
 describe('widget_catalog', () => {
+  it('点名之后工具进入启用集合，回读的名单按次序给出', async () => {
+    const harnessed = harness()
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({ expose: [WIDGET_TOOL_NAMES.place, WIDGET_TOOL_NAMES.define] })
+    expect((value as { enabled: string[] }).enabled).toEqual([WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place])
+    expect([...harnessed.toolContext.enabled].sort()).toEqual([WIDGET_TOOL_NAMES.catalog, WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place].sort())
+    // 第二次点名只加不减：之前的两个与这次的 push 都在。
+    const again = await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({ expose: [WIDGET_TOOL_NAMES.push] })
+    expect((again as { enabled: string[] }).enabled).toEqual([WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place, WIDGET_TOOL_NAMES.push])
+  })
+
+  it('不点名时名单是空的', async () => {
+    const harnessed = harness()
+    const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({})
+    expect((value as { enabled: string[] }).enabled).toEqual([])
+  })
+
+  it('点名入口工具自己、或名字不在可点名范围里时拒绝', async () => {
+    const harnessed = harness()
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.catalog)
+    await expect(tool.execute({ expose: [WIDGET_TOOL_NAMES.catalog] })).rejects.toThrow(/不能点名这些工具/)
+    await expect(tool.execute({ expose: ['widget_nope'] })).rejects.toThrow(/不能点名这些工具/)
+    await expect(tool.execute({ expose: 'widget_define' })).rejects.toThrow(/数组/)
+    // 被拒绝的那一次只留下入口工具，没有加进任何可选工具。
+    expect([...harnessed.toolContext.enabled]).toEqual([WIDGET_TOOL_NAMES.catalog])
+  })
+
   it('列出组件与它们的声明', async () => {
     const value = await toolOf(harness({ records: [record('stat', { source: 'demo:count', actions: [{ id: 'demo:run' }] })] }), WIDGET_TOOL_NAMES.catalog).execute({})
     const catalog = value as { widgets: { id: string, source_id?: string, actions?: string[] }[] }
@@ -303,6 +329,66 @@ describe('widget_place', () => {
     const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat' })
     expect((value as { notes?: string[] }).notes?.join('')).toMatch(/data schema/)
     expect(harnessed.context.board.instances[0]?.data).toBeNull()
+  })
+})
+
+describe('按需出现的工具（D9）', () => {
+  /** 一套宿主替身：只记注册了哪些工具，提示段与 skill 都是空实现。 */
+  function hostContext() {
+    const registered: string[] = []
+    const scoped = {
+      tools: {
+        register: (tool: { name: string }) => {
+          registered.push(tool.name)
+          return () => undefined
+        },
+      },
+      inject: (_deps: string[], callback: (inner: unknown) => void) => {
+        callback({
+          systemPrompt: { section: () => () => undefined },
+          skills: { register: () => () => undefined },
+        })
+      },
+    }
+    const ctx = {
+      inject: (_deps: string[], callback: (value: unknown) => void) => { callback(scoped) },
+    }
+    return { ctx, registered }
+  }
+
+  it('启动时只注册入口工具，点名之后补上其余工具', async () => {
+    const host = hostContext()
+    const harnessed = harness()
+    const registration = registerTools(host.ctx as never, harnessed.toolContext)
+    expect(registration).toBeDefined()
+    expect(host.registered).toEqual([WIDGET_TOOL_NAMES.catalog])
+
+    const catalog = toolOf(harnessed, WIDGET_TOOL_NAMES.catalog)
+    await catalog.execute({ expose: [WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place] })
+    expect(host.registered).toEqual([WIDGET_TOOL_NAMES.catalog, WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place])
+
+    // 再点名同一个工具不会重复注册；新点名只追加。
+    await catalog.execute({ expose: [WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.push] })
+    expect(host.registered).toEqual([WIDGET_TOOL_NAMES.catalog, WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place, WIDGET_TOOL_NAMES.push])
+    expect(() => registration?.dispose()).not.toThrow()
+  })
+
+  it('入口工具的渲染写明现在启用与还能点名的工具', async () => {
+    const harnessed = harness()
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.catalog)
+    const empty = tool.output.render(undefined, await tool.execute({}))
+    expect(empty[0]?.text).toContain('现在只有这个入口工具')
+    expect(empty[0]?.text).toContain(WIDGET_TOOL_NAMES.place)
+
+    const some = tool.output.render(undefined, await tool.execute({ expose: [WIDGET_TOOL_NAMES.define] }))
+    expect(some[0]?.text).toContain(`已经启用的工具：${WIDGET_TOOL_NAMES.define}。`)
+    expect(some[0]?.text).not.toContain(`已经启用的工具：${WIDGET_TOOL_NAMES.define}、`)
+  })
+
+  it('点名的次序与工具自身的启用集合一致', async () => {
+    const harnessed = harness()
+    await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({ expose: [WIDGET_TOOL_NAMES.board, WIDGET_TOOL_NAMES.show] })
+    expect(OPTIONAL_TOOLS.filter((name) => harnessed.toolContext.enabled.has(name))).toEqual([WIDGET_TOOL_NAMES.show, WIDGET_TOOL_NAMES.board])
   })
 })
 

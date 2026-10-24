@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">体验优化</h3>
+
+- 会话工具改为按需出现：模型默认只看到 widget_catalog，写组件、放卡、推数据等工具经它的 expose 点名后才注册，常驻上下文从约 1.5k token 降到约 0.2k。
+
+<h3 id="en-unreleased">Improvements</h3>
+
+- Session tools now appear on demand: the model starts with widget_catalog only, and the write/place/push tools register after being named in its expose field, cutting the resident tool context from about 1.5k to 0.2k tokens.
+
 ## [0.1.5] - 2026-10-23
 
 [中文](#cn-0.1.5) | [English](#en-0.1.5)

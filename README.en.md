@@ -31,7 +31,7 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 |---|---|
 | Plus menu | Add, tidy, refresh; Add opens the floating library |
 | Card gear | Change the widget's props, fill in credentials, review and grant data sources and permissions |
-| Session tools | The agent lists, writes, places widgets and pushes data; `widget_show` draws one in the answer |
+| Session tools | The agent lists, writes, places widgets and pushes data; `widget_show` draws one in the answer. Only `widget_catalog` starts out visible; the rest appear after being named in its `expose` field |
 | `widgetBoard` service | Other plugins register widgets, data sources, actions and host capabilities |
 
 <hr>

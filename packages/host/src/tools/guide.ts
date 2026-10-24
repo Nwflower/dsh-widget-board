@@ -11,6 +11,19 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 
 看板上每张卡片是一个沙箱里的小组件：一个目录，三份文件。宿主按内容哈希给版本，改动之后自动重载。
 
+## 先点名要用的工具
+
+工具表默认只有入口工具 \`widget_catalog\`。要在看板上动手，先在它的 \`expose\` 里点名要用的那几个，从下一步起它们才会出现：
+
+- \`widget_define\`：写下或覆盖组件，写完自动重载并自检。
+- \`widget_place\`：往看板放一张卡，或改一张卡的位置、大小、props 与数据源。
+- \`widget_remove\`：移除一张卡。
+- \`widget_push\`：给一张卡推数据。
+- \`widget_show\`：在回答里内联显示一个组件。
+- \`widget_board\`：读看板上的卡片，拿到卡片 id。
+
+一次点名可以在同一次调用里一起取 \`widget_define\`、\`widget_place\`、\`widget_show\`，但调用它们要等下一次工具表组装之后，所以别把它们和点名本身放在同一轮并行调用里。
+
 ## 目录
 
 \`\`\`

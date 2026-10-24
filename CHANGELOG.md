@@ -6,13 +6,16 @@
 
 ## [Unreleased]
 
-[中文](#cn-unreleased) | [English](#en-unreleased)
+## [0.1.5] - 2026-10-23
 
-<h3 id="cn-unreleased">新增功能</h3>
+[中文](#cn-0.1.5) | [English](#en-0.1.5)
+
+<h3 id="cn-0.1.5">新增功能</h3>
 
 - 新增内置组件「今日宜休」：按卡片设置里的 GitHub 令牌认账号，列出这个账号名下还开着的 issue，带仓库、编号、标签与开了几天；点一行就在新标签页里打开那一条。组件自己不能导航，跳转交给宿主页面完成。
 - 新增内置组件「运行成本」：左边是宿主进程的常驻内存，右边是一块机器体检面板——堆与外部内存、系统内存、CPU 核数与负载、看板数据所在卷的磁盘余量、系统版本，外加卡片数、状态序列化总量、文档体积与组件库规模，最近 60 次采样画成折线。面板上的「再测一次」由宿主经同一条读取路径重读一次。数据源 `widget-board:system.metrics` 只读宿主自己的内存、机器读数与工作区，没有观众时不采样；卡片离开视口或页面隐藏时停止绘制与状态写入。矮盒子里保留四行带条形图的读数，堆、系统内存、CPU 与磁盘始终看得到。
 - 组件可以把链接交给宿主打开：`widget.open(url)` 发一条桥消息，由宿主页面在新标签页里开出这一页，协议只限 http 与 https。沙箱仍然不给导航与弹窗，组件拿到的只是「请宿主开一个网页」这一件事；会话里内联显示的卡片同样可用。
+- 天气卡改成按城市名取天气：设置里写「杭州」或「Hangzhou」，保存时由设置界面解析成经纬度与双语地名，卡片按它取 Open-Meteo 的五天预报；旁边新增「定位」，先问浏览器位置，拿不到时按网络出口确定城市。城市名、地名与坐标由同一份配置一起写进卡片，城市名与坐标不会再各说各的。组件的 props schema 新增两个可选的 `format`：`city` 是一个可以定位的城市名，`fills` 指明解析出的地名与坐标写到哪几个字段；`hidden` 的字段不出控件，留给这类派生值。
 
 ### 体验优化
 
@@ -21,16 +24,23 @@
 - 天气卡改成「窗外是一幅画，卡片是它前面的一层玻璃」。晴天与多云是一幅清朗的窗景：蓝天、太阳或月亮、一朵朵有体积的积云——云面沿受光方向从亮到暗，鼓出来的地方有高光，上缘一道受光的亮边，日月从云后透出一圈光；云飘在城市后面，画面不闪。夜里换成月亮与满天星，晴朗的夜空里月亮不会被云盖住。阴天从多云里分出来，有了自己的天空。下雨下雪时，水珠落在玻璃上长大、顺着玻璃滑下并留下水痕，每颗大水珠真折射出它身后的世界；水珠会一直补足，长时间开着也不会滚空。雷暴另有闪电，两三秒一次，一亮一暗再补一下。组件格式新增 `scripts`：组件可以把逻辑按职责拆成目录里的多份脚本。
 - 卡片设置弹窗改成三节：配置、日志、关于。配置一节是一张两列的表，字段按组件自己声明的类型出输入框、数字、开关或下拉，组件声明的凭据与它们排在一起，值由宿主保存、界面只显示状态。日志一节列出这张卡对外的每一次请求（方法、主机与路径、状态与耗时）。内置组件去掉了「标题」「眉题」这类只换一行字的占位字段，剩下的字段补上了中英文名字。
 - 「今日宜休」按 GitHub 工作台那种排法重画：一行三段——左边状态点，中间标题加副行（仓库、编号、谁开的、标签、回复数），右边一列写「更新」与其下的时刻；标签用 GitHub 自带的颜色，列表上方多一行开放数。能力回的结果随之加上「最后更新时刻」「作者」与带颜色的标签。
+- 天气卡在大盒子里把城市、温度与天气文字一起放大：字号按卡片的实际宽高计算，温度再按高度收住，城市最大 40px、温度最大 200px，天气文字与高低温、预报栏跟着变大；城市、温度与天气各自压一层更厚的投影与上下柔光，浅色与深色下都更容易读。窄盒子把天气与高低温排成可以折行的一行，矮盒子收掉预报栏与日期，只留城市、天气、温度与高低温。
 
 ### 问题修复
 
+- 组件库浮窗不再被别的插件给所有对话窗定的尺寸框住：它不再声明 `dialog` 这个角色，高度上限仍按与下方菜单的间距算，题头与关闭钮不会再被推到窗口上缘之外。
 - 月历与翻页时钟在矮盒子里不再被截断：盒子落到 6rem 高时，月历收掉导航按钮与星期行、把日期数字收小，翻页时钟的字号下界跟着盒子高度收小。尺寸矩阵的纵向截断判据下全部组件通过。DSH 余额卡的读数改成始终保留两位小数、十亿起只留整数并标近似号，窄盒子放不下时依次收货币代码、收紧一档、折行；卡片多一个可选的标签（kicker）。
 
-<h3 id="en-unreleased">New Features</h3>
+### 其他变更
+
+- README 的状态一节写明 npm 上的版本为 0.1.5。
+
+<h3 id="en-0.1.5">New Features</h3>
 
 - New built-in widget "Rest today": uses the GitHub token from the card settings to find the account and lists the open issues on its repositories, with repository, number, labels and age; clicking a row opens it in a new tab. Widgets cannot navigate themselves, so the host page opens the link.
 - New built-in widget "Running cost": the host process's resident memory on the left and a machine check panel on the right — heap and external memory, system memory, CPU cores and load, free space on the volume holding board data, and the OS version, plus card count, serialized state size, document weight and library size, with the last 60 samples drawn as a sparkline. The panel's "Measure again" button asks the host to reread through the same path. The `widget-board:system.metrics` source reads only the host's own memory, machine readings and workspace; it samples nothing without an audience and stops drawing and writing state when the card leaves the viewport or the page is hidden. Short boxes keep four rows with bars, so heap, system memory, CPU and disk stay visible.
 - Widgets can hand a link to the host: `widget.open(url)` sends one bridge message and the host page opens it in a new tab, limited to http and https. The sandbox still grants no navigation or popups — a widget only gets to ask the host to open a page, and inline cards in a session can do it too.
+- The weather card now takes a city name: type “杭州” or “Hangzhou” in the settings, and the dialog resolves it into coordinates and a bilingual place name that the card uses for the five-day Open-Meteo forecast; a new Locate button asks the browser first and falls back to the city of this network. The name, place and coordinates are written together, so the city shown and the weather fetched no longer disagree. The widget props schema gained two optional formats: `city` marks a locatable city name, with `fills` naming the props that receive the resolved place and coordinates; `hidden` fields get no control and are left for those derived values.
 
 ### Improvements
 
@@ -39,10 +49,16 @@
 - The weather card is now a view outside a window with the card as the glass in front of it. Clear and cloudy days are a crisp window view: blue sky, a sun or moon, and cumulus clouds with real volume — each cloud shades from lit to shadowed along the light direction, its bumps catch highlights, its upper edge carries a lit rim, and the sun or moon bleeds a glow through it. The clouds drift behind the city and nothing strobes. At night the moon and stars take over, and a clear night leaves the moon unobstructed. Overcast is its own sky rather than a shade of cloudy. In rain and snow, droplets land on the glass, grow, slide down leaving wet trails, and the large ones genuinely refract the world behind them; the glass keeps replenishing its droplets, so it never runs dry however long the card stays open. A thunderstorm adds lightning every two or three seconds, a bright strike with a second, fainter pulse. The widget format gained `scripts`, so a widget can split its logic into several files by responsibility.
 - The card settings dialog now has three sections: configuration, log and about. Configuration is a two-column table — each field gets a text input, number input, switch or dropdown according to the type the widget declares, and the widget's credentials sit in the same table, stored by the host with only their status on screen. The log section lists every request the card makes, with method, host and path, status and time. Built-in widgets dropped the placeholder title/kicker fields, and the remaining fields gained labels.
 - The Rest today card is redrawn after the GitHub workbench layout: each row has a state dot on the left, the title plus a sub line (repository, number, author, labels, replies) in the middle, and an "Updated" column with the time on the right; labels keep their GitHub colors, and a count line sits above the list. The capability result now carries the last-updated time, the author, and colored labels.
+- In large boxes the weather card scales the city, temperature and condition together: type sizes come from the card's measured width and height, the temperature is further capped by height, the city grows to 40px and the temperature to 200px, and the condition, highs and lows and forecast bar grow with them; a stronger shadow and top/bottom scrim keep all three readable in light and dark. Narrow boxes let the condition and highs wrap onto one line, and short boxes drop the forecast bar and the date, keeping the city, condition, temperature and highs.
 
 ### Bug Fixes
 
+- The widget library no longer takes the size another plugin gives every dialog: it no longer declares the dialog role, so its own cap — the space above the menu — keeps the header and close button inside the window.
 - The calendar and the flip clock are no longer clipped in short boxes: at 6rem the calendar drops its nav buttons and weekday row and shrinks the day numbers, and the flip clock's minimum font size follows the box height. Every widget now passes the size matrix's vertical-clipping check. The DSH balance card keeps two decimals up to a billion and shows whole numbers with an approximation mark above that; in narrow boxes it drops the currency code, tightens a step, then wraps. The card gains an optional kicker label.
+
+### Chores
+
+- The README status section names the version on npm as 0.1.5.
 
 ## [0.1.4] - 2026-10-18
 

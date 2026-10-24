@@ -117,7 +117,7 @@ import type { WidgetBoardClientService } from 'dsh-widget-board/service'
 
 ## 状态
 
-开发中，0.1.3 已发布到 npm。右侧栏、组件库页面、组件的版本历史与分享、导入还在做。
+开发中，0.1.5 已发布到 npm。右侧栏、组件库页面、组件的版本历史与分享、导入还在做。
 
 ## 许可
 

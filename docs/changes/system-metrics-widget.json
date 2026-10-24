@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 1,
-  "at": "2026-10-22",
-  "external": true,
-  "zh": "新增内置组件「运行成本」：左边是宿主进程的常驻内存，右边是一块机器体检面板——堆与外部内存、系统内存、CPU 核数与负载、看板数据所在卷的磁盘余量、系统版本，外加卡片数、状态序列化总量、文档体积与组件库规模，最近 60 次采样画成折线。面板上的「再测一次」由宿主经同一条读取路径重读一次。数据源 `widget-board:system.metrics` 只读宿主自己的内存、机器读数与工作区，没有观众时不采样；卡片离开视口或页面隐藏时停止绘制与状态写入。矮盒子里保留四行带条形图的读数，堆、系统内存、CPU 与磁盘始终看得到。",
-  "en": "New built-in widget \"Running cost\": the host process's resident memory on the left and a machine check panel on the right — heap and external memory, system memory, CPU cores and load, free space on the volume holding board data, and the OS version, plus card count, serialized state size, document weight and library size, with the last 60 samples drawn as a sparkline. The panel's \"Measure again\" button asks the host to reread through the same path. The `widget-board:system.metrics` source reads only the host's own memory, machine readings and workspace; it samples nothing without an audience and stops drawing and writing state when the card leaves the viewport or the page is hidden. Short boxes keep four rows with bars, so heap, system memory, CPU and disk stay visible."
-}

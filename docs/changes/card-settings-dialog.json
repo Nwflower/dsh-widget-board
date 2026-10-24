@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 1,
-  "at": "2026-10-21",
-  "external": true,
-  "zh": "卡片设置弹窗改成三节：配置、日志、关于。配置一节是一张两列的表，字段按组件自己声明的类型出输入框、数字、开关或下拉，组件声明的凭据与它们排在一起，值由宿主保存、界面只显示状态。日志一节列出这张卡对外的每一次请求（方法、主机与路径、状态与耗时）。内置组件去掉了「标题」「眉题」这类只换一行字的占位字段，剩下的字段补上了中英文名字。",
-  "en": "The card settings dialog now has three sections: configuration, log and about. Configuration is a two-column table — each field gets a text input, number input, switch or dropdown according to the type the widget declares, and the widget's credentials sit in the same table, stored by the host with only their status on screen. The log section lists every request the card makes, with method, host and path, status and time. Built-in widgets dropped the placeholder title/kicker fields, and the remaining fields gained labels."
-}

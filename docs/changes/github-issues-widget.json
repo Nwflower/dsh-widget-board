@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 0,
-  "at": "2026-10-20",
-  "external": true,
-  "zh": "新增内置组件「今日宜休」：按卡片设置里的 GitHub 令牌认账号，列出这个账号名下还开着的 issue，带仓库、编号、标签与开了几天；点一行就在新标签页里打开那一条。组件自己不能导航，跳转交给宿主页面完成。",
-  "en": "New built-in widget \"Rest today\": uses the GitHub token from the card settings to find the account and lists the open issues on its repositories, with repository, number, labels and age; clicking a row opens it in a new tab. Widgets cannot navigate themselves, so the host page opens the link."
-}

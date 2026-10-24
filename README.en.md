@@ -117,7 +117,7 @@ Runtime goes through the service: no value import of this plugin, no `dsh.client
 
 ## Status
 
-In development; 0.1.3 is on npm. The right sidebar, the widget library page, widget version history and sharing/import are still to come.
+In development; 0.1.5 is on npm. The right sidebar, the widget library page, widget version history and sharing/import are still to come.
 
 ## License
 

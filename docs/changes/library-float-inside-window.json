@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 0,
+  "at": "2026-10-23",
+  "external": true,
+  "zh": "组件库浮窗不再被别的插件给所有对话窗定的尺寸框住：它不再声明 `dialog` 这个角色，高度上限仍按与下方菜单的间距算，题头与关闭钮不会再被推到窗口上缘之外。",
+  "en": "The widget library no longer takes the size another plugin gives every dialog: it no longer declares the dialog role, so its own cap — the space above the menu — keeps the header and close button inside the window."
+}

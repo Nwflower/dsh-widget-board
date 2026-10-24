@@ -74,7 +74,9 @@ export function LibraryPanel({
   const [importError, setImportError] = useState<string | null>(null)
 
   return (
-    <div className="dsh-widget-board__library" data-dsh-widget-board-library="" role="dialog" aria-label={t('library')}>
+    // 浮窗不占 `dialog` 这个角色：别的插件给所有对话窗统一定尺寸时，那条规则会盖过 library.css 里
+    // 按与下方菜单的间距算出的上限，浮窗往上涨过窗口上缘，题头与关闭钮就看不见了。
+    <div className="dsh-widget-board__library" data-dsh-widget-board-library="" role="region" aria-label={t('library')}>
       <header className="dsh-widget-board__library-head">
         <div>
           <h2 className="dsh-widget-board__library-title">{t('library')}</h2>

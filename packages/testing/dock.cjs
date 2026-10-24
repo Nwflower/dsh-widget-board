@@ -97,6 +97,38 @@ async function dockPass(page, check) {
   check('组件库排成网格', library.display === 'grid' && library.columns >= 2, `${library.display} / ${library.columns} 列`)
   check('每一格画着组件的画面', library.previews >= 3, `${library.previews} 个预览`)
 
+  // 浮窗整个落在窗口里：题头与关闭钮在上、下缘在加号之上。别的插件常给所有对话窗统一定一个
+  // 「整页减一点」的上限，浮窗若带上那个角色就会跟着长到窗口之外，这一条连同那条规则一起查。
+  const boxOf = () => page.evaluate((selector) => {
+    const node = document.querySelector(selector)
+    const head = node?.querySelector('.dsh-widget-board__library-head')
+    const dock = document.querySelector('[data-dsh-widget-board-dock-toggle]')
+    if (node === null || head === null || dock === null) return null
+    const rect = node.getBoundingClientRect()
+    const headRect = head.getBoundingClientRect()
+    return {
+      top: Math.round(rect.top),
+      bottom: Math.round(rect.bottom),
+      height: Math.round(rect.height),
+      headTop: Math.round(headRect.top),
+      headHeight: Math.round(headRect.height),
+      dockTop: Math.round(dock.getBoundingClientRect().top),
+    }
+  }, LIBRARY)
+  const placement = await boxOf()
+  check(
+    '组件库浮窗整个落在窗口里',
+    placement !== null && placement.top >= 0 && placement.headTop >= 0 && placement.headHeight > 0 && placement.bottom <= placement.dockTop,
+    JSON.stringify(placement),
+  )
+  await page.addStyleTag({
+    content: 'body[data-dsh-widget-board-foreign] :is(dialog, [role="dialog"]) { max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); }',
+  })
+  await page.evaluate(() => { document.body.setAttribute('data-dsh-widget-board-foreign', '') })
+  const stressed = await boxOf()
+  await page.evaluate(() => { document.body.removeAttribute('data-dsh-widget-board-foreign') })
+  check('别的插件给对话窗统一定尺寸时浮窗不动', stressed !== null && stressed.height === placement?.height && stressed.top === placement?.top, JSON.stringify(stressed))
+
   // 按住一格拖到看板：拖放预览跟着指针，松手后看板多一张卡，且落在右侧一列。
   const before = await snapshot(page)
   const tile = page.locator('[data-dsh-widget-board-add="stat"]').first()

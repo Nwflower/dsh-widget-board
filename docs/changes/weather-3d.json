@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 0,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "天气卡换成 Three.js 搭的立体窗景：三层楼群与窗灯、湿路面上的车流、雨雪与雷电、塔顶航空灯与扫过的探照灯，镜头缓慢推拉并跟随指针；新增精选库 three，只有声明 libs 的组件才内联它。",
+  "en": "The weather card now renders a Three.js cityscape: three depth bands of towers with lit windows, traffic on wet asphalt, rain, snow and lightning, rooftop beacons and sweeping searchlights, with a camera that drifts and follows the pointer; a new curated library, three, is inlined only into widgets that declare it."
+}

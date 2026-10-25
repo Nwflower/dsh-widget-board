@@ -42,7 +42,38 @@ interface Found {
   name: string
   latitude: number
   longitude: number
+  /** 地区名，例如「北京市」。 */
+  admin?: string
+  /** 国家名。 */
+  country?: string
+  /** 国家代码。 */
+  countryCode?: string
+  /** IANA 时区。 */
+  timezone?: string
 }
+
+/** 一条候选：给人看的名字、给机器用的坐标。 */
+export interface CityCandidate {
+  /** 地点 id；同一座城在两种语言下共用它。 */
+  id?: number
+  /** 中文名。 */
+  zh: string
+  /** 英文名。 */
+  en: string
+  /** 英文的地区与国家，用来把同名城市分开。 */
+  detail: string
+  latitude: number
+  longitude: number
+}
+
+/** 一次候选检索最多等多久：输入框边打字边查，等太久不如放弃。 */
+const SUGGEST_TIMEOUT_MS = 5000
+
+/** 候选只列前几条，下拉不占满整屏。 */
+const SUGGEST_LIMIT = 5
+
+/** 同一个前缀的候选只查一次，删一个字再打回来不必重来。 */
+const suggested = new Map<string, Promise<CityCandidate[]>>()
 
 /** 一对坐标。 */
 interface Coordinates {
@@ -61,10 +92,10 @@ const known = new Map<string, CityFix>()
  * @returns 解出来的对象。
  * @throws {Error} 请求失败、状态不是 2xx，或响应不是对象。
  */
-async function responseJson(url: string, subject: string): Promise<Record<string, unknown>> {
+async function responseJson(url: string, subject: string, timeoutMs: number = TIMEOUT_MS): Promise<Record<string, unknown>> {
   let response: Response
   try {
-    response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+    response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
   } catch (error) {
     throw new Error(`${subject}：${(error as Error).message}`)
   }
@@ -89,6 +120,10 @@ function placeOf(value: unknown): Found | undefined {
     name: entry.name,
     latitude: entry.latitude,
     longitude: entry.longitude,
+    ...(typeof entry.admin1 === 'string' ? { admin: entry.admin1 } : {}),
+    ...(typeof entry.country === 'string' ? { country: entry.country } : {}),
+    ...(typeof entry.country_code === 'string' ? { countryCode: entry.country_code } : {}),
+    ...(typeof entry.timezone === 'string' ? { timezone: entry.timezone } : {}),
   }
 }
 
@@ -126,6 +161,101 @@ async function search(name: string, language: 'zh' | 'en'): Promise<Found | unde
 async function byId(id: number, language: 'zh' | 'en'): Promise<Found | undefined> {
   const url = `${CITY_BY_ID_ENDPOINT}?id=${String(id)}&language=${language}`
   return placeOf(await responseJson(url, t('cityLookupFailed')))
+}
+
+/**
+ * 一条候选的说明：地区与国家，把同名的城市分开。
+ *
+ * @param found - 检索结果。
+ * @returns 例如「北京市 · 中国」。
+ */
+function detailOf(found: Found): string {
+  return [found.admin, found.country].filter((part): part is string => part !== undefined && part !== '').join(' · ')
+}
+
+/**
+ * 按输入给出候选城市。
+ *
+ * 两种语言各查一份再按 id 合并：中文名在英文索引里查不到，反之亦然；同一个地点只留一条。
+ *
+ * @param query - 输入框里的文字，中文、英文或拼音都可以。
+ * @returns 候选列表，最多 {@link SUGGEST_LIMIT} 条。
+ * @throws {Error} 请求失败。
+ */
+export function suggestCities(query: string): Promise<CityCandidate[]> {
+  const trimmed = query.trim()
+  if (trimmed.length === 0) return Promise.resolve([])
+  const cached = suggested.get(trimmed.toLowerCase())
+  if (cached !== undefined) return cached
+  const pending = (async (): Promise<CityCandidate[]> => {
+    // 按输入的语言去查：中文名只有用中文索引才查得到，英文索引会返回空结果。
+    const wantsChinese = /[一-鿿]/.test(trimmed)
+    const body = await responseJson(
+      `${CITY_ENDPOINT}?name=${encodeURIComponent(trimmed)}&count=${String(SUGGEST_LIMIT)}&language=${wantsChinese ? 'zh' : 'en'}&format=json`,
+      t('cityLookupFailed'),
+      SUGGEST_TIMEOUT_MS,
+    )
+    const results = Array.isArray(body.results) ? body.results : []
+    const merged: CityCandidate[] = []
+    const seen = new Set<number>()
+    const labels = new Set<string>()
+    for (const raw of results) {
+      const found = placeOf(raw)
+      if (found === undefined) continue
+      if (found.id !== undefined) {
+        if (seen.has(found.id)) continue
+        seen.add(found.id)
+      }
+      // 同名同地区的重复条目（不同 id）对选城市没有意义，只留一条。
+      const label = `${found.name}|${detailOf(found)}`
+      if (labels.has(label)) continue
+      labels.add(label)
+      merged.push({
+        ...(found.id === undefined ? {} : { id: found.id }),
+        zh: found.name,
+        en: found.name,
+        detail: detailOf(found),
+        latitude: found.latitude,
+        longitude: found.longitude,
+      })
+      if (merged.length >= SUGGEST_LIMIT) break
+    }
+    // 中文输入已经在中文索引里拿到了中文名与中文地区，不必再按 id 一个个补。
+    if (wantsChinese) return merged
+    // 英文输入补中文名：有一条失败不影响其余的候选。
+    const localised = await Promise.all(merged.map(async (candidate) => {
+      if (candidate.id === undefined) return candidate
+      try {
+        const other = await byId(candidate.id, wantsChinese ? 'en' : 'zh')
+        if (other === undefined) return candidate
+        return wantsChinese
+          ? { ...candidate, en: other.name, detail: detailOf(other) === '' ? candidate.detail : detailOf(other) }
+          : { ...candidate, zh: other.name }
+      } catch {
+        return candidate
+      }
+    }))
+    return localised
+  })()
+  suggested.set(trimmed.toLowerCase(), pending)
+  // 失败的不留在缓存里，下一笔输入还能再试。
+  pending.catch(() => { suggested.delete(trimmed.toLowerCase()) })
+  return pending
+}
+
+/**
+ * 把一条候选变成可以直接保存的城市。
+ *
+ * @param candidate - 下拉里选中的那一条。
+ * @returns 城市名取中文名，地名给双语。
+ */
+export function fixOfCandidate(candidate: CityCandidate): CityFix {
+  return {
+    city: candidate.zh,
+    place: { zh: candidate.zh, en: candidate.en },
+    latitude: candidate.latitude,
+    longitude: candidate.longitude,
+  }
 }
 
 /**

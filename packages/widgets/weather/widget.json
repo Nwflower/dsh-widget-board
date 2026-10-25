@@ -5,23 +5,52 @@
     "en": "Weather"
   },
   "description": {
-    "zh": "窗景天气卡：数据由 Open-Meteo 提供，组件把原始响应映射成五天预报。地点填城市名，设置里可以按当前位置定位；背景是一幅现画的窗外景：晴有光晕、夜里有月亮与星，雨雪落在玻璃上顺着玻璃流；切换预报日时整片天空跟着换。",
-    "en": "A window-view weather card: Open-Meteo supplies the raw reading and the widget maps it into a five-day forecast. The place is a city name, and the card settings can locate you; the background is a painted view outside the window — sun glare, a moon and stars at night, rain and snow running down the glass — and switching days changes the whole sky."
+    "zh": "窗景天气卡：数据由 Open-Meteo 提供，组件把原始响应映射成五天预报。地点在设置里边输边选（中文名、英文名或拼音，从候选里挑一条），也可以按当前位置定位；窗外是一处按城市挑的立体风景：现代都市的三层楼群、中式庭院的月洞门与灯笼、古建的塔与殿、水墨的山峦；雨雪与雷电落在玻璃上，镜头随指针轻微偏转，也能轮播换景；切换预报日时整片天空、雾与光线一起过渡。",
+    "en": "A window-view weather card: Open-Meteo supplies the raw reading and the widget maps it into a five-day forecast. The place is picked in the card settings from live suggestions (Chinese name, English name or pinyin), and the card settings can also locate you; outside the window stands a three-dimensional scene chosen by city — modern towers with lit windows, a Chinese courtyard with a moon gate and lanterns, pagodas and halls, or ink-wash mountains; rain, snow and lightning land on the glass, the camera drifts with the pointer, and the scenes can rotate on a timer; switching days moves the whole sky, fog and light together."
   },
   "author": "dsh-widget-board",
-  "version": "0.4.0",
-  "sizes": ["s", "l"],
-  "defaultBox": { "w": 1, "h": 22 },
-  "minBox": { "w": 1, "h": 16 },
+  "version": "0.6.0",
+  "sizes": [
+    "s",
+    "l"
+  ],
+  "defaultBox": {
+    "w": 1,
+    "h": 22
+  },
+  "minBox": {
+    "w": 1,
+    "h": 16
+  },
+  "libs": [
+    "three"
+  ],
   "source": "http",
   "request": {
     "url": "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean&timezone=auto&forecast_days=5",
     "cacheMs": 18000000
   },
   "permissions": {
-    "hosts": ["api.open-meteo.com"]
+    "hosts": [
+      "api.open-meteo.com"
+    ]
   },
-  "scripts": ["world.js", "glass.js"],
+  "scripts": [
+    "city-style.js",
+    "city-kit.js",
+    "scene-city.js",
+    "city-beijing.js",
+    "city-shanghai.js",
+    "city-newyork.js",
+    "city-tokyo.js",
+    "city-london.js",
+    "city-cyberpunk.js",
+    "scene-ink.js",
+    "scene-court.js",
+    "scene-heritage.js",
+    "world.js",
+    "glass.js"
+  ],
   "props": {
     "type": "object",
     "properties": {
@@ -40,10 +69,17 @@
         "type": "object",
         "format": "hidden",
         "additionalProperties": false,
-        "required": ["zh", "en"],
+        "required": [
+          "zh",
+          "en"
+        ],
         "properties": {
-          "zh": { "type": "string" },
-          "en": { "type": "string" }
+          "zh": {
+            "type": "string"
+          },
+          "en": {
+            "type": "string"
+          }
         }
       },
       "latitude": {
@@ -59,32 +95,108 @@
         "minimum": -180,
         "maximum": 180,
         "default": 116.4074
+      },
+      "scene": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "beijing",
+          "shanghai",
+          "newyork",
+          "tokyo",
+          "london",
+          "cyberpunk",
+          "city",
+          "heritage",
+          "court",
+          "ink"
+        ],
+        "default": "auto"
+      },
+      "motion": {
+        "type": "string",
+        "enum": [
+          "drift",
+          "still",
+          "carousel"
+        ],
+        "default": "drift"
       }
     }
   },
   "data": {
     "type": "object",
-    "required": ["current", "daily"],
+    "required": [
+      "current",
+      "daily"
+    ],
     "properties": {
-      "timezone": { "type": "string" },
+      "timezone": {
+        "type": "string"
+      },
       "current": {
         "type": "object",
-        "required": ["temperature_2m", "weather_code"],
+        "required": [
+          "temperature_2m",
+          "weather_code"
+        ],
         "properties": {
-          "temperature_2m": { "type": "number" },
-          "weather_code": { "type": "integer" },
-          "is_day": { "type": "integer" }
+          "temperature_2m": {
+            "type": "number"
+          },
+          "weather_code": {
+            "type": "integer"
+          },
+          "is_day": {
+            "type": "integer"
+          }
         }
       },
       "daily": {
         "type": "object",
-        "required": ["time", "weather_code", "temperature_2m_max", "temperature_2m_min", "temperature_2m_mean"],
+        "required": [
+          "time",
+          "weather_code",
+          "temperature_2m_max",
+          "temperature_2m_min",
+          "temperature_2m_mean"
+        ],
         "properties": {
-          "time": { "type": "array", "minItems": 5, "items": { "type": "string" } },
-          "weather_code": { "type": "array", "minItems": 5, "items": { "type": "integer" } },
-          "temperature_2m_max": { "type": "array", "minItems": 5, "items": { "type": "number" } },
-          "temperature_2m_min": { "type": "array", "minItems": 5, "items": { "type": "number" } },
-          "temperature_2m_mean": { "type": "array", "minItems": 5, "items": { "type": "number" } }
+          "time": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "weather_code": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "temperature_2m_max": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+              "type": "number"
+            }
+          },
+          "temperature_2m_min": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+              "type": "number"
+            }
+          },
+          "temperature_2m_mean": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+              "type": "number"
+            }
+          }
         }
       }
     }
@@ -99,8 +211,56 @@
       "en": "City"
     },
     "props.city.hint": {
-      "zh": "填城市名，例如「杭州」或「Hangzhou」；按「定位」用当前位置填上，浏览器给不出位置时按网络出口估算。",
-      "en": "Type a city name such as “Hangzhou”; press Locate to fill it from where you are (when the browser cannot provide a position, the network's city is used)."
+      "zh": "输入中文名、英文名或拼音，从候选里挑一条；按「定位」用当前位置填上，浏览器给不出位置时按网络出口估算。",
+      "en": "Type a Chinese name, an English name or pinyin and pick one from the list; press Locate to fill it from where you are (when the browser cannot provide a position, the network's city is used)."
+    },
+    "props.scene.label": {
+      "zh": "景观",
+      "en": "Scene"
+    },
+    "props.scene.auto": {
+      "zh": "自动（按城市）",
+      "en": "Auto (by city)"
+    },
+    "props.scene.city": {
+      "zh": "现代都市",
+      "en": "Modern city"
+    },
+    "props.scene.heritage": {
+      "zh": "古建塔殿",
+      "en": "Historic towers"
+    },
+    "props.scene.court": {
+      "zh": "中式庭院",
+      "en": "Chinese courtyard"
+    },
+    "props.scene.ink": {
+      "zh": "水墨山水",
+      "en": "Ink-wash landscape"
+    },
+    "props.scene.hint": {
+      "zh": "窗外画什么：自动按城市挑（北京的古建、苏州的庭院、杭州的水墨……），也可以直接指定。",
+      "en": "What stands outside the window: Auto picks by city (historic Beijing, a Jiangnan courtyard, ink-wash Hangzhou...), or choose one."
+    },
+    "props.motion.label": {
+      "zh": "动画",
+      "en": "Motion"
+    },
+    "props.motion.drift": {
+      "zh": "缓慢漂移",
+      "en": "Drift"
+    },
+    "props.motion.still": {
+      "zh": "静止",
+      "en": "Still"
+    },
+    "props.motion.carousel": {
+      "zh": "轮播换景",
+      "en": "Rotate scenes"
+    },
+    "props.motion.hint": {
+      "zh": "镜头缓慢漂移、静止不动，或每隔十几秒轮播一处景观。",
+      "en": "Let the camera drift, hold the frame still, or rotate through the scenes every few seconds."
     },
     "loading": {
       "zh": "正在获取天气",
@@ -109,6 +269,30 @@
     "unavailable": {
       "zh": "暂时无法获取天气",
       "en": "Weather unavailable"
+    },
+    "props.scene.beijing": {
+      "zh": "北京国贸 CBD",
+      "en": "Beijing CBD"
+    },
+    "props.scene.shanghai": {
+      "zh": "上海陆家嘴",
+      "en": "Shanghai Lujiazui"
+    },
+    "props.scene.newyork": {
+      "zh": "纽约曼哈顿",
+      "en": "New York"
+    },
+    "props.scene.tokyo": {
+      "zh": "东京涩谷",
+      "en": "Tokyo Shibuya"
+    },
+    "props.scene.london": {
+      "zh": "伦敦金融城",
+      "en": "London"
+    },
+    "props.scene.cyberpunk": {
+      "zh": "赛博霓虹",
+      "en": "Cyberpunk neon"
     }
   }
 }

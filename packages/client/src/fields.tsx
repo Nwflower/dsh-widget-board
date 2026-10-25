@@ -9,8 +9,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { CardSettings, CredentialSetting, CredentialStatus, LocalizedText } from '@dsh-widget-board/contracts'
 import { isChinese, t, textOf } from './copy'
-import { geocodeCity, locateCity } from './geocode'
+import { fixOfCandidate, geocodeCity, locateCity } from './geocode'
 import type { CityFix } from './geocode'
+import { CityPicker, latitudeOf } from './city-picker'
 import { PropsRejectedError } from './snapshot'
 import type { PropsIssue } from './snapshot'
 
@@ -36,6 +37,8 @@ export interface ConfigField {
   hint?: string
   required: boolean
   enumValues?: string[]
+  /** 每个枚举值的显示名，来自 manifest 的 `props.<key>.<value>`；缺的用原值。 */
+  enumLabels?: Record<string, string>
   min?: number
   max?: number
   maxLength?: number
@@ -91,6 +94,19 @@ function hintOf(key: string, text: Readonly<Record<string, LocalizedText>> | und
 }
 
 /**
+ * 取一个枚举值的显示名：manifest 的 `props.<key>.<value>`，没有再显示原值。
+ *
+ * @param key - 字段名。
+ * @param value - schema 里的枚举值。
+ * @param text - 组件的双语文案。
+ * @returns 当前语言下的显示名。
+ */
+function enumLabelOf(key: string, value: string, text: Readonly<Record<string, LocalizedText>> | undefined): string {
+  const fromText = text?.[`props.${key}.${value}`]
+  return fromText === undefined ? value : textOf(fromText)
+}
+
+/**
  * 一个城市字段的 `fills`：解析出的地名与坐标各写到哪个 prop。
  *
  * @param value - schema 里的 `fills`。
@@ -136,7 +152,21 @@ export function fieldsOf(
       ? raw.enum as string[]
       : undefined
     if (enumValues !== undefined) {
-      fields.push({ key, kind: 'enum', label, ...(hint === undefined ? {} : { hint }), required: isRequired, enumValues, ...fallback })
+      const enumLabels: Record<string, string> = {}
+      for (const value of enumValues) {
+        const shown = enumLabelOf(key, value, text)
+        if (shown !== value) enumLabels[value] = shown
+      }
+      fields.push({
+        key,
+        kind: 'enum',
+        label,
+        ...(hint === undefined ? {} : { hint }),
+        required: isRequired,
+        enumValues,
+        ...(Object.keys(enumLabels).length === 0 ? {} : { enumLabels }),
+        ...fallback,
+      })
       continue
     }
     if (raw.type === 'boolean') {
@@ -221,6 +251,55 @@ function issueKey(issue: PropsIssue): string | undefined {
   return issue.path.slice(1).split('/')[0]
 }
 
+/**
+ * 数字字段的输入：编辑期间保留原文。
+ *
+ * 受控输入把每次改动立即解析回数字，「3.」「1e」这类中间写法会当场消失或清空字段。原文留在
+ * 本地：能解析时提交解析值，解析不了的原文留在框里接着编辑，失焦时回到草稿里的那一份。
+ */
+function NumberInput({ fieldKey, value, placeholder, min, max, disabled, onCommit }: {
+  fieldKey: string
+  value: number | undefined
+  placeholder: string | undefined
+  min: number | undefined
+  max: number | undefined
+  disabled: boolean
+  onCommit(next: number | undefined): void
+}): ReactNode {
+  /** 编辑中的原文；`null` 表示框里显示的就是草稿里的数。 */
+  const [text, setText] = useState<string | null>(null)
+  return (
+    <input
+      className="dsh-widget-board__input dsh-widget-board__input--number"
+      type="number"
+      data-dsh-widget-board-field={fieldKey}
+      value={text ?? (value === undefined ? '' : String(value))}
+      placeholder={placeholder}
+      min={min}
+      max={max}
+      step="any"
+      disabled={disabled}
+      onChange={(event) => {
+        const next = event.target.value
+        const parsed = Number(next)
+        if (next !== '' && Number.isFinite(parsed)) {
+          setText(null)
+          onCommit(parsed)
+          return
+        }
+        // 空串是「去掉这个键」；解析不了的中间写法留在框里，等它补全。
+        if (next === '') {
+          setText(null)
+          onCommit(undefined)
+          return
+        }
+        setText(next)
+      }}
+      onBlur={() => { setText(null) }}
+    />
+  )
+}
+
 /** 配置一节要画的东西。 */
 export interface ConfigPanelProps {
   settings: CardSettings
@@ -261,10 +340,15 @@ export function ConfigPanel({
   /** 上一次定位或查城市解析出的结果：保存时同一个名字不必再查一遍。 */
   const resolved = useRef<{ city: string, fix: CityFix } | null>(null)
 
-  // 宿主上的值变了（保存回来、别的页面改了）：清空草稿，跟着宿主走。
+  // 宿主上的值变了（保存回来、别的页面改了）：清空草稿，跟着宿主走。授权与撤销也会重取读模型，
+  // 哪怕值没变拿到的也是新对象：按内容比较，值没动就不清正在编辑的草稿。
+  const hostProps = JSON.stringify(settings.instance.props)
+  const hostPropsRef = useRef(hostProps)
   useEffect(() => {
+    if (hostPropsRef.current === hostProps) return
+    hostPropsRef.current = hostProps
     setDraft(settings.instance.props)
-  }, [settings.instance.props])
+  }, [hostProps, settings.instance.props])
 
   const propsDirty = JSON.stringify(draft) !== JSON.stringify(settings.instance.props)
   const secretsDirty = Object.values(secrets).some((value) => value !== '')
@@ -417,7 +501,7 @@ export function ConfigPanel({
                     onChange={(event) => { update(field.key, event.target.value === '' ? undefined : event.target.value) }}
                   >
                     <option value="">—</option>
-                    {(field.enumValues ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
+                    {(field.enumValues ?? []).map((item) => <option key={item} value={item}>{field.enumLabels?.[item] ?? item}</option>)}
                   </select>
                 )
                 : field.kind === 'boolean'
@@ -440,21 +524,14 @@ export function ConfigPanel({
                   })()
                   : field.kind === 'number'
                     ? (
-                      <input
-                        className="dsh-widget-board__input dsh-widget-board__input--number"
-                        type="number"
-                        data-dsh-widget-board-field={field.key}
-                        value={typeof raw === 'number' ? String(raw) : ''}
+                      <NumberInput
+                        fieldKey={field.key}
+                        value={typeof raw === 'number' ? raw : undefined}
                         placeholder={typeof field.defaultValue === 'number' ? String(field.defaultValue) : undefined}
                         min={field.min}
                         max={field.max}
-                        step="any"
                         disabled={saving || busy}
-                        onChange={(event) => {
-                          const next = event.target.value
-                          const parsed = Number(next)
-                          update(field.key, next === '' || !Number.isFinite(parsed) ? undefined : parsed)
-                        }}
+                        onCommit={(next) => { update(field.key, next) }}
                       />
                     )
                     : field.kind === 'string'
@@ -470,8 +547,23 @@ export function ConfigPanel({
                             onChange={(event) => { update(field.key, event.target.value === '' ? undefined : event.target.value) }}
                           />
                         )
-                        : (
-                          <span className={field.locate === true ? 'dsh-widget-board__city' : undefined}>
+                        : field.locate === true
+                          ? (
+                            <CityPicker
+                              field={field}
+                              value={typeof raw === 'string' ? raw : ''}
+                              resolved={typeof draft[field.fills?.place ?? ''] === 'object' && draft[field.fills?.place ?? ''] !== null
+                                ? draft[field.fills?.place ?? ''] as { zh?: unknown, en?: unknown }
+                                : undefined}
+                              coordinates={latitudeOf(draft, field)}
+                              disabled={saving || busy}
+                              locating={locating === field.key}
+                              onChange={(next) => { update(field.key, next === '' ? undefined : next) }}
+                              onPick={(candidate) => { applyFix(field, fixOfCandidate(candidate)) }}
+                              onLocate={() => { void locate(field) }}
+                            />
+                          )
+                          : (
                             <input
                               className="dsh-widget-board__input"
                               type="text"
@@ -482,21 +574,7 @@ export function ConfigPanel({
                               disabled={saving || busy}
                               onChange={(event) => { update(field.key, event.target.value === '' ? undefined : event.target.value) }}
                             />
-                            {field.locate === true
-                              ? (
-                                <button
-                                  type="button"
-                                  className="dsh-widget-board__editor-ghost dsh-widget-board__locate"
-                                  data-dsh-widget-board-locate={field.key}
-                                  disabled={saving || busy || locating !== null}
-                                  onClick={() => { void locate(field) }}
-                                >
-                                  {locating === field.key ? t('locating') : t('locate')}
-                                </button>
-                              )
-                              : null}
-                          </span>
-                        )
+                          )
                       : <span className="dsh-widget-board__row-desc">{isChinese() ? '用 JSON 工具写' : 'Edit with JSON tools'}</span>}
             </div>
           </div>

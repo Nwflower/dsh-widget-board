@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 1,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "卡片设置里的城市字段改成可检索的选择器：边输入边列出候选（中文名、英文名、地区），点一条就把城市名、双语地名与坐标一次填好，选中后显示已解析的坐标并能「换一座」。",
+  "en": "The city field in card settings is now a searchable picker: typing lists suggestions (Chinese name, English name, region), picking one fills the city name, both names and the coordinates, and the chosen place shows its coordinates with a Change button."
+}

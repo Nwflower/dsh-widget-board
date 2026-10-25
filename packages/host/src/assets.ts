@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import type { DocumentAssets } from './document'
 
 /** 随包发布的精选库：manifest 的 `libs` 按这些 id 点名（D7）。 */
-const LIBS = ['marked', 'highlight']
+const LIBS = ['marked', 'highlight', 'three']
 
 /**
  * 读共用资产。

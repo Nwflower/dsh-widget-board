@@ -75,8 +75,17 @@
   gap: 8px;
 }
 
-/* 城市字段与它的「定位」按钮并排；输入框可以让出宽度。 */
+/* 城市字段：输入框与「定位」并排，下面挂候选列表；整块自成一行，下拉不被裁掉。 */
 .dsh-widget-board__city {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.dsh-widget-board__city-field {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -86,6 +95,84 @@
 .dsh-widget-board__city .dsh-widget-board__input { min-width: 0; }
 
 .dsh-widget-board__locate { padding-inline: 12px; white-space: nowrap; }
+
+/* 候选：一张浮在字段下面的小列表，键盘上下键也能走。 */
+.dsh-widget-board__city-list {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-surface-raised, var(--dsw-alias-bg-layer-1, #fff));
+  box-shadow: 0 12px 30px rgba(8, 14, 22, 0.18);
+  max-height: 264px;
+  overflow-y: auto;
+}
+
+.dsh-widget-board__city-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsh-widget-board__city-option[data-active="true"] {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+}
+
+.dsh-widget-board__city-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-widget-board__city-meta {
+  flex: none;
+  max-width: 54%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--dsw-alias-label-primary) 58%, transparent);
+  white-space: nowrap;
+}
+
+.dsh-widget-board__city-tip {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--dsw-alias-label-primary) 58%, transparent);
+}
+
+/* 选中之后：摘要换到行名字段下面，右侧只留「换一座」，与其它字段的控件同宽同高。 */
+.dsh-widget-board__city-picked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.dsh-widget-board__city-picked .dsh-widget-board__city-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* 开关。 */
 .dsh-widget-board__switch {

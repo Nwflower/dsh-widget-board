@@ -94,17 +94,23 @@
   var loadTimer = 0
   /** 这一帧的天空与昼夜，来自当前选中的那天。 */
   var sky = { scene: 'cloudy', night: false }
-  /** 世界那层画布：每换一次天重画一次。 */
+  /** 三维窗景：一座按天气、昼夜与城市点亮的城。 */
   var world = null
-  var worldCanvas = null
-  var skyLayer = null
-  var groundLayer = null
-  var clouds = []
+  /** 当前场景 id 与轮播计时。 */
+  var sceneId = 'city'
+  var carouselClock = 0
+  /** 轮播当前停在哪一处风景；用户改设置或换城市时清掉，回到按城市挑。 */
+  var carouselScene = null
+  /** 轮播每隔多久换一处风景。 */
+  var CAROUSEL_SECONDS = 14
+  var glassCanvas = card.querySelector('[data-role="glass"]')
+  var glassCtx = null
+  /** 指针在卡片上的位置，-1 到 1：镜头跟着它轻微偏移。 */
+  var pointer = { x: 0, y: 0 }
   var hidden = false
   var frameHandle = 0
   var lastStamp = 0
   var clock = 0
-  var flashAt = -1e9
   var metrics = { w: 0, h: 0, dpr: 1 }
 
   var rand = function (a, b) { return a + Math.random() * (b - a) }
@@ -146,117 +152,45 @@
 
   var glass = window.WxGlass.createGlass({ make: make, rand: rand })
 
-  /** 按当前盒子与天空重建世界与玻璃。 */
+  /** 设置里指名的场景；`auto` 时按城市挑。 */
+  function wantedScene() {
+    if (carouselScene !== null) return carouselScene
+    var chosen = widget && widget.props ? widget.props.scene : undefined
+    if (typeof chosen === 'string' && chosen !== 'auto' && window.WxCityStyle.choices.indexOf(chosen) > 0) return chosen
+    return window.WxCityStyle.resolve(place)
+  }
+
+  /** 动画方式：`drift` 缓慢漂移、`still` 静止、`carousel` 轮播各处风景。 */
+  function motionOf() {
+    var chosen = widget && widget.props ? widget.props.motion : undefined
+    return chosen === 'still' || chosen === 'carousel' ? chosen : 'drift'
+  }
+
+  /** 按当前盒子与天空重建三维窗景与玻璃。 */
   function rebuild() {
     var box = canvas.getBoundingClientRect()
     var w = Math.max(1, Math.round(box.width || card.clientWidth || 320))
     var h = Math.max(1, Math.round(box.height || card.clientHeight || 220))
     var dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1)
     metrics = { w: w, h: h, dpr: dpr }
-    surface(canvas, w, h, dpr)
-
-    // 天与地面分两层：云要飘在城市后面，城市就得叠在云之上。
-    skyLayer = make(w, h, dpr)
-    window.WxWorld.paintSky(skyLayer.ctx, w, h, sky.scene, sky.night, dark())
-    groundLayer = make(w, h, dpr)
-    window.WxWorld.paintGround(groundLayer.ctx, w, h, sky.night)
-    world = make(w, h, dpr)
-    world.ctx.drawImage(skyLayer.canvas, 0, 0, w, h)
-    world.ctx.drawImage(groundLayer.canvas, 0, 0, w, h)
-    worldCanvas = world.canvas
-    glass.rebuild(w, h, dpr, sky.scene, sky.night, skyLayer.canvas, groundLayer.canvas, worldCanvas)
-
-    // 云：晴天与多云是几朵会飘的积云，阴雨雪天是一层柔云。
-    var tone = window.WxWorld.cloudTone(sky.scene, sky.night, dark())
-    var dry = sky.scene === 'clear' || sky.scene === 'cloudy'
-    var counts = dry
-      ? (sky.scene === 'clear' ? 4 : 5)
-      : ({ overcast: 7, rain: 6, storm: 7, snow: 5 }[sky.scene] || 4)
-    var speeds = dry
-      ? (sky.scene === 'clear' ? [2, 5] : [3, 7])
-      : ({ overcast: [3, 7], rain: [3, 6], storm: [4, 9], snow: [1.5, 4] }[sky.scene] || [2, 5])
-    clouds = []
-    // 日月的位置：飘动的云也按它的方向受光，云和日月的明暗才是一套
-    var bodyX = w * (sky.night ? 0.76 : 0.74)
-    var bodyY = h * (sky.night ? 0.24 : 0.22)
-    for (var c = 0; c < counts; c += 1) {
-      var size = h * (dry ? rand(0.26, 0.44) : rand(0.26, 0.48))
-      var cloudX = rand(-w * 0.3, w * 1.1)
-      var cloudY = h * rand(dry ? 0.02 : 0.03, dry ? 0.22 : 0.34)
-      var vx = bodyX - cloudX
-      var vy = bodyY - cloudY
-      var len = Math.max(1, Math.sqrt(vx * vx + vy * vy))
-      clouds.push({
-        sprite: dry
-          ? window.WxWorld.cumulusSprite(function (cw, ch) { return make(cw, ch, 1) }, size, tone, 200 + c * 13, { x: vx / len, y: vy / len })
-          : window.WxWorld.cloudSprite(function (s) { return make(s, s, 1) }, h * rand(0.13, 0.24), sky.night ? 'rgba(150,175,205,A)' : 'rgba(255,255,255,A)'),
-        x: cloudX,
-        y: cloudY,
-        speed: rand(speeds[0], speeds[1]),
-        scale: dry ? rand(0.85, 1.15) : rand(0.7, 1.3),
-        alpha: dry ? rand(0.8, 0.96) : rand(0.3, 0.5)
-      })
-    }
+    if (world === null) world = window.WxWorld.create(canvas)
+    sceneId = wantedScene()
+    world.resize(w, h, dpr)
+    world.setScene({ weather: sky.scene, night: sky.night, dark: dark(), sceneId: sceneId, motion: motionOf() })
+    // 玻璃层要一张当前画面烘折射：先画一帧，再把这张画布交给它。
+    world.render(1 / 60, clock, pointer)
+    glassCtx = surface(glassCanvas, w, h, dpr)
+    var shot = world.snapshot()
+    glass.rebuild(w, h, dpr, sky.scene, sky.night, shot, shot, shot)
   }
 
-  /** 画一帧：窗外的景、飘过的云、远处的雨丝、玻璃上的水珠与雪，最后压一层颗粒。 */
-  function paint() {
-    if (worldCanvas === null) return
-    var ctx = canvas.getContext('2d')
-    var w = metrics.w
-    var h = metrics.h
-    var scene = sky.scene
-    ctx.clearRect(0, 0, w, h)
-    // 顺序就是它们的远近：天在最里，星与云在它前面，城市挡住云，水珠与雪落在玻璃上最外。
-    var dry = scene === 'clear' || scene === 'cloudy'
-    glass.paintBackdrop(ctx, dry)
-
-    // 夜里才有的星：逐帧画，慢慢闪。
-    if (sky.night) {
-      var starAlpha = scene === 'clear' ? 1 : scene === 'cloudy' ? 0.45 : scene === 'snow' ? 0.3 : 0.15
-      window.WxWorld.paintStars(ctx, w, h, clock, starAlpha)
-    }
-
-    for (var c = 0; c < clouds.length; c += 1) {
-      var cloud = clouds[c]
-      var span = cloud.sprite.width * cloud.scale
-      var x = ((cloud.x + clock * cloud.speed + span) % (w + span * 2)) - span
-      ctx.globalAlpha = cloud.alpha
-      ctx.drawImage(cloud.sprite, x, cloud.y, span, cloud.sprite.height * cloud.scale)
-    }
-    ctx.globalAlpha = 1
-
-    glass.paintGround(ctx, dry)
-
-    // 远处落下的雨丝：玻璃上看不清细节，只留一层斜线
-    if (scene === 'rain' || scene === 'storm') {
-      var count = scene === 'storm' ? 46 : 30
-      var seed = window.WxWorld.seeded(919)
-      ctx.strokeStyle = scene === 'storm' ? 'rgba(206,226,246,0.3)' : 'rgba(214,232,248,0.22)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      for (var s = 0; s < count; s += 1) {
-        var sx = seed() * w
-        var speed = 220 + seed() * 260
-        var sy = (seed() * h + clock * speed) % (h + 40) - 20
-        var length = 10 + seed() * 16
-        ctx.moveTo(sx, sy)
-        ctx.lineTo(sx - length * 0.14, sy + length)
-      }
-      ctx.stroke()
-    }
-
-    glass.paint(ctx, scene, reduced() ? 40 : 18)
-
-    // 雷：一亮一暗再补一下，像真的落雷
-    if (scene === 'storm') {
-      var since = clock - flashAt
-      if (since >= 0 && since < 0.34) {
-        var power = since < 0.05 ? 0.62 : since < 0.1 ? 0.1 : since < 0.18 ? 0.48 : since < 0.24 ? 0.08 : 0.22
-        ctx.fillStyle = 'rgba(226,240,255,' + power.toFixed(3) + ')'
-        ctx.fillRect(0, 0, w, h)
-      }
-    }
+  /** 画一帧：三维窗景在前，玻璃上的雨雪与水珠在后。 */
+  function paint(dt) {
+    if (world === null) return
+    world.render(dt === undefined ? 1 / 60 : dt, clock, pointer)
+    if (glassCtx === null) return
+    glassCtx.clearRect(0, 0, metrics.w, metrics.h)
+    glass.paint(glassCtx, sky.scene, reduced() ? 40 : 26)
   }
 
   /** 逐帧推进；暂停、减弱动效或不可见时停下。 */
@@ -266,10 +200,17 @@
     var dt = lastStamp === 0 ? 1 / 60 : Math.min(0.05, (stamp - lastStamp) / 1000)
     lastStamp = stamp
     clock += dt
-    // 落雷隔两三秒一次，比之前密得多
-    if (sky.scene === 'storm' && clock >= flashAt + 0.34) flashAt = clock + 2.2 + rand(0, 2.6)
+    // 轮播：隔一段时间换一处风景；天气、昼夜与玻璃跟着重画。
+    if (motionOf() === 'carousel') {
+      carouselClock += dt
+      if (carouselClock >= CAROUSEL_SECONDS) {
+        carouselClock = 0
+        carouselScene = window.WxCityStyle.next(sceneId)
+        rebuild()
+      }
+    }
     glass.advance(dt, sky.scene)
-    paint()
+    paint(dt)
     frameHandle = window.requestAnimationFrame(loop)
   }
 
@@ -287,20 +228,40 @@
 
   /** 换一片天空：重画世界、重建贴图，再决定要不要继续动。 */
   function adoptSky(scene, night) {
-    var changed = scene !== sky.scene || night !== sky.night || worldCanvas === null
+    var nextScene = wantedScene()
+    var changed = scene !== sky.scene || night !== sky.night || world === null || nextScene !== sceneId
     sky = { scene: scene, night: night }
     card.dataset.scene = scene
     applyTextTheme()
     if (changed) {
       clock = 0
-      // 切到雷暴天时，第一声雷在将近一秒后落下
-      flashAt = 0.8
       rebuild()
     }
     paint()
     if (reduced()) stop()
     else start()
   }
+
+  // 指针在卡片上移动时，镜头跟着偏一点；离开就回正。
+  card.addEventListener('pointermove', function (event) {
+    var box = card.getBoundingClientRect()
+    pointer.x = ((event.clientX - box.left) / Math.max(1, box.width)) * 2 - 1
+    pointer.y = ((event.clientY - box.top) / Math.max(1, box.height)) * 2 - 1
+  })
+  card.addEventListener('pointerleave', function () {
+    pointer.x = 0
+    pointer.y = 0
+  })
+
+  // 卡片被换掉或页面收起时把 WebGL 还回去，别占着浏览器那点上下文额度。
+  window.addEventListener('pagehide', function () {
+    stop()
+    if (world !== null) {
+      world.dispose()
+      world = null
+      glassCtx = null
+    }
+  })
 
   // ── 卡片的结构与交互 ───────────────────────────────────
 
@@ -614,7 +575,7 @@
     var previous = card.dataset.scheme
     card.dataset.scheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     applyTextTheme()
-    if (card.dataset.scheme === previous || worldCanvas === null) return
+    if (card.dataset.scheme === previous || world === null) return
     rebuild()
     paint()
   }
@@ -627,6 +588,16 @@
     })
     widget.onProps(function (props) {
       place = placeOf(props)
+      carouselScene = null
+      carouselClock = 0
+      var next = wantedScene()
+      if (next !== sceneId) {
+        if (days.length === 0) el.place.textContent = pick(place)
+        else paintDay(current, true)
+        rebuild()
+        paint()
+        return
+      }
       if (days.length === 0) el.place.textContent = pick(place)
       else paintDay(current, true)
     })

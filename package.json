@@ -81,6 +81,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
+    "@types/three": "^0.186.0",
     "ajv": "^8.20.0",
     "esbuild": "0.28.2",
     "fflate": "^0.8.3",
@@ -90,6 +91,7 @@
     "playwright": "1.64.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "three": "^0.186.1",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }

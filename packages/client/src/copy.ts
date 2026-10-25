@@ -68,6 +68,14 @@ const COPY = {
   cityEmpty: { zh: '先写一个城市名', en: 'Enter a city name first' },
   cityLookupFailed: { zh: '城市查不到坐标', en: 'Could not resolve the city' },
   cityNotFound: { zh: '找不到这个城市，换一个名字试试', en: 'City not found; try another name' },
+  cityHint: {
+    zh: '输入中文名、英文名或拼音，从列表里挑一个；也可以直接按「定位」用当前位置。',
+    en: 'Type a Chinese name, an English name or pinyin and pick one; or press Locate to use where you are.',
+  },
+  citySearching: { zh: '正在查…', en: 'Searching…' },
+  cityNoMatch: { zh: '没有匹配的城市，换个写法试试', en: 'No matching city; try another spelling' },
+  cityPicked: { zh: '已选', en: 'Selected' },
+  cityChange: { zh: '换一座', en: 'Change' },
   noRequests: { zh: '这张卡还没有发出请求', en: 'This card has not made any requests yet' },
   requestLogHint: {
     zh: '只记方法、主机、状态与耗时；凭据不在里面。',
@@ -148,6 +156,15 @@ const COPY = {
     zh: '这是一次性预览，动作没有去处；把它放上看板之后就能按。',
     en: 'This is a one-off preview, so actions have nowhere to go; place it on the board to use them.',
   },
+  previewNoAction: {
+    zh: '组件库预览里动作没有去处；把它放上看板之后就能按。',
+    en: 'Actions have nowhere to go in the library preview; place it on the board to use them.',
+  },
+  importConflict: {
+    zh: '组件库里已经有这个组件，内容不一样；覆盖安装会换掉看板外的那份目录。',
+    en: 'The library already has this widget with different content; replacing it overwrites the installed copy.',
+  },
+  overwrite: { zh: '覆盖安装', en: 'Replace' },
 } satisfies Record<string, Pair>
 
 /** 一条文案的键。 */

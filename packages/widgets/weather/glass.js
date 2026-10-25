@@ -216,7 +216,7 @@
         return
       }
       if (scene !== 'rain' && scene !== 'storm') return
-      refill(scene === 'storm' ? 190 : 140)
+      refill(scene === 'storm' ? 210 : 160)
     }
 
     /** 把玻璃上的水珠补到目标数量，补进来的直接落在玻璃上。 */
@@ -225,7 +225,7 @@
       while (missing > 0) {
         var drop = newDrop(rand, state.w, state.h)
         drop.y = Math.pow(Math.random(), 1.35) * state.h
-        drop.r = rand(0.7, 2.6)
+        drop.r = rand(0.9, 3.4)
         state.drops.push(drop)
         missing -= 1
       }

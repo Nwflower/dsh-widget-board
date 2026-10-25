@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 0,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "宿主存得下的数据现在送得进组件：父页面发给组件的消息改用单独的 320 KiB 上限（原先与组件发出的消息共用 64 KiB），大快照的 data、state 与 init 不再在桥上被丢弃。",
+  "en": "Data the host accepts can now reach the widget: messages from the parent page to a widget use their own 320 KiB limit (previously shared the 64 KiB cap with widget-originated messages), so large data snapshots, states, and init payloads are no longer dropped at the bridge."
+}

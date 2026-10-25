@@ -96,6 +96,8 @@ export interface WidgetSummary {
   /** 组件从哪儿来：内置、用户目录或插件（D17）。 */
   source: WidgetSource
   provider?: string
+  /** manifest 声明过的宿主能力（D24）；浏览器半边据此核对一次调用的声明。 */
+  capabilities?: string[]
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
   /** 这个类型有没有可配置的 props 或凭据（D27）：设置按钮据此决定出不出现。 */
@@ -104,6 +106,13 @@ export interface WidgetSummary {
 
 /** `GET /boards` 的响应：整个工作区。 */
 export interface WorkspaceSnapshot {
+  /**
+   * 快照生成那一刻宿主已经推到第几条变更通知。
+   *
+   * 页面拿它与手头已合并的事件修订号比较：快照落后期内到达的事件，要在换上快照之后重放一遍，
+   * 免得被旧快照盖掉（D18）。
+   */
+  revision: number
   /** 当前选中的看板 id（D21）。 */
   active: string
   /** 全部看板，按索引里的次序；页面只挂当前看板（D21）。 */

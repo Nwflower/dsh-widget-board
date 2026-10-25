@@ -54,10 +54,24 @@ export function createLive(assets: DocumentAssets): Live {
       }
     }
   }
-  const heartbeat = setInterval(() => {
-    for (const response of audience) response.write?.(': ping\n\n')
-  }, HEARTBEAT_MS)
-  heartbeat.unref()
+  let heartbeat: ReturnType<typeof setInterval> | undefined
+  /** 起心跳；`close()` 收掉之后有新观众接上时重新起，免得重开的连接停在没有字节的线上。 */
+  const startHeartbeat = (): void => {
+    if (heartbeat !== undefined) return
+    heartbeat = setInterval(() => {
+      for (const response of audience) {
+        try {
+          response.write?.(': ping\n\n')
+        } catch {
+          // 与 announce 同一条规则：断在半条消息上的观众摘掉，其余观众照常收（D11）。
+          audience.delete(response)
+          announceViewers()
+        }
+      }
+    }, HEARTBEAT_MS)
+    heartbeat.unref()
+  }
+  startHeartbeat()
   const announce = (event: BoardEvent): void => {
     revision += 1
     const frame: BoardEventFrame = { revision, event }
@@ -89,13 +103,19 @@ export function createLive(assets: DocumentAssets): Live {
       })
       audience.add(response)
       announceViewers()
+      startHeartbeat()
       // 长连接没有响应体结束的那一刻，观众离开只有这一个信号。
       response.on?.('close', () => {
         audience.delete(response)
         announceViewers()
       })
       const frame: BoardEventFrame = { revision, event: { type: 'board' } }
-      response.write?.(`data: ${JSON.stringify(frame)}\n\n`)
+      try {
+        response.write?.(`data: ${JSON.stringify(frame)}\n\n`)
+      } catch {
+        audience.delete(response)
+        announceViewers()
+      }
     },
     publish(next) {
       current = next
@@ -105,7 +125,8 @@ export function createLive(assets: DocumentAssets): Live {
       announce(event)
     },
     close() {
-      clearInterval(heartbeat)
+      if (heartbeat !== undefined) clearInterval(heartbeat)
+      heartbeat = undefined
       for (const response of audience) {
         // 拆除时观众可能已经断开，结束它失败不必处理：这里做的正是释放（D11）。
         try {

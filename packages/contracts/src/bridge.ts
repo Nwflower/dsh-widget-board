@@ -137,8 +137,16 @@ export type WidgetMessage =
   /** 检查器的结果，回应同一 `requestId` 的 `inspect`。 */
   | ({ type: 'report', requestId: string } & InspectionResult)
 
-/** 一条消息的 JSON 长度上限；超限的丢弃并报错（D3）。 */
+/** 一条组件消息（组件发给父页面）的 JSON 长度上限；超限的丢弃并报错（D3）。 */
 export const MESSAGE_LIMIT = 64 * 1024
+
+/**
+ * 一条父页面消息（父页面发给组件）的 JSON 长度上限；超限的丢弃并报错（D3）。
+ *
+ * 父页面是可信的一侧，这个上限只防失控：它要盖住宿主存得下的 data（256 KiB，D23）与 state
+ * （64 KiB）拼进同一条 init 的情形，否则宿主合法落盘的数据永远送不进组件。
+ */
+export const PARENT_MESSAGE_LIMIT = 320 * 1024
 
 /** 组件一秒内最多发多少条消息；超出的丢弃并报错（D3）。 */
 export const MESSAGE_RATE_LIMIT = 200
@@ -153,10 +161,11 @@ export const WIDGET_MESSAGE_TYPES = ['ready', 'setState', 'action', 'call', 'can
  * 一条消息是否在长度上限之内。
  *
  * @param message - 已经结构化的消息。
+ * @param limit - 长度上限；父页面发给组件的消息传 `PARENT_MESSAGE_LIMIT`。
  * @returns 未超限时为真。
  */
-export function withinLimit(message: unknown): boolean {
-  return JSON.stringify(message).length <= MESSAGE_LIMIT
+export function withinLimit(message: unknown, limit: number = MESSAGE_LIMIT): boolean {
+  return JSON.stringify(message).length <= limit
 }
 
 /** 判断一个外来值是不是普通对象。 */

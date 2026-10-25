@@ -7,7 +7,7 @@
  * 算，包内的来源例外——它读不出东西说明构建没有写完，直接抛出。
  */
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import Ajv from 'ajv'
 import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
@@ -199,13 +199,17 @@ async function readRoot(root: WidgetRoot, load: LibraryLoad): Promise<void> {
  * @param files - 相对路径与内容；路径已经由调用方校验过不越出目录。
  */
 export async function writeWidgetDirectory(dir: string, files: readonly { path: string, content: Uint8Array }[]): Promise<void> {
-  await rm(dir, { recursive: true, force: true })
-  await mkdir(dir, { recursive: true })
+  // 先写进旁边的临时目录、全部落盘之后再换过来：写到一半失败时旧版本还是完整的，不会留下半份目录。
+  const staging = `${dir}.incoming`
+  await rm(staging, { recursive: true, force: true })
+  await mkdir(staging, { recursive: true })
   for (const file of files) {
-    const target = join(dir, file.path)
+    const target = join(staging, file.path)
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, file.content)
   }
+  await rm(dir, { recursive: true, force: true })
+  await rename(staging, dir)
 }
 
 /**

@@ -11,6 +11,9 @@ import type { ErrorObject, ValidateFunction } from 'ajv'
 const ajv = new Ajv({ allErrors: true, strict: false })
 const compiled = new Map<string, ValidateFunction>()
 
+/** 编译缓存最多留几份：组件库可以很大，校验器不能无限攒。 */
+const COMPILED_LIMIT = 512
+
 /** 一条 schema 校验不过的字段：路径与原因（D27）。 */
 export interface SchemaIssue {
   /** JSON Pointer 形状的路径，例如 `/title`；顶层是 `/`。 */
@@ -39,6 +42,8 @@ export function issuesOf(schema: Record<string, unknown> | undefined, value: unk
   const key = JSON.stringify(schema)
   let validate = compiled.get(key)
   if (validate === undefined) {
+    // 缓存攒到头上时整个清掉重攒：schema 按内容寻址，重新编译只是慢那一次。
+    if (compiled.size >= COMPILED_LIMIT) compiled.clear()
     validate = ajv.compile(schema)
     compiled.set(key, validate)
   }

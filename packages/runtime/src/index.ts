@@ -12,7 +12,7 @@ import type {
   WidgetMessage,
   WidgetSize,
 } from '@dsh-widget-board/contracts'
-import { MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
+import { PARENT_MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
 import { installInspector, problemsOf } from './inspect'
 import { installMotionTemplates } from './motion'
 
@@ -295,8 +295,8 @@ function adoptPort(next: MessagePort): void {
   port.onmessage = (event: MessageEvent) => {
     const message = event.data as unknown
     if (!isParentMessage(message)) return
-    if (!withinLimit(message)) {
-      port?.postMessage({ type: 'error', message: `消息超过 ${String(MESSAGE_LIMIT)} 字节的上限` })
+    if (!withinLimit(message, PARENT_MESSAGE_LIMIT)) {
+      port?.postMessage({ type: 'error', message: `消息超过 ${String(PARENT_MESSAGE_LIMIT)} 字节的上限` })
       return
     }
     receive(message)

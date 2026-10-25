@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 4,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "widget_define 的自检在真实会话里量得出结果了：检查改经端口送进组件运行时（原先直接跨源读沙箱帧的窗口，必然失败），自检画廊也把组件的双语文案递进去，不再整页显示成 key。",
+  "en": "The widget_define self-check now produces results in a real session: the inspection travels over the message port into the widget runtime (it previously read the sandboxed frame's window cross-origin, which always failed), and the gallery passes the widget's localized text so labels no longer render as raw keys."
+}

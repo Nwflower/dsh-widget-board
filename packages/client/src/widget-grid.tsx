@@ -1,5 +1,5 @@
 /**
- * 组件网格与缩略画面（D17、D27）：组件库浮窗与卡片设置弹窗的换槽共用同一份。
+ * 组件网格与缩略画面（D17、D27）：组件库面板与卡片设置弹窗的换槽共用同一份。
  *
  * 缩略画面是同一份组件文档照原样渲染出来的：没有看板实例，`setState` 与通知都不写宿主，指针与焦点
  * 都被 `inert` 挡住。网格只有两种用法——添加到看板、给组卡的一个槽挑组件。
@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { BoardInstance, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
-import { CLIENT_ROUTE, FLIP_GROUP_BACK, FLIP_GROUP_FRONT, FLIP_GROUP_ID } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, FLIP_GROUP_ID, libraryWidgetExportPath } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { CardSurface } from './card-surface'
 import { sourceLabel, t, textOf } from './copy'
@@ -30,7 +30,7 @@ const EMPTY_PROPS: Record<string, unknown> = {}
  * @returns 文档相对的地址；写成 `<a download>` 的 href 就能直接下载。
  */
 function exportPathOf(id: string): string {
-  return `${CLIENT_ROUTE}/library/widget/${encodeURIComponent(id)}/export`
+  return libraryWidgetExportPath(id)
 }
 
 /** 缩略画面要显示的那一份实例内容。 */

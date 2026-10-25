@@ -59,7 +59,9 @@ export async function openGrants(file: string): Promise<GrantStore> {
     const raw = JSON.parse(await readFile(file, 'utf8')) as StoredGrants
     if (raw.version !== GRANTS_FORMAT) throw new Error(`${file} 的格式版本是 ${String(raw.version)}，这一版读的是 ${String(GRANTS_FORMAT)}`)
     for (const grant of raw.grants ?? []) {
-      if (isGrant(grant)) grants.set(grant.key, grant)
+      // 单条记录不合格也抛出并保留原文件（D11）：静默跳过的话，下一次写入会把缺的那条永久抹掉。
+      if (!isGrant(grant)) throw new Error(`${file} 里有一条不合格的授权记录：${JSON.stringify(grant)}`)
+      grants.set(grant.key, grant)
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error

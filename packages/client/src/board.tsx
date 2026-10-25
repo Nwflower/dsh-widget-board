@@ -110,6 +110,8 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const busyRef = useRef(false)
   /** 快照请求的序号：先发出、后返回的那一份不能盖掉更新的那一份。 */
   const fetchIdRef = useRef(0)
+  /** 最近合并的事件帧：换上落后的快照之后按修订号把它们重放回去（D18）。 */
+  const recentFramesRef = useRef<readonly BoardEventFrame[]>([])
   const exitingRef = useRef(new Set<string>())
   /** 退场期间收到的卡片增删通知：等最后一张退完再重取。 */
   const queuedRefetchRef = useRef(false)
@@ -127,13 +129,28 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     },
   }), [])
 
+  /**
+   * 换上一份宿主刚给的快照，并把快照落后期内已合并的事件重放回去。
+   *
+   * 事件与快照响应走两条连接，没有先后保证：比快照新的事件先并进了旧快照，直接换上新的会把
+   * 它们盖掉，直到下一条事件才回来。事件帧带修订号，比快照新的那几条在换上快照之后重放一遍。
+   */
+  const adopt = useCallback((next: WorkspaceSnapshot): WorkspaceSnapshot => {
+    const missed = recentFramesRef.current.filter((frame) => frame.revision > next.revision)
+    recentFramesRef.current = missed
+    let merged = next
+    for (const frame of missed) merged = mergeEvent(merged, frame)
+    return merged
+  }, [])
+
   /** 换上一份宿主刚给的快照：在途的重取作废，失败提示清掉（D5）。 */
   const apply = useCallback((next: WorkspaceSnapshot): void => {
     fetchIdRef.current += 1
-    cachedWorkspace = next
-    setSnapshot(next)
+    const merged = adopt(next)
+    cachedWorkspace = merged
+    setSnapshot(merged)
     setFailure(null)
-  }, [])
+  }, [adopt])
 
   /** 重取一次工作区：只有卡片与看板增删、组件库变化才走到这里（D18）。 */
   const refetch = useCallback(() => {
@@ -141,13 +158,14 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     fetchIdRef.current = id
     fetchWorkspace().then((next) => {
       if (id !== fetchIdRef.current) return
-      cachedWorkspace = next
-      setSnapshot(next)
+      const merged = adopt(next)
+      cachedWorkspace = merged
+      setSnapshot(merged)
       setFailure(null)
     }, (error: Error) => {
       if (id === fetchIdRef.current) setFailure(error.message)
     })
-  }, [])
+  }, [adopt])
 
   /** 打开一张卡或一组的设置；记下按钮，关掉弹窗之后把焦点还回去（D27）。 */
   const openEditor = useCallback((kind: 'instance' | 'group', id: string, button: HTMLButtonElement | null): void => {
@@ -185,6 +203,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
       return
     }
     // 状态、数据、布局与选中就地合并：番茄钟每秒写一次状态，重取整份快照会把开着的每个页面都放大一遍（D18）。
+    recentFramesRef.current = [...recentFramesRef.current.slice(-63), frame]
     setSnapshot((previous) => {
       if (previous === null) return previous
       const next = mergeEvent(previous, frame)
@@ -292,7 +311,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /**
    * 把组件库的一格拖到看板上：按落点算出列与纵向位置，随添加请求一起交给宿主。
    *
-   * 落点不在当前选中的那块看板的内容区（在浮窗、菜单或别的看板上）时不加卡片，返回 false 让拖放
+   * 落点不在当前选中的那块看板的内容区（在面板、菜单或别的看板上）时不加卡片，返回 false 让拖放
    * 那边收尾。
    *
    * @param widget - 组件的 id。
@@ -387,6 +406,12 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /** 菜单上的「整理」交给当前选中的那块看板：它自己拿着画面上那一份排布。 */
   const onTidy = useCallback(() => { tidyRef.current?.() }, [])
 
+  /** 栅格提交布局的忙碌：两道闸门（`busy` 状态与 `busyRef`）一起走，加卡、刷新才看得见它。 */
+  const onBusyChange = useCallback((next: boolean): void => {
+    busyRef.current = next
+    setBusy(next)
+  }, [])
+
   const registerFlow = useCallback((id: string, element: HTMLDivElement | null): void => {
     if (element === null) flowRefs.current.delete(id)
     else flowRefs.current.set(id, element)
@@ -427,6 +452,9 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     return () => observer.disconnect()
   }, [])
 
+  // 观察器只随卡片名单重建：状态与布局的通知每秒都在改快照对象，观察器不能跟着每秒拆装一遍
+  //（D18 的就地合并、页面级资源唯一拥有者）。
+  const instanceIds = activeBoard === null ? '' : activeBoard.instances.map((instance) => instance.id).join(',')
   useEffect(() => {
     const node = boardsRef.current
     if (node === null) return
@@ -441,7 +469,8 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     }, { threshold: 0 })
     for (const cell of node.querySelectorAll('[data-instance]')) observer.observe(cell)
     return () => observer.disconnect()
-  }, [activeBoard?.id, metrics, snapshot])
+    // 热刷新让每张卡换一个 key 重挂：节点换了，观察器也要重新登记。
+  }, [activeBoard?.id, metrics, instanceIds, refreshGeneration])
 
   let body: ReactNode = null
   if (failure !== null) body = <div className="dsh-widget-board__notice">{failure}</div>
@@ -486,7 +515,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                 onSnapshot={apply}
                 onLayouts={onLayouts}
                 onFailure={setFailure}
-                onBusyChange={setBusy}
+                onBusyChange={onBusyChange}
                 onSettings={openEditor}
                 onState={onState}
                 onNotify={onNotify}

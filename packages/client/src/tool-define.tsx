@@ -10,16 +10,15 @@ import type { ReactNode } from 'react'
 import type { DefineValue, InspectionReport, SelfCheckBoxResult } from '@dsh-widget-board/contracts'
 import type { ToolViewProps } from '@dsh-widget-board/contracts'
 import {
-  INSPECT_GLOBAL,
   SELF_CHECK_COLUMN_REM,
   SELF_CHECK_GAP_REM,
   SELF_CHECK_TIMEOUT_MS,
-  inspectionProblems,
   selfCheckPath,
 } from '@dsh-widget-board/contracts'
 import { t } from './copy'
 import { frameHostOf } from './page-frames'
 import { SnapshotSurface } from './snapshot-surface'
+import type { SnapshotSurfaceHandle } from './snapshot-surface'
 import { rootFontSize, useTheme, useWidth } from './view-hooks'
 
 /** 取任务的最长等待：与宿主那边的时限相同，晚一点也交不回去了。 */
@@ -31,12 +30,16 @@ const POLL_MS = 300
 /** 一个盒子量之前等它静置多久：动画与异步绘制落定（D13 的「静置」）。 */
 const SETTLE_MS = 700
 
+/** 等一份检查报告的上限：过了就当这个盒子没有应答。 */
+const INSPECT_TIMEOUT_MS = 2000
+
 /** 一次自检任务：宿主给的那一份。 */
 interface Job {
   widget: string
   hash: string
   props: Record<string, unknown>
   data: unknown
+  text: Record<string, { zh: string, en: string }>
   boxes: { cols: number, h: number }[]
 }
 
@@ -248,19 +251,20 @@ function GalleryBox({ job, index, box, theme, onMeasured }: {
   const [height, setHeight] = useState<number | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const done = useRef(false)
+  const surface = useRef<SnapshotSurfaceHandle | null>(null)
   const settle = useCallback((): void => {
     if (done.current) return
     done.current = true
-    const frame = ref.current?.querySelector('iframe')
-    const view = frame?.contentWindow as (Window & Record<string, unknown>) | null | undefined
-    const inspect = view === null || view === undefined ? undefined : view[INSPECT_GLOBAL]
-    if (typeof inspect !== 'function') {
-      onMeasured(index, { box, report: null, problems: [] })
-      return
-    }
-    // 检查器住在组件运行时里（D13）：判定与尺寸矩阵、自检用同一份。
-    const report = (inspect as () => InspectionReport)()
-    onMeasured(index, { box, report, problems: inspectionProblems(report) })
+    // 检查经端口送进组件运行时（D13）：沙箱帧与父页面跨源，读不到它窗口上的属性；判定与尺寸
+    // 矩阵用同一份检查器，只是从桥上过去。
+    const asked = surface.current?.inspect(INSPECT_TIMEOUT_MS) ?? Promise.resolve(null)
+    void asked.then((result) => {
+      onMeasured(index, {
+        box,
+        report: result?.report ?? null,
+        problems: result === null ? [] : [...result.problems],
+      })
+    })
   }, [box, index, onMeasured])
   useEffect(() => {
     if (height === null && failure === null) return
@@ -271,12 +275,13 @@ function GalleryBox({ job, index, box, theme, onMeasured }: {
   return (
     <div ref={ref}>
       <SnapshotSurface
+        ref={surface}
         hash={job.hash}
         title={job.widget}
         props={job.props}
         data={job.data}
         state={null}
-        text={{}}
+        text={job.text}
         size={{ w: widthOf(box.cols), h: Math.round(box.h * rem), placement: 'board', family: 'board', cols: box.cols }}
         placement="board"
         theme={theme}

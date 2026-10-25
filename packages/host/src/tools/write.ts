@@ -6,8 +6,11 @@
  */
 import type { BoardInstance, CardLayout, PlaceValue, WidgetToolSpec } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
+import { nextCardLayout } from '@dsh-widget-board/model'
 import { isRecord } from '../guards'
-import { withInstanceAdded, withInstancePatched, withInstanceRemoved } from '../state'
+import { loadData } from '../routes'
+import { defaultBoxOf, withInstanceAdded, withInstancePatched, withInstanceRemoved } from '../state'
+import type { WidgetRecord } from '../library'
 import type { ToolContext } from './index'
 
 /**
@@ -28,6 +31,21 @@ function layoutOf(value: unknown): Partial<CardLayout> | undefined {
     layout[key] = raw
   }
   return layout
+}
+
+/**
+ * 加新卡时把模型给的盒子补全成完整的四元组。
+ *
+ * 路由加卡要求四项齐全，工具允许只给其中几项：缺的项按组件的默认盒子与最矮一列补上，补完再走
+ * 同一条钳制，产出的盒子不会带缺项（也就不会带 `NaN`）。
+ *
+ * @param record - 组件记录。
+ * @param existing - 看板上已经摆好的卡片。
+ * @param given - 模型给的盒子；一项都没给时是 `undefined`。
+ * @returns 完整的盒子。
+ */
+function completeLayout(record: WidgetRecord, existing: readonly BoardInstance[], given: Partial<CardLayout>): CardLayout {
+  return { ...nextCardLayout(existing, defaultBoxOf(record)), ...given }
 }
 
 /** 一张卡在工具结果里的样子。 */
@@ -80,8 +98,12 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
       if (record === undefined) throw new ToolRefusal(`组件库里没有可用的组件 ${wanted.widget}，先用 widget_catalog 看有哪些`)
       const layout = layoutOf(wanted.layout)
       if (wanted.props !== undefined && !isRecord(wanted.props)) throw new ToolRefusal('props 要是一个对象')
-      if (wanted.source !== undefined && typeof wanted.source !== 'string') throw new ToolRefusal('source 要是一个字符串')
+      if (wanted.source !== undefined && (typeof wanted.source !== 'string' || wanted.source === '')) throw new ToolRefusal('source 要是一个数据源 id')
       if (wanted.board !== undefined && (typeof wanted.board !== 'string' || wanted.board === '')) throw new ToolRefusal('board 要是一个看板 id')
+      // 点名的数据源先查在不在，再动看板：路由加卡也是先拒后写，两边不留「卡已落盘才报错」的路径。
+      if (typeof wanted.source === 'string' && !context.route.sources.hasDataSource(wanted.source)) {
+        throw new ToolRefusal(`没有数据源 ${wanted.source}，提供它的插件可能没有安装`)
+      }
 
       if (typeof wanted.id === 'string' && wanted.id !== '') {
         const found = context.route.workspace.findInstance(wanted.id)
@@ -126,7 +148,7 @@ export function placeTool(context: ToolContext): WidgetToolSpec {
         (current) => withInstanceAdded(current, record, {
           ...(source === undefined ? {} : { source }),
           ...(wanted.props === undefined ? {} : { props: wanted.props as Record<string, unknown> }),
-          ...(layout === undefined ? {} : { layout: layout as CardLayout }),
+          ...(layout === undefined ? {} : { layout: completeLayout(record, current.instances, layout) }),
         }).board,
         { layoutChanged: true, event: () => ({ type: 'board' }) },
       )
@@ -159,7 +181,8 @@ async function readInto(context: ToolContext, boardId: string, instance: BoardIn
   if (source === undefined) return
   let data: unknown
   try {
-    data = await context.readSource(source, { id: instance.id, widget: instance.widget, props: instance.props })
+    // 读走路由那一条：数据源在不在、授权有没有，与界面手动读同一道闸门（D6 的「读数据只有一条路径」）。
+    ({ data } = await loadData(context.route, instance.id))
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (strict) throw new ToolRefusal(message)
@@ -206,6 +229,10 @@ export function removeTool(context: ToolContext): WidgetToolSpec {
           : { ...current, instances: current.instances.filter((candidate) => candidate.group?.id !== group) }),
         { layoutChanged: true, event: () => ({ type: 'board' }) },
       )
+      // 移走的卡连同它同组的另一面，请求日志一起收掉（与 /instance/<id>/remove 同一条规则，D28）。
+      for (const gone of found.board.instances.filter((candidate) => candidate.id === instance.id || candidate.group?.id === group)) {
+        context.route.requests.drop(gone.id)
+      }
       return { id: instance.id, widget: instance.widget, group: group ?? null }
     },
     render(value) {

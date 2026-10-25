@@ -7,6 +7,7 @@
 import type { WidgetManifest, WidgetSummary, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
 import type { GrantStore } from './grants'
+import type { Live } from './live'
 import type { WidgetRecord } from './library'
 import type { RouteContext } from './routes'
 import type { Workspace } from './workspace'
@@ -15,6 +16,8 @@ import type { Workspace } from './workspace'
 export type SnapshotContext = Pick<RouteContext, 'records' | 'entries'> & {
   workspace: Pick<Workspace, 'list' | 'activeId'>
   grants: Pick<GrantStore, 'all'>
+  /** 变更通知：快照带上它已经推到的修订号（D18）；没有通知的构建步骤（演示页）按 0。 */
+  live?: Pick<Live, 'revision'>
 }
 
 /**
@@ -49,6 +52,7 @@ export function widgetSummaryOf(record: WidgetRecord): WidgetSummary {
     ...(record.manifest.text === undefined ? {} : { text: record.manifest.text }),
     source: record.source,
     ...(record.provider === undefined ? {} : { provider: record.provider }),
+    ...(record.manifest.capabilities === undefined ? {} : { capabilities: record.manifest.capabilities }),
     ...(record.manifest.minBox === undefined ? {} : { minBox: record.manifest.minBox }),
     ...(hasSettings(record.manifest) ? { settings: true } : {}),
   }
@@ -68,5 +72,12 @@ export function workspaceSnapshot(context: SnapshotContext): WorkspaceSnapshot {
   // 只带工作区里出现的那些版本：授权表会一直长，页面只关心眼前这些卡（D6）。
   const hashes = new Set(context.workspace.list().flatMap((board) => board.instances.map((instance) => instance.hash)))
   const grants = context.grants.all().filter((grant) => hashes.has(grant.hash))
-  return { active: context.workspace.activeId(), boards: context.workspace.list(), widgets, library: context.entries, grants }
+  return {
+    revision: context.live?.revision ?? 0,
+    active: context.workspace.activeId(),
+    boards: context.workspace.list(),
+    widgets,
+    library: context.entries,
+    grants,
+  }
 }

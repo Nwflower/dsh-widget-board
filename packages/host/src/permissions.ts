@@ -42,14 +42,43 @@ export function requireGrant(
   if (permission === undefined) return
   const instance = facts.board.instances.find((candidate) => candidate.id === instanceId)
   const hash = instance === undefined ? undefined : facts.hashes.get(instance.widget)
-  if (hash === undefined) throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来', { code: 'widget-missing' })
-  const grant = facts.grants.all().find((candidate) => candidate.kind === kind && candidate.hash === hash && candidate.id === name)
+  if (instance === undefined || hash === undefined) {
+    throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来', { code: 'widget-missing' })
+  }
+  requireGrantOf(facts.grants, instance.widget, hash, kind, name, permission, provider)
+}
+
+/**
+ * 按组件版本与名字核对一份授权（D6）。
+ *
+ * 看板上的卡片经 {@link requireGrant} 按卡片找到组件版本；不在看板上的一次性快照直接拿着组件的
+ * 哈希进来。判定只有这一份。
+ *
+ * @param grants - 授权表。
+ * @param widget - 组件 id。
+ * @param hash - 这张卡实际渲染的组件版本。
+ * @param kind - 授权指向的是动作还是数据源。
+ * @param name - 动作或数据源的名字。
+ * @param permission - 它声明的权限。
+ * @param provider - 提供方的包名。
+ * @throws {Refusal} 没有这份授权（403），错误里带着缺的那一条与要问的权限。
+ */
+export function requireGrantOf(
+  grants: GrantStore,
+  widget: string,
+  hash: string,
+  kind: GrantKind,
+  name: string,
+  permission: ActionPermission,
+  provider: string,
+): void {
+  const grant = grants.all().find((candidate) => candidate.kind === kind && candidate.hash === hash && candidate.id === name)
   const ask = {
     code: 'grant-required',
     kind,
     id: name,
     provider,
-    widget: instance?.widget,
+    widget,
     permission,
   }
   if (grant === undefined) throw new Refusal(403, `要用 ${name}，先由人给出授权`, ask)

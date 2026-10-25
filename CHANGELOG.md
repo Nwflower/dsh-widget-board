@@ -8,13 +8,69 @@
 
 [中文](#cn-unreleased) | [English](#en-unreleased)
 
-<h3 id="cn-unreleased">体验优化</h3>
+<h3 id="cn-unreleased">新增功能</h3>
 
+- 新增内置组件「开关灯」：一盏台灯，按底座上的开关在日间与夜间之间切换，窗外的太阳、月亮、星点与灯下的光束一起变化。切换经通用的 dsh.theme 能力完成；浏览器半边把整页的新配色从灯下的一点以圆点展开，旧画面留在圆外，卡片里的波纹与整页圆点共用按下点，并且等新配色落到卡片时才一起开始；圆心与半径用百分比写，1.5 倍像素密度的桌面上也不会偏向左上角。旧快照拍完后暂停其它卡片的逐帧绘制，转场结束分批恢复，按下的一刻其它卡片不会被提前停住；浏览器不支持 View Transitions 或系统要求减弱动效时退回直接切换。宿主半边也能读改写主题偏好，作为兜底。
+- 天气卡新增六座城市街景：北京国贸 CBD（中国尊、国贸三期）、上海陆家嘴（东方明珠、三件套、江面）、纽约曼哈顿、东京涩谷、伦敦金融城与赛博霓虹峡谷；每座城有媒体立面、动画广告屏、霓虹招牌、人流与车流，按城市自动出现，也能在设置里直接指定。
+- 六座城市的街景不再用同一条街道模板：北京改成楼顶俯瞰 CBD、上海改在外滩隔江看陆家嘴、纽约改成低机位仰视一线天、东京改成路口斜上方俯看斑马线与人潮、伦敦改成河上船看塔桥、赛博霓虹改成驾驶位车景；每座城都带自己的镜头轨道（横移、仰视、环绕、随船起伏、随车前进）。
+- 天气卡按城市换景：北京一线是古建塔殿、苏杭是水墨山峦与庭院，设置里还能指定景观与动画方式（漂移、静止、轮播）；文字尺寸改为按卡片宽高比例缩放，大卡片不再被 px 上限卡住。
+
+### 体验优化
+
+- 组件库从浮在下方菜单上的小窗改成从底部上拉的整窗，铺满看板这一栏；打开与关闭用 Panel reveal 过渡（上移 100px、2px 交叉虚化，打开 400ms、关闭 350ms），开始拖动组件时面板先收起，落点直接露出来。
 - 会话工具改为按需出现：模型默认只看到 widget_catalog，写组件、放卡、推数据等工具经它的 expose 点名后才注册，常驻上下文从约 1.5k token 降到约 0.2k。
+- 天气卡换成 Three.js 搭的立体窗景：三层楼群与窗灯、湿路面上的车流、雨雪与雷电、塔顶航空灯与扫过的探照灯，镜头缓慢推拉并跟随指针；新增精选库 three，只有声明 libs 的组件才内联它。
+- 卡片设置里的城市字段改成可检索的选择器：边输入边列出候选（中文名、英文名、地区），点一条就把城市名、双语地名与坐标一次填好，选中后显示已解析的坐标并能「换一座」。
+- 内置组件按盒子重排：宽而矮的卡片改成横排（标题在左、内容在右或按列铺开），窄而高的卡片在竖直方向铺开，正方与常规仍是上下结构；大字读数按宽高一起收，长条里不再出现左边一小块、右边一大片空白。月历在矮卡片里改画一整周；组件套件新增 `.t-data--split`，数据卡骨架的内边距与标题字号也按档位收一档。
 
-<h3 id="en-unreleased">Improvements</h3>
+### 问题修复
 
+- 宿主存得下的数据现在送得进组件：父页面发给组件的消息改用单独的 320 KiB 上限（原先与组件发出的消息共用 64 KiB），大快照的 data、state 与 init 不再在桥上被丢弃。
+- 删除所有看板后补上的不再是空白的「未命名看板」，而是首次启动的默认看板「我的看板」：卡片与布局都回到默认。
+- 放一张绑着需授权数据源的卡不再报错：卡片照加、数据留空，在卡片上给出「允许」之后再读就有数据；界面上加卡失败与卡片凭空出现的矛盾组合消失。
+- 设置弹窗画出来的凭据现在都存得进去：能力提供方声明的凭据与组件自己声明的在读写两侧按同一份清单核对，填了值不再被「组件没有声明这个凭据」拒绝。
+- 页面不再被旧快照盖掉刚收到的改动：快照带上变更通知的修订号，重取与写入答复换上快照之后，把比它新的事件按修订号重放一遍，状态与布局不再短暂回退。
+- widget_define 的自检在真实会话里量得出结果了：检查改经端口送进组件运行时（原先直接跨源读沙箱帧的窗口，必然失败），自检画廊也把组件的双语文案递进去，不再整页显示成 key。
+- 变更通知的心跳更稳：单个观众断线不再打断心跳，看板功能关掉再打开之后新连接的心跳也会重新起起来，长时间没有消息的连接不再被反向代理掐掉。
+- 界面交互的一批修复：从组件库拖出浏览器窗口松手不再让拖放层卡死、回窗点击也不再误加卡片（Escape 可取消）；设置里的数字框可以正常输入小数与科学计数法；在「关于」页做授权不再清空「配置」页的未保存草稿；布局提交期间加卡与刷新不再与它打架；组件库预览里的动作与能力调用不再发到宿主；关页前的最后一次状态保存改用 keepalive，更可靠；导入同名不同内容的组件时可以选「覆盖安装」。
+- 宿主侧持久化与拆除的一批修复：版本库与组件目录改用先写临时再换名的原子写法，崩溃不再留下半份文件；定时刷新的一批读取里一张卡被移除不再让整批失败；授权表里不合格的记录改为当场报错，不再被下次写入静默抹掉；widget_place 给出部分布局不再产出无效坐标，点名不存在的数据源先拒绝再动看板；卡片移除时它的请求日志一并回收；插件拆除时目录来源、授权与热更新订阅收干净；并发删除同一组回到 404。
+
+### 安全
+
+- 导入安全加固：看板包里内嵌的组件文件按组件包同一组上限校验（路径不越出目录、扩展名白名单、文件数与大小），解压在解包前按声明的大小逐项拦截，内嵌的 manifest 与哈希同落盘内容核对不上就整包拒绝。
+- 会话工具读数据源补上授权闸门：widget_place 与 widget_show 的读取改走界面手动读的同一条路径，需要授权的数据源在没有人的允许之前不再被工具直接读取。
+
+<h3 id="en-unreleased">New Features</h3>
+
+- New built-in widget, Light switch: a desk lamp whose base switch flips the room between day and night, moving the sun, moon, stars and the light beam together. The switch goes through the generic dsh.theme capability; the browser half reveals the new palette across the whole page as a circle growing from the lamp, with the old picture left outside it. The card's ripple shares the press point and starts with the page circle once the new tokens reach the card; the circle's center and radius are percentages, so a 1.5x display no longer pulls it toward the top-left. Other cards are suspended only after the old snapshot is taken and resumed in batches, so the press never freezes them early; when View Transitions are unavailable or reduced motion is requested it switches directly, and the host half can read and write the theme preference as a fallback.
+- Six new city-scape scenes for the weather card: Beijing CBD with the CITIC Tower, Shanghai Lujiazui with the Pearl Tower and the Bund, Manhattan, Shibuya, the City of London, and a cyberpunk neon canyon; each has animated media facades, billboard screens, neon signs, pedestrians and traffic, picked by city or chosen in settings.
+- The six city scenes no longer share one street template: Beijing is a rooftop view over the CBD, Shanghai looks across the river from the Bund, New York is a low upward view through a canyon, Tokyo looks down on the scramble crossing, London rides a boat toward Tower Bridge, and the cyberpunk scene is a driver's-seat view; each scene brings its own camera track.
+- The weather card now matches the city: historic towers and halls for Beijing, ink-wash mountains or a walled courtyard for Jiangnan cities, with settings for the scene and motion (drift, still, rotate); text now scales with the card instead of hitting a fixed pixel cap.
+
+### Improvements
+
+- The widget library is now a full-height panel that rises from the bottom of the board pane instead of a small window above the dock; opening and closing use the Panel reveal transition (100px rise, 2px cross-blur, 400ms in and 350ms out), and a drag dismisses the panel first so the drop target is visible.
 - Session tools now appear on demand: the model starts with widget_catalog only, and the write/place/push tools register after being named in its expose field, cutting the resident tool context from about 1.5k to 0.2k tokens.
+- The weather card now renders a Three.js cityscape: three depth bands of towers with lit windows, traffic on wet asphalt, rain, snow and lightning, rooftop beacons and sweeping searchlights, with a camera that drifts and follows the pointer; a new curated library, three, is inlined only into widgets that declare it.
+- The city field in card settings is now a searchable picker: typing lists suggestions (Chinese name, English name, region), picking one fills the city name, both names and the coordinates, and the chosen place shows its coordinates with a Change button.
+- Built-in widgets are laid out per box: wide-and-short cards read horizontally (title left, content right or in columns), narrow-and-tall cards distribute vertically, square and regular cards keep the stacked flow; large readouts scale with width and height, so a wide strip no longer leaves a small cluster on the left and empty space everywhere else. The calendar draws a single week in short cards; the suite gains `.t-data--split`, and the data-card skeleton tightens its padding and title size per box class.
+
+### Bug Fixes
+
+- Data the host accepts can now reach the widget: messages from the parent page to a widget use their own 320 KiB limit (previously shared the 64 KiB cap with widget-originated messages), so large data snapshots, states, and init payloads are no longer dropped at the bridge.
+- Deleting every board now leaves the default "My board" from the first launch instead of a blank "Untitled board", with its cards and layout restored.
+- Adding a card bound to a source that needs authorization no longer fails: the card is added with empty data, and after the user allows it on the card the data arrives; the confusing mix of an error toast and a card that appeared anyway is gone.
+- Every credential shown in the card settings dialog can now be saved: credentials declared by capability providers and by the widget itself are checked against the same list on both the read and the write side, so filling one in no longer fails with "the widget does not declare this credential".
+- Pages no longer lose freshly received changes to an older snapshot: snapshots now carry the change-notification revision, and events newer than the snapshot are replayed by revision after it is adopted, so state and layout no longer briefly revert.
+- The widget_define self-check now produces results in a real session: the inspection travels over the message port into the widget runtime (it previously read the sandboxed frame's window cross-origin, which always failed), and the gallery passes the widget's localized text so labels no longer render as raw keys.
+- Change notifications keep a steadier heartbeat: one broken viewer no longer interrupts the beat, and connections opened after the board was toggled off and back on get their heartbeat restarted, so idle connections are no longer cut by reverse proxies.
+- A batch of UI fixes: releasing a library drag outside the browser window no longer leaves the drag layer stuck and a stray click no longer drops a card (Escape cancels); number fields accept decimals and scientific notation; granting on the About tab no longer wipes unsaved drafts on the Config tab; adding cards and refreshing no longer race an in-flight layout submit; actions and capability calls from library previews no longer reach the host; the final state save before page close uses keepalive; and importing a same-id widget with different content now offers a replace option.
+- A batch of host-side persistence and teardown fixes: the version store and widget directories use write-temp-then-swap atomic writes so a crash no longer leaves half-written files; one removed card no longer fails a whole scheduled refresh batch; malformed grant records now fail loudly instead of being silently erased on the next write; widget_place no longer produces invalid coordinates from a partial layout and rejects unknown data sources before touching the board; a removed card's request log is reclaimed; plugin teardown removes its directories, grants, and hot-update subscription; and concurrent removal of the same group now returns 404.
+
+### Security
+
+- Hardened imports: widget files embedded in board packages now pass the same checks as widget packages (paths stay inside the directory, extension whitelist, file count and size limits), decompression is rejected per entry by declared size before unpacking, and an embedded manifest or hash that disagrees with the embedded files rejects the whole package.
+- Session tools now pass the authorization gate when reading data sources: widget_place and widget_show reuse the same path as manual reads from the UI, so sources that require permission are no longer read by tools without a human grant.
 
 ## [0.1.5] - 2026-10-23
 

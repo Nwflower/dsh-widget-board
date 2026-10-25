@@ -1,0 +1,8 @@
+{
+  "group": "security",
+  "order": 0,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "导入安全加固：看板包里内嵌的组件文件按组件包同一组上限校验（路径不越出目录、扩展名白名单、文件数与大小），解压在解包前按声明的大小逐项拦截，内嵌的 manifest 与哈希同落盘内容核对不上就整包拒绝。",
+  "en": "Hardened imports: widget files embedded in board packages now pass the same checks as widget packages (paths stay inside the directory, extension whitelist, file count and size limits), decompression is rejected per entry by declared size before unpacking, and an embedded manifest or hash that disagrees with the embedded files rejects the whole package."
+}

@@ -331,7 +331,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
           additionalProperties: false,
           required: ['credential', 'scheme'],
           properties: {
-            credential: { type: 'string', pattern: '^[A-Z][A-Z0-9_]{2,63}$' },
+            credential: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*$', maxLength: 128 },
             scheme: { enum: ['bearer', 'basic', 'header'] },
             header: { type: 'string', pattern: '^[a-z0-9-]{1,64}$' },
           },

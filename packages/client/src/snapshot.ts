@@ -55,6 +55,19 @@ async function errorOf(response: Response, subject: string): Promise<string> {
 }
 
 /**
+ * 宿主拒绝了一次请求：错误文本之外保留宿主给的 `code` 与整个错误体。
+ *
+ * 界面与调用方按 `code` 区分超频（`state-rate-limited`）、超限（`state-too-large`）与导入冲突
+ * （`widget-conflict`）这些要不同处理的情况；`extra` 里带着各 code 自己的载荷（如冲突两边的哈希）。
+ */
+export class BoardError extends Error {
+  constructor(message: string, readonly code: string | undefined, readonly extra: Readonly<Record<string, unknown>>) {
+    super(message)
+    this.name = 'BoardError'
+  }
+}
+
+/**
  * 宿主因为缺授权而拒绝了一次动作或一次读数据（D6）。
  *
  * 卡片据此把「允许」按钮画出来：授权只由人给出，所以界面要能把这件事说清楚并让人点一下。
@@ -87,18 +100,18 @@ export class PropsRejectedError extends Error {
  * @param subject - 出错的这件事，写在消息开头。
  * @returns 抛出去的错误。
  */
-async function failureOf(response: Response, subject: string): Promise<Error> {
-  let body: { error?: string, code?: string, kind?: GrantKind, id?: string, provider?: string } = {}
+export async function failureOf(response: Response, subject: string): Promise<Error> {
+  let body: { error?: string, code?: string, kind?: GrantKind, id?: string, provider?: string } & Record<string, unknown> = {}
   try {
     body = await response.json() as typeof body
   } catch {
-    return new Error(`${subject}：HTTP ${response.status}`)
+    return new BoardError(`${subject}：HTTP ${response.status}`, undefined, {})
   }
   const message = body.error === undefined ? `${subject}：HTTP ${response.status}` : `${subject}：${body.error}`
   if (body.code === 'grant-required' && typeof body.id === 'string') {
     return new GrantRequiredError(message, body.kind ?? 'action', body.id, body.provider)
   }
-  return new Error(message)
+  return new BoardError(message, typeof body.code === 'string' ? body.code : undefined, body)
 }
 
 /** 一份响应体是不是工作区快照。 */
@@ -138,7 +151,7 @@ async function snapshotBodyOf(response: Response, subject: string): Promise<Work
  * @throws {Error} 请求失败或响应不是工作区快照。
  */
 async function wrappedOf(response: Response, subject: string): Promise<{ id?: string, snapshot: WorkspaceSnapshot }> {
-  if (!response.ok) throw new Error(await errorOf(response, subject))
+  if (!response.ok) throw await failureOf(response, subject)
   const payload = await response.json() as { id?: unknown, snapshot?: unknown }
   if (!isWorkspace(payload.snapshot)) throw new Error(`${subject}：响应不是工作区快照`)
   return { ...(typeof payload.id === 'string' ? { id: payload.id } : {}), snapshot: payload.snapshot }
@@ -196,7 +209,7 @@ export async function renameBoard(id: string, title: string): Promise<WorkspaceS
  * 移除一块看板（D21）。
  *
  * @param id - 看板 id。
- * @returns 移除之后的工作区；移除的是最后一块时，里面是补上的那块空看板。
+ * @returns 移除之后的工作区；移除的是最后一块时，里面是补上的默认看板。
  * @throws {Error} 请求失败。
  */
 export async function removeBoard(id: string): Promise<WorkspaceSnapshot> {
@@ -229,6 +242,8 @@ export async function saveInstanceState(id: string, patch: unknown): Promise<voi
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
+    // 关页时的最后一次冲刷靠它活过页面的拆除；状态补丁远小于 keepalive 的 64 KiB 请求体上限。
+    keepalive: true,
   })
   if (!response.ok) throw new Error(await errorOf(response, '存不下这张卡的状态'))
 }

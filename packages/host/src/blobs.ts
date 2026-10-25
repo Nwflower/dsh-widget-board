@@ -4,7 +4,7 @@
  * 卡片文档按哈希取，会话里内联显示过的组件也要按当时的版本重画，所以版本要跨重启留着。每个版本
  * 存成 `blobs/<hash>.json`：来源与 base64 的文件表。内存只留最近用到的若干份，其余从磁盘读。
  */
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { WidgetSource } from '@dsh-widget-board/contracts'
 import { contentHash, type WidgetRecord } from './library'
@@ -41,14 +41,19 @@ export function createVersionStore(dir: string, limit = 32): VersionStore {
   /** 上一次数过的版本数；remember 之后再数一遍。 */
   let savedCount: number | undefined
 
-  const remember = async (record: WidgetRecord): Promise<void> => {
-    savedCount = undefined
-    memory.delete(record.hash)
-    memory.set(record.hash, record)
+  /** 内存里只留最近用到的几份（D7）：remember 与 get 读回之后都按它裁剪。 */
+  const trim = (): void => {
     for (const hash of memory.keys()) {
       if (memory.size <= limit) break
       memory.delete(hash)
     }
+  }
+
+  const remember = async (record: WidgetRecord): Promise<void> => {
+    savedCount = undefined
+    memory.delete(record.hash)
+    memory.set(record.hash, record)
+    trim()
     if (written.has(record.hash)) return
     const stored: StoredVersion = {
       source: record.source,
@@ -58,10 +63,21 @@ export function createVersionStore(dir: string, limit = 32): VersionStore {
     const file = join(dir, `${record.hash}.json`)
     await mkdir(dirname(file), { recursive: true })
     try {
-      // `wx`：文件已经在就跳过，不把每个版本在每次启动时重写一遍；坏内容在读取时按哈希校验报错。
-      await writeFile(file, `${JSON.stringify(stored)}\n`, { encoding: 'utf8', flag: 'wx' })
+      await stat(file)
+      // 文件已经在就不再写：不把每个版本在每次启动时重写一遍；坏内容在读取时按哈希校验报错。
+      written.add(record.hash)
+      return
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    // 先写临时文件再改名，崩溃不会留下半份 JSON（与 state、grants 同一套写法）。
+    const temporary = `${file}.tmp`
+    await writeFile(temporary, `${JSON.stringify(stored)}\n`, { encoding: 'utf8' })
+    try {
+      await rename(temporary, file)
+    } catch (error) {
+      // 同一个哈希并发写完把临时文件改名走了：内容按哈希寻址是一样的，当作写完。
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     written.add(record.hash)
   }
@@ -96,6 +112,7 @@ export function createVersionStore(dir: string, limit = 32): VersionStore {
       files,
     }
     memory.set(hash, record)
+    trim()
     return record
   }
 

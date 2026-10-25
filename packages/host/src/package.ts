@@ -89,8 +89,14 @@ export function packWidget(files: readonly PackageFile[]): Uint8Array {
   return zipSync(tree, { level: 6 })
 }
 
+/** 解压量超限：与「不是有效的组件包」分开报。 */
+class TooLarge extends Error {}
+
 /**
  * 解开一个 `.dshw`：先量压缩后的大小，再解压、逐项校验、读 manifest。
+ *
+ * 解压按 zip 里声明的大小逐项拦截：高压缩比的包在内容进内存之前就被拒绝，不会先把整包解开
+ * 再量（D3 的组件包是不可信输入）。
  *
  * @param bytes - zip 的字节。
  * @returns manifest 与文件表。
@@ -100,8 +106,19 @@ export function unpackWidget(bytes: Uint8Array): UnpackedWidget {
   if (bytes.byteLength > PACKAGE_MAX_COMPRESSED_BYTES) throw new Error(`组件包超过 ${PACKAGE_MAX_COMPRESSED_BYTES} 字节`)
   let tree: Record<string, Uint8Array>
   try {
-    tree = unzipSync(bytes)
+    let declared = 0
+    tree = unzipSync(bytes, {
+      filter(file) {
+        if (file.originalSize > PACKAGE_MAX_FILE_BYTES) {
+          throw new TooLarge(`包里的 ${file.name} 解开之后超过 ${PACKAGE_MAX_FILE_BYTES} 字节`)
+        }
+        declared += file.originalSize
+        if (declared > PACKAGE_MAX_TOTAL_BYTES) throw new TooLarge(`组件包解开之后超过 ${PACKAGE_MAX_TOTAL_BYTES} 字节`)
+        return true
+      },
+    })
   } catch (error) {
+    if (error instanceof TooLarge) throw error
     throw new Error(`这个文件不是有效的组件包：${(error as Error).message}`)
   }
   const files: PackageFile[] = []
@@ -180,6 +197,29 @@ export function packBoard(title: string, cards: readonly BoardPackageCard[], wid
 }
 
 /**
+ * 检查看板包里内嵌的组件文件（D8）。
+ *
+ * 内嵌文件与 `.dshw` 同一组上限：路径不越出目录、扩展名在白名单里、文件数与大小都有头。base64
+ * 内容按解码后的字节计量，写盘之前就整包拒绝。
+ *
+ * @param id - 组件 id，报错时点名。
+ * @param files - 相对路径到 base64 内容。
+ * @throws {Error} 路径、扩展名、数量或大小不合格。
+ */
+function checkEmbeddedFiles(id: string, files: Record<string, unknown>): void {
+  const decoded: PackageFile[] = []
+  for (const [path, content] of Object.entries(files)) {
+    if (typeof content !== 'string') throw new Error(`${id} 的 ${path} 不是 base64 文本`)
+    decoded.push({ path, content: Buffer.from(content, 'base64') })
+  }
+  try {
+    checkFiles(decoded)
+  } catch (error) {
+    throw new Error(`${id} 的内嵌文件：${(error as Error).message}`)
+  }
+}
+
+/**
  * 解开一块 `.dshboard` 并校验它的形状。
  *
  * @param bytes - 文本的字节。
@@ -210,6 +250,7 @@ export function unpackBoard(bytes: Uint8Array): BoardPackage {
   for (const widget of pkg.widgets) {
     if (typeof widget?.hash !== 'string' || typeof widget.manifest?.id !== 'string') throw new Error('看板包里有一个组件版本没有哈希或 id')
     if (typeof widget.files !== 'object' || widget.files === null) throw new Error(`看板包里的 ${widget.manifest.id} 没有文件`)
+    checkEmbeddedFiles(widget.manifest.id, widget.files)
   }
   return pkg as BoardPackage
 }

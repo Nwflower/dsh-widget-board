@@ -12,6 +12,7 @@ import Ajv from 'ajv'
 import type { Board, BoardEvent, BoardValue, DefineValue, ShowValue, ToolCall, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
+import { createRequestLog } from '../src/request-log'
 import { createSelfChecks } from '../src/selfcheck'
 import type { WidgetRecord } from '../src/library'
 import { createToolContext, OPTIONAL_TOOLS, registerTools, toolRegistrations } from '../src/tools'
@@ -116,13 +117,16 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[], boar
     sources: {
       registerDataSource: () => () => undefined,
       registerAction: () => () => undefined,
-      hasDataSource: () => false,
-      resolveDataSource: () => undefined,
+      hasDataSource: (id: string) => id === 'demo:count',
+      resolveDataSource: (id: string) => (id === 'demo:count'
+        ? { registration: { apiVersion: 2, provider: 'demo', id, read: () => ({ n: 7 }) }, provider: 'demo' }
+        : undefined),
       resolveAction: () => undefined,
       readSource: async () => ({ n: 7 }),
       runAction: async () => null,
       namesOf: () => ({ dataSources: [], actions: [] }),
     },
+    requests: createRequestLog(),
     grants: {
       all: () => [],
       has: () => false,

@@ -5,10 +5,10 @@
  * 区别在写：会话里没有一张要写到宿主上的卡，组件写的状态只留在这一帧的内存里（切走再回来会丢），
  * 动作、能力调用与通知一律拒绝并说明原因——会话里的画面是只读的。
  */
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { ParentMessage, WidgetMessage, WidgetSize } from '@dsh-widget-board/contracts'
-import { MESSAGE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
+import type { InspectionReport, ParentMessage, WidgetMessage, WidgetSize } from '@dsh-widget-board/contracts'
+import { MESSAGE_LIMIT, MESSAGE_RATE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import type { FrameHost } from './frame-host'
 import type { ShellTheme } from './theme'
 import { openInNewTab } from './open-url'
@@ -41,13 +41,30 @@ export interface SnapshotSurfaceProps {
 /** 握手这么久没有收到组件的任何一条消息，就报没应答。 */
 const ANSWER_TIMEOUT_MS = 8000
 
+/** 一次检查的产物：量出来的画面与发现的问题。 */
+export interface SnapshotInspection {
+  report: InspectionReport
+  problems: readonly string[]
+}
+
+/** 从外面让这一帧里的组件跑一次检查器的把手（D9、D13）。 */
+export interface SnapshotSurfaceHandle {
+  /**
+   * 请求一次检查。
+   *
+   * 检查经端口送进组件运行时（沙箱帧与父页面跨源，读不到它窗口上的属性）；没有握手、或组件没在
+   * 时限内应答时是 `null`。
+   */
+  inspect(timeoutMs?: number): Promise<SnapshotInspection | null>
+}
+
 /**
  * 一层只读的快照画面。
  *
  * @param props - 要画的版本、数据、盒子、主题与握手中心。
  * @returns iframe 与它的失败提示。
  */
-export function SnapshotSurface({
+export const SnapshotSurface = forwardRef<SnapshotSurfaceHandle, SnapshotSurfaceProps>(function SnapshotSurface({
   hash,
   title,
   props: instanceProps,
@@ -61,10 +78,17 @@ export function SnapshotSurface({
   onHeight,
   onFailure,
   inert = false,
-}: SnapshotSurfaceProps): ReactNode {
+}, ref): ReactNode {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  /** 握手之后的端口：检查请求经它送进组件运行时。 */
+  const portRef = useRef<MessagePort | null>(null)
+  /** 组件有没有应答过：应答之前检查器还不存在，请求了也拿不到结果。 */
+  const answeredRef = useRef(false)
+  /** 在途的检查请求，按 requestId 索引。 */
+  const inspectionsRef = useRef(new Map<string, { resolve: (value: SnapshotInspection | null) => void, timer: number }>())
+  const sequenceRef = useRef(0)
   /** 组件写在会话里的状态：只活在这一帧的内存里，面板关掉就没了。 */
   const localState = useRef<unknown>(state)
   const initRef = useRef({ props: instanceProps, data, state, text })
@@ -84,11 +108,14 @@ export function SnapshotSurface({
     if (frame === null) return
     const channel = new MessageChannel()
     const port = channel.port1
+    portRef.current = port
     let live = true
     let ready = false
     let answered = false
     let held: (() => void) | undefined
     let detach: (() => void) | undefined
+    /** 一秒窗口里收到的消息时刻，用来限流（D3）。 */
+    const recent: number[] = []
     const fail = (message: string): void => {
       setFailure(message)
       failureRef.current?.(message)
@@ -126,8 +153,17 @@ export function SnapshotSurface({
         console.error(`widget-board: 组件发来的消息超过 ${String(MESSAGE_LIMIT)} 字节，丢弃`)
         return
       }
+      // 每秒限流与看板卡片同一条规则（D3）：两端用同一份判定，超频的丢弃。
+      const now = Date.now()
+      while (recent.length > 0 && now - (recent[0] as number) > 1000) recent.shift()
+      recent.push(now)
+      if (recent.length > MESSAGE_RATE_LIMIT) {
+        console.error(`widget-board: 组件一秒内发了超过 ${String(MESSAGE_RATE_LIMIT)} 条消息，丢弃`)
+        return
+      }
       if (!answered) {
         answered = true
+        answeredRef.current = true
         window.clearTimeout(watchdog)
         setFailure(null)
       }
@@ -148,6 +184,14 @@ export function SnapshotSurface({
           // 跳转不需要宿主，快照里的卡片也能把链接开出去（D26）。
           openInNewTab(message.url)
           return
+        case 'report': {
+          const pending = inspectionsRef.current.get(message.requestId)
+          if (pending === undefined) return
+          inspectionsRef.current.delete(message.requestId)
+          window.clearTimeout(pending.timer)
+          pending.resolve({ report: message.report, problems: message.problems })
+          return
+        }
         case 'action':
         case 'call':
           // 会话里的快照没有可以执行的宿主动作与能力（D6、D24）。
@@ -170,8 +214,31 @@ export function SnapshotSurface({
       held?.()
       frame.removeEventListener('load', connect)
       port.close()
+      portRef.current = null
+      answeredRef.current = false
+      for (const pending of inspectionsRef.current.values()) {
+        window.clearTimeout(pending.timer)
+        pending.resolve(null)
+      }
+      inspectionsRef.current.clear()
     }
   }, [src, frames, attempt])
+
+  useImperativeHandle(ref, () => ({
+    inspect(timeoutMs = 2000) {
+      const port = portRef.current
+      if (port === null || !answeredRef.current) return Promise.resolve(null)
+      const requestId = `inspect-${String(++sequenceRef.current)}`
+      return new Promise<SnapshotInspection | null>((resolve) => {
+        const timer = window.setTimeout(() => {
+          inspectionsRef.current.delete(requestId)
+          resolve(null)
+        }, timeoutMs)
+        inspectionsRef.current.set(requestId, { resolve, timer })
+        port.postMessage({ type: 'inspect', requestId } satisfies ParentMessage)
+      })
+    },
+  }), [])
 
   useEffect(() => {
     const frame = frameRef.current
@@ -197,7 +264,7 @@ export function SnapshotSurface({
       {failure === null ? null : <p className="dsh-widget-board__snapshot-failure" role="status">{failure}</p>}
     </>
   )
-}
+})
 
 /**
  * 把一份局部状态并到上一份上；两份都不是普通对象时直接换掉。

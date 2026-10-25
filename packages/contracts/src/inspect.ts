@@ -101,6 +101,8 @@ export interface SelfCheckJob {
   hash: string
   props: Record<string, unknown>
   data: unknown
+  /** manifest 里的文案：画廊里的组件按它取字，否则双语文案全显示成 key（D7）。 */
+  text: Record<string, { zh: string, en: string }>
   boxes: SelfCheckBox[]
 }
 

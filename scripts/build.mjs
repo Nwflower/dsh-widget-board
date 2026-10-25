@@ -224,6 +224,7 @@ function writeAssets() {
 const LIBS = [
   { id: 'marked', entry: path.join(RUNTIME, 'libs', 'marked.ts') },
   { id: 'highlight', entry: path.join(RUNTIME, 'libs', 'highlight.ts') },
+  { id: 'three', entry: path.join(RUNTIME, 'libs', 'three.ts') },
 ]
 
 /**

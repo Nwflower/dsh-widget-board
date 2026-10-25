@@ -1,7 +1,7 @@
 import { createElement, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { BoardInstance, GrantKind, ParentMessage, WidgetFamily, WidgetMessage, WidgetNotification, WidgetSummary } from '@dsh-widget-board/contracts'
-import { MESSAGE_RATE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
+import { MESSAGE_RATE_LIMIT, PARENT_MESSAGE_LIMIT, isWidgetMessage, widgetDocumentPath, withinLimit } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { isChinese, t } from './copy'
 import type { FrameHost } from './frame-host'
@@ -11,6 +11,7 @@ import { useNativeWidget } from './native'
 import { NativeBoundary } from './native-boundary'
 import { CARD_CLIP } from './card-shell'
 import { createStateQueue } from './state-queue'
+import { clientCapabilityOf } from './capabilities'
 import { openInNewTab } from './open-url'
 
 /** 卡片这么久没有收到组件的任何一条消息，就重新连一次（D11）。 */
@@ -136,6 +137,34 @@ export function CardSurface({
     setAsking(error instanceof GrantRequiredError ? { kind: error.kind, id: error.id } : null)
   }
 
+  /**
+   * 一张卡发起的一次能力调用（D29）：浏览器侧接得住的先走本地，其余的照旧走宿主路由。
+   *
+   * 预览与一次性快照不在看板上，两种调用都没有去处，先挡下来。本地实现也核对 manifest 的声明；
+   * 声明了 `permission` 的能力不在浏览器执行——授权只由人在确认页给出（D6），宿主路由那一侧才查得到。
+   */
+  const runCapability = (capability: string, args: unknown, signal: AbortSignal): Promise<unknown> => {
+    if (preview) return Promise.reject(new Error('组件库预览里不能调用宿主能力'))
+    if (detachedRef.current) return Promise.reject(new Error('一次性快照里不能调用宿主能力'))
+    const local = clientCapabilityOf(capability)
+    if (local === undefined || !local.available() || local.permission !== undefined) {
+      return callInstanceCapability(instance.id, capability, args, signal)
+    }
+    if (!(widget.capabilities ?? []).includes(capability)) {
+      return Promise.reject(new Error(`组件没有声明能力 ${capability}`))
+    }
+    return Promise.resolve().then(() => local.call({
+      capability,
+      args,
+      instance,
+      widget,
+      frame: frameRef.current,
+      signal,
+      preview,
+      detached: detachedRef.current,
+    }))
+  }
+
   useEffect(() => {
     const frame = frameRef.current
     if (frame === null) return
@@ -156,12 +185,12 @@ export function CardSurface({
     const handleCall = (requestId: string, capability: string, args: unknown): void => {
       const controller = new AbortController()
       callsRef.current.set(requestId, controller)
-      callInstanceCapability(instance.id, capability, args, controller.signal).then(
+      runCapability(capability, args, controller.signal).then(
         (result) => {
           if (!callsRef.current.has(requestId)) return
           callsRef.current.delete(requestId)
           const reply = { type: 'call-result' as const, requestId, result }
-          if (!withinLimit(reply)) {
+          if (!withinLimit(reply, PARENT_MESSAGE_LIMIT)) {
             send({ type: 'call-error', requestId, code: 'too-large', message: `${capability} 的返回值超过消息长度上限` })
             return
           }
@@ -219,9 +248,13 @@ export function CardSurface({
       // 组件自己导航不了，链接由包着它的页面开：用户激活跟着端口过来，弹窗不会被拦（D26）。
       if (message.type === 'open') openInNewTab(message.url)
       if (message.type === 'action') {
-        // 一次性快照不在看板上，动作没有去处：把这件事写在画面上（D11）。
+        // 一次性快照与组件库预览不在看板上，动作没有去处：把这件事写在画面上（D11）。
         if (detachedRef.current) {
           setFailure(t('inlineDetached'))
+          return
+        }
+        if (preview) {
+          setFailure(t('previewNoAction'))
           return
         }
         sendInstanceAction(instance.id, message.id, message.payload).then(() => { settleAction() }, settleAction)
@@ -236,7 +269,7 @@ export function CardSurface({
       if (!live || readyRef.current) return
       readyRef.current = true
       frame.contentWindow?.postMessage({ type: 'connect' }, '*', [channel.port2])
-      held = frames.hold(port)
+      held = frames.hold(port, { frame, paused: () => pausedRef.current })
       const { props, data, state, text } = initRef.current
       const { tokens: themeTokens, lang, motion } = themeRef.current
       send({
@@ -269,7 +302,7 @@ export function CardSurface({
       portRef.current = null
       readyRef.current = false
     }
-  }, [src, instance.id, frames, attempt])
+  }, [src, instance.id, frames, attempt, native])
 
   // 连接之后的更新走各自的通道：连接不重建，组件文档也就不会错过 init。
   useEffect(() => {
@@ -343,7 +376,7 @@ export function CardSurface({
                   sendInstanceAction(instance.id, id, payload).then(() => { settleAction() }, settleAction)
                 },
                 call: (capability: string, args?: unknown, options?: { signal?: AbortSignal }) => (
-                  callInstanceCapability(instance.id, capability, args, options?.signal).catch((error: Error) => {
+                  runCapability(capability, args, options?.signal ?? new AbortController().signal).catch((error: Error) => {
                     if (error instanceof GrantRequiredError) setAsking({ kind: error.kind, id: error.id })
                     throw error
                   })

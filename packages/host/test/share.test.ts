@@ -13,7 +13,7 @@ import type { Board, BoardEvent, HostRequest, HostResponse, WidgetLibraryEntry }
 import { PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
-import type { WidgetRecord } from '../src/library'
+import { contentHash, type WidgetRecord } from '../src/library'
 import { createRegistries } from '../src/sources'
 import { readWidget, writeWidgetDirectory } from '../src/library'
 import { writeBoard } from '../src/state'
@@ -34,7 +34,7 @@ function record(id: string, files: Record<string, string> = {}): WidgetRecord {
     ['style.css', Buffer.from('p{}')],
     ...Object.entries(files).map(([path, content]) => [path, Buffer.from(content)] as [string, Buffer]),
   ])
-  return { manifest: JSON.parse(map.get('widget.json')?.toString('utf8') ?? '{}'), source: 'user', dir: `/w/${id}`, hash: id.padEnd(64, 'a').slice(0, 64), files: map }
+  return { manifest: JSON.parse(map.get('widget.json')?.toString('utf8') ?? '{}'), source: 'user', dir: `/w/${id}`, hash: contentHash(map), files: map }
 }
 
 /** 一张空看板。 */

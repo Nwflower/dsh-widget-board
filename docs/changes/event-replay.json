@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 3,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "页面不再被旧快照盖掉刚收到的改动：快照带上变更通知的修订号，重取与写入答复换上快照之后，把比它新的事件按修订号重放一遍，状态与布局不再短暂回退。",
+  "en": "Pages no longer lose freshly received changes to an older snapshot: snapshots now carry the change-notification revision, and events newer than the snapshot are replayed by revision after it is adopted, so state and layout no longer briefly revert."
+}

@@ -8,7 +8,7 @@
 import { join } from 'node:path'
 import { strToU8 } from 'fflate'
 import type { DefineValue, SelfCheckResult, WidgetManifest, WidgetToolSpec } from '@dsh-widget-board/contracts'
-import { WIDGET_TOOL_NAMES, ToolRefusal, selfCheckBoxes, withinLimit } from '@dsh-widget-board/contracts'
+import { PARENT_MESSAGE_LIMIT, WIDGET_TOOL_NAMES, ToolRefusal, selfCheckBoxes, withinLimit } from '@dsh-widget-board/contracts'
 import { DEFAULT_HEIGHT_REM, snapCardHeight } from '@dsh-widget-board/model'
 import { isRecord } from '../guards'
 import { manifestProblem, writeWidgetDirectory } from '../library'
@@ -99,6 +99,11 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
       const manifest = manifestOf(wanted.manifest)
       if (manifest.id !== wanted.id) throw new ToolRefusal(`manifest.id 是 ${manifest.id}，与 id ${wanted.id} 不一致`)
       const files = filesOf(wanted.files)
+      // widget.json 只从 manifest 生成：files 里再带一份会按写入顺序盖掉校验过的内容，落盘的就不是
+      // 校验过的那份了。
+      if (files.some((file) => file.path === 'widget.json')) {
+        throw new ToolRefusal('widget.json 由 manifest 参数写成；files 里不要再带一份')
+      }
       for (const required of ['index.html', 'style.css']) {
         if (!files.some((file) => file.path === required)) throw new ToolRefusal(`缺少必需的 ${required}（D7）`)
       }
@@ -127,6 +132,7 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
         hash: record.hash,
         props: preview.props,
         data: preview.data,
+        text: record.manifest.text ?? {},
         boxes: selfCheckBoxes(record.manifest.minBox),
       }, call.signal)
       return {
@@ -196,6 +202,7 @@ function previewOf(context: ToolContext, manifest: WidgetManifest, value: unknow
     if (dataProblem !== undefined) throw new ToolRefusal(`preview.data 与 manifest 的 data schema 不符：${dataProblem}`)
   }
   const preview = { props, data }
-  if (!withinLimit(preview)) throw new ToolRefusal('preview 超过 64 KiB；只给能看出排版的那部分')
+  // 上限按父页面发给组件的那一档：preview 会整份装进内联显示的 init 消息（D3）。
+  if (!withinLimit(preview, PARENT_MESSAGE_LIMIT)) throw new ToolRefusal(`preview 超过 ${String(PARENT_MESSAGE_LIMIT)} 字节；只给能看出排版的那部分`)
   return preview
 }

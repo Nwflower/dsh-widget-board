@@ -40,7 +40,7 @@ export interface ProviderRegistry {
   /** 已经注册的目录，按注册顺序。 */
   readonly roots: readonly WidgetRoot[]
   /** 撤下全部注册；拆除时用。 */
-  disposeAll(): void
+  disposeAll(): Promise<void>
 }
 
 /** 一次注册在内部的样子。 */
@@ -72,7 +72,8 @@ export function createProviderRegistry(deps: ProviderDeps): ProviderRegistry {
     return run
   }
 
-  const disposeHandle = async (handle: Handle): Promise<void> => {
+  /** 撤下一个把手的同步部分：目录监视、子注册与来源条目一起走；授权与重读由调用方接着办。 */
+  const detachHandle = (handle: Handle): void => {
     if (handle.disposed) return
     handle.disposed = true
     handles.delete(handle)
@@ -81,6 +82,11 @@ export function createProviderRegistry(deps: ProviderDeps): ProviderRegistry {
     handle.entries.clear()
     const index = deps.roots.indexOf(handle.root)
     if (index !== -1) deps.roots.splice(index, 1)
+  }
+
+  const disposeHandle = async (handle: Handle): Promise<void> => {
+    if (handle.disposed) return
+    detachHandle(handle)
     await deps.forgetGrants(handle.provider)
     await deps.reload()
   }
@@ -152,14 +158,11 @@ export function createProviderRegistry(deps: ProviderDeps): ProviderRegistry {
         },
       }
     },
-    disposeAll() {
-      for (const handle of [...handles]) {
-        handle.disposed = true
-        handle.stopWatch()
-        for (const dispose of handle.entries) dispose()
-        handle.entries.clear()
-      }
-      handles.clear()
+    async disposeAll() {
+      const removed = [...handles]
+      for (const handle of removed) detachHandle(handle)
+      // 授权跟着提供方一起撤下（D18）；插件正在拆除，剩下的来源也一起走，不再逐个重读组件库。
+      for (const handle of removed) await deps.forgetGrants(handle.provider)
     },
   }
 }

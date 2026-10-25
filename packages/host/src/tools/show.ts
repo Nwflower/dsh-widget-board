@@ -12,6 +12,7 @@ import type { BoardInstance, ShowValue, WidgetFamily, WidgetToolSpec } from '@ds
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import { isRecord } from '../guards'
 import type { WidgetRecord } from '../library'
+import { requireGrantOf } from '../permissions'
 import { widgetSummaryOf } from '../snapshot'
 import type { ToolContext } from './index'
 
@@ -125,6 +126,16 @@ export function showTool(context: ToolContext): WidgetToolSpec {
         if (problem !== undefined) throw new ToolRefusal(`数据与 ${record.manifest.id} 的 data schema 不符：${problem}`)
         data = wanted.data
       } else if (source !== undefined) {
+        const resolved = context.route.sources.resolveDataSource(source)
+        if (resolved === undefined) throw new ToolRefusal(`没有数据源 ${source}，提供它的插件可能没有安装`)
+        // 一次性快照不在看板上，没有可以单独授权的卡片：按组件版本核对已给出的授权，缺授权就不读（D6）。
+        if (resolved.registration.permission !== undefined) {
+          try {
+            requireGrantOf(context.route.grants, record.manifest.id, record.hash, 'source', source, resolved.registration.permission, resolved.provider)
+          } catch (error) {
+            throw new ToolRefusal(`${(error as Error).message}；先把它放上看板，由人在卡片上给出授权之后才能读`)
+          }
+        }
         const face = { id: 'inline', widget: record.manifest.id, props: (wanted.props ?? {}) as Record<string, unknown> }
         data = await context.readSource(source, face)
         const problem = context.dataError(record.manifest.data, data)
@@ -145,7 +156,7 @@ export function showTool(context: ToolContext): WidgetToolSpec {
       const title = shown.summary.title.zh
       const where = shown.board === undefined
         ? '这是一份一次性快照，不在看板上；状态只留在页面上'
-        : `它同时是看板「${shown.board.title}」上的卡片 ${shown.id}，状态与动作双向同步`
+        : `它同时是看板「${shown.board.title}」上的卡片 ${shown.id}；这份快照不跟着看板更新，组件交出的状态会写回那张卡`
       return [{
         type: 'text',
         text: `组件 ${shown.widget}（${title}）以 ${shown.family} 尺寸内联显示在回答里；${where}。`,

@@ -13,10 +13,13 @@ import type { Board, BoardEvent, Grant, HostRequest, HostResponse, WidgetLibrary
 import { PLUGIN_ROUTE, grantKey } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
+import { MY_BOARD_TITLE } from '../src/default-boards'
 import { readManyInto } from '../src/batch-reads'
 import type { GrantStore } from '../src/grants'
 import type { WidgetRecord } from '../src/library'
+import { loadLibrary } from '../src/library'
 import { createRegistries } from '../src/sources'
+import { createRequestLog } from '../src/request-log'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from '../src/limits'
@@ -165,9 +168,10 @@ function memoryGrants(): GrantStore {
  *
  * @param record - 组件库里的那一个组件，默认是天气卡。
  * @param extra - 是否再多放一块看板（`second`）。
+ * @param records - 打开工作区用的组件库；省略时只有 `record` 一个。
  * @returns 上下文、推出去的事件与发请求的函数。
  */
-async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Harness> {
+async function harness(record: WidgetRecord = RECORD, extra = false, records?: Map<string, WidgetRecord>): Promise<Harness> {
   const events: BoardEvent[] = []
   await mkdir(join(ROOT, '.debug'), { recursive: true })
   const home = await mkdtemp(join(ROOT, '.debug', 'routes-test-'))
@@ -182,7 +186,7 @@ async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Ha
   }
   await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'board', boards: ids })}\n`, 'utf8')
   const sources = createRegistries()
-  const workspace = await openWorkspace(home, new Map([[record.manifest.id, record]]), (event) => { events.push(event) })
+  const workspace = await openWorkspace(home, records ?? new Map([[record.manifest.id, record]]), (event) => { events.push(event) })
   const context: RouteContext = {
     records: new Map([[record.manifest.id, record]]),
     entries: ENTRIES,
@@ -205,6 +209,7 @@ async function harness(record: WidgetRecord = RECORD, extra = false): Promise<Ha
     refresh: async () => undefined,
     sources,
     grants: memoryGrants(),
+    requests: createRequestLog(),
     limits: {
       stateCard: createRateLimiter(STATE_WRITES_PER_SECOND),
       stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
@@ -287,16 +292,18 @@ describe('看板的增删改与选中', () => {
     expect((JSON.parse(response.body) as { boards: Board[] }).boards).toHaveLength(1)
   })
 
-  it('移除最后一块看板时回补上的一块空看板', async () => {
-    const test = await harness()
+  it('移除最后一块看板时补上默认看板', async () => {
+    const library = (await loadLibrary([{ dir: join(ROOT, 'packages', 'widgets'), source: 'builtin' }])).records
+    const test = await harness(RECORD, false, library)
     const response = await test.send('POST', '/boards/board/remove')
     expect(response.status).toBe(200)
     const body = JSON.parse(response.body) as { active: string, boards: Board[] }
     expect(body.boards).toHaveLength(1)
     const replacement = body.boards[0] as Board
     expect(replacement.id).not.toBe('board')
+    expect(replacement.title).toBe(MY_BOARD_TITLE)
+    expect(replacement.instances.length).toBeGreaterThan(0)
     expect(body.active).toBe(replacement.id)
-    expect(replacement.instances).toEqual([])
     expect(test.events.at(-1)).toEqual({ type: 'board' })
   })
 
@@ -557,7 +564,7 @@ describe('加卡片与移除卡片', () => {
     expect(created?.data).toBeNull()
   })
 
-  it('数据源要授权时加卡回 403，卡片留在看板上', async () => {
+  it('数据源要授权时加卡照样成功，数据留空等人授权', async () => {
     const test = await harness()
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, source: 'weather.gated' } })
     test.context.sources.registerDataSource({
@@ -568,9 +575,15 @@ describe('加卡片与移除卡片', () => {
       read: () => ({ n: 1 }),
     })
     const response = await test.send('POST', '/boards/board/instance', JSON.stringify({ widget: 'weather' }))
-    expect(response.status).toBe(403)
-    expect(JSON.parse(response.body).code).toBe('grant-required')
-    expect(test.context.workspace.board('board').instances.at(-1)?.source).toBe('weather.gated')
+    // 卡片照加、数据留空：授权只由人给出（D6），用户在卡片上点「允许」之后再读就有数据了。
+    expect(response.status).toBe(201)
+    const created = test.context.workspace.board('board').instances.at(-1)
+    expect(created?.source).toBe('weather.gated')
+    expect(created?.data).toBeNull()
+    // 手动读那一下会给出缺授权的说明与「允许」的依据。
+    const read = await test.send('POST', `/instance/${encodeURIComponent(created?.id ?? '')}/read`, '{}')
+    expect(read.status).toBe(403)
+    expect(JSON.parse(read.body).code).toBe('grant-required')
   })
 
   it('刷新路由触发一次重读并回快照', async () => {

@@ -23,6 +23,7 @@ import { json } from './response'
 import type { Route, RouteContext } from './routes'
 import { propsIssues } from './schema'
 import { withInstancePatched } from './state'
+import type { WidgetRecord } from './library'
 
 /** 保存 props 的请求体上限：一张卡的元数据，几十 KB 足够。 */
 const PROPS_LIMIT = 32 * 1024
@@ -32,6 +33,26 @@ const LOG_LIMIT = 0
 
 /** 写凭据的请求体上限：密钥是一小段文本。 */
 const CREDENTIAL_LIMIT = 8 * 1024
+
+/**
+ * 一张卡的组件声明与它用到的能力各自要的凭据，合在一起；同一个 ref 只算一次（D24、D27）。
+ *
+ * 读模型与写凭据共用这一份：弹窗画得出来的 ref 才存得进去。
+ *
+ * @param context - 路由上下文。
+ * @param record - 组件记录。
+ * @returns 凭据声明。
+ */
+function declaredCredentials(context: RouteContext, record: WidgetRecord): WidgetCredential[] {
+  const declared = [...(record.manifest.credentials ?? [])]
+  for (const capability of record.manifest.capabilities ?? []) {
+    const resolved = context.sources.resolveCapability(capability)
+    for (const credential of resolved?.registration.credentials ?? []) {
+      if (!declared.some((entry) => entry.ref === credential.ref)) declared.push(credential)
+    }
+  }
+  return declared
+}
 
 /**
  * 一张卡的读模型；组件不在库里、卡片不在看板上都拒绝。
@@ -96,13 +117,7 @@ async function settingsOf(context: RouteContext, id: string): Promise<CardSettin
     }
   })
 
-  const declared: WidgetCredential[] = [...(record.manifest.credentials ?? [])]
-  for (const capability of declaredCapabilities) {
-    const resolved = context.sources.resolveCapability(capability)
-    for (const credential of resolved?.registration.credentials ?? []) {
-      if (!declared.some((entry) => entry.ref === credential.ref)) declared.push(credential)
-    }
-  }
+  const declared: WidgetCredential[] = declaredCredentials(context, record)
 
   const credentials = context.credentials?.()
   const credentialSettings: CredentialSetting[] = []
@@ -221,7 +236,7 @@ export function settingsRoutes(): Route[] {
         if (found === undefined) throw new Refusal(404, `看板上没有这张卡：${id}`)
         const record = context.records.get(found.instance.widget)
         if (record === undefined) throw new Refusal(404, `组件 ${found.instance.widget} 不在组件库里`)
-        const declared = record.manifest.credentials?.some((credential) => credential.ref === wanted.ref) === true
+        const declared = declaredCredentials(context, record).some((credential) => credential.ref === wanted.ref) === true
         if (!declared) throw new Refusal(400, `组件 ${record.manifest.id} 没有声明凭据 ${wanted.ref}`)
         const credentials = credentialsOfRoute(context)
         const info = await credentials.describe(wanted.ref)

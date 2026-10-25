@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 1,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "放一张绑着需授权数据源的卡不再报错：卡片照加、数据留空，在卡片上给出「允许」之后再读就有数据；界面上加卡失败与卡片凭空出现的矛盾组合消失。",
+  "en": "Adding a card bound to a source that needs authorization no longer fails: the card is added with empty data, and after the user allows it on the card the data arrives; the confusing mix of an error toast and a card that appeared anyway is gone."
+}

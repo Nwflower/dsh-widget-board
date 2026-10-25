@@ -195,6 +195,24 @@ export const boardExportPath = (id: string): string => boardPath(id, 'export')
 /** 把看板包装进工作区的地址，文档相对（D8）。 */
 export const boardImportPath = (): string => `${CLIENT_ROUTE}${BOARD_ROUTE}/import`
 
+/** 组件库导入一个 `.dshw` 的路径（D8）。 */
+export const LIBRARY_IMPORT_PATH = '/library/import'
+
+/** 组件库里一个组件的导出挂在它下面（D8）。 */
+export const LIBRARY_WIDGET_ROUTE = '/library/widget'
+
+/** 把一个 `.dshw` 交给组件库的地址，文档相对（D8）。 */
+export const libraryImportPath = (): string => `${CLIENT_ROUTE}${LIBRARY_IMPORT_PATH}`
+
+/**
+ * 组件库里一个组件的导出地址，文档相对（D8）。
+ *
+ * @param id - 组件 id。
+ * @returns 下载 `.dshw` 的路径；写成 `<a download>` 的 href 就能直接下载。
+ */
+export const libraryWidgetExportPath = (id: string): string =>
+  `${CLIENT_ROUTE}${LIBRARY_WIDGET_ROUTE}/${encodeURIComponent(id)}/export`
+
 /** 按组 id 移除整组的地址，文档相对。 */
 export const groupRemovePath = (): string => `${CLIENT_ROUTE}${GROUP_REMOVE_PATH}`
 

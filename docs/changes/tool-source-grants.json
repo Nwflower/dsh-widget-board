@@ -1,0 +1,8 @@
+{
+  "group": "security",
+  "order": 1,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "会话工具读数据源补上授权闸门：widget_place 与 widget_show 的读取改走界面手动读的同一条路径，需要授权的数据源在没有人的允许之前不再被工具直接读取。",
+  "en": "Session tools now pass the authorization gate when reading data sources: widget_place and widget_show reuse the same path as manual reads from the UI, so sources that require permission are no longer read by tools without a human grant."
+}

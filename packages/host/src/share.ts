@@ -10,15 +10,16 @@
  * 覆盖。内置与插件提供的组件不允许被覆盖——它们不落在用户目录里（D17）。
  */
 import { join } from 'node:path'
-import type { BoardInstance, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
+import type { BoardInstance, WidgetLibraryEntry, WidgetManifest } from '@dsh-widget-board/contracts'
 import { readBody } from './body'
-import { contentHash, writeWidgetDirectory } from './library'
+import { contentHash, manifestProblem, writeWidgetDirectory } from './library'
 import type { WidgetRecord } from './library'
 import type { BoardPackageCard, BoardPackageWidget } from './package'
 import { PACKAGE_MAX_COMPRESSED_BYTES, packBoard, packWidget, unpackBoard, unpackWidget } from './package'
 import { Refusal } from './refusal'
 import type { Route, RouteContext } from './routes'
-import { instanceOf } from './state'
+import { dataError, propsError } from './schema'
+import { instanceOf, withInstanceStateChecked } from './state'
 
 /** 导入时最多读多少字节。 */
 const IMPORT_LIMIT = PACKAGE_MAX_COMPRESSED_BYTES
@@ -73,18 +74,37 @@ function entryOf(context: RouteContext, id: string, hash: string): WidgetLibrary
 async function importWidgets(context: RouteContext, widgets: readonly BoardPackageWidget[], replace: boolean): Promise<number> {
   let installed = 0
   for (const widget of widgets) {
-    const existing = context.records.get(widget.manifest.id)
+    // 内嵌的组件按组件库同一条规则校验，写盘之前整包拒绝：widget.json 是落盘后真正生效的那一份，
+    // 包里另带的 manifest 字段只当声明，两边对不上 id 或哈希对不上内容都不装（D3、D7）。
+    const files = Object.entries(widget.files).map(([path, content]) => ({ path, content: Buffer.from(content, 'base64') }))
+    const manifestFile = files.find((file) => file.path === 'widget.json')
+    if (manifestFile === undefined) throw new Refusal(400, `${widget.manifest.id} 的内嵌文件里没有 widget.json（D7）`)
+    let actual: unknown
+    try {
+      actual = JSON.parse(manifestFile.content.toString('utf8'))
+    } catch (error) {
+      throw new Refusal(400, `${widget.manifest.id} 的 widget.json 不是合法 JSON：${(error as Error).message}`)
+    }
+    const problem = manifestProblem(actual)
+    if (problem !== undefined) throw new Refusal(400, `${widget.manifest.id}：${problem}`)
+    const id = (actual as WidgetManifest).id
+    if (id !== widget.manifest.id) {
+      throw new Refusal(400, `包里声明的组件 id 是 ${widget.manifest.id}，widget.json 里写的是 ${id}`)
+    }
+    if (contentHash(new Map(files.map((file) => [file.path, file.content]))) !== widget.hash) {
+      throw new Refusal(400, `${id} 的内容与它声称的哈希不一致`)
+    }
+    const existing = context.records.get(id)
     if (existing !== undefined && existing.hash === widget.hash) continue
     if (existing !== undefined && !replace) {
-      throw new Refusal(409, `${widget.manifest.id} 已经在组件库里，内容不一样；带上 replace=true 才会覆盖`, {
+      throw new Refusal(409, `${id} 已经在组件库里，内容不一样；带上 replace=true 才会覆盖`, {
         code: 'widget-conflict',
-        id: widget.manifest.id,
+        id,
         current: existing.hash,
         incoming: widget.hash,
       })
     }
-    const files = Object.entries(widget.files).map(([path, content]) => ({ path, content: new Uint8Array(Buffer.from(content, 'base64')) }))
-    await install(context, widget.manifest.id, files)
+    await install(context, id, files)
     installed += 1
   }
   if (installed > 0) await context.refresh()
@@ -109,14 +129,21 @@ async function importCards(context: RouteContext, boardId: string, cards: readon
     let board = current
     for (const card of cards) {
       const record = context.records.get(card.widget) as WidgetRecord
+      // 导入的卡与路由加的卡同一条规则：props 与 data 按组件 schema 核对，状态受同一组额度约束（D6、D23）。
+      const propsProblem = propsError(record.manifest.props, card.props)
+      if (propsProblem !== undefined) throw new Refusal(400, `${card.widget}：${propsProblem}`)
+      if (card.data !== undefined && card.data !== null) {
+        const dataProblem = dataError(record.manifest.data, card.data)
+        if (dataProblem !== undefined) throw new Refusal(400, `${card.widget}：${dataProblem}`)
+      }
       const base = instanceOf(record, board.instances, { props: card.props, layout: card.layout })
-      const instance: BoardInstance = {
+      const staged: BoardInstance = {
         ...base,
         ...(card.data === undefined ? {} : { data: card.data }),
-        ...(card.state === undefined ? {} : { state: card.state }),
       }
-      board = { ...board, instances: [...board.instances, instance] }
-      added.push(instance.id)
+      board = { ...board, instances: [...board.instances, staged] }
+      if (card.state !== undefined) board = withInstanceStateChecked(board, staged.id, card.state)
+      added.push(staged.id)
     }
     return board
   }, { layoutChanged: true, event: () => ({ type: 'board' }) })

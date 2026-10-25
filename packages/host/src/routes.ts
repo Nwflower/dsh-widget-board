@@ -347,10 +347,10 @@ const ROUTES: Route[] = [
         // 写入之后重新取那一块看板：新卡片是这次写入加进去的，先前读到的那一份里没有它。
         const board = context.workspace.board(boardId)
         const instance = faceOf(board, id)
-        // 第一次读也要过授权，和 /read 走同一条规则：没人在卡片上给出「允许」之前不能跑（D6）。
-        requireGrant(grantFacts(context, board), id, 'source', source, resolved.registration.permission, resolved.provider)
-        // 请求本身失败（网络之类）不该让加卡失败：卡片留着，界面按空数据画，原因写进日志。
         try {
+          // 第一次读也要过授权，和 /read 走同一条规则：没人在卡片上给出「允许」之前不能跑（D6）。
+          // 缺授权也算读失败的一种：卡片照加、数据留空，用户在卡片上给出「允许」之后再读就有数据了。
+          requireGrant(grantFacts(context, board), id, 'source', source, resolved.registration.permission, resolved.provider)
           const data = await context.sources.readSource(source, instance)
           await saveData(context, id, data)
         } catch (error) {
@@ -394,6 +394,10 @@ const ROUTES: Route[] = [
       const board = context.workspace.findGroup(wanted.group)
       if (board === undefined) throw new Refusal(404, `看板上没有这一组：${wanted.group}`)
       await context.workspace.save(board.id, (current) => withGroupRemoved(current, wanted.group), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      // 组里的卡一起走了，它们的请求日志跟着收掉（D28）。
+      for (const instance of board.instances.filter((instance) => instance.group?.id === wanted.group)) {
+        context.requests.drop(instance.id)
+      }
       json(response, 200, workspaceSnapshot(context))
     },
   },
@@ -529,6 +533,7 @@ const ROUTES: Route[] = [
       const { board } = locate(context, id)
       await readJson(request, EMPTY_LIMIT)
       await context.workspace.save(board.id, (current) => withInstanceRemoved(current, id), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      context.requests.drop(id)
       json(response, 200, workspaceSnapshot(context))
     },
   },
@@ -673,8 +678,8 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
         return
       }
       const message = error instanceof Error ? error.message : String(error)
-      // 卡片或看板在核对与写入之间被另一个窗口移除了：这是 404，不是服务器的故障。
-      if (/^看板上没有这张卡/.test(message) || /^没有这块看板/.test(message)) {
+      // 卡片、组或看板在核对与写入之间被另一个窗口移除了：这是 404，不是服务器的故障。
+      if (/^(看板上没有这张卡|看板上没有这一组|没有这块看板)/.test(message)) {
         json(response, 404, { error: message })
         return
       }

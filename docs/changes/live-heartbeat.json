@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 5,
+  "external": false,
+  "at": "2026-10-24",
+  "zh": "变更通知的心跳更稳：单个观众断线不再打断心跳，看板功能关掉再打开之后新连接的心跳也会重新起起来，长时间没有消息的连接不再被反向代理掐掉。",
+  "en": "Change notifications keep a steadier heartbeat: one broken viewer no longer interrupts the beat, and connections opened after the board was toggled off and back on get their heartbeat restarted, so idle connections are no longer cut by reverse proxies."
+}

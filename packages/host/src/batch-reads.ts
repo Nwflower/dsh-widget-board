@@ -49,15 +49,21 @@ export async function readManyInto(context: RouteContext, ids: readonly string[]
   }
 
   for (const [boardId, cards] of groups) {
-    const first = cards[0]
-    if (first === undefined) continue
     try {
+      // 读取期间被移除的卡跳过：一张卡消失不该让同一批其余卡的数据全部丢掉。
+      let present: { id: string, data: unknown }[] = []
       await context.workspace.save(
         boardId,
-        (current) => cards.reduce((next, card) => withInstanceData(next, card.id, card.data), current),
-        { event: () => ({ type: 'instance', id: first.id, data: first.data }) },
+        (current) => {
+          present = cards.filter((card) => current.instances.some((instance) => instance.id === card.id))
+          return present.reduce((next, card) => withInstanceData(next, card.id, card.data), current)
+        },
+        { event: () => {
+          const head = present[0]
+          return head === undefined ? { type: 'board' } : { type: 'instance', id: head.id, data: head.data }
+        } },
       )
-      for (const card of cards.slice(1)) context.live.notify({ type: 'instance', id: card.id, data: card.data })
+      for (const card of present.slice(1)) context.live.notify({ type: 'instance', id: card.id, data: card.data })
     } catch (error) {
       for (const card of cards) {
         failed.add(card.id)

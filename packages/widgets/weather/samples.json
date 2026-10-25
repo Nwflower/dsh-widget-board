@@ -3,19 +3,21 @@
     "lang": "zh-CN",
     "motion": "reduced",
     "props": {
-      "city": "杭州",
-      "place": { "zh": "杭州", "en": "Hangzhou" },
-      "latitude": 30.29365,
-      "longitude": 120.16142
+      "place": { "zh": "北京", "en": "Beijing" },
+      "latitude": 39.9042,
+      "longitude": 116.4074
     },
     "data": {
-      "current": { "temperature_2m": 15.4, "weather_code": 0 },
+      "timezone": "Asia/Shanghai",
+      "current": { "temperature_2m": 15.4, "weather_code": 0, "is_day": 1, "time": "2026-10-25T17:40" },
       "daily": {
-        "time": ["2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21"],
-        "weather_code": [3, 3, 51, 0, 2],
+        "time": ["2026-10-25", "2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29"],
+        "weather_code": [0, 3, 51, 2, 0],
         "temperature_2m_max": [16.9, 17.8, 13.1, 14.3, 15.1],
         "temperature_2m_min": [10.2, 7.2, 7.0, 3.9, 3.3],
-        "temperature_2m_mean": [13.5, 12.5, 10.0, 9.1, 9.2]
+        "temperature_2m_mean": [13.5, 12.5, 10.0, 9.1, 9.2],
+        "sunrise": ["2026-10-25T06:35", "2026-10-26T06:36", "2026-10-27T06:37", "2026-10-28T06:38", "2026-10-29T06:39"],
+        "sunset": ["2026-10-25T17:21", "2026-10-26T17:20", "2026-10-27T17:18", "2026-10-28T17:17", "2026-10-29T17:16"]
       }
     }
   },
@@ -23,19 +25,21 @@
     "lang": "zh-CN",
     "motion": "full",
     "props": {
-      "city": "杭州",
-      "place": { "zh": "杭州", "en": "Hangzhou" },
-      "latitude": 30.29365,
-      "longitude": 120.16142
+      "place": { "zh": "北京", "en": "Beijing" },
+      "latitude": 39.9042,
+      "longitude": 116.4074
     },
     "data": {
-      "current": { "temperature_2m": 15.4, "weather_code": 0 },
+      "timezone": "Asia/Shanghai",
+      "current": { "temperature_2m": 12.1, "weather_code": 0, "is_day": 0, "time": "2026-10-25T22:10" },
       "daily": {
-        "time": ["2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21"],
-        "weather_code": [3, 3, 51, 0, 2],
+        "time": ["2026-10-25", "2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29"],
+        "weather_code": [0, 2, 3, 61, 0],
         "temperature_2m_max": [16.9, 17.8, 13.1, 14.3, 15.1],
         "temperature_2m_min": [10.2, 7.2, 7.0, 3.9, 3.3],
-        "temperature_2m_mean": [13.5, 12.5, 10.0, 9.1, 9.2]
+        "temperature_2m_mean": [13.5, 12.5, 10.0, 9.1, 9.2],
+        "sunrise": ["2026-10-25T06:35", "2026-10-26T06:36", "2026-10-27T06:37", "2026-10-28T06:38", "2026-10-29T06:39"],
+        "sunset": ["2026-10-25T17:21", "2026-10-26T17:20", "2026-10-27T17:18", "2026-10-28T17:17", "2026-10-29T17:16"]
       }
     }
   }

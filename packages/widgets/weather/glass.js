@@ -144,7 +144,8 @@
       state.sky = sky
       state.ground = ground
       state.world = world
-      var blur = 'blur(' + Math.max(3, Math.round(h * 0.016)) + 'px)'
+      // 比旧版略清一点：卡片尺寸下仍像隔着一层湿玻璃，但城市轮廓还能读出来。
+      var blur = 'blur(' + Math.max(2.5, Math.round(h * 0.012)) + 'px)'
       state.blurredSky = make(w, h, dpr)
       state.blurredSky.ctx.filter = blur
       state.blurredSky.ctx.drawImage(sky, 0, 0, w, h)
@@ -216,7 +217,7 @@
         return
       }
       if (scene !== 'rain' && scene !== 'storm') return
-      refill(scene === 'storm' ? 210 : 160)
+      refill(scene === 'storm' ? 190 : 140)
     }
 
     /** 把玻璃上的水珠补到目标数量，补进来的直接落在玻璃上。 */
@@ -225,7 +226,7 @@
       while (missing > 0) {
         var drop = newDrop(rand, state.w, state.h)
         drop.y = Math.pow(Math.random(), 1.35) * state.h
-        drop.r = rand(0.9, 3.4)
+        drop.r = rand(0.7, 2.6)
         state.drops.push(drop)
         missing -= 1
       }

@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 3,
+  "external": true,
+  "at": "2026-10-25",
+  "zh": "天气卡恢复为低开销的 Canvas 窗景，并在这一版上重做界面：窗外加入黎明、黄金时刻、暮色与夜幕的二维天光，太阳/月亮位置、云的颜色与地平线暖光随当地时刻和日出日落变化；卡片头部加了阶段标记与地点光点，天气图标改成磨砂圆章，天气与高低温并成一行，底部预报改成带背景模糊的薄底舱；玻璃上的雨雪、水珠与城市灯火保留，像素比上限降到 1.5，浅色/深色按宿主令牌判断。",
+  "en": "The weather card returns to the lightweight canvas window scene, with a refined interface on top: the view now has two-dimensional dawn, golden hour, dusk and night light, with the sun/moon position, cloud colors and horizon glow following local time and sunrise/sunset; the header gains a phase marker and location dot, the weather icon becomes a frosted medallion, condition and high/low share one row, and the forecast becomes a softly blurred dock. Rain, snow, glass drops and city lamps remain, pixel ratio is capped at 1.5, and light/dark follows the host tokens."
+}

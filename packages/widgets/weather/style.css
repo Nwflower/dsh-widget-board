@@ -1,27 +1,26 @@
 /*
- * 天气卡的样式：窗外是一幅会动的景，卡片是它前面的一层玻璃。
+ * 天气卡的样式：窗外是一幅会动的画，卡片是它前面的一层玻璃。
  *
- * 景由组件的脚本画在 canvas 上，这里只写玻璃：内阴影做出玻璃的厚度、四周压暗、上缘一道亮线，
- * 再加一条斜向的镜面反光。文字压在玻璃上；浅色主题的景偏亮，用深色字，深色主题反过来用白字，
- * 两边都留一层针对各自方向的投影。这一张卡不跟随套件的数据卡底色（D10 的令牌仍用于间距、字号与
- * 动效时长）。
+ * 景由组件的脚本画在 canvas 上；这里负责窗框、玻璃厚度、文字层级与预报舱。天色阶段写在根节点的
+ * `data-phase` 上，用同一条强调色贯穿日期旁的阶段标记与选中的预报格；浅色主题的景偏亮，
+ * 用深色字，深色主题反过来用白字。
  *
- * 字号跟着盒子走：卡片自己是一个尺寸容器，文字只用 cqw/cqh 的比例加一个下限，不设 px 上限。卡片
- * 放大到多大，字就长到多大；高度不够时温度先按高度收住。矮盒子收掉预报栏与次要信息，窄盒子换排版
- * （D16、D20）。
+ * 字号跟着盒子走：温度同时受宽与高约束，矮盒子收掉次要信息，窄盒子换排版。
  */
 
 .wx {
   --wx-ink: #f7fbff;
-  --wx-muted: rgba(255, 255, 255, 0.82);
-  --wx-shadow: 0 1px 2px rgba(8, 14, 22, 0.6), 0 6px 26px rgba(8, 14, 22, 0.42);
-  /* 晴朗的天里城市是深的，文字要压在它上面，底部就垫一层跟文字同向的柔光。 */
-  --wx-scrim: rgba(6, 13, 21, 0.5);
+  --wx-muted: rgba(255, 255, 255, 0.72);
+  --wx-shadow: 0 1px 12px rgba(4, 9, 16, 0.42);
+  --wx-scrim: rgba(5, 11, 19, 0.5);
+  --wx-line: rgba(255, 255, 255, 0.18);
+  --wx-glass: rgba(255, 255, 255, 0.09);
+  --wx-accent: #a9c8ec;
+  --wx-icon: clamp(54px, 17cqw, 78px);
   --wx-radius: var(--w-radius-card, 24px);
-  --tabs-bar: rgba(255, 255, 255, 0.16);
+  --tabs-bar: rgba(9, 16, 25, 0.24);
   --tabs-pill: rgba(255, 255, 255, 0.94);
-  /* 选中那一格的文字坐在亮药丸上，要用深色；未选中的直接压在玻璃上。 */
-  --tabs-label: rgba(255, 255, 255, 0.88);
+  --tabs-label: rgba(255, 255, 255, 0.82);
   --tabs-label-active: #10171f;
   position: relative;
   display: flex;
@@ -32,81 +31,46 @@
   min-height: 0;
   overflow: hidden;
   isolation: isolate;
-  /* 自己的宽高就是下面那些 cqw/cqh 的参照：卡片一变尺寸，文字跟着重排。 */
-  container-type: size;
   border-radius: var(--wx-radius);
-  background: #1b2a38;
+  background: #14212c;
   color: var(--wx-ink);
   font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  container-type: size;
 }
 
-/* 浅色主题：景本身是亮天，文字换成深色，投影改往亮处推。 */
 .wx[data-theme="light"] {
   --wx-ink: #0d1620;
-  --wx-muted: rgba(13, 22, 32, 0.68);
-  --wx-shadow: 0 1px 2px rgba(255, 255, 255, 0.7), 0 6px 26px rgba(255, 255, 255, 0.5);
-  --wx-scrim: rgba(255, 255, 255, 0.74);
+  --wx-muted: rgba(13, 22, 32, 0.64);
+  --wx-shadow: 0 1px 12px rgba(255, 255, 255, 0.52);
+  --wx-scrim: rgba(255, 255, 255, 0.4);
+  --wx-line: rgba(13, 22, 32, 0.14);
+  --wx-glass: rgba(255, 255, 255, 0.18);
+  --wx-accent: #567192;
   --tabs-bar: rgba(255, 255, 255, 0.34);
-  --tabs-pill: rgba(13, 22, 32, 0.86);
+  --tabs-pill: rgba(13, 22, 32, 0.9);
   --tabs-label: rgba(13, 22, 32, 0.72);
   --tabs-label-active: #f7fbff;
 }
 
-/* 外面的世界。它铺满整张卡，玻璃压在它上面。 */
+/* 阶段只改强调色：日期旁的小点、选中的预报图标都从这里取。 */
+.wx[data-phase="dawn"] { --wx-accent: #d9a48d; }
+.wx[data-phase="golden"] { --wx-accent: #e0ae65; }
+.wx[data-phase="dusk"] { --wx-accent: #d98e76; }
+.wx[data-phase="night"] { --wx-accent: #a8c0ee; }
+
 .wx-canvas {
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  /* 三维画面再压一点点饱和与对比，玻璃后面看出去才不像一层灰。 */
-  filter: saturate(1.08) contrast(1.05) brightness(1.01);
+  filter: saturate(1.06) contrast(1.02);
 }
 
 /*
- * 雨天先在窗景上糊一层霜：只糊窗外的景，糊不到上层的画布，水珠于是仍然清晰。
- * 雪天只加一点点雾，别把画面糊成毛玻璃。
- */
-.wx-frost {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 420ms var(--w-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
-  background:
-    linear-gradient(to bottom, rgba(214, 232, 246, 0.06) 0%, rgba(214, 232, 246, 0) 40%),
-    radial-gradient(120% 90% at 50% 18%, rgba(236, 246, 255, 0.07) 0%, rgba(236, 246, 255, 0) 70%);
-}
-
-.wx[data-scene="rain"] .wx-frost,
-.wx[data-scene="storm"] .wx-frost {
-  opacity: 1;
-  -webkit-backdrop-filter: blur(1.3px) saturate(1.05) brightness(1.02);
-  backdrop-filter: blur(1.3px) saturate(1.05) brightness(1.02);
-}
-
-.wx[data-scene="snow"] .wx-frost {
-  opacity: 1;
-  -webkit-backdrop-filter: blur(1.1px) brightness(1.03);
-  backdrop-filter: blur(1.1px) brightness(1.03);
-}
-
-/* 玻璃上的雨雪与水珠：叠在三维窗景上的一层透明画布。 */
-.wx-glass-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-/*
- * 玻璃：四周一圈内阴影做出厚度，上缘亮、下缘暗，像一块嵌在窗框里的厚玻璃。
- * 这一层不吃指针事件，点击留给下面的预报栏。
+ * 玻璃：四周一圈内阴影做出厚度，上缘亮、下缘暗；外面再压一层很轻的暗角，眼睛会自然落到中间。
  */
 .wx-glass {
   position: absolute;
@@ -115,66 +79,56 @@
   pointer-events: none;
   border-radius: inherit;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    inset 0 -30px 52px rgba(6, 13, 21, 0.34),
-    inset 0 30px 52px rgba(6, 13, 21, 0.2);
+    inset 0 0 0 1px var(--wx-line),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -30px 54px rgba(4, 9, 16, 0.3),
+    inset 0 34px 58px rgba(4, 9, 16, 0.12);
 }
 
-/*
- * 上下各垫一层柔光：上半是云，下半是城市，两头都是深的，文字压上去才读得出来。
- * 每一种天空都要这一层——雪天与清晨的云一样会把白字冲淡。
- */
-/* 四角轻轻压暗：玻璃后面看出去，眼睛自然聚到中间。 */
 .wx-glass::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(115% 95% at 50% 42%, transparent 52%, rgba(4, 9, 16, 0.24) 100%);
+  background: radial-gradient(120% 92% at 50% 40%, transparent 50%, rgba(2, 7, 13, 0.26) 100%);
 }
 
+/* 上下各垫一层同向柔光：文字压在任何天色上都能读，景也不会被整片洗白。 */
 .wx-glass::after {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background:
     linear-gradient(to bottom, var(--wx-scrim) 0%, transparent 24%),
-    linear-gradient(to top, var(--wx-scrim) 0%, var(--wx-scrim) 28%, transparent 68%);
+    linear-gradient(to top, var(--wx-scrim) 0%, var(--wx-scrim) 22%, transparent 64%);
 }
 
-/* 一条斜向的镜面反光：玻璃上最常见的那个高光带。 */
+/* 一条斜向的镜面反光：只有雨天与雪天才出现，晴天保持通透。 */
 .wx-sheen {
   position: absolute;
   inset: -40%;
   z-index: 1;
   pointer-events: none;
+  opacity: 0;
   background: linear-gradient(
     104deg,
-    transparent 32%,
-    rgba(255, 255, 255, 0.12) 44%,
-    rgba(255, 255, 255, 0.03) 50%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.14) 44%,
+    rgba(255, 255, 255, 0.04) 50%,
     transparent 62%
   );
   mix-blend-mode: screen;
+  transition: opacity var(--w-motion-slow, 420ms) ease;
   animation: wx-sheen-drift var(--w-motion-drift, 16s) var(--w-motion-ease-standard, ease-in-out) infinite alternate;
 }
+.wx[data-scene="rain"] .wx-sheen,
+.wx[data-scene="storm"] .wx-sheen,
+.wx[data-scene="snow"] .wx-sheen { opacity: 1; }
+
 @keyframes wx-sheen-drift {
   from { transform: translate3d(-3%, -2%, 0) rotate(0deg); }
   to { transform: translate3d(3%, 2%, 0) rotate(-1.5deg); }
-}
-
-/* 晴天与多云是一幅清朗的窗景：不压那层斜向反光，也不重压上下暗角，
-   否则明亮的天会随反光来回扫动，看上去像在闪。 */
-.wx[data-scene="clear"] .wx-sheen,
-.wx[data-scene="cloudy"] .wx-sheen { display: none; }
-.wx[data-scene="clear"] .wx-glass,
-.wx[data-scene="cloudy"] .wx-glass {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -26px 44px rgba(6, 13, 21, 0.16),
-    inset 0 26px 44px rgba(6, 13, 21, 0.06);
 }
 
 /* 内容 */
@@ -185,107 +139,162 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  /* 上边距同时受高度约束：宽而矮的卡片里再大的字也放得进一屏。 */
-  padding: max(16px, min(3cqw, 4cqh)) max(16px, 3cqw) 0;
+  padding: clamp(16px, 4.4cqw, 24px) clamp(16px, 4.4cqw, 24px) 0;
   text-shadow: var(--wx-shadow);
 }
+
 .wx-place {
+  position: relative;
   flex: none;
   overflow: hidden;
-  font-size: max(17px, 4.2cqw);
+  padding-left: 12px;
+  font-size: max(19px, min(4.8cqw, 6.4cqh));
   font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.08;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.wx-day {
-  flex: none;
-  margin-top: 2px;
-  color: var(--wx-muted);
-  font-size: max(12px, 2.4cqw);
-  font-variant-numeric: tabular-nums;
-  font-weight: 550;
-  line-height: 1.25;
+.wx-place::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.52em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--wx-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--wx-accent) 65%, transparent);
 }
 
-/* 浅色主题的窗前是一整片亮天，日期用正文的深色，别落成一层淡灰。 */
-.wx[data-theme="light"] .wx-day {
-  color: rgba(13, 22, 32, 0.78);
+.wx-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--wx-muted);
+  font-size: max(12px, 2.45cqw);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1.3;
 }
+
+.wx-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  border: 1px solid var(--wx-line);
+  border-radius: 999px;
+  background: var(--wx-glass);
+  color: var(--wx-ink);
+  font-size: max(10px, 1.8cqw);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.wx-phase::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--wx-accent);
+}
+.wx-phase:empty { display: none; }
+
 .wx-hero {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(10px, 2.4cqw, 28px);
+  gap: clamp(10px, 2.4cqw, 24px);
   margin-top: auto;
 }
+
 .wx-temp {
   display: flex;
   flex: 1;
   align-items: baseline;
   min-width: 0;
-  /* 宽度与高度一起限制：宽卡片长到 200px，矮卡片先按高度收住，不会把下面的文字挤出去。 */
-  font-size: max(56px, min(20cqw, 30cqh));
+  font-size: max(58px, min(23cqw, 30cqh));
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-  line-height: 0.98;
+  font-weight: 560;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
 }
+
 .wx-deg {
   align-self: flex-start;
-  padding-top: 0.08em;
-  font-size: 0.52em;
-  font-weight: 500;
+  padding-top: 0.02em;
+  font-size: 0.5em;
+  font-weight: 450;
   letter-spacing: 0;
 }
+
 .wx-meta {
   display: flex;
   flex: none;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: clamp(6px, 1.6cqw, 20px);
-  margin-top: clamp(4px, 1cqw, 14px);
+  gap: 4px 14px;
+  margin-top: clamp(6px, 1.4cqw, 12px);
 }
+
 .wx-cond {
-  font-size: max(14px, 3.2cqw);
+  font-size: max(14px, min(2.9cqw, 4.2cqh));
   font-weight: 500;
   letter-spacing: -0.01em;
-  line-height: 1.15;
+  line-height: 1.2;
 }
+
 .wx-hl {
   display: flex;
-  gap: clamp(8px, 1.6cqw, 20px);
+  gap: 8px;
   color: var(--wx-muted);
-  font-size: max(12px, 2.3cqw);
+  font-size: max(11px, 2.15cqw);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   white-space: nowrap;
 }
 
-/* 大图标：压在玻璃上，带一点发光 */
+/* 图标：一枚磨砂圆章，让云和雨从背景里分离出来。 */
 .wx-big {
   position: relative;
   display: grid;
   flex: none;
-  width: calc(max(44px, 12cqw) + 16px);
-  height: calc(max(44px, 12cqw) + 16px);
+  width: calc(var(--wx-icon) + 18px);
+  height: calc(var(--wx-icon) + 18px);
   place-items: center;
-  filter: drop-shadow(0 2px 12px rgba(6, 12, 20, 0.45));
+  border-radius: 50%;
+  border: 1px solid var(--wx-line);
+  background:
+    radial-gradient(circle at 34% 27%, rgba(255, 255, 255, 0.25), transparent 58%),
+    var(--wx-glass);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 14px 34px rgba(3, 9, 16, 0.14);
+  backdrop-filter: blur(8px) saturate(1.15);
+  -webkit-backdrop-filter: blur(8px) saturate(1.15);
+  filter: drop-shadow(0 2px 10px rgba(5, 12, 20, 0.22));
 }
 .wx-big svg {
-  width: max(44px, 12cqw);
-  height: max(44px, 12cqw);
-  stroke-width: 2.1;
+  width: var(--wx-icon);
+  height: var(--wx-icon);
+  stroke-width: 1.8;
 }
 .wx-big .t-icon[data-key="sun"],
-.wx-big .t-icon[data-key="bolt"] { color: #ffe6a8; }
+.wx-big .t-icon[data-key="bolt"] { color: #ffe5a8; }
 .wx-big .t-icon[data-key="moon"] { color: #e8f2ff; }
 .wx-big .t-icon[data-key="cloud"],
 .wx-big .t-icon[data-key="rain"],
-.wx-big .t-icon[data-key="snow"] { color: rgba(255, 255, 255, 0.9); }
+.wx-big .t-icon[data-key="snow"] { color: rgba(255, 255, 255, 0.92); }
+.wx[data-theme="light"] .wx-big .t-icon[data-key="cloud"],
+.wx[data-theme="light"] .wx-big .t-icon[data-key="rain"],
+.wx[data-theme="light"] .wx-big .t-icon[data-key="snow"] { color: rgba(13, 22, 32, 0.78); }
+
 .wx-idle { display: grid; place-items: center; }
 .wx-idle--spin { animation: wx-spin var(--w-motion-spin, 30s) linear infinite; }
 .wx-idle--float { animation: wx-float var(--w-motion-float, 4s) var(--w-motion-ease-standard, ease-in-out) infinite alternate; }
@@ -301,11 +310,10 @@
   78% { opacity: 1; transform: scale(1.02); }
 }
 
-/* 雨图标下面那几滴：跟着图标的大小走，落在云的下缘。 */
 .wx-drops {
   position: absolute;
   left: 50%;
-  top: 82%;
+  top: 58%;
   display: flex;
   justify-content: space-between;
   width: max(18px, 4.4cqw);
@@ -315,7 +323,7 @@
   width: max(2.5px, 0.45cqw);
   height: max(7px, 1.1cqw);
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.85);
+  background: currentColor;
   opacity: 0;
   animation: wx-drop var(--w-motion-drop, 1100ms) ease-in infinite;
 }
@@ -328,22 +336,34 @@
 }
 
 /*
- * 预报栏：玻璃上的半透明底，选中的一格是亮药丸。星期与温度都不大于说明字号，
- * 层级由大温度、天气文字、高低温逐级往下。
+ * 预报舱：一条压在玻璃上的薄底，选中的格子是亮药丸。
+ * 这一层用了一点背景模糊，把窗外的细节拖慢，文字与图标才立得住。
  */
 .wx-tabs {
   position: relative;
-  z-index: 2;
-  /* 上下留白跟着高度走：矮卡片里省下来的这些正好让给字号。 */
-  margin: clamp(8px, 2.6cqh, 20px);
+  z-index: 3;
+  margin: clamp(8px, 2.4cqh, 14px);
+  padding: 4px;
+  border: 1px solid var(--wx-line);
+  border-radius: 18px;
+  background: var(--tabs-bar);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 30px rgba(3, 8, 14, 0.16);
+  backdrop-filter: blur(16px) saturate(1.16);
+  -webkit-backdrop-filter: blur(16px) saturate(1.16);
 }
+
 .wx-tabs .t-tab,
-.wx-tabs .t-tabs-pill { height: max(58px, 15cqh); }
+.wx-tabs .t-tabs-pill {
+  height: max(56px, 13.5cqh);
+  border-radius: 14px;
+}
 .wx-tabs .t-tab {
-  gap: clamp(3px, 0.5cqw, 7px);
+  gap: 2px;
   color: var(--tabs-label);
-  font-size: max(12px, 2.1cqw);
-  line-height: 1.25;
+  font-size: max(11px, 2.05cqw);
+  line-height: 1.2;
 }
 .wx-tabs .t-tab svg {
   width: max(16px, 2.2cqw);
@@ -353,51 +373,58 @@
   color: var(--tabs-label-active);
 }
 .wx-tabs .t-tab[aria-selected="true"] svg { color: var(--tabs-label-active); }
+.wx-tabs .t-tab[aria-selected="true"] .wx-tab-temp { opacity: 0.72; }
 .wx-tabs .t-tab:focus-visible { outline-color: #fff; outline-offset: -2px; }
+
 .wx-tab-day { order: -1; font-weight: 500; }
-.wx-tab-temp { font-size: inherit; font-variant-numeric: tabular-nums; font-weight: 600; }
+.wx-tab-temp {
+  font-size: max(10px, 1.8cqw);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.8;
+}
 
-/* 窄列：内边距收一号，天气与高低温可以折成两行，内容仍然放得进一屏。 */
-:root[data-box-width="narrow"] .wx-body { padding: clamp(14px, 4.4cqw, 20px) clamp(14px, 4.4cqw, 20px) 0; }
-:root[data-box-width="narrow"] .wx-meta { gap: 4px 10px; }
-:root[data-box-width="narrow"] .wx-tabs { margin: clamp(6px, 2.2cqw, 10px); }
+/* 窄列：内边距、温度与预报舱一起收一号。 */
+:root[data-box-width="narrow"] .wx-body { padding: 14px 14px 0; }
+:root[data-box-width="narrow"] .wx-place { font-size: 18px; }
+:root[data-box-width="narrow"] .wx-temp { font-size: max(52px, min(28cqw, 28cqh)); }
+:root[data-box-width="narrow"] .wx-tabs { margin: 7px; }
+:root[data-box-width="narrow"] .wx-tabs .t-tab,
+:root[data-box-width="narrow"] .wx-tabs .t-tabs-pill { height: 54px; }
+:root[data-box-width="narrow"] .wx-tab-temp { display: none; }
 
-/*
- * 宽卡片：宽度富余、高度紧张。字号仍随卡片放大，但上限同时由高度给出——一条 1280×160 的长条里
- * 城市名不会被宽度推成 50px，城市、温度与天气各归其位，谁也不压出盒子。
- */
-:root[data-box-width="wide"] .wx-place { font-size: max(17px, min(4.2cqw, 12cqh)); }
-:root[data-box-width="wide"] .wx-day { font-size: max(12px, min(2.4cqw, 7cqh)); }
-:root[data-box-width="wide"] .wx-cond { font-size: max(13px, min(3.2cqw, 8cqh)); }
-:root[data-box-width="wide"] .wx-hl { font-size: max(12px, min(2.3cqw, 6cqh)); }
+/* 宽卡片：文字跟宽度长，但用高度封顶，长条里不会出现一块巨大的温度。 */
+:root[data-box-width="wide"] .wx-place { font-size: max(18px, min(4.6cqw, 12cqh)); }
+:root[data-box-width="wide"] .wx-temp { font-size: max(52px, min(15cqw, 30cqh)); }
+:root[data-box-width="wide"] .wx-big {
+  width: calc(min(var(--wx-icon), 48cqh) + 18px);
+  height: calc(min(var(--wx-icon), 48cqh) + 18px);
+}
+:root[data-box-width="wide"] .wx-big svg {
+  width: min(var(--wx-icon), 48cqh);
+  height: min(var(--wx-icon), 48cqh);
+}
 
-/* 矮盒子：收掉预报切换栏与日期，留下城市、天气、温度与高低温。 */
+/* 矮盒子：收掉日期与高低温，留下地点、天气与温度。 */
 :root[data-box-height="short"] .wx-body { padding: 12px 14px 10px; }
 :root[data-box-height="short"] .wx-day,
 :root[data-box-height="short"] .wx-hl { display: none; }
 :root[data-box-height="short"] .wx-temp { font-size: max(44px, min(18cqw, 26cqh)); }
-:root[data-box-height="short"] .wx-big { width: calc(max(38px, 11cqw) + 12px); height: calc(max(38px, 11cqw) + 12px); }
-:root[data-box-height="short"] .wx-big svg { width: max(38px, 11cqw); height: max(38px, 11cqw); }
+:root[data-box-height="short"] .wx-meta { margin-top: 4px; }
 :root[data-box-height="short"] .wx-tabs { display: none; }
-
-/* 宽卡片里的大图标同样按高度收住：一条 1280×160 的长条放不下按宽度算出来的 150px 图标。 */
-:root[data-box-width="wide"] .wx-big {
-  width: calc(min(max(38px, 11cqw), 48cqh) + 12px);
-  height: calc(min(max(38px, 11cqw), 48cqh) + 12px);
+:root[data-box-height="short"] .wx-big {
+  width: calc(max(38px, 11cqw) + 14px);
+  height: calc(max(38px, 11cqw) + 14px);
 }
+:root[data-box-height="short"] .wx-big svg { width: max(38px, 11cqw); height: max(38px, 11cqw); }
 
-:root[data-box-width="wide"] .wx-big svg {
-  width: min(max(38px, 11cqw), 48cqh);
-  height: min(max(38px, 11cqw), 48cqh);
-}
-
-/* 减弱动效：镜面反光与图标的循环停下；画布只留一帧静止的雨窗（D10）。 */
+/* 减弱动效：镜面反光与图标的循环停下；画布只留一帧静止的雨窗。 */
 :root[data-motion="reduced"] .wx-sheen,
 :root[data-motion="reduced"] .wx-idle,
 :root[data-motion="reduced"] .wx-drops > span { animation: none; }
 :root[data-motion="reduced"] .wx-drops > span { opacity: 1; }
 
-/* 离开视口：图标的循环停在原地（D16）；画布由脚本停下，不再逐帧重画。 */
+/* 离开视口：图标的循环停在原地。 */
 :root[data-paused] .wx-sheen,
 :root[data-paused] .wx-idle,
 :root[data-paused] .wx-drops > span { animation-play-state: paused; }

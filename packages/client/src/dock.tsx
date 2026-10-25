@@ -7,11 +7,16 @@ import type { FrameHost } from './frame-host'
 import { LibraryPanel } from './library'
 import type { ShellTheme } from './theme'
 
-/** 弹层与浮窗读同一份动效令牌；它们不在看板根节点下面，自己带一份。 */
+/** 弹层与组件库面板读同一份动效令牌；它们不在看板根节点下面，自己带一份。 */
 const MOTION = (tokens as { motion: Record<string, string> }).motion
 const LAYER_STYLE = {
   '--w-motion-fast': MOTION.fast,
   '--w-motion-base': MOTION.base,
+  '--w-motion-panel-open': MOTION['panel-open'],
+  '--w-motion-panel-close': MOTION['panel-close'],
+  '--w-motion-panel-distance': MOTION['panel-distance'],
+  '--w-motion-panel-blur': MOTION['panel-blur'],
+  '--w-motion-ease-smooth': MOTION['ease-smooth'],
   '--w-motion-ease-standard': MOTION['ease-standard'],
   '--w-motion-ease-pop': MOTION['ease-pop'],
   '--w-motion-goo-open': MOTION['goo-open'],
@@ -35,6 +40,8 @@ const SPRING = 0.22
 const DAMPING = 0.72
 /** 指针移动超过这个距离才算拖动，否则按轻点处理。 */
 const DRAG_THRESHOLD = 5
+/** 组件库收起动画的时长：面板留在页面上走完这一段，再摘掉（D10、D17）。 */
+const PANEL_CLOSE_MS = Number.parseFloat(MOTION['panel-close'])
 
 /** 底板菜单要用的东西。 */
 export interface BoardDockProps {
@@ -48,13 +55,13 @@ export interface BoardDockProps {
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
   frames: FrameHost
-  /** 组件库浮窗是否打开。 */
+  /** 组件库面板是否打开。 */
   libraryOpen: boolean
   /** 正在写宿主：按钮暂时不可按。 */
   busy: boolean
-  /** 打开组件库浮窗。 */
+  /** 打开组件库面板。 */
   onOpenLibrary: () => void
-  /** 关掉组件库浮窗。 */
+  /** 关掉组件库面板。 */
   onCloseLibrary: () => void
   /** 轻点组件：加在末尾。 */
   onAdd: (id: string) => void
@@ -283,9 +290,9 @@ function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
 }
 
 /**
- * 看板下方的浮层：菜单、组件库浮窗与拖放预览。
+ * 看板下方的浮层：菜单、上拉的组件库面板与拖放预览。
  *
- * 菜单与浮窗固定在看板内容之上，按看板这一栏的中线定位，不参与卡片排版。组件库的一格按下后由这
+ * 菜单与面板固定在看板内容之上，按看板这一栏的边界定位，不参与卡片排版。组件库的一格按下后由这
  * 里接收指针移动，预览卡片用弹簧跟手；松手时把屏幕坐标交给看板，由看板算落点并写宿主（D17、D5）。
  *
  * @param props - 组件库、打开状态与四个动作。
@@ -315,6 +322,9 @@ export function BoardDock({
   const libraryRef = useRef<HTMLDivElement | null>(null)
   const dockRef = useRef<HTMLDivElement | null>(null)
   const layerRef = useRef<HTMLDivElement | null>(null)
+  const shieldRef = useRef<HTMLDivElement | null>(null)
+  /** 组件库面板的在场状态：关闭动画走完之前不能摘掉。 */
+  const [libraryPanel, setLibraryPanel] = useState(() => ({ mounted: libraryOpen, open: false }))
 
   const beginDrag = useCallback((entry: WidgetLibraryEntry, event: ReactPointerEvent<HTMLElement>) => {
     if (busy || event.button !== 0) return
@@ -332,15 +342,23 @@ export function BoardDock({
     setSession({ entry, pointerId: event.pointerId })
   }, [busy])
 
-  // 拖放期间铺一层透明的接住层：指针在 iframe、浮窗或菜单上方松开时也仍然回到这里。
+  // 拖放期间铺一层透明的接住层：指针在 iframe、面板或菜单上方松开时也仍然回到这里。
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const drag = dragRef.current
     if (drag === null || event.pointerId !== drag.pointerId) return
+    // 指针在窗外松开后又回到窗口：buttons 已经是 0，这次拖放按取消收尾，预览不再跟着空指针走，
+    // 回窗后的第一次点击也不会被当成松手。
+    if (event.buttons === 0) {
+      cancelDrag()
+      return
+    }
     drag.targetX = event.clientX
     drag.targetY = event.clientY
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > DRAG_THRESHOLD) {
       drag.active = true
       setProxy(drag.entry)
+      // 面板铺满看板这一栏；拖动一开始就收起它，松手时下面已经是板面。
+      onCloseLibrary()
     }
   }
 
@@ -354,25 +372,52 @@ export function BoardDock({
       onAdd(drag.entry.id)
       return
     }
-    // 落回浮窗或菜单上不算放进看板；接住层盖住一切，这里按矩形判断。
+    // 组件库在拖动开始时已经收起，面板走完退场动画前仍盖着落点：这里按看板的落点算，不把面板算作
+    // 阻挡；菜单还在底部，落回菜单上不算放进看板。
     const over = (node: Element | null | undefined): boolean => {
       const rect = node?.getBoundingClientRect()
       return rect !== undefined && event.clientX >= rect.left && event.clientX <= rect.right
         && event.clientY >= rect.top && event.clientY <= rect.bottom
     }
-    const library = libraryRef.current?.querySelector('[data-dsh-widget-board-library]')
     const dock = dockRef.current?.querySelector('.dsh-widget-board__dock')
-    if (over(library) || over(dock)) return
+    if (over(dock)) return
     onAddAt(drag.entry.id, event.clientX, event.clientY).catch((error: Error) => {
       console.error(`widget-board: 拖放没有完成：${error.message}`)
     })
   }
 
-  const cancelDrag = (): void => {
+  const cancelDrag = useCallback((): void => {
     dragRef.current = null
     setSession(null)
     setProxy(null)
-  }
+  }, [])
+
+  // 接住层一出现就抓住指针：拖出浏览器窗口松开时也能收到 pointerup，拖放层不会一直挂在页面上。
+  useEffect(() => {
+    if (session === null) return
+    const shield = shieldRef.current
+    const drag = dragRef.current
+    if (shield === null || drag === null) return
+    try {
+      shield.setPointerCapture(drag.pointerId)
+    } catch {
+      // 指针已经不在了：按取消收尾。
+      cancelDrag()
+    }
+    return () => {
+      if (shield.hasPointerCapture(drag.pointerId)) shield.releasePointerCapture(drag.pointerId)
+    }
+  }, [session, cancelDrag])
+
+  // 拖放期间 Escape 取消：键盘用户也要有退出的路。
+  useEffect(() => {
+    if (session === null) return
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') cancelDrag()
+    }
+    window.addEventListener('keydown', key)
+    return () => { window.removeEventListener('keydown', key) }
+  }, [session, cancelDrag])
 
   // 预览卡的弹簧：目标是指针，当前位置与速度留在 ref 里，逐帧写 transform，不触发 React 重绘。
   useEffect(() => {
@@ -404,8 +449,8 @@ export function BoardDock({
     return () => cancelAnimationFrame(frame)
   }, [proxy])
 
-  // 菜单与组件库按看板这一栏的中线定位，底部的渐隐条按这一栏的左缘与宽度铺：侧栏收放、拖宽时跟着挪，
-  // 不按整扇窗口算。写 CSS 变量而不是走 React 状态，侧栏动画期间每帧都量也不会重绘整页。
+  // 菜单按看板这一栏的中线定位，组件库面板按这一栏的四边铺开，底部的渐隐条按这一栏的左缘与宽度铺：
+  // 侧栏收放、拖宽时跟着挪，不按整扇窗口算。写 CSS 变量而不是走 React 状态，侧栏动画期间每帧都量也不会重绘整页。
   useLayoutEffect(() => {
     const board = anchor.current
     const layer = layerRef.current
@@ -414,7 +459,9 @@ export function BoardDock({
       const rect = board.getBoundingClientRect()
       layer.style.setProperty('--dsh-widget-board-anchor', `${String(rect.left + board.clientWidth / 2)}px`)
       layer.style.setProperty('--dsh-widget-board-left', `${String(rect.left)}px`)
-      layer.style.setProperty('--dsh-widget-board-width', `${String(board.clientWidth)}px`)
+      layer.style.setProperty('--dsh-widget-board-width', `${String(rect.width)}px`)
+      layer.style.setProperty('--dsh-widget-board-top', `${String(rect.top)}px`)
+      layer.style.setProperty('--dsh-widget-board-height', `${String(rect.height)}px`)
     }
     update()
     const observer = new ResizeObserver(update)
@@ -426,7 +473,27 @@ export function BoardDock({
     }
   }, [anchor])
 
-  // 浮窗打开时，点在看板或别处就关掉；正在拖放时不能关。
+  // 组件库是一扇从底部上拉的面板：先挂上关闭态，下一帧再打开，Panel reveal 才有起点；收起时等
+  // 关闭动画走完再卸载，面板不会在半程消失。
+  useEffect(() => {
+    if (libraryOpen) {
+      setLibraryPanel((current) => current.mounted ? current : { mounted: true, open: false })
+      const frame = requestAnimationFrame(() => {
+        // 先把关闭态算一次样式；否则首帧直接是打开态，过渡不会发生。
+        void libraryRef.current?.querySelector('[data-dsh-widget-board-library]')?.getBoundingClientRect()
+        setLibraryPanel({ mounted: true, open: true })
+      })
+      return () => cancelAnimationFrame(frame)
+    }
+    setLibraryPanel((current) => current.open ? { mounted: current.mounted, open: false } : current)
+    const closeMs = theme.motion === 'reduced' ? 0 : PANEL_CLOSE_MS
+    const timer = window.setTimeout(() => {
+      setLibraryPanel((current) => current.mounted ? { mounted: false, open: false } : current)
+    }, closeMs)
+    return () => window.clearTimeout(timer)
+  }, [libraryOpen, theme.motion])
+
+  // 组件库面板打开时，点在看板或别处就关掉；正在拖放时不能关。
   useEffect(() => {
     if (!libraryOpen) return
     const outside = (event: PointerEvent): void => {
@@ -458,7 +525,7 @@ export function BoardDock({
           onRefresh={onRefresh}
         />
       </div>
-      {libraryOpen
+      {libraryPanel.mounted
         ? (
           <div ref={libraryRef}>
             <LibraryPanel
@@ -467,6 +534,7 @@ export function BoardDock({
               theme={theme}
               frames={frames}
               busy={busy}
+              open={libraryPanel.open}
               onAdd={onAdd}
               onBeginDrag={beginDrag}
               onClose={onCloseLibrary}
@@ -479,6 +547,7 @@ export function BoardDock({
         ? null
         : (
           <div
+            ref={shieldRef}
             className="dsh-widget-board__drag-shield"
             data-dsh-widget-board-drag-shield=""
             onPointerMove={moveDrag}

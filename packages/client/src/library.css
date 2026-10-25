@@ -1,56 +1,80 @@
 /*
- * 组件库浮窗：按来源分组的网格，每格是一张实时缩略画面。
+ * 组件库整窗：从看板这一栏的底部上拉，铺满整块看板；按来源分组的网格，每格是一张实时缩略画面。
  *
- * 浮窗固定在下方菜单之上，与它共用浮层层上的 --dsh-widget-board-anchor 中线；颜色读宿主的
- * --dsw-* 令牌，时长与曲线由同一层上的 --w-motion-* 给出（D10、D16、D17）。
+ * 面板按 BoardDock 量出的看板四边定位，颜色读宿主的 --dsw-* 令牌；打开与关闭用 Panel reveal
+ * （transitions.dev）：上移距离、交叉虚化、时长与曲线全部由同一层上的 --w-motion-* 给出（D10、D17）。
  */
 
 .dsh-widget-board__library {
   position: fixed;
-  bottom: 166px;
-  left: var(--dsh-widget-board-anchor, 50%);
+  top: var(--dsh-widget-board-top, 0);
+  left: var(--dsh-widget-board-left, 0);
   z-index: 90;
   display: flex;
   box-sizing: border-box;
-  width: min(720px, calc(100vw - 32px));
-  max-height: min(68vh, 560px, calc(100vh - 200px));
+  width: var(--dsh-widget-board-width, 100%);
+  height: var(--dsh-widget-board-height, 100%);
   flex-direction: column;
-  padding: 16px 18px 18px;
-  overflow: auto;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 82%, transparent);
-  border-radius: 20px;
+  border-radius: 0;
   background: var(--dsw-alias-bg-layer-1);
-  box-shadow: 0 24px 70px color-mix(in srgb, #000 26%, transparent);
-  transform: translateX(-50%);
-  animation: dsh-widget-board-rise var(--w-motion-base) var(--w-motion-ease-pop) both;
+  transform: translateY(var(--w-motion-panel-distance));
+  opacity: 0;
+  filter: blur(var(--w-motion-panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--w-motion-panel-close) var(--w-motion-ease-smooth),
+    opacity var(--w-motion-panel-close) var(--w-motion-ease-smooth),
+    filter var(--w-motion-panel-close) var(--w-motion-ease-smooth);
+  will-change: transform, opacity, filter;
+}
+
+.dsh-widget-board__library[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--w-motion-panel-open) var(--w-motion-ease-smooth),
+    opacity var(--w-motion-panel-open) var(--w-motion-ease-smooth),
+    filter var(--w-motion-panel-open) var(--w-motion-ease-smooth);
 }
 
 .dsh-widget-board__library-head {
-  position: sticky;
-  top: -16px;
-  z-index: 2;
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  margin: -2px -2px 6px;
-  padding: 2px 2px 10px;
+  margin: 0;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);
   background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__library-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 28px 36px;
+  overscroll-behavior: contain;
 }
 
 .dsh-widget-board__library-title {
   margin: 0;
   color: var(--dsw-alias-label-primary);
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .dsh-widget-board__library-hint {
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .dsh-widget-board__library-close {
@@ -116,13 +140,15 @@
   opacity: 1;
 }
 
-.dsh-widget-board__library-group { margin-top: 10px; }
+.dsh-widget-board__library-group { margin-top: 22px; }
+
+.dsh-widget-board__library-group:first-child { margin-top: 0; }
 
 .dsh-widget-board__library-source {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: var(--dsw-alias-label-tertiary);
   font-family: var(--dsh-widget-board-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -130,8 +156,8 @@
 
 .dsh-widget-board__library-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -323,11 +349,6 @@
 
 .dsh-widget-board__library-error { color: var(--dsw-alias-state-error-primary); }
 
-@keyframes dsh-widget-board-rise {
-  from { opacity: 0; transform: translate(-50%, 10px) scale(0.98); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .dsh-widget-board__library { animation: none; }
+  .dsh-widget-board__library { transition: none !important; }
 }

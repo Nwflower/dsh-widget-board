@@ -144,7 +144,7 @@ async function editorPass(page, check) {
   // 组卡：加一组，弹窗直接打开；槽条有两个槽，换掉正面那个。
   const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
   await openLibrary(page)
-  await page.locator('[data-dsh-widget-board-add="flip-group"]').click()
+  await page.locator('[data-dsh-widget-board-add="flip-group"]:visible').first().click()
   await page.waitForSelector('[data-dsh-widget-board-editor]', { timeout: 15000 })
   await page.waitForSelector('[data-dsh-widget-board-slot="front"]', { timeout: 10000 })
   const groupId = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).at(-1)?.getAttribute('data-instance') ?? '')
@@ -152,8 +152,9 @@ async function editorPass(page, check) {
   const slots = await page.locator('[data-dsh-widget-board-slot]').count()
   check('组卡有两个槽', slots === 2, String(slots))
   await page.locator('[data-dsh-widget-board-slot-change]').click()
-  await page.waitForSelector('[data-dsh-widget-board-add="todo"]', { timeout: 10000 })
-  await page.locator('[data-dsh-widget-board-add="todo"]').click()
+  // 槽条的组件库按「挑选」模式打开，与常驻组件库的同名按钮并存，按模式取这一处。
+  await page.waitForSelector('[data-dsh-widget-board-add="todo"][data-mode="pick"]', { timeout: 10000 })
+  await page.locator('[data-dsh-widget-board-add="todo"][data-mode="pick"]').click()
   await page.waitForSelector('[data-dsh-widget-board-slot-confirm]', { timeout: 10000 })
   await page.locator('[data-dsh-widget-board-slot-confirm]').click()
   const changed = await waitFor(async () => {

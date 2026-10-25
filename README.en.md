@@ -29,7 +29,7 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 
 | Board in the sidebar | Switch board tabs, drag and tidy cards; the default board is filled on first launch |
 |---|---|
-| Plus menu | Add, tidy, refresh; Add opens the floating library |
+| Plus menu | Add, tidy, refresh; Add opens the library as a full-height panel that rises from the bottom |
 | Card gear | Change the widget's props, fill in credentials, review and grant data sources and permissions |
 | Session tools | The agent lists, writes, places widgets and pushes data; `widget_show` draws one in the answer. Only `widget_catalog` starts out visible; the rest appear after being named in its `expose` field |
 | `widgetBoard` service | Other plugins register widgets, data sources, actions and host capabilities |

@@ -8,7 +8,7 @@ D16 把卡片盒子交给用户：宽度按列变化，高度在七档之间跳�
 
 - 运行时把内容盒归到两个方向的档位，写到根节点：`data-box-width` 取 `narrow`、`regular`、`wide`（小于 320px、320 到 600px、600px 及以上），`data-box-height` 取 `short`、`regular`、`tall`（小于 260px、260 到 360px、360px 及以上）。原有的 `data-size`、`data-placement`、`--w-w`、`--w-h`、`--w-cols` 保留；两个方向的档位是公开契约。
 - `minBox` 生效。模型提供 `minCardHeight`、`clampCardLayout` 与 `clampCardBox`；宿主在载入看板、加卡片、加组卡、布局提交与组件库重读之后把盒子抬到下限，低于下限的已有卡片在载入或热重载时被抬高并推一条看板事件；客户端缩放的实时预览与落点都停在下限上。组卡取正反两面 `minBox` 的并集；`defaultBox` 小于 `minBox` 时按 `minBox` 抬高。当前列数少于最小宽度时按当前列数截断，存下的宽度保留。
-- 令牌补上 `space` 与 `type` 两组：`--w-space-xs` 到 `--w-space-2xl`，`--w-type-caption` 到 `--w-type-display`。运行时套件补三个布局原语：`.w-frame`（居中的最大内容宽度）、`.w-actions`（等宽操作行，窄时换行）、`.w-scroll`（纵向滚动区），以及按档位隐藏的 `.w-hide-short`、`.w-hide-narrow`。组件的视觉仍由组件决定。
+- 令牌补上 `space` 与 `type` 两组：`--w-space-xs` 到 `--w-space-2xl`，`--w-type-caption` 到 `--w-type-display`。运行时套件补布局原语：`.w-frame`（居中的最大内容宽度）、`.w-actions`（等宽操作行，窄时换行）、`.w-scroll`（纵向滚动区）、按档位隐藏的 `.w-hide-short`、`.w-hide-narrow`，以及宽盒子里让标题区与正文并排的 `.t-data--split`。`.t-data` 的内边距、间距与标题字号也按档位收一档，判据用根节点上的档位属性。组件的视觉仍由组件决定。
 - 组件库缩略画面的位置与尺寸族标成 `preview`：运行时写 `data-placement="preview"` 与 `data-size="preview"`，组件可以据此收掉按钮、换一套静态读数。缩略画面保持 `inert`，不接指针。
 - 尺寸矩阵进入 `npm run verify`：每个内置组件放进代表性的看板盒子（一列、两列、四列；6、10、14、22、30rem），另查一格 `preview`。判据是组件没有横向溢出、画出了内容、可见的交互控件没有被裁掉、控制台没有错误；失败时把截图写到 `.debug/matrix/`。矩阵覆盖当前已有的位置：看板与 `preview`；内联、右侧栏与展开浮层实现后把它们的 `samples.json` 一起接进来。
 

@@ -11,6 +11,7 @@ const ACTION = '[data-dsh-widget-board-dock-action]'
 const LIBRARY = '[data-dsh-widget-board-library]'
 const PROXY = '[data-dsh-widget-board-drag-proxy]'
 const SHIELD = '[data-dsh-widget-board-drag-shield]'
+const { openLibrary } = require('./library.cjs')
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -72,38 +73,52 @@ async function dockPass(page, check) {
   check('三个动作都有名字', menu.labels.every((label) => label.length > 0), menu.labels.join(' / '))
   check('菜单固定在看板这一栏的下方居中', menu.centered && menu.bottom)
 
-  // 添加动作打开悬浮的组件库：按来源分组的网格，每格画着组件自己的缩略画面。
+  // 添加动作打开上拉的组件库：一扇铺满看板这一栏的面板，按来源分组的网格，每格画着组件自己的缩略画面。
   await page.locator(`${ACTION}[data-dsh-widget-board-dock-action="add"]`).click()
-  await page.waitForSelector(LIBRARY, { timeout: 5000 })
+  await page.waitForSelector(`${LIBRARY}[data-open="true"]`, { timeout: 5000 })
   await page.waitForSelector(`${LIBRARY} iframe`, { timeout: 10000 })
+  // 打开过渡 400ms，等它走完再读稳定的计算样式。
+  await sleep(450)
   const library = await page.evaluate((selector) => {
     const node = document.querySelector(selector)
     const style = node === null ? null : getComputedStyle(node)
     const grid = node?.querySelector('.dsh-widget-board__library-list')
     const rect = node?.getBoundingClientRect()
     const board = document.querySelector('.dsh-widget-board')
-    const boardCenter = board === null ? null : board.getBoundingClientRect().left + board.clientWidth / 2
+    const boardRect = board?.getBoundingClientRect()
+    const inside = (left, right) => left !== undefined && right !== undefined && Math.abs(left - right) <= 1
     return {
       position: style?.position ?? '',
+      open: node?.getAttribute('data-open'),
       tiles: document.querySelectorAll('[data-dsh-widget-board-add]').length,
       display: grid === null ? '' : getComputedStyle(grid).display,
       columns: grid === null ? '' : getComputedStyle(grid).gridTemplateColumns.split(' ').length,
       previews: document.querySelectorAll(`${selector} iframe`).length,
-      centered: rect === undefined || boardCenter === null ? false : Math.abs(rect.left + rect.width / 2 - boardCenter) < 2,
+      fillsBoard: rect !== undefined && boardRect !== undefined
+        && inside(rect.left, boardRect.left) && inside(rect.top, boardRect.top)
+        && inside(rect.width, boardRect.width) && inside(rect.height, boardRect.height),
+      duration: style?.transitionDuration ?? '',
+      opacity: style?.opacity ?? '',
+      filter: style?.filter ?? '',
     }
   }, LIBRARY)
-  check('添加动作打开悬浮组件库', library.position === 'fixed' && library.tiles >= 3, `${library.position} / ${library.tiles} 格`)
-  check('组件库浮窗与菜单同一条中线', library.centered)
+  check('添加动作打开上拉组件库', library.position === 'fixed' && library.tiles >= 3, `${library.position} / ${library.tiles} 格`)
+  check('组件库铺满看板这一栏', library.fillsBoard)
+  check(
+    '组件库从底部上拉展开',
+    library.open === 'true' && library.duration.includes('0.4s') && library.opacity === '1'
+      && (library.filter === 'none' || library.filter === 'blur(0px)'),
+    JSON.stringify({ duration: library.duration, opacity: library.opacity, filter: library.filter }),
+  )
   check('组件库排成网格', library.display === 'grid' && library.columns >= 2, `${library.display} / ${library.columns} 列`)
   check('每一格画着组件的画面', library.previews >= 3, `${library.previews} 个预览`)
 
-  // 浮窗整个落在窗口里：题头与关闭钮在上、下缘在加号之上。别的插件常给所有对话窗统一定一个
-  // 「整页减一点」的上限，浮窗若带上那个角色就会跟着长到窗口之外，这一条连同那条规则一起查。
+  // 题头留在面板顶部；面板四边与看板一致，关闭钮不会被推到窗口外。别的插件常给所有对话窗统一定一个
+  // 「整页减一点」的上限，面板若带上那个角色就会跟着缩小，这一条连同那条规则一起查。
   const boxOf = () => page.evaluate((selector) => {
     const node = document.querySelector(selector)
     const head = node?.querySelector('.dsh-widget-board__library-head')
-    const dock = document.querySelector('[data-dsh-widget-board-dock-toggle]')
-    if (node === null || head === null || dock === null) return null
+    if (node === null || head === null) return null
     const rect = node.getBoundingClientRect()
     const headRect = head.getBoundingClientRect()
     return {
@@ -112,14 +127,21 @@ async function dockPass(page, check) {
       height: Math.round(rect.height),
       headTop: Math.round(headRect.top),
       headHeight: Math.round(headRect.height),
-      dockTop: Math.round(dock.getBoundingClientRect().top),
     }
   }, LIBRARY)
   const placement = await boxOf()
+  const boardBox = await page.evaluate(() => {
+    const board = document.querySelector('.dsh-widget-board')
+    if (board === null) return null
+    const rect = board.getBoundingClientRect()
+    return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), height: Math.round(rect.height) }
+  })
   check(
-    '组件库浮窗整个落在窗口里',
-    placement !== null && placement.top >= 0 && placement.headTop >= 0 && placement.headHeight > 0 && placement.bottom <= placement.dockTop,
-    JSON.stringify(placement),
+    '组件库面板与看板同高，题头在顶部',
+    placement !== null && boardBox !== null && placement.top === boardBox.top && placement.bottom === boardBox.bottom
+      && placement.height === boardBox.height && placement.headTop - placement.top >= 0
+      && placement.headTop - placement.top < 40 && placement.headHeight > 0,
+    JSON.stringify({ placement, boardBox }),
   )
   await page.addStyleTag({
     content: 'body[data-dsh-widget-board-foreign] :is(dialog, [role="dialog"]) { max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); }',
@@ -127,7 +149,32 @@ async function dockPass(page, check) {
   await page.evaluate(() => { document.body.setAttribute('data-dsh-widget-board-foreign', '') })
   const stressed = await boxOf()
   await page.evaluate(() => { document.body.removeAttribute('data-dsh-widget-board-foreign') })
-  check('别的插件给对话窗统一定尺寸时浮窗不动', stressed !== null && stressed.height === placement?.height && stressed.top === placement?.top, JSON.stringify(stressed))
+  check('别的插件给对话窗统一定尺寸时面板不动', stressed !== null && stressed.height === placement?.height && stressed.top === placement?.top, JSON.stringify(stressed))
+
+  // 收起：面板先留在页面上走完 350ms 的退场，之后才摘掉。用一个观察器记录属性翻成关态的那一刻，
+  // 不靠轮询去抓这段很短的窗口；页面忙时轮询会整段错过。
+  await page.evaluate((selector) => {
+    const node = document.querySelector(selector)
+    window.__panelClose = { seen: false, stayed: false, duration: '' }
+    if (node === null) return
+    const observer = new MutationObserver(() => {
+      if (node.getAttribute('data-open') !== 'false') return
+      window.__panelClose = { seen: true, stayed: node.isConnected, duration: getComputedStyle(node).transitionDuration }
+    })
+    observer.observe(node, { attributes: true, attributeFilter: ['data-open'] })
+    window.__panelCloseObserver = observer
+  }, LIBRARY)
+  await page.locator('.dsh-widget-board__library-close').click()
+  await page.waitForSelector(LIBRARY, { state: 'detached', timeout: 5000 })
+  const closing = await page.evaluate(() => {
+    window.__panelCloseObserver?.disconnect()
+    return window.__panelClose
+  })
+  check('组件库收起时先留在页面上', closing !== null && closing.seen && closing.stayed && closing.duration.includes('0.35s'), JSON.stringify(closing))
+
+  // 重新打开，继续拖放场景；等打开过渡走完再按住一格。
+  await openLibrary(page)
+  await sleep(450)
 
   // 按住一格拖到看板：拖放预览跟着指针，松手后看板多一张卡，且落在右侧一列。
   const before = await snapshot(page)
@@ -145,7 +192,7 @@ async function dockPass(page, check) {
     shield: document.querySelector(shield) !== null,
   }), { proxy: PROXY, shield: SHIELD })
   check('拖动时预览卡跟着指针', dragging.proxy && dragging.transform.includes('translate3d') && dragging.shield, dragging.transform)
-  // 组件库按看板中线居中之后，浮窗盖住了这块区域的上半；落到浮窗下方，仍在中栏的同一列。
+  // 面板铺满看板，拖动开始时它就收起；落点仍按看板这一栏算，落在右侧一列。
   await page.mouse.move(1100, 780, { steps: 18 })
   await sleep(120)
   await page.mouse.up()

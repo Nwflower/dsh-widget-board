@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 0,
+  "external": false,
+  "at": "2026-10-24",
+  "zh": "组件库从浮在下方菜单上的小窗改成从底部上拉的整窗，铺满看板这一栏；打开与关闭用 Panel reveal 过渡（上移 100px、2px 交叉虚化，打开 400ms、关闭 350ms），开始拖动组件时面板先收起，落点直接露出来。",
+  "en": "The widget library is now a full-height panel that rises from the bottom of the board pane instead of a small window above the dock; opening and closing use the Panel reveal transition (100px rise, 2px cross-blur, 400ms in and 350ms out), and a drag dismisses the panel first so the drop target is visible."
+}

@@ -39,6 +39,7 @@ import { registerDshAccount } from './dsh-account'
 import { createSystemMetricsAction, createSystemMetricsSource } from './system-metrics'
 import { registerGithub } from './github'
 import { registerTheme } from './theme'
+import { registerUsage } from './usage'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
 import { createSelfChecks } from './selfcheck'
@@ -114,6 +115,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const disposeTheme = registerTheme(sources, ctx)
   // GitHub 的 issue 列表（D24）：令牌从卡片设置的凭据服务现取，看板核心不碰 GitHub。
   const disposeGithub = registerGithub(sources, () => credentialsOf(ctx))
+  // 会话用量（D24）：看板自己读会话日志、自己缓存，组件不必依赖别的插件；装了 dsh-claude-style
+  // 时组件先问它，两份汇总不会同时算。
+  const disposeUsage = registerUsage(sources, ctx, home)
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
   // 卡片增删与组件库重读才改变定时刷新的表；状态、数据与布局写入不重算它（D6）。
   let syncScheduler: () => void = () => {}
@@ -328,6 +332,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeDshAccount()
     disposeTheme()
     disposeGithub()
+    disposeUsage()
     tools?.dispose()
     disposeSystemMetrics()
     disposeSystemMetricsAction()

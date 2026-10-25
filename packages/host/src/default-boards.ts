@@ -1,9 +1,9 @@
 /**
  * 第一次启动的两块看板（D17）：精选的「我的看板」与按类别排开的「组件画廊」。
  *
- * 清单只写在这个文件里：「我的看板」逐张写明组件、位置与内容，宽屏四列时第一屏放得下；画廊把
- * 每个内置组件各铺一张，按类别分行，同一行的卡片同高。清单里的组件不在内置组件库里时抛出，
- * 不静默少铺（D11）。
+ * 清单只写在这个文件里：「我的看板」逐张写明组件、位置与内容，宽屏四列时第一屏放得下，它也是看板
+ * 被删光后补上的那一块（D21）；画廊把每个内置组件各铺一张，按类别分行，同一行的卡片同高。清单里的
+ * 组件不在内置组件库里时抛出，不静默少铺（D11）。
  */
 import type { Board, BoardInstance, CardLayout } from '@dsh-widget-board/contracts'
 import { POSITION_STEP_REM } from '@dsh-widget-board/model'
@@ -53,7 +53,7 @@ const GALLERY_COLUMNS = 3
 /** 画廊的类别，按显示的先后；每个类别里的组件也按这里的先后，相邻的几个正好排满一行。 */
 const GALLERY_CATEGORIES: readonly { title: string, widgets: readonly string[] }[] = [
   { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance', 'github-issues'] },
-  { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'fortune', 'year-progress', 'weather', 'pomodoro', 'todo', 'links'] },
+  { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'fortune', 'year-progress', 'weather', 'pomodoro', 'todo', 'links', 'light-switch'] },
   { title: '动效模板', widgets: ['flip-card', 'holographic-card', 'magnetic-card'] },
 ]
 
@@ -192,14 +192,26 @@ function galleryBoard(records: Map<string, WidgetRecord>): Board {
 }
 
 /**
- * 第一次启动的看板：「我的看板」排第一，「组件画廊」排第二。
+ * 默认看板：第一次启动排第一的「我的看板」。
  *
- * 只有内置组件会被铺卡；用户与插件来源的组件从添加面板加入，装了插件不该顺带改变别人的看板（D17）。
+ * 看板被删光时补上这一块（D21）；只有内置组件会铺卡，用户与插件来源的组件从添加面板加入，
+ * 装了插件不该顺带改变别人的看板（D17）。
+ *
+ * @param records - 已校验的组件。
+ * @returns 默认看板。
+ * @throws {Error} 清单里的内置组件不在组件库里。
+ */
+export function defaultBoard(records: Map<string, WidgetRecord>): Board {
+  return myBoard(records)
+}
+
+/**
+ * 第一次启动的看板：默认看板排第一，「组件画廊」排第二。
  *
  * @param records - 已校验的组件。
  * @returns 两块新看板，按标签的次序。
  * @throws {Error} 清单里的内置组件不在组件库里。
  */
 export function seedBoards(records: Map<string, WidgetRecord>): [Board, Board] {
-  return [myBoard(records), galleryBoard(records)]
+  return [defaultBoard(records), galleryBoard(records)]
 }

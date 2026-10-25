@@ -12,6 +12,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { Board, BoardEvent } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
 import { loadLibrary } from '../src/library'
+import { defaultBoard } from '../src/default-boards'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
 
@@ -99,7 +100,7 @@ async function openStarted(home: string): ReturnType<typeof open> {
   await writeBoard(join(home, 'boards', 'start.json'), board('start', '看板'))
   await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'start', boards: ['start'] })}
 `, 'utf8')
-  return await open(home)
+  return await open(home, library)
 }
 
 describe('第一次打开', () => {
@@ -194,7 +195,7 @@ describe('看板的增删改与选中', () => {
     expect(workspace.activeId()).toBe(first)
   })
 
-  it('移除最后一块看板时补一块空看板并选中它', async () => {
+  it('移除最后一块看板时补上默认看板并选中它', async () => {
     const home = await tempHome()
     const { workspace, events } = await openStarted(home)
     const first = workspace.activeId()
@@ -203,9 +204,12 @@ describe('看板的增删改与选中', () => {
     const boards = workspace.list()
     expect(boards).toHaveLength(1)
     const replacement = boards[0] as Board
+    const expected = defaultBoard(new Map(library.map((entry) => [entry.manifest.id, entry])))
     expect(replacement.id).not.toBe(first)
-    expect(replacement.title).toBe('未命名看板')
-    expect(replacement.instances).toEqual([])
+    expect(replacement.title).toBe(expected.title)
+    expect(replacement.instances.map((instance) => instance.widget)).toEqual(expected.instances.map((instance) => instance.widget))
+    expect(replacement.instances.map((instance) => instance.layout)).toEqual(expected.instances.map((instance) => instance.layout))
+    expect(replacement.instances.length).toBeGreaterThan(0)
     expect(workspace.activeId()).toBe(replacement.id)
     expect(existsSync(join(home, 'boards', `${first}.json`))).toBe(false)
     expect(existsSync(join(home, 'boards', `${replacement.id}.json`))).toBe(true)
@@ -215,6 +219,19 @@ describe('看板的增删改与选中', () => {
     const reopened = (await open(home)).workspace
     expect(reopened.list().map((entry) => entry.id)).toEqual([replacement.id])
     expect(reopened.activeId()).toBe(replacement.id)
+  })
+
+  it('默认看板铺不出来时移除最后一块失败，工作区不变', async () => {
+    const home = await tempHome()
+    await writeBoard(join(home, 'boards', 'start.json'), board('start', '看板'))
+    await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'start', boards: ['start'] })}\n`, 'utf8')
+    const { workspace } = await open(home, library.filter((entry) => entry.manifest.id !== 'heatmap'))
+    await expect(workspace.remove('start')).rejects.toThrow(/heatmap/)
+    expect(workspace.list().map((entry) => entry.id)).toEqual(['start'])
+    expect(workspace.activeId()).toBe('start')
+    expect(existsSync(join(home, 'boards', 'start.json'))).toBe(true)
+    const index = JSON.parse(await readFile(join(home, 'boards.json'), 'utf8')) as { active: string, boards: string[] }
+    expect(index).toEqual({ version: 1, active: 'start', boards: ['start'] })
   })
 
   it('选中只改索引，同一块重复选中不再写', async () => {

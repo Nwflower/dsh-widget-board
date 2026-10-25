@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 1,
+  "external": true,
+  "at": "2026-10-25",
+  "zh": "「活动」卡片改成一张用量图：上排一个已经消耗的 Token 总量，下面按卡片的实际宽高铺满用量格子。格子边长、列数与行数都由盒子算出来，格子总数跟着记录长度走并封顶 364 格，悬停读出当天用量；装了 dsh-claude-style 时先读它折好的那份，没装就用看板自己的汇总。",
+  "en": "The Activity card becomes a usage chart: the tokens spent so far, then a grid of daily usage that fits the card&#39;s own width and height. Cell size, columns and rows all follow the box; the number of cells follows how long the record actually is, capped at 364, and each day reads out on hover. It reads dsh-claude-style&#39;s fold when that plugin is installed and the board&#39;s own otherwise."
+}

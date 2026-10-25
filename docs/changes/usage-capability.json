@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 1,
+  "external": true,
+  "at": "2026-10-25",
+  "zh": "新增会话用量能力：看板自己读本机的会话日志，折出每天的四类 token 分桶与按小时的结算次数，结果按日志的大小与修改时间缓存在看板自己的目录里；组件用它就不必依赖别的插件。",
+  "en": "Add the session-usage capability: the board reads this machine's session logs itself, folds them into four token buckets per day and settlements per hour, and caches the result by each log's size and modification time in its own directory, so a widget no longer depends on another plugin for these figures."
+}

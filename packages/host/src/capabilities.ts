@@ -19,6 +19,20 @@ export const CALL_LIMIT = 64 * 1024
 /** 一次能力调用的最长等待；超时后中止提供方并回一条可见的错误（D24）。 */
 export const CALL_TIMEOUT_MS = 15_000
 
+/** 注册里 `timeoutMs` 的上限：再长就与浏览器半边的 30 秒等待撞上了。 */
+export const CALL_TIMEOUT_MAX_MS = 25_000
+
+/**
+ * 这次调用等多久：注册声明的时长，缺省或越界时回到默认值。
+ *
+ * @param declared - 注册里的 `timeoutMs`。
+ * @returns 毫秒。
+ */
+function waitOf(declared: unknown): number {
+  if (typeof declared !== 'number' || !Number.isFinite(declared) || declared <= 0) return CALL_TIMEOUT_MS
+  return Math.min(CALL_TIMEOUT_MAX_MS, Math.max(1_000, Math.round(declared)))
+}
+
 /**
  * 调用一张卡声明过的一个宿主能力。
  *
@@ -51,7 +65,7 @@ async function callOf(context: RouteContext, id: string, request: Parameters<Rou
   const controller = new AbortController()
   const onAborted = (): void => { controller.abort() }
   request.on?.('aborted', onAborted)
-  const timer = setTimeout(() => { controller.abort() }, CALL_TIMEOUT_MS)
+  const timer = setTimeout(() => { controller.abort() }, waitOf(resolved.registration.timeoutMs))
   let result: unknown
   try {
     result = await context.sources.callCapability(wanted.capability, face, wanted.args, controller.signal)

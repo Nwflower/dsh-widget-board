@@ -86,6 +86,13 @@ export interface CapabilityRegistration extends ProviderRegistration {
   /** 这个能力要用的凭据；设置弹窗把它们和组件自己声明的合在一起显示。 */
   credentials?: WidgetCredential[]
   /**
+   * 这次调用最多等多久，毫秒；省略时是 `CALL_TIMEOUT_MS`，上限 `CALL_TIMEOUT_MAX_MS`。
+   *
+   * 提供方自己也要在超时之内作答：超时之后宿主中止提供方，并把卡片上的调用判为失败。冷启动要现算
+   * 数据的能力（例如在会话日志上折一遍用量）把它调长，而不是让第一次调用失败。
+   */
+  timeoutMs?: number
+  /**
    * 跑一次。`signal` 在调用方取消、超时或连接断开时中止；提供方应当尽快停下。
    *
    * @param instance - 发起调用的这张卡片。

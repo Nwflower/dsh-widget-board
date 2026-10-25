@@ -38,6 +38,7 @@ import { createProviderRegistry, widgetIdsIn } from './providers'
 import { registerDshAccount } from './dsh-account'
 import { createSystemMetricsAction, createSystemMetricsSource } from './system-metrics'
 import { registerGithub } from './github'
+import { registerTheme } from './theme'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
 import { createSelfChecks } from './selfcheck'
@@ -109,6 +110,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const sources = createRegistries()
   // 内置的 DSH 账户能力（D24）：余额这类宿主服务由一个小提供方按能力注册，看板核心不认它。
   const disposeDshAccount = registerDshAccount(sources, ctx)
+  // 外观主题（D29）：通用能力，任何组件都能读写；浏览器半边用同名能力接住调用，补上整页转场。
+  const disposeTheme = registerTheme(sources, ctx)
   // GitHub 的 issue 列表（D24）：令牌从卡片设置的凭据服务现取，看板核心不碰 GitHub。
   const disposeGithub = registerGithub(sources, () => credentialsOf(ctx))
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
@@ -309,19 +312,21 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   syncTools()
 
   // 可热改的字段由加载器提交进这一行的引用，提交时发这个事件；事件名属于加载器，不在本插件的
-  // 类型依赖里，所以按名字订阅一次。
+  // 类型依赖里，所以按名字订阅一次，拆除时退订（D18）。
   const onEvent = (ctx as { on?: (event: string, listener: () => void) => unknown }).on
-  onEvent?.call(ctx, 'loader/volatile-update', () => {
+  const unsubscribeVolatile = onEvent?.call(ctx, 'loader/volatile-update', () => {
     const next = readConfigField(config.enabled, true)
     if (next === enabled) return
     enabled = next
     syncTools()
     // 关掉时长连接一并收掉：页面不该停在一条不再有消息的连接上（D18）。
     if (!enabled) live.close()
-  })
+  }) as (() => void) | undefined
 
   ctx.effect(() => () => {
+    unsubscribeVolatile?.()
     disposeDshAccount()
+    disposeTheme()
     disposeGithub()
     tools?.dispose()
     disposeSystemMetrics()

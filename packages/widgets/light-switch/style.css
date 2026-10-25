@@ -1,0 +1,730 @@
+/*
+ * 开关灯的样式。
+ *
+ * 一盏台灯、一扇窗与一块墙，全部用 CSS 叠出来：没有画布、没有逐帧循环，动画只在切换的一瞬发生。
+ * 房间的昼夜、灯罩里的暖光、光束里的浮尘都由 `data-mode` 决定；切换时旧画面留在整页快照里，新
+ * 画面从灯下展开（D29）。浅色与深色两种配色下都保持文字可读。
+ *
+ * 尺寸全部跟着盒子的宽高走（cqw/cqh），字号有自己的上下界；宽盒子把文字放到左栏、灯留在右边，
+ * 矮盒子收掉提示，窄盒子把灯收小一档（D16、D20）。
+ */
+
+.lamp {
+  --lamp-ink: #3a2a19;
+  --lamp-muted: #7c6a55;
+  --lamp-wall-hi: #fff8ec;
+  --lamp-wall-lo: #eeddc4;
+  --lamp-floor: #d8c1a0;
+  --lamp-frame: #f3e6d2;
+  --lamp-shade-a: #f6e1bd;
+  --lamp-shade-b: #a6733a;
+  --lamp-brass-a: #f0c98a;
+  --lamp-brass-b: #7c5022;
+  --lamp-bulb: rgb(255 214 138 / 34%);
+  --lamp-beam: rgb(255 205 125 / 46%);
+  --lamp-halo: rgb(255 198 112 / 18%);
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
+  container-type: size;
+  border-radius: var(--w-radius-card, 24px);
+  background: var(--lamp-wall-lo);
+  color: var(--lamp-ink);
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lamp *,
+.lamp *::before,
+.lamp *::after { box-sizing: border-box; }
+
+/* 深色：墙面、地板与文字一起换成夜里的颜色；台灯本身不换色，亮起来的是灯罩里的光。 */
+.lamp[data-mode="dark"] {
+  --lamp-ink: #f4ead8;
+  --lamp-muted: #ab9f8a;
+  --lamp-wall-hi: #0c1119;
+  --lamp-wall-lo: #182231;
+  --lamp-floor: #0d131b;
+  --lamp-frame: #232f40;
+  --lamp-shade-a: #3a4558;
+  --lamp-shade-b: #151d29;
+  --lamp-brass-a: #d9b477;
+  --lamp-brass-b: #66441f;
+  --lamp-bulb: rgb(255 222 158 / 100%);
+  --lamp-beam: rgb(255 205 125 / 60%);
+  --lamp-halo: rgb(255 191 104 / 34%);
+  background: #10161f;
+  color: var(--lamp-ink);
+}
+
+.lamp:focus-visible {
+  outline: 2px solid var(--w-color-accent);
+  outline-offset: -3px;
+}
+
+/* 房间：两层墙纸交叉淡入淡出，切换时颜色不会整块跳过去。 */
+.lamp__room {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.lamp__room::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 64% at 78% 8%, rgb(255 255 255 / 72%), transparent 68%),
+    linear-gradient(180deg, var(--lamp-wall-hi), var(--lamp-wall-lo) 72%);
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+  opacity: 1;
+}
+
+/* 夜里的墙是一层真节点，不能写成 `::after`：伪元素画在房间的所有子节点之后，会把窗盖住。 */
+.lamp__night-wall {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 60% at 74% 6%, rgb(64 92 140 / 26%), transparent 70%),
+    linear-gradient(180deg, #0a0f17, #1a2434 72%);
+  opacity: 0;
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="dark"] .lamp__room::before { opacity: 0; }
+.lamp[data-mode="dark"] .lamp__night-wall { opacity: 1; }
+
+/* 地板压在墙脚上，灯座落在这条线上。 */
+.lamp__floor {
+  position: absolute;
+  inset: auto 0 0;
+  height: 27%;
+  background: linear-gradient(180deg, transparent, var(--lamp-floor));
+  transition: background var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__floor::before {
+  content: "";
+  position: absolute;
+  inset: 22% 0 auto;
+  height: 1px;
+  background: color-mix(in srgb, var(--lamp-ink) 14%, transparent);
+}
+
+/* 灯后面的那团光，夜里才铺开。 */
+.lamp__halo {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  width: 66%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--lamp-halo), transparent 62%);
+  opacity: 0.36;
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+  pointer-events: none;
+}
+
+.lamp[data-mode="dark"] .lamp__halo { opacity: 0.9; }
+
+/* 窗：窗框包住天空、太阳、月亮、星点与云；夜里再盖一层夜色调。 */
+.lamp__window {
+  position: absolute;
+  top: 8%;
+  right: 8%;
+  width: 38%;
+  height: 40%;
+  overflow: hidden;
+  border-radius: clamp(10px, 4cqw, 24px);
+  background: var(--lamp-frame);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 34%) inset,
+    0 12px 30px rgb(50 32 8 / 16%);
+  transition: background var(--w-motion-theme-scene) var(--w-motion-ease-smooth), box-shadow var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__sky,
+.lamp__night {
+  position: absolute;
+  inset: clamp(3px, 1.2cqw, 7px);
+  border-radius: clamp(7px, 3cqw, 18px);
+}
+
+.lamp__sky {
+  background: linear-gradient(180deg, #9fd2ff, #e9f5ff 74%);
+}
+
+.lamp__night {
+  background:
+    radial-gradient(70% 60% at 50% 90%, #1d3a5c, transparent 70%),
+    linear-gradient(180deg, #071322, #12263f 70%);
+  opacity: 0;
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="dark"] .lamp__night { opacity: 1; }
+
+.lamp__sun,
+.lamp__moon {
+  position: absolute;
+  top: 17%;
+  right: 14%;
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transition:
+    opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth),
+    transform var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__sun {
+  background: radial-gradient(circle at 38% 34%, #fffbe3, #ffd166 62%, #f0a63a);
+  box-shadow: 0 0 30px rgb(255 202 92 / 58%);
+}
+
+.lamp[data-mode="dark"] .lamp__sun {
+  opacity: 0;
+  transform: translateY(-16%) scale(0.7);
+}
+
+.lamp__moon {
+  background: radial-gradient(circle at 36% 32%, #fffdf2, #eee3c6 68%, #d6c8a6);
+  box-shadow: 0 0 26px rgb(245 235 205 / 36%);
+  opacity: 0;
+  transform: translateY(10%) scale(0.72);
+}
+
+.lamp__moon::before,
+.lamp__moon::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: rgb(160 146 116 / 26%);
+}
+
+.lamp__moon::before { left: 26%; top: 22%; width: 24%; height: 22%; }
+.lamp__moon::after { right: 22%; bottom: 26%; width: 16%; height: 15%; }
+
+.lamp[data-mode="dark"] .lamp__moon {
+  opacity: 1;
+  transform: none;
+}
+
+/* 星点：位置固定，夜里才亮，各自闪烁；暂停与减弱动效由套件与下面的规则统一收住。 */
+.lamp__stars {
+  position: absolute;
+  inset: clamp(3px, 1.2cqw, 7px);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="dark"] .lamp__stars { opacity: 1; }
+
+.lamp__stars i {
+  position: absolute;
+  width: clamp(1.5px, 0.34cqw, 3px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fff8e6;
+  box-shadow: 0 0 5px rgb(255 243 200 / 80%);
+  opacity: 0.7;
+  animation: lamp-twinkle 3.4s ease-in-out infinite alternate;
+}
+
+.lamp__stars i:nth-child(1) { left: 16%; top: 22%; animation-delay: -0.2s; }
+.lamp__stars i:nth-child(2) { left: 34%; top: 12%; animation-delay: -1.4s; }
+.lamp__stars i:nth-child(3) { left: 62%; top: 18%; animation-delay: -2.3s; }
+.lamp__stars i:nth-child(4) { left: 80%; top: 46%; animation-delay: -0.9s; }
+.lamp__stars i:nth-child(5) { left: 22%; top: 52%; animation-delay: -2.9s; }
+.lamp__stars i:nth-child(6) { left: 48%; top: 38%; animation-delay: -1.8s; }
+.lamp__stars i:nth-child(7) { left: 66%; top: 66%; animation-delay: -3.5s; }
+
+/* 云：白天慢慢横移，夜里淡出。 */
+.lamp__cloud {
+  position: absolute;
+  left: 10%;
+  top: 54%;
+  width: 44%;
+  height: 15%;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+  filter: blur(1px);
+  opacity: 1;
+  animation: lamp-drift 16s var(--w-motion-ease-standard) infinite alternate;
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__cloud::before,
+.lamp__cloud::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.lamp__cloud::before { left: 12%; top: -70%; width: 46%; aspect-ratio: 1; }
+.lamp__cloud::after { right: 10%; top: -40%; width: 34%; aspect-ratio: 1; }
+
+.lamp[data-mode="dark"] .lamp__cloud { opacity: 0; }
+
+/* 窗棂：十字分格，压在天空上。 */
+.lamp__mullion {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent calc(50% - 1.5px), var(--lamp-frame) calc(50% - 1.5px), var(--lamp-frame) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+    linear-gradient(180deg, transparent calc(46% - 1.5px), var(--lamp-frame) calc(46% - 1.5px), var(--lamp-frame) calc(46% + 1.5px), transparent calc(46% + 1.5px));
+  transition: background var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+/* 光束：从灯罩下沿铺到地板，夜里才看得见。 */
+.lamp__beam {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 43%;
+  width: 62%;
+  height: 57%;
+  transform: translateX(-50%);
+  clip-path: polygon(43% 0, 57% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, var(--lamp-beam), transparent 78%);
+  filter: blur(7px);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+  pointer-events: none;
+}
+
+.lamp[data-mode="dark"] .lamp__beam { opacity: 0.9; }
+
+/* 浮尘：光束里慢慢往下漂，只在夜间出现；暂停与减弱动效时留给套件统一停住。 */
+.lamp__mote {
+  position: absolute;
+  width: clamp(2px, 0.5cqw, 4px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ffe9b8;
+  box-shadow: 0 0 6px rgb(255 220 150 / 80%);
+  opacity: 0;
+}
+
+.lamp[data-mode="dark"] .lamp__mote { animation: lamp-mote 6s linear infinite; }
+.lamp__mote:nth-child(1) { left: 30%; top: 12%; animation-delay: -0.4s; }
+.lamp__mote:nth-child(2) { left: 46%; top: 4%; animation-delay: -2.1s; }
+.lamp__mote:nth-child(3) { left: 58%; top: 22%; animation-delay: -3.4s; }
+.lamp__mote:nth-child(4) { left: 38%; top: 34%; animation-delay: -1.2s; }
+.lamp__mote:nth-child(5) { left: 64%; top: 40%; animation-delay: -4.6s; }
+.lamp__mote:nth-child(6) { left: 48%; top: 52%; animation-delay: -5.4s; }
+.lamp__mote:nth-child(7) { left: 34%; top: 64%; animation-delay: -2.8s; }
+
+/* 台灯：灯罩、灯泡、拉绳、灯颈、灯杆、底座从下往上叠。磁吸的位移由套件写在舞台节点上。 */
+.lamp__stage {
+  position: absolute;
+  z-index: 3;
+  left: 17%;
+  right: 17%;
+  bottom: 3%;
+  height: 64%;
+}
+
+.lamp__fixture {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  transition: transform var(--w-motion-morph) var(--w-motion-ease-pop);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lamp:hover .lamp__fixture { transform: translateY(-2px); }
+}
+
+.lamp:active .lamp__fixture { transform: translateY(1px) scale(0.997); }
+
+.lamp__head {
+  position: relative;
+  width: 100%;
+  height: 38%;
+}
+
+.lamp__shade {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, var(--lamp-shade-a), var(--lamp-shade-b));
+  filter: drop-shadow(0 10px 14px rgb(40 24 4 / 22%));
+  transition: background var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__shade-in {
+  position: absolute;
+  inset: 0;
+  clip-path: inherit;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 34%), transparent 46%),
+    linear-gradient(0deg, rgb(255 206 132 / 72%), transparent 38%);
+}
+
+/* 灯泡挂在灯罩下沿，夜里变成一颗发光的暖点；灯罩的裁剪不吃它的光晕。 */
+.lamp__bulb {
+  position: absolute;
+  left: 50%;
+  bottom: -7%;
+  width: 19%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #fffdf0, #ffd68a 58%, #e89a37);
+  box-shadow: 0 0 16px 4px var(--lamp-bulb);
+  opacity: 0.4;
+  transition:
+    opacity var(--w-motion-theme-scene) var(--w-motion-ease-smooth),
+    box-shadow var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="dark"] .lamp__bulb {
+  opacity: 1;
+  box-shadow:
+    0 0 26px 10px rgb(255 206 126 / 62%),
+    0 0 70px 30px rgb(255 172 72 / 22%);
+}
+
+/* 拉绳：灯罩右侧垂下来的一串小珠子，切换时轻轻摆一下。 */
+.lamp__pull {
+  position: absolute;
+  top: 88%;
+  right: 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1px, 0.3cqw, 3px);
+  transform-origin: 50% 0;
+}
+
+.lamp__pull::before {
+  content: "";
+  width: 1px;
+  height: clamp(6px, 2cqh, 14px);
+  background: color-mix(in srgb, var(--lamp-brass-b) 74%, transparent);
+}
+
+.lamp__pull i {
+  width: clamp(2px, 0.62cqw, 5px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--lamp-brass-a), var(--lamp-brass-b));
+  box-shadow: 0 1px 1px rgb(0 0 0 / 30%);
+}
+
+.lamp__neck {
+  width: 6%;
+  height: 7%;
+  background: linear-gradient(90deg, var(--lamp-brass-b), var(--lamp-brass-a) 46%, var(--lamp-brass-b));
+}
+
+.lamp__post {
+  width: 9%;
+  height: 28%;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(90deg, var(--lamp-brass-b), var(--lamp-brass-a) 44%, var(--lamp-brass-b));
+  box-shadow: 2px 0 6px rgb(0 0 0 / 12%);
+}
+
+.lamp__base {
+  position: relative;
+  width: 54%;
+  height: 9%;
+  border-radius: 50% / 68%;
+  background: radial-gradient(ellipse at 42% 26%, var(--lamp-brass-a), var(--lamp-brass-b) 76%);
+  box-shadow: 0 10px 18px rgb(30 18 4 / 26%);
+}
+
+/* 底座上的开关：轨道里的小滑块跟着模式左右走，旁边一颗指示灯。 */
+.lamp__rocker {
+  position: absolute;
+  left: 13%;
+  top: 50%;
+  width: 42%;
+  height: 34%;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgb(28 18 6 / 62%);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 56%);
+  transition: background var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__lever {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 10%;
+  width: 42%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe6b4, #b9823c);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 38%);
+  transition: left var(--w-motion-flip) var(--w-motion-ease-pop);
+}
+
+.lamp[data-mode="dark"] .lamp__lever { left: 48%; }
+
+.lamp__led {
+  position: absolute;
+  right: 22%;
+  top: 50%;
+  width: 7%;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #6b6255;
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 42%);
+  transition:
+    background var(--w-motion-base) var(--w-motion-ease-standard),
+    box-shadow var(--w-motion-base) var(--w-motion-ease-standard);
+}
+
+.lamp[data-mode="dark"] .lamp__led {
+  background: #ffd27a;
+  box-shadow: 0 0 9px 2px rgb(255 190 90 / 64%);
+}
+
+/* 文字：标题、小注与提示各留两份，按模式交叉淡入淡出。 */
+.lamp__hud {
+  position: absolute;
+  z-index: 4;
+  top: var(--w-space-lg, 16px);
+  left: var(--w-space-lg, 16px);
+  display: flex;
+  max-width: 52%;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.lamp__kicker {
+  color: var(--lamp-muted);
+  font-size: var(--w-type-caption, 12px);
+  font-weight: 500;
+  line-height: 16px;
+  transition: color var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__titles {
+  display: grid;
+}
+
+.lamp__title {
+  grid-area: 1 / 1;
+  color: var(--lamp-ink);
+  font-size: clamp(24px, min(11cqw, 10cqh), 56px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  opacity: 0;
+  transform: translateY(7px);
+  transition:
+    opacity var(--w-motion-base) var(--w-motion-ease-smooth),
+    transform var(--w-motion-base) var(--w-motion-ease-smooth),
+    color var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="light"] .lamp__title[data-when="light"],
+.lamp[data-mode="dark"] .lamp__title[data-when="dark"] {
+  opacity: 1;
+  transform: none;
+}
+
+.lamp__meta {
+  display: grid;
+  color: var(--lamp-muted);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+  transition: color var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__meta span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity var(--w-motion-base) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="light"] .lamp__meta span[data-when="light"],
+.lamp[data-mode="dark"] .lamp__meta span[data-when="dark"] {
+  opacity: 1;
+}
+
+.lamp__hints {
+  display: grid;
+  margin-top: var(--w-space-sm, 8px);
+  color: var(--lamp-muted);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 17px;
+  transition: color var(--w-motion-theme-scene) var(--w-motion-ease-smooth);
+}
+
+.lamp__hint {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity var(--w-motion-base) var(--w-motion-ease-smooth);
+}
+
+.lamp[data-mode="light"] .lamp__hint[data-when="light"],
+.lamp[data-mode="dark"] .lamp__hint[data-when="dark"] {
+  opacity: 1;
+}
+
+/* 切换失败时把原因留在卡片下沿，不遮住灯。 */
+.lamp__foot {
+  position: absolute;
+  z-index: 5;
+  right: var(--w-space-lg, 16px);
+  bottom: var(--w-space-md, 12px);
+  left: var(--w-space-lg, 16px);
+  pointer-events: none;
+}
+
+.lamp__error {
+  display: block;
+  max-height: 32px;
+  overflow: hidden;
+  color: var(--w-tone-danger);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.lamp__error:empty { display: none; }
+
+/* 切换的一瞬：从灯泡位置荡开一圈细环，拉绳摆一下。 */
+.lamp__ring {
+  position: absolute;
+  z-index: 6;
+  /* 圆心由脚本写成卡片内的按下点；整页的 View Transition 用同一个坐标（D29）。 */
+  left: var(--lamp-ring-x, 50%);
+  top: var(--lamp-ring-y, 43%);
+  width: min(62%, 440px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(0.2);
+  border: 1.5px solid var(--w-color-accent);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lamp[data-switching="true"] .lamp__ring {
+  animation: lamp-ring var(--w-motion-theme-circle) var(--w-motion-ease-decel) both;
+}
+
+.lamp[data-switching="true"] .lamp__pull {
+  animation: lamp-swing 900ms var(--w-motion-ease-pop);
+}
+
+@keyframes lamp-ring {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  24% { opacity: 0.56; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.45); }
+}
+
+@keyframes lamp-swing {
+  0%, 100% { transform: rotate(0deg); }
+  24% { transform: rotate(7deg); }
+  54% { transform: rotate(-5deg); }
+  100% { transform: rotate(2deg); }
+}
+
+@keyframes lamp-twinkle {
+  from { opacity: 0.32; transform: scale(0.78); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes lamp-mote {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  16% { opacity: 0.72; }
+  68% { opacity: 0.42; }
+  100% { opacity: 0; transform: translateY(13cqh) scale(1.1); }
+}
+
+@keyframes lamp-drift {
+  from { transform: translateX(-4%); }
+  to { transform: translateX(7%); }
+}
+
+/* 窄盒子：灯收小一档，窗缩到右上角，标题跟着宽度走。 */
+@media (max-width: 319px) {
+  .lamp__window { width: 42%; height: 34%; }
+  .lamp__stage { left: 11%; right: 11%; height: 60%; }
+  .lamp__hud { max-width: 66%; }
+  .lamp__title { font-size: clamp(21px, 13cqw, 34px); }
+}
+
+/* 矮盒子：提示让位，灯占满下半段，文字横着排。 */
+:root[data-box-height="short"] .lamp__window { top: 7%; height: 38%; }
+:root[data-box-height="short"] .lamp__stage { bottom: 1%; height: 80%; }
+:root[data-box-height="short"] .lamp__hints { display: none; }
+:root[data-box-height="short"] .lamp__title { font-size: clamp(20px, min(8cqw, 13cqh), 34px); }
+:root[data-box-height="short"] .lamp__hud { top: var(--w-space-md, 12px); left: var(--w-space-md, 12px); gap: 0; }
+:root[data-box-height="short"] .lamp__meta { display: none; }
+
+/* 宽盒子：文字搬到左栏，灯与窗留在右栏；1280px 的长条里两边都用得上。 */
+:root[data-box-width="wide"] .lamp__hud {
+  top: 50%;
+  left: 7%;
+  width: 35%;
+  max-width: none;
+  transform: translateY(-50%);
+  gap: 4px;
+}
+
+:root[data-box-width="wide"] .lamp__title {
+  font-size: clamp(32px, min(4.4cqw, 13cqh), 64px);
+}
+
+:root[data-box-width="wide"] .lamp__hints { margin-top: var(--w-space-md, 12px); }
+
+:root[data-box-width="wide"] .lamp__window {
+  top: 7%;
+  right: 7%;
+  width: 30%;
+  height: 42%;
+}
+
+:root[data-box-width="wide"] .lamp__stage {
+  left: 51%;
+  right: 4%;
+  bottom: 3%;
+  height: 80%;
+}
+
+:root[data-box-width="wide"] .lamp__halo { left: 73.5%; width: 54%; }
+
+/* 宽盒子里灯移到右栏，光束跟着灯走，不能还挂在整张卡片的中线上。 */
+:root[data-box-width="wide"] .lamp__beam { left: 73%; top: 40%; width: 56%; height: 60%; }
+
+:root[data-box-width="wide"][data-box-height="short"] .lamp__hud { width: 38%; left: 5%; }
+:root[data-box-width="wide"][data-box-height="short"] .lamp__window { width: 27%; height: 46%; right: 4%; }
+:root[data-box-width="wide"][data-box-height="short"] .lamp__stage { left: 52%; right: 3%; height: 88%; }
+:root[data-box-width="wide"][data-box-height="short"] .lamp__beam { left: 74%; width: 54%; }
+:root[data-box-width="wide"][data-box-height="short"] .lamp__hints { display: none; }
+
+/* 减弱动效：灯还是那盏灯，只是不再闪、不再摆、不再飘（D10）。 */
+:root[data-motion="reduced"] .lamp *,
+:root[data-motion="reduced"] .lamp *::before,
+:root[data-motion="reduced"] .lamp *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+:root[data-motion="reduced"] .lamp__mote { display: none; }
+:root[data-motion="reduced"] .lamp__stars i { opacity: 0.75; }
+:root[data-motion="reduced"] .lamp__cloud { animation: none; }

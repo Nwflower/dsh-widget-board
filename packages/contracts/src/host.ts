@@ -148,3 +148,36 @@ export function accountOf(context: unknown): HostAccount | undefined {
   if (get === undefined) return undefined
   return get.call(context, 'deepseekAccount') as HostAccount | undefined
 }
+
+/**
+ * 宿主的设置服务里本插件用到的两件事：读全部入口、按入口写一处（D29）。
+ *
+ * 形状按 `dsh-settings` 的 `SettingsForms.describe` 与 `SettingsForms.update` 记一次；`value` 是这一
+ * 行生效后的配置，`revision` 是写入时用来做比较交换的版本号。
+ */
+export interface HostSettingsDescriptor {
+  /** 配置入口的 id，例如 `ui-theme`。 */
+  ns: string
+  /** 这一份配置的修订号。 */
+  revision: number
+  /** 生效后的配置值。 */
+  value?: unknown
+}
+
+/** 宿主的设置服务；没有安装时是 `undefined`。 */
+export interface HostSettings {
+  describe(): HostSettingsDescriptor[]
+  update(ns: string, patch: Record<string, unknown>, expectedRevision?: number): Promise<void>
+}
+
+/**
+ * 宿主的设置服务。
+ *
+ * @param context - 宿主交给插件 `apply` 的上下文。
+ * @returns 设置服务，或 `undefined`。
+ */
+export function settingsOf(context: unknown): HostSettings | undefined {
+  const get = (context as { get?: (name: string) => unknown }).get
+  if (get === undefined) return undefined
+  return get.call(context, 'settings') as HostSettings | undefined
+}

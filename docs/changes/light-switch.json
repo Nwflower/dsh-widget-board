@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 0,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "新增内置组件「开关灯」：一盏台灯，按底座上的开关在日间与夜间之间切换，窗外的太阳、月亮、星点与灯下的光束一起变化。切换经通用的 dsh.theme 能力完成；浏览器半边把整页的新配色从灯下的一点以圆点展开，旧画面留在圆外，卡片里的波纹与整页圆点共用按下点，并且等新配色落到卡片时才一起开始；圆心与半径用百分比写，1.5 倍像素密度的桌面上也不会偏向左上角。旧快照拍完后暂停其它卡片的逐帧绘制，转场结束分批恢复，按下的一刻其它卡片不会被提前停住；浏览器不支持 View Transitions 或系统要求减弱动效时退回直接切换。宿主半边也能读改写主题偏好，作为兜底。",
+  "en": "New built-in widget, Light switch: a desk lamp whose base switch flips the room between day and night, moving the sun, moon, stars and the light beam together. The switch goes through the generic dsh.theme capability; the browser half reveals the new palette across the whole page as a circle growing from the lamp, with the old picture left outside it. The card's ripple shares the press point and starts with the page circle once the new tokens reach the card; the circle's center and radius are percentages, so a 1.5x display no longer pulls it toward the top-left. Other cards are suspended only after the old snapshot is taken and resumed in batches, so the press never freezes them early; when View Transitions are unavailable or reduced motion is requested it switches directly, and the host half can read and write the theme preference as a fallback."
+}

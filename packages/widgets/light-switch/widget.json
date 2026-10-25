@@ -1,0 +1,69 @@
+{
+  "id": "light-switch",
+  "title": {
+    "zh": "开关灯",
+    "en": "Light switch"
+  },
+  "description": {
+    "zh": "一盏可以按的台灯：拨动底座上的开关，整页的新配色从灯下的一点展开，深色与浅色随之切换。组件经通用的 dsh.theme 能力改主题；不联网，也不需要密钥。",
+    "en": "A desk lamp you can press: flip the switch on its base and the new palette unfolds from a point under the lamp, switching dark and light across the page. It uses the generic dsh.theme capability; no network, no key."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "defaultBox": {
+    "w": 1,
+    "h": 22
+  },
+  "minBox": {
+    "w": 1,
+    "h": 16
+  },
+  "capabilities": ["dsh.theme"],
+  "text": {
+    "label": {
+      "zh": "外观",
+      "en": "Appearance"
+    },
+    "light": {
+      "zh": "日间",
+      "en": "Day"
+    },
+    "dark": {
+      "zh": "夜间",
+      "en": "Night"
+    },
+    "lightMode": {
+      "zh": "浅色",
+      "en": "Light"
+    },
+    "darkMode": {
+      "zh": "深色",
+      "en": "Dark"
+    },
+    "hintLight": {
+      "zh": "轻点开灯，进入夜间",
+      "en": "Tap to light the room"
+    },
+    "hintDark": {
+      "zh": "轻点熄灯，回到日间",
+      "en": "Tap to put the light out"
+    },
+    "switchLabel": {
+      "zh": "切换深色与浅色模式",
+      "en": "Switch between dark and light"
+    },
+    "stateLight": {
+      "zh": "当前为浅色模式",
+      "en": "Light mode is on"
+    },
+    "stateDark": {
+      "zh": "当前为深色模式",
+      "en": "Dark mode is on"
+    },
+    "switching": {
+      "zh": "正在切换外观",
+      "en": "Switching appearance"
+    }
+  }
+}

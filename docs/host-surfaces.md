@@ -51,7 +51,7 @@
 - **界面上的授权由看板自己记录**：`ctx.approval.request` 要一个未结束的轮次与一个会话 agent，界面上的点击没有这两样，所以人给出的授权记在 `$DSH_HOME/widget-board/grants.json` 里，与看板同一个写入者；工具触发的动作在已有授权之外再经 `ctx.approval.request` 问一次（D6）。出处：本仓库的 `packages/host/src/grants.ts`、`packages/host/src/permissions.ts` 与 `docs/adr/D6-data-sources-and-actions.md`。
 - **程序执行**：`ctx.ptcRuntime` 运行受沙箱策略约束的程序，宿主函数以命名空间绑定给程序，参数与返回值必须是无损 JSON。本机宿主只带了 node 后端（`dsh-ptc-runtime-node`）。出处：`dsh-ptc-runtime/lib/types/types.d.ts`。
 - **子进程**：`ctx.subprocess` 管理进程组、有界的输出与升级终止。出处：`dsh-subprocess/package.json` 的描述。
-- **主题**：浏览器侧 `ctx.theme` 是 `ThemeRuntime`：`getTheme()`、`exportInspectTokens()`、`register(definition)`、`overrideTokens(source, tokens)`；状态变化发出 `theme/change(snapshot)`。宿主令牌是 `--dsw-*`。出处：`dsh-client-ui-theme/lib/types/client/index.d.ts`。
+- **主题**：浏览器侧 `ctx.theme` 是 `ThemeRuntime`：`getTheme()`、`setTheme(id)`、`exportInspectTokens()`、`register(definition)`、`overrideTokens(source, tokens)`；状态变化发出 `theme/change(snapshot)`。宿主令牌是 `--dsw-*`。`setTheme` 是偏好写入的唯一入口，与宿主设置里 `ui-theme` 的 `preference` 是同一处：宿主半边也能读改写这一项。本仓库在临时宿主里实证：组件经能力切换后整页配色与卡片令牌一起变，宿主设置兜底也能改同一项偏好。出处：`dsh-client-ui-theme/lib/types/client/index.d.ts`、`dsh-client-ui-theme/lib/types/theme-settings.d.ts` 与本仓库的 `packages/host/src/theme.ts`。
 - **宿主自己的 HTML 预览**用 `<iframe srcDoc sandbox="">`，完全不允许脚本。出处：`dsh-client-ui-sidebar-documentpreview/lib/client.js`。
 - **类型化远程调用**（`typertGateway`）要求生成的定义，第三方插件不能直接使用。出处：`dsh-api-gateway/lib/types/index.d.ts`。
 
@@ -77,4 +77,4 @@
 
 - **右侧栏标签页类型的注册入口**（D1）：类型声明里只看到外壳读取的 `tabTypes`，注册类型定义的方法要在 `dsh-client-ui-sidebar-right` 的 `client/service.d.ts` 与实现里找到，并在页面上打开一个自定义类型的标签页。
 - **工具视图在真实会话里的样子与会话重新打开后的重画**（D9）：`presentationMeta` → `tool/result.meta` → `block.meta` 的类型链已经核对；还缺有人在场的一次端到端（让模型调一次 `widget_define` 与 `widget_show`，看视图画出来，刷新之后还在）。
-- **`theme/change` 与 `--dsw-*` 计算值**（D10）：切换浅色、深色与皮肤时事件是否触发，从页面根节点读到的值是否已经是皮肤改写后的值。
+

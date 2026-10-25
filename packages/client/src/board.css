@@ -565,3 +565,33 @@
   opacity: 0;
   pointer-events: none;
 }
+
+/*
+ * 主题切换的整页圆点揭示（D29）。
+ *
+ * 浏览器把切换前后各拍成一层快照；旧的那层原地不动，新的那层从组件报来的圆心展开。只动
+ * `clip-path`，不重排页面，也不让组件逐帧重画。`data-dsh-widget-board-vt` 只在这一段转场期间挂在
+ * 根节点上，宿主自己的 View Transition 不受影响；变量由 `theme-switch.ts` 按令牌写进来，圆心与半径
+ * 都是百分比——快照层的坐标按设备像素缩放，写 px 会在 1.5 倍屏上缩到左上角。动画结束就摘掉。
+ */
+@keyframes dsh-widget-board-theme-circle {
+  from { clip-path: circle(0% at var(--dsh-widget-board-vt-x) var(--dsh-widget-board-vt-y)); }
+  to { clip-path: circle(var(--dsh-widget-board-vt-r) at var(--dsh-widget-board-vt-x) var(--dsh-widget-board-vt-y)); }
+}
+
+html[data-dsh-widget-board-vt]::view-transition-group(root) { animation: none; }
+
+html[data-dsh-widget-board-vt]::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  opacity: 1;
+}
+
+html[data-dsh-widget-board-vt]::view-transition-new(root) {
+  animation: dsh-widget-board-theme-circle var(--dsh-widget-board-vt-duration) var(--dsh-widget-board-vt-ease) both;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-dsh-widget-board-vt]::view-transition-new(root) { animation: none; }
+}

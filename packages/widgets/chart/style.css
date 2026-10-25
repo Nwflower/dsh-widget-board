@@ -1,5 +1,8 @@
 /*
  * 图表卡的样式：SVG 铺满剩余高度，折线/面积/柱状由 data-kind 切换；刻度与说明在下方。
+ *
+ * 宽盒子里标题区在左、绘图区占右边整块（`.t-data--split`），全宽的长条里图不再是一条细缝；
+ * 矮盒子收掉说明行（D20）。
  */
 .chart-card__body {
   gap: var(--w-space-sm, 8px);
@@ -123,10 +126,17 @@
   overflow-wrap: anywhere;
 }
 
+/* 矮盒子：说明行收掉，绘图区把高度全用上。 */
 :root[data-box-height="short"] .chart-card__caption { display: none; }
+:root[data-box-height="short"] .chart-card__chart { min-height: 0; }
+
+/* 窄盒子（不高的）：刻度值留在微标签的下限 12px，两边的刻度值挤得进一列。 */
+:root[data-box-width="narrow"]:not([data-box-height="tall"]) .chart-card__yaxis,
+:root[data-box-width="narrow"]:not([data-box-height="tall"]) .chart-card__axis { font-size: var(--w-type-caption, 12px); }
+
+/* 高盒子：刻度与说明升一档，折线与端点放大。 */
 :root[data-box-height="tall"] .chart-card__yaxis,
 :root[data-box-height="tall"] .chart-card__axis,
 :root[data-box-height="tall"] .chart-card__caption { font-size: var(--w-type-body, 14px); }
 :root[data-box-height="tall"] .chart-card__line { stroke-width: 3; }
 :root[data-box-height="tall"] .chart-card__end { width: 12px; height: 12px; }
-:root[data-box-width="narrow"] .chart-card__yaxis { font-size: 11px; }

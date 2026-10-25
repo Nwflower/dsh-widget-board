@@ -1,5 +1,6 @@
 /*
  * 图片卡的样式：画面占满剩余高度，说明压在下面；没有图时露出一块点阵占位。
+ * 宽盒子里标题挪到左列、画面占右列，矮盒子收掉说明。
  */
 .image-card__body {
   gap: var(--w-space-sm, 8px);
@@ -75,6 +76,15 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-height: 260px) {
-  .image-card__caption { display: none; }
+/* 宽盒子：标题挪到左列，画面占右列整块高度；矮盒子里说明收掉。 */
+:root[data-box-width="wide"] .image-card__frame {
+  border-radius: var(--w-radius-card, 24px);
+}
+
+:root[data-box-height="short"] .image-card__caption { display: none; }
+
+/* 高盒子：说明长一档，画面与文字不再是一小条。 */
+:root[data-box-height="tall"] .image-card__caption {
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
 }

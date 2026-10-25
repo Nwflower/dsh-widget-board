@@ -1,9 +1,15 @@
 /*
  * 看板题头像普通卡片一样由容器给盒子；底色、点阵、边框与圆角都用运行时套件的令牌，
  * 浅色与深色各自可读（D10、D16）。
+ *
+ * 窄盒子与正方盒子里，标题在上、字模图案在下铺满剩下的高度；宽盒子里照旧横排，标题在左、
+ * 图案在右，全宽时图案再用上更多宽度。插画不再因为盒子窄就被整个收掉。
  */
 .hero {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-lg, 16px);
   box-sizing: border-box;
   height: 100vh;
   padding: clamp(16px, 4.2vw, 26px);
@@ -21,7 +27,12 @@
 .hero-copy {
   position: relative;
   z-index: 2;
-  max-width: 54%;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hero-kicker {
@@ -39,7 +50,7 @@
 .hero-title {
   margin: 0;
   color: var(--w-color-fg, #0b1016);
-  font-size: clamp(28px, min(7.2vw, 11vh), 72px);
+  font-size: clamp(30px, 10.5vw, 46px);
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.03;
@@ -52,7 +63,7 @@
   display: flex;
   align-items: center;
   gap: var(--w-space-sm, 8px);
-  margin: var(--w-space-lg, 16px) 0 0;
+  margin: var(--w-space-md, 12px) 0 0;
   color: var(--w-color-muted, #6c6c6c);
   font-size: var(--w-type-body, 14px);
   line-height: 22px;
@@ -67,14 +78,16 @@
   background: var(--w-color-accent, #2563eb);
 }
 
+/* 图案在窄盒子里落到标题下面，占住剩下的高度。 */
 .hero-art {
-  position: absolute;
-  inset: 0 0 0 auto;
+  position: static;
   display: flex;
-  width: 46%;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
   align-items: center;
-  justify-content: flex-end;
-  padding: clamp(14px, 4vw, 26px);
+  justify-content: center;
+  padding: 0;
   pointer-events: none;
 }
 
@@ -86,10 +99,9 @@
   display: grid;
   width: 100%;
   max-width: 340px;
-  max-height: 100%;
-  aspect-ratio: 5 / 4;
-  grid-template: repeat(4, 1fr) / repeat(5, 1fr);
+  height: 100%;
   gap: clamp(6px, 1.2vw, 10px);
+  grid-template: repeat(4, minmax(0, 1fr)) / repeat(5, minmax(0, 1fr));
 }
 
 .hero-tile {
@@ -151,12 +163,64 @@
 
 .hero-tile--dots i:nth-child(2) { background: var(--w-color-accent, #2563eb); }
 
-@media (max-width: 560px) {
-  .hero-copy { max-width: 100%; }
-  .hero-art { display: none; }
+/*
+ * 宽盒子：标题与说明在左，图案回到右侧占掉一半多一点；矮盒子里说明仍然留着，标题与说明合起来
+ * 只用掉中间一段高度，所以不会挤出盒子。
+ */
+:root[data-box-width="wide"] .hero {
+  display: block;
+  padding: clamp(16px, 2.2vw, 26px);
 }
 
-@media (max-height: 200px) {
-  .hero-tagline { display: none; }
-  .hero-kicker { margin-bottom: 6px; }
+:root[data-box-width="wide"] .hero-copy {
+  justify-content: center;
+  height: 100%;
+  max-width: 54%;
 }
+
+:root[data-box-width="wide"] .hero-art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 46%;
+  padding: clamp(14px, 3vw, 26px);
+}
+
+:root[data-box-width="wide"] .hero-title {
+  font-size: clamp(32px, min(5.4vw, 13vh), 72px);
+}
+
+:root[data-box-width="wide"] .hero-tiles {
+  max-width: 460px;
+}
+
+/* 全宽：说明露出，图案用掉右半边更多的宽度，标题与图案之间不留一大片空白。 */
+@media (min-width: 1000px) {
+  :root[data-box-width="wide"] .hero-copy { max-width: 42%; }
+  :root[data-box-width="wide"] .hero-art { width: 56%; }
+  :root[data-box-width="wide"] .hero-tiles { max-width: 620px; }
+}
+
+/* 宽矮：说明与标题在左列居中，图案与它们同高。 */
+:root[data-box-width="wide"][data-box-height="short"] .hero-tagline { display: flex; }
+
+/* 窄高与正方：图案在下面占到四成半，标题块在上半段垂直居中；文案长时图案让出高度。 */
+:root[data-box-width="narrow"] .hero-art,
+:root[data-box-width="regular"] .hero-art { flex: 0 1 44%; }
+
+:root[data-box-width="narrow"][data-box-height="tall"] .hero {
+  gap: var(--w-space-xl, 24px);
+  padding: var(--w-space-xl, 24px) var(--w-space-lg, 16px);
+}
+
+:root[data-box-width="narrow"][data-box-height="tall"] .hero-title {
+  font-size: clamp(34px, 11vw, 48px);
+}
+
+:root[data-box-width="narrow"][data-box-height="tall"] .hero-art,
+:root[data-box-width="narrow"][data-box-height="tall"] .hero-tiles { max-height: 100%; }
+
+:root[data-box-width="narrow"][data-box-height="tall"] .hero-tiles { max-width: 360px; }
+
+/* 矮盒子：只留标题，说明让位。 */
+:root[data-box-width="narrow"][data-box-height="short"] .hero-tagline,
+:root[data-box-width="regular"][data-box-height="short"] .hero-tagline { display: none; }

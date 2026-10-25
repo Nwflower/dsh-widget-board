@@ -1,33 +1,57 @@
 /*
  * 热力图的样式：一周一列、一天一格，颜色深浅表示当天的多少。
  *
- * 格子按列宽取正方形的比例，窗口的周数由脚本按盒子宽度挑（窄 16 周、常规 26 周、宽 53 周），
- * 所以这套样式只负责网格与配色，不写死列数。
+ * 格子按方格排，边长同时受格子区宽度与高度约束（格子区是尺寸容器）：宽盒子里不会先拉到全宽再从
+ * 底部切掉，高度先卡住时最多放宽到方格的 1.5 倍。窄高盒子里一格一行地铺开、把高度用上。窗口的
+ * 周数由脚本按盒子宽度挑（窄 16 周、常规 26 周、宽 53 周）并写成 `--heatmap-weeks`，所以这套样式
+ * 只负责网格与配色（D20）。
  */
 .heatmap-card__body {
   gap: var(--w-space-md, 12px);
+}
+
+.heatmap-card__frame {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
   justify-content: center;
+  container-type: size;
 }
 
 .heatmap-card__grid {
+  --heatmap-gap: 3px;
+  --heatmap-cols: var(--heatmap-weeks, 26);
+  --heatmap-rows: 7;
+  --heatmap-cell: max(1px, min(
+    calc((100cqw - (var(--heatmap-cols) - 1) * var(--heatmap-gap)) / var(--heatmap-cols)),
+    calc((100cqh - (var(--heatmap-rows) - 1) * var(--heatmap-gap)) / var(--heatmap-rows))
+  ));
+  /*
+   * 高度先卡住时格子仍按宽度放宽一档，最多比正方宽一半：53 周铺在一条宽矮的卡片里既不缩成一小块，
+   * 也不拉成横条。
+   */
+  --heatmap-cell-width: min(
+    calc((100cqw - (var(--heatmap-cols) - 1) * var(--heatmap-gap)) / var(--heatmap-cols)),
+    calc(var(--heatmap-cell) * 1.5)
+  );
   display: flex;
   flex: none;
-  gap: 3px;
-  width: 100%;
+  gap: var(--heatmap-gap);
   overflow: hidden;
 }
 
 .heatmap-card__week {
-  display: grid;
-  flex: 1 1 0;
-  min-width: 0;
-  grid-template-rows: repeat(7, auto);
-  gap: 3px;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--heatmap-gap);
 }
 
 .heatmap-card__cell {
-  width: 100%;
-  aspect-ratio: 1;
+  width: var(--heatmap-cell-width);
+  height: var(--heatmap-cell);
+  flex: none;
   border-radius: 2px;
   background: var(--w-color-surface, #fff);
 }
@@ -103,13 +127,48 @@
   border-radius: 2px;
 }
 
-@media (max-width: 320px) {
-  .heatmap-card__body { gap: var(--w-space-sm, 8px); }
-  .heatmap-card__grid { gap: 2px; }
-  .heatmap-card__week { gap: 2px; }
-  .heatmap-card__caption { font-size: var(--w-type-caption, 12px); line-height: 18px; }
+/* 窄盒子：格子与格子之间收到 2px，16 周的窗口挤得进一行的宽度。 */
+:root[data-box-width="narrow"] .heatmap-card__body { gap: var(--w-space-sm, 8px); }
+:root[data-box-width="narrow"] .heatmap-card__grid { --heatmap-gap: 2px; }
+
+/*
+ * 窄高盒子（不是宽盒子）：把格子的行列对调，一周一行、七天一行排开，格子按高度铺开，
+ * 不再缩成顶上的一条。宽高都不够时仍按两边的上限取小。
+ */
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .heatmap-card__grid {
+  --heatmap-cols: 7;
+  --heatmap-rows: var(--heatmap-weeks, 26);
+  flex-direction: column;
 }
 
-@media (max-height: 260px) {
-  .heatmap-card__caption { display: none; }
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .heatmap-card__week { flex-direction: row; }
+
+/*
+ * 宽而矮的盒子：摘要与图例挪到标题那一行，格子区占住整块正文。160px 高的卡片里，脚注占掉的
+ * 一行高度正是格子边长的一半；放到标题行之后，53 周才按高度铺得开，宽度也用得满。
+ */
+:root[data-box-width="wide"][data-box-height="short"] .heatmap-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-width="wide"][data-box-height="short"] .heatmap-card > .t-data__head { grid-area: 1 / 1; }
+
+:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__body { display: contents; }
+
+:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__frame {
+  grid-area: 2 / 1 / 3 / 3;
+}
+
+:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__foot {
+  grid-area: 1 / 2;
+  min-width: 0;
+  row-gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__empty {
+  grid-area: 2 / 1 / 3 / 3;
 }

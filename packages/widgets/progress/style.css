@@ -1,8 +1,12 @@
 /*
  * 进度卡的样式：每条一行标签与数值，一条细轨按比例填充。
+ *
+ * 宽盒子里标题区在左、三条进度在右（`.t-data--split`）；矮盒子收紧行距并收掉每条的量值说明；
+ * 窄高盒子把轨道加厚、行距撑开，几行在竖直方向铺开，不在顶部挤成一条（D20）。
  */
 .progress-card__body {
   gap: var(--w-space-md, 12px);
+  justify-content: safe center;
 }
 
 .progress-card__row {
@@ -63,9 +67,19 @@
   line-height: 16px;
 }
 
-@media (max-height: 260px) {
-  .progress-card__body { gap: var(--w-space-sm, 8px); }
-  .progress-card__note { display: none; }
-}
+/* 矮盒子：行距收紧，轨道收细，每条的量值说明收掉。 */
+:root[data-box-height="short"] .progress-card__body { gap: var(--w-space-sm, 8px); }
+:root[data-box-height="short"] .progress-card__track { height: 5px; }
+:root[data-box-height="short"] .progress-card__note { display: none; }
+
+/* 空状态是正文的兄弟：宽盒子里放到正文那一格，不落进标题下面变成第二行。 */
+:root[data-box-width="wide"] .progress-card > .t-data__empty { grid-area: 1 / 2; }
+
+/* 高盒子：轨道加厚一档，行距撑开，几行在竖直方向铺开。 */
+:root[data-box-height="tall"] .progress-card__body { gap: var(--w-space-xl, 24px); }
+:root[data-box-height="tall"] .progress-card__row { gap: var(--w-space-sm, 8px); }
+:root[data-box-height="tall"] .progress-card__track { height: 10px; border-radius: 5px; }
+:root[data-box-height="tall"] .progress-card__bar { border-radius: 5px; }
+:root[data-box-height="tall"] .progress-card__value { font-size: var(--w-type-body, 14px); line-height: 20px; }
 
 :root[data-motion="reduced"] .progress-card__bar { transition: none; }

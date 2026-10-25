@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 2,
+  "external": true,
+  "at": "2026-10-24",
+  "zh": "内置组件按盒子重排：宽而矮的卡片改成横排（标题在左、内容在右或按列铺开），窄而高的卡片在竖直方向铺开，正方与常规仍是上下结构；大字读数按宽高一起收，长条里不再出现左边一小块、右边一大片空白。月历在矮卡片里改画一整周；组件套件新增 `.t-data--split`，数据卡骨架的内边距与标题字号也按档位收一档。",
+  "en": "Built-in widgets are laid out per box: wide-and-short cards read horizontally (title left, content right or in columns), narrow-and-tall cards distribute vertically, square and regular cards keep the stacked flow; large readouts scale with width and height, so a wide strip no longer leaves a small cluster on the left and empty space everywhere else. The calendar draws a single week in short cards; the suite gains `.t-data--split`, and the data-card skeleton tightens its padding and title size per box class."
+}

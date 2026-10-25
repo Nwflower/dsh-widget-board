@@ -41,11 +41,20 @@
   function reduced() { return root.getAttribute('data-motion') === 'reduced' }
 
   /** 文字切换：旧值上移淡出，新值从下方淡入（原语在套件里）。 */
+  var swapTokens = new WeakMap()
   function swapText(node, next) {
-    if (node.textContent === next) return
-    if (reduced()) { node.textContent = next; return }
+    // 每次调用都作废之前排着的那一次：初始化时排下的旧回调，不能盖掉握手之后写对的新值。
+    var token = (swapTokens.get(node) ?? 0) + 1
+    swapTokens.set(node, token)
+    if (node.textContent === next) { node.classList.remove('is-exit'); return }
+    if (reduced()) {
+      node.textContent = next
+      node.classList.remove('is-exit')
+      return
+    }
     node.classList.add('is-exit')
     setTimeout(function () {
+      if (swapTokens.get(node) !== token) return
       node.textContent = next
       node.classList.remove('is-exit')
       node.classList.add('is-enter-start')

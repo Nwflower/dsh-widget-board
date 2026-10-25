@@ -2,6 +2,9 @@
  * 年度进度的样式：一个大号百分比，下面是一条带季度刻度的进度条，最后一行是第几天与剩余天数。
  *
  * 数字用套件的逐位滚动原语，进度条的宽度变化只读时长令牌；减弱动效时两者都直接落到目标（D10）。
+ *
+ * 宽盒子把标题区挪到左边一列、百分比与进度条并排铺在右边（`.t-data--split`）；矮盒子收掉季度
+ * 刻度与天数行；窄高盒子把百分比、进度条与季度刻度在竖直方向铺开（D20）。
  */
 .year-card__body {
   align-items: center;
@@ -81,9 +84,48 @@
   text-align: center;
 }
 
-@media (max-height: 260px) {
-  .year-card__quarters { display: none; }
-  .year-card__note { display: none; }
+/* 矮盒子：季度刻度与天数行是次要信息，收掉；百分比按高度收住。 */
+:root[data-box-height="short"] .year-card__quarters,
+:root[data-box-height="short"] .year-card__note { display: none; }
+:root[data-box-height="short"] .year-card__body { gap: var(--w-space-sm, 8px); }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .year-card__percent {
+  font-size: clamp(40px, min(18vw, 34vh), 80px);
+}
+
+/* 宽盒子（≥600px）：百分比在左，进度条与季度刻度在右，两个方向都用上。 */
+:root[data-box-width="wide"] .year-card__face {
+  max-width: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-width="wide"] .year-card__percent {
+  grid-row: 1 / 3;
+  justify-content: flex-start;
+  font-size: clamp(40px, min(13vw, 32vh), 128px);
+}
+
+:root[data-box-width="wide"] .year-card__quarters { grid-column: 2; }
+
+/* 宽而矮：季度刻度已经收掉，百分比与进度条合成一行；百分比按高度收住。 */
+:root[data-box-width="wide"][data-box-height="short"] .year-card__percent {
+  grid-row: auto;
+  font-size: clamp(40px, min(11vw, 52vh), 96px);
+}
+
+/* 窄高盒子：百分比与进度条都放大一档，三块在竖直方向铺开。 */
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .year-card__body { justify-content: space-evenly; }
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .year-card__face { gap: var(--w-space-md, 12px); }
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .year-card__percent {
+  font-size: clamp(64px, 32vw, 120px);
+}
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .year-card__track { height: 16px; border-radius: 8px; }
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .year-card__quarters {
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
 }
 
 :root[data-motion="reduced"] .year-card__fill { transition: none; }

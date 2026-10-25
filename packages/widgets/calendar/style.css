@@ -282,6 +282,41 @@
   height: 1.5em;
 }
 
+/*
+ * 矮盒子画一周：七格横排，格子里先写星期几，再写日号。
+ *
+ * 六行月历在 160px 高的盒子里每行只剩十几像素，字挤成一团；一周横条用满卡片宽度，日号还能放大。
+ * 格子仍是月历那一份（当天高亮、日程圆点都在），第二行从农历换成星期几。
+ */
+:root[data-box-height="short"] .cal-week {
+  display: none;
+}
+
+.cal[data-week] .cal-pane {
+  gap: 0;
+}
+
+.cal[data-week] .cal-day {
+  justify-content: center;
+  gap: clamp(2px, 1vmin, 6px);
+}
+
+.cal[data-week] .cal-day__num {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.cal-day__weekday {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--w-color-muted, #6b7280);
+  font-size: clamp(12px, calc(var(--cal-u) * 0.42), 15px);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 /* 很矮：连标题一起收掉，只画网格。 */
 .cal[data-compact] .cal-head {
   display: none;

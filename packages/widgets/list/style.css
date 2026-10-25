@@ -1,9 +1,20 @@
 /*
  * 列表卡的样式：一行三栏，状态点、标题与右侧的次要信息。
+ *
+ * 三个场景各排一次：宽盒子把标题挪到左边（套件的 .t-data--split），条目在右边铺成几列，一行读完；
+ * 窄高盒子把正文高度分给每一行，条目在竖直方向铺开；正方与常规保持一行一条。
  */
 .list-card__body {
   gap: 0;
 }
+
+.list-card__list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 没有条目时正文整块让位，空状态按套件的样子在卡里居中。 */
+.list-card__body:has(> .list-card__list[hidden]) { display: none; }
 
 .list-card__row {
   display: grid;
@@ -48,7 +59,41 @@
   white-space: nowrap;
 }
 
-@media (max-width: 260px) {
-  .list-card__row { grid-template-columns: 7px minmax(0, 1fr); }
-  .list-card__meta { display: none; }
+/*
+ * 宽盒子：标题在左列竖排，条目在右边铺成几列——列宽 240px 起，634px 时一列照常读，1280px 时三条
+ * 并排；整块竖着居中，与左边居中的标题对齐。铺成列之后行间分隔线只剩一列里有意义，这里去掉。
+ */
+:root[data-box-width="wide"] .list-card > .t-data__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .list-card > .t-data__head .t-data__meta { text-align: left; }
+
+:root[data-box-width="wide"] .list-card__list:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  column-gap: var(--w-space-xl, 24px);
+  margin-block: auto;
+}
+
+:root[data-box-width="wide"] .list-card__row {
+  padding-block: var(--w-space-xs, 4px);
+  border-top: 0;
+}
+
+/*
+ * 窄高：三条以上把正文的高度平均分给每行，条目沿竖直方向铺开；只有一两条时整块居中，一条不会
+ * 拉成一整片空白。
+ */
+:root[data-box-width="narrow"][data-box-height="tall"] .list-card__list:not([hidden]) { margin-block: auto; }
+
+:root[data-box-width="narrow"][data-box-height="tall"] .list-card__list:has(> .list-card__row:nth-child(3)) {
+  flex: 1 0 auto;
+  margin-block: 0;
+}
+
+:root[data-box-width="narrow"][data-box-height="tall"] .list-card__list:has(> .list-card__row:nth-child(3)) > .list-card__row {
+  flex: 1 0 auto;
 }

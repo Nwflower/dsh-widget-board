@@ -15,6 +15,7 @@
     kicker: card.querySelector('[data-field="kicker"]'),
     title: card.querySelector('[data-field="title"]'),
     body: card.querySelector('[data-role="body"]'),
+    content: card.querySelector('[data-role="content"]'),
     empty: card.querySelector('[data-role="empty"]')
   }
 
@@ -128,11 +129,11 @@
 
   function render(markdown) {
     if (parser === undefined) {
-      el.body.textContent = markdown
+      el.content.textContent = markdown
       return
     }
     var html = parser.parse(markdown, { async: false })
-    el.body.innerHTML = typeof html === 'string' ? html : escapeHtml(markdown)
+    el.content.innerHTML = typeof html === 'string' ? html : escapeHtml(markdown)
   }
 
   function applyData(source) {
@@ -143,7 +144,7 @@
     el.body.hidden = blank
     el.empty.hidden = !blank
     if (blank) {
-      el.body.innerHTML = ''
+      el.content.innerHTML = ''
     } else {
       render(markdown)
     }

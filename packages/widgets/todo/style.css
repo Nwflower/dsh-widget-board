@@ -4,7 +4,8 @@
  * 这张卡是张工具卡：底色、字色、分隔线、进度都走主题令牌，浅色与深色各自可读（D10）。勾选框、
  * 进度条与加号按钮都用卡片自己的墨色画，不引宿主的强调色。圆角与别的卡同源。
  *
- * 卡片填满看板给的盒子：清单占据剩下的高度、超出就在卡片里滚动，输入行贴底（D16）。
+ * 卡片填满看板给的盒子：窄盒子里清单占据剩下的高度、超出就在卡片里滚动，输入行贴底（D16）；
+ * 宽盒子里标题、进度与输入收进左边一列，清单与空态占右边整块。
  */
 
 .todo {
@@ -240,12 +241,49 @@
 
 .todo-empty[hidden] { display: none; }
 
+/*
+ * 宽盒子（≥600px）：标题、进度与输入收进左边一列，清单与空态占右边整块。
+ *
+ * 横排之后，一条待办清单窄长的空态框不再被拉成一条横贯整张卡的细条：左边一列放「能做的事」，
+ * 右边一块放「现状」。选择器与下面的矮、高档互斥，不依赖声明顺序。
+ */
+:root[data-box-width="wide"] .todo {
+  display: grid;
+  grid-template-columns: clamp(180px, 30%, 240px) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "head list"
+    "progress list"
+    "add list";
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-width="wide"] .todo-head { grid-area: head; }
+:root[data-box-width="wide"] .todo-progress { grid-area: progress; }
+:root[data-box-width="wide"] .todo-add { grid-area: add; align-self: end; margin-top: 0; }
+:root[data-box-width="wide"] .todo-list,
+:root[data-box-width="wide"] .todo-empty { grid-area: list; }
+
+/* 空态在宽盒子里横着排：圆标在左、说明在右，与宽矮的读法一致。 */
+:root[data-box-width="wide"] .todo-empty {
+  flex-direction: row;
+  gap: var(--w-space-md, 12px);
+  padding: var(--w-space-md, 12px) var(--w-space-lg, 16px);
+}
+
+:root[data-box-width="wide"] .todo-empty::before {
+  width: clamp(28px, 6vmin, 44px);
+  height: clamp(28px, 6vmin, 44px);
+}
+
 /* 矮盒子：收掉内边距与间距，清单先让出高度，空态只留文字。 */
-:root[data-box-height="short"] .todo { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
-:root[data-box-height="short"] .todo-add { padding-top: var(--w-space-sm, 8px); }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .todo { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
+:root[data-box-width="wide"][data-box-height="short"] .todo { padding: var(--w-space-md, 12px); }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .todo-add { padding-top: var(--w-space-sm, 8px); }
 :root[data-box-height="short"] .todo-input,
 :root[data-box-height="short"] .todo-submit { height: 32px; }
-:root[data-box-height="short"] .todo-empty::before { display: none; }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .todo-empty::before { display: none; }
 
 /* 高盒子：字号与行距长一档，空态的说明跟着放大。 */
 :root[data-box-height="tall"] .todo-text { font-size: var(--w-type-title, 16px); line-height: 24px; }

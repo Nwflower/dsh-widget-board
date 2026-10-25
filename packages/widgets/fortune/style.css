@@ -4,6 +4,9 @@
  * 分数那一行的左边是吉凶印，右边是日期；卡片的右上角留给外壳的设置、移除与翻面按钮，所以这里
  * 不往那个角上放东西（D19）。字号按卡片的宽高档位放大：窄盒子里日期另起一行，宽或高的盒子里
  * 四条事实排成一行，宜忌多写几条。
+ *
+ * 正文里的三段在竖直方向分开：分数与判词贴顶，事实居中，宜忌与备注贴底，窄高盒子里不会挤在
+ * 上半截（D20）。宽而矮的盒子横排：分数与分数条在左，判词与宜忌在右，宜忌放得下就并排。
  */
 .fortune-card__head {
   align-items: center;
@@ -131,7 +134,6 @@
 .fortune-card__almanac {
   display: flex;
   min-height: 0;
-  flex: 1;
   flex-direction: column;
   justify-content: center;
   gap: 4px;
@@ -190,15 +192,18 @@
   display: none;
 }
 
-/* 宽或高的盒子：分数更大，事实排成一行，宜忌多写几条。 */
-:root[data-box-width="wide"] .fortune-card__score,
-:root[data-box-height="tall"] .fortune-card__score {
+/* 事实居中、宜忌贴底：三段之间各留一段空隙，竖直方向不挤在顶部。 */
+.fortune-card__facts { margin-top: auto; }
+.fortune-card__almanac { margin-top: auto; }
+
+/* 宽的盒子（不矮时）：分数更大，事实排成一行，宜忌多写几条。 */
+:root[data-box-width="wide"]:not([data-box-height="short"]) .fortune-card__score {
   font-size: clamp(56px, 6vw, 96px);
 }
 
 :root[data-box-width="wide"] .fortune-card__facts,
 :root[data-box-height="tall"] .fortune-card__facts {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
 }
 
 :root[data-box-width="wide"] .fortune-card__list,
@@ -206,20 +211,71 @@
   -webkit-line-clamp: 3;
 }
 
-/* 矮盒子：只留分数、判词与宜忌。 */
-:root[data-box-height="short"] .fortune-card__day,
-:root[data-box-height="short"] .fortune-card__facts {
-  display: none;
+/* 窄盒子：分数与日期各占一行。 */
+:root[data-box-width="narrow"] .fortune-card__day {
+  margin-left: 0;
+  text-align: left;
 }
+
+/*
+ * 矮盒子：日期、事实与备注收掉，只留分数、分数条与判词。
+ * 宜忌只在宽而矮的盒子里出现，那里横向排得下。
+ */
+:root[data-box-height="short"] .fortune-card__day,
+:root[data-box-height="short"] .fortune-card__facts,
+:root[data-box-height="short"] .fortune-card__note { display: none; }
+
+:root[data-box-height="short"]:not([data-box-width="wide"]) .fortune-card__almanac { display: none; }
 
 :root[data-box-height="short"] .fortune-card__score {
   font-size: clamp(32px, 8vw, 48px);
 }
 
-/* 窄盒子：分数与日期各占一行。 */
-:root[data-box-width="narrow"] .fortune-card__day {
-  margin-left: 0;
-  text-align: left;
+/* 宽而矮：分数与分数条在左，判词与宜忌在右。 */
+:root[data-box-width="wide"][data-box-height="short"] .fortune-card__body {
+  display: grid;
+  align-content: center;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-width="wide"][data-box-height="short"] .fortune-card__hero { grid-area: 1 / 1; }
+:root[data-box-width="wide"][data-box-height="short"] .fortune-card__meter { grid-area: 2 / 1; }
+:root[data-box-width="wide"][data-box-height="short"] .fortune-card__line { grid-area: 1 / 2; }
+
+:root[data-box-width="wide"][data-box-height="short"]:not([data-placement="preview"]) .fortune-card__almanac {
+  display: grid;
+  margin-top: 0;
+  padding-top: var(--w-space-xs, 4px);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: start;
+  gap: var(--w-space-xs, 4px) var(--w-space-lg, 16px);
+}
+
+:root[data-box-width="wide"][data-box-height="short"] .fortune-card__list { -webkit-line-clamp: 1; }
+
+/* 窄高盒子：分数、印与判词放大一档，事实与宜忌在竖直方向分开。 */
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .fortune-card__score { font-size: clamp(64px, 24vw, 104px); }
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .fortune-card__seal {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .fortune-card__line {
+  font-size: var(--w-type-title, 16px);
+  line-height: 24px;
+}
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .fortune-card__facts dd,
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .fortune-card__facts dt { line-height: 20px; }
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .fortune-card__list {
+  font-size: var(--w-type-caption, 12px);
+  line-height: 22px;
 }
 
 /* 预览：缩略画面里只画分数与判词。 */

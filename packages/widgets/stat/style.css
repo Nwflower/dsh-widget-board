@@ -59,15 +59,51 @@
 .stat[data-trend="down"] .stat__delta { color: var(--w-tone-danger); }
 .stat[data-trend="flat"] .stat__delta { color: var(--w-color-muted, #6b7684); }
 
-/* 高度档：矮盒子收字号并隐去说明；高盒子把读数放大到占满主体，趋势与说明跟着长一档。 */
-:root[data-box-height="short"] .stat__value { font-size: 40px; }
+/*
+ * 尺寸档：三种场景各有一套读数与排法。
+ *
+ * 宽盒子（≥600px，含宽而矮的长条）横排：标题在左，读数占主体左段，趋势与说明贴到右边——一条
+ * 1280px 的卡片里三段各归其位，读数按宽度放大、按高度收住。其余矮盒子仍是一行小读数。窄高
+ * 盒子把读数放大到与高度相称。选择器互斥，不依赖声明顺序。
+ */
+:root[data-box-width="wide"] .stat__body {
+  display: grid;
+  align-content: center;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--w-space-xl, 24px);
+}
+
+:root[data-box-width="wide"] .stat__value {
+  grid-row: 1 / 3;
+  font-size: clamp(40px, min(13vw, 56vh), 120px);
+}
+
+:root[data-box-width="wide"] .stat__trend {
+  margin: 0;
+  align-self: center;
+  justify-content: flex-end;
+}
+
+:root[data-box-width="wide"] .stat__caption {
+  margin: 0;
+  align-self: center;
+  text-align: right;
+}
+
+:root[data-box-height="short"]:not([data-box-width="wide"]) .stat__value { font-size: 40px; }
 :root[data-box-height="short"] .stat__trend { margin-top: var(--w-space-sm, 8px); }
 :root[data-box-height="short"] .stat__caption { display: none; }
+
 :root[data-box-height="tall"] .stat__value { font-size: clamp(72px, 30vmin, 160px); }
 :root[data-box-height="tall"] .stat__unit { font-size: var(--w-type-title, 16px); line-height: 24px; }
 :root[data-box-height="tall"] .stat__trend,
 :root[data-box-height="tall"] .stat__caption { font-size: var(--w-type-body, 14px); line-height: 22px; }
 :root[data-box-height="tall"] .stat__trend { margin-top: var(--w-space-lg, 16px); }
 
-/* 窄盒子：数字按宽度收，单位落到数字下面时不再顶出盒子。 */
+/* 窄盒子：读数按宽度走，单位跟在数字右边时不再把盒子顶破。 */
 :root[data-box-width="narrow"] .stat__value { font-size: clamp(40px, 22vmin, 64px); }
+
+/* 窄高：高度用得上，读数再放大一档，与整张卡相称。 */
+:root[data-box-width="narrow"][data-box-height="tall"] .stat__value { font-size: clamp(56px, 26vw, 104px); }

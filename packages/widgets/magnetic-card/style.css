@@ -90,5 +90,50 @@
   .magnetic-meta { display: none; }
 }
 
+/*
+ * 宽盒子：内层卡片铺满舞台的宽度，标题、说明与脚注排成一行，从左读到右。
+ * 舞台留下的四周边距本就是卡片移动的余量，所以高度仍随内容走。
+ */
+:root[data-box-width="wide"] .magnetic-stage { padding: clamp(12px, 2.2vw, 22px); }
+
+:root[data-box-width="wide"] .magnetic-card {
+  display: flex;
+  width: 100%;
+  max-height: none;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--w-space-xs, 4px) var(--w-space-lg, 16px);
+  padding: var(--w-space-sm, 8px) var(--w-space-lg, 16px);
+  text-align: left;
+}
+
+:root[data-box-width="wide"] .magnetic-kicker { flex: none; }
+
+:root[data-box-width="wide"] .magnetic-title {
+  flex: none;
+  margin: 0;
+  font-size: clamp(26px, min(3.4vw, 22vh), 40px);
+}
+
+:root[data-box-width="wide"] .magnetic-text {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+:root[data-box-width="wide"] .magnetic-meta {
+  display: block;
+  flex: none;
+  margin: 0 0 0 auto;
+}
+
+/* 窄高的盒子：卡片在舞台里站高一档，卡内的文案居中，不再是一小块浮在空白正中。 */
+:root[data-box-height="tall"] .magnetic-card {
+  min-height: 62%;
+  justify-content: center;
+}
+
 /* 减弱动效：卡片停在舞台中央（D10）。 */
 :root[data-motion="reduced"] .magnetic-card { box-shadow: 0 18px 40px -28px rgb(2 6 23 / 70%); }

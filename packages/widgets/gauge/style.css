@@ -3,9 +3,14 @@
  *
  * 环的轨道与弧只用两条 SVG 圆，弧长由脚本写成 stroke-dashoffset；比例变化时的过渡时长来自套件令牌，
  * 减弱动效时直接换值（D10）。
+ *
+ * 环的直径同时受列宽与正文高度约束：正文是尺寸容器，环的宽度从 cqh 里扣掉标签与说明占的高度，
+ * 矮盒子里环不会撑出卡片（D20）。宽盒子把标题区挪到左边一列（`.t-data--split`）；窄高盒子一环
+ * 一行、环在左文字在右，竖直方向铺开。
  */
 .gauge-card__body {
   gap: 0;
+  container-type: size;
 }
 
 .gauge-card__grid {
@@ -27,7 +32,7 @@
   max-width: 240px;
   flex-direction: column;
   align-items: center;
-  gap: var(--w-space-sm, 8px);
+  gap: var(--w-space-xs, 4px);
   margin: 0;
 }
 
@@ -37,9 +42,12 @@
 }
 
 .gauge-card__ring {
+  --gauge-ring-max: 120px;
+  /* 环下标签与说明占掉的高度：矮盒子里只剩标签，高盒子里多一行说明。 */
+  --gauge-ring-room: 44px;
   position: relative;
-  width: 100%;
-  max-width: 120px;
+  /* 空盒子里 `100cqh - room` 会落到零以下，夹一手免得整条宽度声明作废。 */
+  width: min(100%, var(--gauge-ring-max), max(0px, calc(100cqh - var(--gauge-ring-room))));
   aspect-ratio: 1;
   container-type: inline-size;
 }
@@ -112,17 +120,45 @@
   white-space: nowrap;
 }
 
-/*
- * 档位：环的最大直径跟盒子高度走。窄盒子收到一行能放下三个环；矮盒子去掉说明；高盒子把环放大，
- * 标签与说明升一档字号，不在大盒子里缩成一小撮。
- */
-:root[data-box-width="narrow"] .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px 8px; }
-:root[data-box-width="narrow"] .gauge-card__label { font-size: 11px; }
+/* 窄盒子：三个环挤在一行，标签收到微标签的下限 12px。 */
+:root[data-box-width="narrow"] .gauge-card__grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); }
+:root[data-box-width="narrow"] .gauge-card__label { font-size: var(--w-type-caption, 12px); line-height: 16px; }
+
+/* 矮盒子：环按正文高度收，说明行收掉，行距收紧。 */
+:root[data-box-height="short"] .gauge-card__ring { --gauge-ring-room: 24px; }
 :root[data-box-height="short"] .gauge-card__note { display: none; }
-:root[data-box-height="short"] .gauge-card__grid { gap: 8px; }
-:root[data-box-height="tall"] .gauge-card__ring { max-width: 200px; }
-:root[data-box-height="tall"] .gauge-card__label { font-size: var(--w-type-body, 14px); line-height: 20px; }
-:root[data-box-height="tall"] .gauge-card__note { font-size: var(--w-type-caption, 12px); }
-:root[data-box-height="tall"] .gauge-card__grid { gap: var(--w-space-xl, 24px) var(--w-space-md, 12px); }
+:root[data-box-height="short"] .gauge-card__grid { gap: var(--w-space-sm, 8px); }
+
+/* 高盒子：环的直径上限抬到与整张卡相称的一档。 */
+:root[data-box-height="tall"] .gauge-card__ring { --gauge-ring-max: 200px; }
+:root[data-box-height="tall"] .gauge-card__grid { gap: var(--w-space-md, 12px); }
+
+/*
+ * 窄高盒子（不是宽盒子）：一环一行，环在左、标签与说明在右。环的直径按正文高度除以行数收，
+ * 三行在竖直方向铺开，不缩成顶部的一排小环。
+ */
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .gauge-card__grid {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-evenly;
+}
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .gauge-card__item {
+  max-width: 360px;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--w-space-md, 12px);
+}
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .gauge-card__item:only-child { max-width: 420px; }
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .gauge-card__ring {
+  width: min(var(--gauge-ring-max), calc(100cqh / 3.4));
+  flex: none;
+}
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .gauge-card__caption {
+  align-items: flex-start;
+  text-align: left;
+}
 
 :root[data-motion="reduced"] .gauge-card__arc { transition: none; }

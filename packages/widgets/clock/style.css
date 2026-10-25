@@ -35,11 +35,28 @@
  * 矮盒子（D20 的 short 档）：翻页格一上一下各占一半，字号要小到两半都装得下；40px 的下界在
  * 6rem 的盒子里会把数字顶出去。这里把字号按盒子高度收小，整张面也收紧间距。
  */
-:root[data-box-height="short"] .clock-card__time {
+:root[data-box-height="short"]:not([data-box-width="wide"]) .clock-card__time {
   font-size: clamp(22px, min(18vw, 42vh), 48px);
 }
 
 :root[data-box-height="short"] .clock-card__face { gap: 2px; }
+
+/*
+ * 宽盒子（≥600px）：标题在左，时间与日期在右。时间按盒子的宽高一起放大并靠右缘，一条 1280px 的
+ * 长条里不再缩在正中一小块。
+ */
+:root[data-box-width="wide"] .clock-card__face {
+  align-items: flex-end;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .clock-card__time {
+  font-size: clamp(40px, min(16vw, 52vh), 160px);
+}
+
+/* 窄高：高度富余，时间按宽度放大到与卡片相称。 */
+:root[data-box-width="narrow"][data-box-height="tall"] .clock-card__time {
+  font-size: clamp(40px, 26vw, 120px);
 }
 
 .clock-card__digit {

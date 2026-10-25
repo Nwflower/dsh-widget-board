@@ -7,12 +7,25 @@
  * 读数是这一张卡的主体，字号按正文宽度取（正文自己是查询容器，`cqi` 读它），宽度与高度两个
  * 档位各给一档；量出读数放不下一行时，脚本给读数加上收紧的类名。
  */
+/*
+ * 正文纵向居中：读数、赠送与说明作为一组落在盒子的中段，高盒子里不会贴住上沿。
+ * 等待、登录与出错三种状态没有读数可排，整组在正文里居中，也不再缩在左上角。
+ */
 .balance__body {
-  justify-content: flex-start;
+  justify-content: center;
   gap: var(--w-space-sm, 8px);
   padding-top: var(--w-space-xs, 4px);
   container-type: inline-size;
 }
+
+.balance:not([data-state="ready"]) .balance__body {
+  align-items: center;
+  text-align: center;
+}
+
+.balance:not([data-state="ready"]) .balance__readout { justify-content: center; }
+
+.balance:not([data-state="ready"]) .balance__details { align-items: center; }
 
 .balance__readout {
   display: flex;
@@ -145,6 +158,20 @@
   overflow-wrap: break-word;
 }
 
+/*
+ * 没有读数时的这条占位横杠也跟着盒子走：宽盒子与高盒子里它站到读数的位置上，不再是一条小横线，
+ * 整张卡在同一处空着；窄盒子的字号仍按宽度收住。
+ */
+:root[data-box-width="wide"] .balance:not([data-state="ready"]) .balance__amount {
+  font-size: clamp(32px, min(5vw, 26vh), 56px);
+  line-height: 1.05;
+}
+
+:root[data-box-height="tall"]:not([data-box-width="wide"]) .balance:not([data-state="ready"]) .balance__amount {
+  font-size: clamp(28px, 9cqi, 48px);
+  line-height: 1.1;
+}
+
 /* 只有真正读取失败才用错误色，且落在原因那一行，不染大号读数。 */
 .balance[data-state="failed"][data-tone="error"] .balance__note { color: var(--w-tone-danger); }
 
@@ -180,3 +207,23 @@
 
 :root[data-box-width="regular"] .balance__amount--tight { font-size: 26px; }
 :root[data-box-width="wide"] .balance__amount--tight { font-size: 36px; }
+
+/*
+ * 宽盒子：标题区占左栏（`.t-data--split`），读数在右栏靠左、赠送与说明靠右，一横排读完。
+ * 读数那一列给的是确定宽度（`1fr`），脚本量「一行放不放得下」时才有可比的余量。
+ * 等待与空状态在 `.balance:not([data-state="ready"])` 那条里已经整组居中，这里只管有读数时。
+ */
+:root[data-box-width="wide"] .balance[data-state="ready"] .balance__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: center;
+  column-gap: var(--w-space-xl, 24px);
+}
+
+:root[data-box-width="wide"] .balance[data-state="ready"] .balance__readout { justify-content: flex-start; }
+
+:root[data-box-width="wide"] .balance[data-state="ready"] .balance__details {
+  align-items: flex-end;
+  text-align: right;
+}

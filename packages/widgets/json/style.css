@@ -3,6 +3,9 @@
  *
  * 树在滚动区里，长内容不撑高卡片；缩进线用左边框画，折叠时子层整段收起。颜色只用套件令牌
  * 与两处稳定的类型色。
+ *
+ * 三个场景各排一次：宽盒子把标题挪到左边（套件的 .t-data--split），根一层的键值在右边铺成几列，
+ * 一条 1280px 的长条里不再只剩左边一窄条；窄高盒子字号与行距各长一档，整棵树在高度里居中。
  */
 .json-card__scroll {
   font-family: var(--t-mono);
@@ -85,8 +88,46 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 320px) {
-  .json-card__scroll { font-size: var(--w-type-caption, 12px); line-height: 17px; }
+/*
+ * 宽盒子：标题在左列竖排，根一层的键值排成几列（190px 起，1280 时四列），缩进线只留给子层。
+ */
+:root[data-box-width="wide"] .json-card > .t-data__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w-space-xs, 4px);
 }
+
+:root[data-box-width="wide"] .json-card > .t-data__head .t-data__meta { text-align: left; }
+
+:root[data-box-width="wide"] .json-card__scroll > .json-card__branch > .json-card__children:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  column-gap: var(--w-space-xl, 24px);
+  margin: 0;
+  padding: 0;
+  border-left: 0;
+}
+
+/*
+ * 宽盒子与窄高盒子：树当一列 flex，整棵树在高度里居中，与左边居中的标题对齐；树比盒子高时 auto
+ * 外边距归零，照旧从头滚动。
+ */
+:root[data-box-width="wide"] .json-card__scroll,
+:root[data-box-height="tall"] .json-card__scroll {
+  display: flex;
+  flex-direction: column;
+}
+
+:root[data-box-width="wide"] .json-card__scroll > :first-child,
+:root[data-box-height="tall"] .json-card__scroll > :first-child { margin-block: auto; }
+
+/* 窄高：字号回到正文档、行距放宽一档——宽度仍是窄的，键名不因此变长。 */
+:root[data-box-height="tall"] .json-card__scroll {
+  font-size: var(--w-type-body, 14px);
+  line-height: 22px;
+}
+
+:root[data-box-height="tall"] .json-card__row,
+:root[data-box-height="tall"] .json-card__head { min-height: 22px; }
 
 :root[data-motion="reduced"] .json-card__toggle { transition: none; }

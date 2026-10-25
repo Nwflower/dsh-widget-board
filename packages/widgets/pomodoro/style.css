@@ -4,9 +4,9 @@
  * 底色、边框、字色都走主题令牌，与其他数据卡同一个基调；强调色只用在刻度的进度、滑块与主按钮上。
  * 动效原语（数字、文字切换、按压）来自运行时套件。
  *
- * 卡片填满看板给的盒子：标题在上、读数在剩下的空间里居中、刻度、快捷时长与按钮贴底；盒子变矮
- * 时依次收字号、间距与刻度高度，刻度本身一直留着；盒子变大时读数与控制收进居中的一列，数字随
- * 卡片尺寸放大（D16）。
+ * 窄盒子里标题在上、读数居中、刻度与控件贴底；宽盒子里头与读数在左、刻度与按钮在右，两列各自
+ * 垂直居中；全宽时再分成三列，标题、读数与控制各占一段。盒子变矮时依次收字号、间距与刻度高度，
+ * 刻度本身一直留着（D16、D20）。
  */
 
 .pomo {
@@ -75,6 +75,12 @@
 }
 .pomo-time .t-flip { margin-inline: 1px; }
 .pomo-time .pomo-colon { margin-inline: 2px; color: var(--pomo-ink-muted); }
+
+/*
+ * 控件一层。窄盒子里它不参与排版（display: contents），子项照旧直接排在读数下面；
+ * 宽盒子里它才是右列那一整块，刻度、快捷时长与按钮从这里统一居中。
+ */
+.pomo-controls { display: contents; }
 
 /* 刻度就是时长刻度：选中的那一头亮起来，运行中它变成进度。 */
 .pomo-slider { position: relative; height: var(--pomo-slider-h); }
@@ -197,93 +203,84 @@
   .pomo-start[aria-pressed="true"]:hover { background: var(--pomo-chip-hover); }
 }
 
-/* 窄列：左右各收一点，读数仍然放得下。 */
-@media (max-width: 320px) {
-  .pomo-time { font-size: 48px; line-height: 56px; }
+/*
+ * 宽盒子（≥600px）：头与读数在左列，刻度、快捷时长与按钮在右列，右列整块垂直居中。
+ * 矮盒子里右列收一档高度，读数按高度收住，不顶到左边那两行。
+ */
+:root[data-box-width="wide"] .pomo {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-sm, 8px);
+  padding: var(--w-space-lg, 16px);
 }
 
-/* 22rem 及以下：收字号与间距，刻度继续留着。 */
-@media (max-height: 400px) {
-  .pomo {
-    --pomo-slider-h: 32px;
-    --pomo-tick-h: 16px;
-    --pomo-thumb-h: 28px;
-    gap: 12px;
-    padding: 14px 16px;
-  }
-  .pomo-time { font-size: 42px; line-height: 50px; }
-  .pomo-preset { height: 28px; }
-  .pomo-start { height: 32px; }
+:root[data-box-width="wide"] .pomo-head { grid-column: 1; grid-row: 1; }
+:root[data-box-width="wide"] .pomo-readout { grid-column: 1; grid-row: 2; }
+
+:root[data-box-width="wide"] .pomo-controls {
+  display: flex;
+  flex-direction: column;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  justify-content: center;
+  gap: var(--w-space-sm, 8px);
 }
 
-/* 14rem 上下：收起说明文字，读数仍占满中间。 */
-@media (max-height: 260px) {
-  .pomo {
-    --pomo-slider-h: 26px;
-    --pomo-tick-h: 14px;
-    --pomo-thumb-h: 22px;
-    gap: 10px;
-    padding: 14px;
-  }
-  .pomo-cap { display: none; }
-  .pomo-time { font-size: 36px; line-height: 44px; }
-  .pomo-preset { height: 26px; }
-  .pomo-start { height: 30px; }
+:root[data-box-width="wide"] .pomo-time {
+  font-size: clamp(40px, min(13vw, 42vh), 120px);
+  line-height: 1.05;
 }
 
-/* 10rem：标题收小，五个部分都还在。 */
-@media (max-height: 180px) {
-  .pomo {
-    --pomo-slider-h: 20px;
-    --pomo-tick-h: 10px;
-    --pomo-thumb-h: 18px;
-    gap: 6px;
-    padding: 9px;
+:root[data-box-width="wide"] .pomo-presets,
+:root[data-box-width="wide"] .pomo-start { width: 100%; }
+
+:root[data-box-width="wide"][data-box-height="short"] .pomo {
+  --pomo-slider-h: 30px;
+  --pomo-tick-h: 14px;
+  --pomo-thumb-h: 26px;
+  row-gap: var(--w-space-sm, 8px);
+}
+:root[data-box-width="wide"][data-box-height="short"] .pomo-preset { height: 26px; }
+:root[data-box-width="wide"][data-box-height="short"] .pomo-start { height: 30px; }
+
+/* 全宽：标题、读数与控制各占一列，三列都垂直居中，宽度真正用上。 */
+@media (min-width: 1000px) {
+  :root[data-box-width="wide"] .pomo {
+    grid-template-columns: minmax(0, 0.34fr) minmax(0, 1fr) minmax(300px, 0.58fr);
+    grid-template-rows: minmax(0, 1fr);
   }
-  .pomo-title { font-size: 14px; line-height: 18px; }
-  .pomo-time { font-size: 28px; line-height: 34px; }
-  .pomo-preset { height: 22px; font-size: 11px; }
-  .pomo-start { height: 24px; font-size: 12px; }
+  :root[data-box-width="wide"] .pomo-head { grid-column: 1; grid-row: 1; align-self: center; }
+  :root[data-box-width="wide"] .pomo-readout { grid-column: 2; grid-row: 1; }
+  :root[data-box-width="wide"] .pomo-controls { grid-column: 3; grid-row: 1; }
 }
 
-/* 6rem：只留下读数、刻度与按钮，标题和快捷时长让位。 */
-@media (max-height: 120px) {
-  .pomo {
-    --pomo-slider-h: 14px;
-    --pomo-tick-h: 8px;
-    --pomo-thumb-h: 12px;
-    gap: 4px;
-    padding: 8px 10px;
-  }
-  .pomo-head,
-  .pomo-presets { display: none; }
-  .pomo-time { font-size: 24px; line-height: 28px; }
-  .pomo-start { height: 20px; font-size: 11px; }
+/* 窄高：上下留白多一档，读数按宽度放大，控件仍然贴底。 */
+:root[data-box-width="narrow"][data-box-height="tall"] .pomo {
+  gap: var(--w-space-xl, 24px);
+  padding: var(--w-space-xl, 24px) var(--w-space-lg, 16px);
+}
+:root[data-box-width="narrow"][data-box-height="tall"] .pomo-time {
+  font-size: clamp(56px, 26vw, 96px);
+}
+:root[data-box-width="narrow"][data-box-height="tall"] .pomo-cap {
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
 }
 
-/* 宽卡片：读数与控制收进居中的一列，按钮不再拉满整张卡；高度另有收缩规则。 */
-@media (min-width: 600px) {
-  .pomo-presets,
-  .pomo-start {
-    width: 100%;
-    max-width: 420px;
-    margin-inline: auto;
-  }
+/* 矮盒子（宽度不到 600）：收字号与间距，五个部分都还在。 */
+:root[data-box-height="short"]:not([data-box-width="wide"]) .pomo {
+  --pomo-slider-h: 26px;
+  --pomo-tick-h: 13px;
+  --pomo-thumb-h: 22px;
+  gap: var(--w-space-sm, 8px);
+  padding: var(--w-space-md, 12px);
 }
-
-/* 大卡片：数字与控件跟着盒子放大。 */
-@media (min-width: 600px) and (min-height: 340px) {
-  .pomo {
-    --pomo-slider-h: 44px;
-    --pomo-tick-h: 22px;
-    --pomo-thumb-h: 40px;
-  }
-  .pomo-time { font-size: clamp(54px, 20vmin, 112px); line-height: 1.15; }
-  .pomo-title { font-size: 18px; line-height: 24px; }
-  .pomo-cap { font-size: 13px; line-height: 18px; }
-  .pomo-preset { height: 36px; font-size: 13px; }
-  .pomo-start { height: 42px; font-size: 14px; }
-}
+:root[data-box-height="short"]:not([data-box-width="wide"]) .pomo-cap { display: none; }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .pomo-time { font-size: 36px; line-height: 44px; }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .pomo-preset { height: 26px; }
+:root[data-box-height="short"]:not([data-box-width="wide"]) .pomo-start { height: 30px; }
 
 /* 减弱动效：刻度、滑块、快捷时长、按钮与文字切换一律不走过渡，数字不弹入（D10）。 */
 :root[data-motion="reduced"] .pomo-tick,

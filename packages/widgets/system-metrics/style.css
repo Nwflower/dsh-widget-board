@@ -284,7 +284,8 @@
   border-top: 1px solid color-mix(in srgb, var(--w-color-border, #d5dae1) 62%, transparent);
 }
 
-:root[data-box-height="tall"] .metrics__trend {
+/* 走势只在高盒子里出现；`hidden` 仍然有效，没有采样时不占高度。 */
+:root[data-box-height="tall"] .metrics__trend:not([hidden]) {
   display: flex;
 }
 
@@ -352,8 +353,26 @@
   display: none;
 }
 
-/* 矮盒子：面板收成四行带条形图的读数，系统、看板与组件库让位。 */
-:root[data-box-height="short"] .metrics__body {
+/*
+ * 窄盒子里高度先给四条带条形图的读数：系统、看板与组件库这三行只在高盒子里出现，
+ * 否则面板在正方盒子里会被卡片底边截断。
+ */
+:root[data-box-width="narrow"]:not([data-box-height="tall"]) .metrics__row[data-row="system"],
+:root[data-box-width="narrow"]:not([data-box-height="tall"]) .metrics__row[data-row="board"],
+:root[data-box-width="narrow"]:not([data-box-height="tall"]) .metrics__row[data-row="library"] {
+  display: none;
+}
+
+/* 高盒子：主读数与面板作为一组在正文里居中，下面不留半张空白。 */
+:root[data-box-height="tall"] .metrics__body {
+  align-content: center;
+}
+
+/*
+ * 矮盒子：面板收成四行带条形图的读数，系统、看板与组件库让位。宽盒子不叠成一列——那里有横向
+ * 余量，主读数与面板左右并排，叠起来会把四行读数挤出盒子。
+ */
+:root[data-box-height="short"]:not([data-box-width="wide"]) .metrics__body {
   display: flex;
   flex-direction: column;
   gap: var(--w-space-xs, 4px);
@@ -419,4 +438,54 @@
 
 :root[data-box-height="short"] .metrics__row-value {
   line-height: 16px;
+}
+
+/*
+ * 空状态：面板、走势与按钮都还没有内容，标题、读数与提示作为一组在正文里居中，不贴住左上角。
+ * 提示框的高度随文字走，不再撑满剩下的正文——那是一块说明，不是一个占位面板。
+ */
+.metrics[data-state="empty"] .metrics__body {
+  align-content: center;
+  justify-content: center;
+}
+
+.metrics[data-state="empty"] .metrics__hero {
+  justify-content: center;
+  gap: var(--w-space-sm, 8px);
+}
+
+.metrics[data-state="empty"] .metrics__empty {
+  min-height: 48px;
+  flex: 0 0 auto;
+}
+
+/*
+ * 宽盒子里的空状态：标题与读数在左栏，提示框在右栏占满剩下的宽度，一条横排读完。
+ */
+:root[data-box-width="wide"] .metrics[data-state="empty"] .metrics__body {
+  justify-content: center;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:root[data-box-width="wide"] .metrics[data-state="empty"] .metrics__hero {
+  display: grid;
+  grid-template-areas:
+    "heading empty"
+    "value   empty"
+    "scope   empty";
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .metrics[data-state="empty"] .metrics__heading { grid-area: heading; }
+:root[data-box-width="wide"] .metrics[data-state="empty"] .metrics__value { grid-area: value; }
+:root[data-box-width="wide"] .metrics[data-state="empty"] .metrics__scope { grid-area: scope; }
+
+:root[data-box-width="wide"] .metrics[data-state="empty"] .metrics__empty {
+  width: 100%;
+  margin: 0;
+  align-self: center;
 }

@@ -298,15 +298,20 @@
 
 /*
  * 说明文字：没有配令牌、令牌被拒、读到空列表与读取失败共用这一处居中说明。
- * 长句子在中间宽的盒子里折行，不撑出卡片。
+ *
+ * 骨架给的是 `margin: auto`，在这里会被压成一条又高又窄的框；这里让说明占满正文宽度，只把上下
+ * 外边距留成自动，整块落在正文中段。长句子照常折行，不撑出卡片。
  */
 .gh__note {
   display: flex;
   min-height: 0;
-  flex: 1;
+  flex: 0 1 auto;
+  align-self: stretch;
+  margin: auto 0;
   align-items: center;
   justify-content: center;
-  padding: 12px 8px;
+  padding: 10px 12px;
+  overflow: hidden;
   overflow-wrap: anywhere;
   text-align: center;
 }
@@ -327,3 +332,19 @@
 :root[data-box-width="narrow"] .gh__labels { display: none; }
 
 :root[data-box-width="narrow"] .gh__refresh { width: 22px; height: 22px; }
+
+/*
+ * 宽盒子：标题区落到左栏（`.t-data--split`），栏变窄，账号与刷新挪到标题下面一行，
+ * 长账号名不再和标题抢同一条线；列表与说明在右栏用上整块高度。
+ */
+:root[data-box-width="wide"] .gh > .t-data__head {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .gh__head-aside {
+  max-width: 100%;
+  min-width: 0;
+}

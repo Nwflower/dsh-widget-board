@@ -58,6 +58,7 @@
 .holo-card__dot {
   width: 7px;
   height: 7px;
+  margin-left: auto;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 0 4px rgb(255 255 255 / 12%);
@@ -105,6 +106,47 @@
   .holo-card__text { display: none; }
   .holo-card__title { margin-top: auto; font-size: 26px; }
   .holo-card__meta { padding-top: 8px; }
+}
+
+/*
+ * 宽盒子：标题占左栏，说明与脚注落到右栏，两栏都贴到页边，不再挤在左边一条里。
+ * 说明在矮盒子里也放得下，字号按宽度定、按高度收住。
+ */
+:root[data-box-width="wide"] .holo-card {
+  display: grid;
+  grid-template-areas:
+    "top   top"
+    "title text"
+    "title meta";
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  align-content: center;
+  column-gap: var(--w-space-xl, 24px);
+  row-gap: var(--w-space-xs, 4px);
+  padding: var(--w-space-md, 12px) clamp(18px, 3vw, 30px);
+}
+
+:root[data-box-width="wide"] .holo-card__top { grid-area: top; }
+
+:root[data-box-width="wide"] .holo-card__title {
+  grid-area: title;
+  align-self: center;
+  margin: 0;
+  font-size: clamp(30px, min(4.6vw, 26vh), 52px);
+}
+
+:root[data-box-width="wide"] .holo-card__text {
+  display: block;
+  grid-area: text;
+  align-self: end;
+  margin: 0;
+}
+
+:root[data-box-width="wide"] .holo-card__meta {
+  grid-area: meta;
+  align-self: start;
+  margin: 0;
+  padding-top: 0;
 }
 
 /* 减弱动效：光泽静止在中间，文案照常可读（D10）。 */

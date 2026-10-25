@@ -1,5 +1,6 @@
 /*
  * Markdown 卡的样式：正文按卡片宽度排版，代码块横向滚动，语法色由令牌混出。
+ * 宽盒子里标题在左列、正文在右列；正文不满一屏时在正文区里居中，窄高盒子不会只剩上半截。
  */
 .md-card__body {
   gap: 0;
@@ -8,8 +9,17 @@
   overflow-wrap: anywhere;
 }
 
-.md-card__body > :first-child { margin-top: 0; }
-.md-card__body > :last-child { margin-bottom: 0; }
+/*
+ * 正文一层：内容矮时在正文区里垂直居中，内容高时照常从顶上排、在正文区里滚动。
+ * 不给它伸缩，否则长文会被压进固定高度，滚动条就落在内容里而不是这张卡上。
+ */
+.md-card__content {
+  flex: none;
+  margin-block: auto;
+}
+
+.md-card__content > :first-child { margin-top: 0; }
+.md-card__content > :last-child { margin-bottom: 0; }
 
 .md-card__body h1,
 .md-card__body h2,
@@ -207,7 +217,10 @@
 .md-card__body .hljs-meta,
 .md-card__body .hljs-tag { color: var(--w-color-muted, #6b7684); }
 
-/* 档位：高盒子与宽盒子里正文长一档，标题随之放大；窄盒子收紧缩进。 */
+/*
+ * 档位：高盒子与宽盒子里正文长一档，标题随之放大；窄盒子收紧缩进。宽矮盒子里正文只够露出
+ * 开头，行距与块间距收到最紧，滚动的是一段完整读得下去的正文，而不是半行。
+ */
 :root[data-box-height="tall"] .md-card__body,
 :root[data-box-width="wide"] .md-card__body { font-size: var(--w-type-title, 16px); line-height: 26px; }
 :root[data-box-height="tall"] .md-card__body h1,
@@ -218,3 +231,23 @@
 :root[data-box-width="wide"] .md-card__body pre { font-size: var(--w-type-body, 14px); line-height: 22px; }
 :root[data-box-width="narrow"] .md-card__body ul,
 :root[data-box-width="narrow"] .md-card__body ol { padding-left: 16px; }
+
+/* 高盒子里表格与代码跟正文同一档，不因为窄盒子而缩成脚注大小。 */
+:root[data-box-height="tall"] .md-card__body table { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-height="tall"] .md-card__body th,
+:root[data-box-height="tall"] .md-card__body td { padding: var(--w-space-xs, 4px) var(--w-space-sm, 8px); }
+
+/* 宽矮：标题在左列，正文在右列；正文里各块之间收一档，让这一屏能读完整一段。 */
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body { font-size: var(--w-type-body, 14px); line-height: 20px; }
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body h1,
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body h2 { font-size: var(--w-type-title, 16px); line-height: 20px; }
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body h1,
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body h2,
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body h3 { margin: 0 0 2px; }
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body table { margin: 0 0 var(--w-space-xs, 4px); font-size: var(--w-type-caption, 12px); line-height: 16px; }
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body th,
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body td { padding: 1px var(--w-space-sm, 8px); }
+:root[data-box-width="wide"][data-box-height="short"] .md-card__body pre { margin: 0; padding: var(--w-space-xs, 4px) var(--w-space-sm, 8px); font-size: var(--w-type-caption, 12px); line-height: 16px; }
+:root[data-box-width="wide"][data-box-height="short"] .md-code { margin: 0; }
+/* 代码块的语言标签在这个高度里让位：留出两行代码的位置，比标一行语言更有用。 */
+:root[data-box-width="wide"][data-box-height="short"] .md-code__bar { display: none; }

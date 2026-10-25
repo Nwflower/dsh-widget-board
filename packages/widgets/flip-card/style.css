@@ -18,10 +18,14 @@
 
 .flip-card * { box-sizing: border-box; }
 
+/*
+ * 两张脸的内容整组纵向居中：标题、说明与提示挨在一起，高盒子里不会被推到上下两端。
+ */
 .flip-card__front,
 .flip-card__back {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: var(--w-space-sm, 8px);
   padding: clamp(16px, 5vw, 24px);
   border-radius: inherit;
@@ -55,7 +59,7 @@
 .flip-card__kicker:empty { display: none; }
 
 .flip-card__title {
-  margin: auto 0 0;
+  margin: 0;
   color: inherit;
   font-size: clamp(24px, min(9vw, 14vh), 64px);
   font-weight: 700;
@@ -72,7 +76,7 @@
 }
 
 .flip-card__hint {
-  margin-top: auto;
+  margin-top: var(--w-space-md, 12px);
   color: var(--w-color-muted, #6b7684);
   font-size: var(--w-type-caption, 12px);
   letter-spacing: 0;
@@ -94,7 +98,7 @@
   .flip-card__title { font-size: 24px; }
 }
 
-/* 高盒子：说明长一档字号；两面的标题与说明在中段居中，提示贴底。 */
+/* 高盒子：说明长一档字号；两面的内容整组居中，提示跟在说明后面。 */
 :root[data-box-height="tall"] .flip-card__text { font-size: var(--w-type-title, 16px); line-height: 24px; }
 :root[data-box-height="tall"] .flip-card__front,
 :root[data-box-height="tall"] .flip-card__back { padding: var(--w-space-xl, 24px); }
@@ -104,6 +108,41 @@
   .flip-card__title { font-size: 24px; margin-top: 0; }
   .flip-card__front,
   .flip-card__back { gap: 6px; padding: 16px; }
+}
+
+/*
+ * 宽盒子：标题与说明靠左，提示挪到右端，中间留一段横向间距；矮盒子里说明放得下，就不再收掉。
+ */
+:root[data-box-width="wide"] .flip-card__front,
+:root[data-box-width="wide"] .flip-card__back {
+  display: grid;
+  grid-template-areas:
+    "kicker hint"
+    "title  hint"
+    "text   hint";
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: center;
+  column-gap: var(--w-space-xl, 24px);
+}
+
+:root[data-box-width="wide"] .flip-card__kicker { grid-area: kicker; }
+
+:root[data-box-width="wide"] .flip-card__title {
+  grid-area: title;
+  font-size: clamp(30px, min(5vw, 26vh), 56px);
+}
+
+:root[data-box-width="wide"] .flip-card__text {
+  display: block;
+  grid-area: text;
+  margin: 0;
+}
+
+:root[data-box-width="wide"] .flip-card__hint {
+  grid-area: hint;
+  margin: 0;
+  text-align: right;
 }
 
 /* 减弱动效：翻面直接换，不做过渡（D10）。 */

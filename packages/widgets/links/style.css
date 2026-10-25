@@ -1,18 +1,28 @@
 /*
  * 链接卡的样式：一行一条，左边是首字母色块，中间是标题与域名，右边是说明。
  *
- * 行不做成按钮，所以没有悬停与焦点态：要开链接的卡片自己用 `widget.open`（D26），写在这里的只有排版。
+ * 宽盒子里铺成多列格子，四列或两列都按可用宽度排；窄高盒子里整组在正文里居中，不让清单挤在
+ * 上沿。行不做成按钮，所以没有悬停与焦点态：要开链接的卡片自己用 `widget.open`（D26），写在
+ * 这里的只有排版。
  */
 .links-card__list {
   display: flex;
   flex-direction: column;
 }
 
+/* 行的一层：宽盒子里它变成多列栅格，其余盒子里是一列，居中由外层给。 */
+.links-card__rows {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  margin-block: auto;
+}
+
 .links-card__row {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: var(--w-space-sm, 8px);
+  min-width: 0;
   padding: var(--w-space-sm, 8px) 0;
   border-top: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 62%, transparent);
 }
@@ -23,6 +33,7 @@
 
 .links-card__mark {
   display: grid;
+  flex: none;
   width: 28px;
   height: 28px;
   place-items: center;
@@ -36,6 +47,7 @@
 }
 
 .links-card__body {
+  flex: 1;
   min-width: 0;
 }
 
@@ -58,7 +70,12 @@
   white-space: nowrap;
 }
 
+/*
+ * 说明贴右边。宽度上限按行的百分比给：行是弹性容器，百分比有确定的参照，说明再长也不会把标题
+ * 挤没；不写成栅格的自动列，否则那一列会先按字符宽度定死。
+ */
 .links-card__note {
+  flex: none;
   max-width: 40%;
   overflow: hidden;
   color: var(--w-color-muted, #6b7684);
@@ -69,8 +86,32 @@
   white-space: nowrap;
 }
 
-@media (max-width: 320px) {
-  .links-card__row { grid-template-columns: 24px minmax(0, 1fr); }
-  .links-card__mark { width: 24px; height: 24px; font-size: 11px; }
-  .links-card__note { display: none; }
+/* 宽盒子：多列格子，格子之间留白，按可用宽度决定列数。 */
+:root[data-box-width="wide"] .links-card__rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--w-space-sm, 8px) var(--w-space-xl, 24px);
+}
+
+:root[data-box-width="wide"] .links-card__row {
+  padding: var(--w-space-xs, 4px) var(--w-space-sm, 8px);
+  border-top: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 4%, transparent);
+}
+
+/* 矮盒子：行收紧一档，四列格子也才装得下。 */
+:root[data-box-height="short"] .links-card__row {
+  padding-block: var(--w-space-xs, 4px);
+}
+
+/* 高盒子：行之间松一档，清单撑得开。 */
+:root[data-box-height="tall"] .links-card__row {
+  padding-block: var(--w-space-md, 12px);
+}
+
+:root[data-box-width="narrow"] .links-card__mark {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
 }

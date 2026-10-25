@@ -131,14 +131,18 @@
     return map
   }
 
+  /** 星期几的短名：表头行与矮盒子里的一周格子共用。 */
+  function weekdayShort(date) {
+    return new Intl.DateTimeFormat(isZh() ? 'zh-CN' : 'en', { weekday: 'short' }).format(date)
+  }
+
   function buildWeek() {
-    var format = new Intl.DateTimeFormat(isZh() ? 'zh-CN' : 'en', { weekday: 'short' })
     var monday = new Date(2024, 0, 1)
     var cells = []
     for (var index = 0; index < WEEKDAYS; index += 1) {
       var cell = document.createElement('span')
       var weekday = (index + weekOffset()) % WEEKDAYS
-      cell.textContent = format.format(addDays(monday, weekday))
+      cell.textContent = weekdayShort(addDays(monday, weekday))
       if (weekday >= 5) cell.setAttribute('data-weekend', '')
       cells.push(cell)
     }
@@ -230,6 +234,37 @@
     })
   }
 
+  /**
+   * 矮盒子里画哪一周：当月含今天时画今天这一周，翻到别的月份时画它的第一行。
+   *
+   * 一周七格横排正好用满一条矮卡片的宽度；六行月历在 160px 高的盒子里每行只剩十几像素。
+   */
+  function weekStart(base) {
+    var first = new Date(base.getFullYear(), base.getMonth(), 1)
+    var offset = (first.getDay() - weekOffset() + WEEKDAYS) % WEEKDAYS
+    var start = addDays(first, -offset)
+    var now = new Date()
+    if (base.getFullYear() === now.getFullYear() && base.getMonth() === now.getMonth()) {
+      var weekday = (startOfDay(now).getDay() - weekOffset() + WEEKDAYS) % WEEKDAYS
+      start = addDays(startOfDay(now), -weekday)
+    }
+    return start
+  }
+
+  /** 一周里的格子：与月历的格子同一份结构，第二行从农历换成星期几，并且挪到日号上面。 */
+  function weekCell(date, base, todayKey, events) {
+    var cell = dayCell(date, base, todayKey, events)
+    var lunar = cell.querySelector('.cal-day__lunar')
+    if (lunar !== null) {
+      var weekday = document.createElement('span')
+      weekday.className = 'cal-day__weekday'
+      weekday.textContent = weekdayShort(date)
+      cell.insertBefore(weekday, cell.firstChild)
+      lunar.remove()
+    }
+    return cell
+  }
+
   function render() {
     var base = baseMonth()
     var first = new Date(base.getFullYear(), base.getMonth(), 1)
@@ -240,10 +275,19 @@
     var todayKey = iso(new Date())
     var events = groupEvents(state.events)
     var cells = []
+    var week = card.hasAttribute('data-week')
 
-    el.grid.style.setProperty('--rows', String(rows))
-    for (var index = 0; index < rows * WEEKDAYS; index += 1) {
-      cells.push(dayCell(addDays(start, index), base, todayKey, events))
+    if (week) {
+      el.grid.style.setProperty('--rows', '1')
+      var firstDay = weekStart(base)
+      for (var day = 0; day < WEEKDAYS; day += 1) {
+        cells.push(weekCell(addDays(firstDay, day), base, todayKey, events))
+      }
+    } else {
+      el.grid.style.setProperty('--rows', String(rows))
+      for (var index = 0; index < rows * WEEKDAYS; index += 1) {
+        cells.push(dayCell(addDays(start, index), base, todayKey, events))
+      }
     }
     el.grid.replaceChildren.apply(el.grid, cells)
 
@@ -254,14 +298,19 @@
     scheduleType()
   }
 
-  /** 很矮的盒子连标题一起收掉，只画网格。 */
+  /** 矮盒子画一周，很矮的连标题一起收掉。档位变了要重建网格：两种排法的格子不一样。 */
   function applyBox(size) {
     if (size === null || size === undefined) return
     var height = size.h > 0 ? size.h : window.innerHeight
-    card.toggleAttribute('data-compact', height < 150)
+    var week = height < 260
+    var bare = height < 150
+    var changed = week !== card.hasAttribute('data-week') || bare !== card.hasAttribute('data-compact')
+    card.toggleAttribute('data-week', week)
+    card.toggleAttribute('data-compact', bare)
     // 档位换了之后字号要重新算：清掉上一次的值，免得被半像素的容差挡住。
     lastType = { u: 0, lu: 0 }
-    scheduleType()
+    if (changed) render()
+    else scheduleType()
   }
 
   function applyProps(source) {

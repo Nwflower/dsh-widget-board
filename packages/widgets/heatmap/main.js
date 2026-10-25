@@ -16,6 +16,7 @@
     kicker: card.querySelector('[data-field="kicker"]'),
     title: card.querySelector('[data-field="title"]'),
     meta: card.querySelector('[data-field="meta"]'),
+    frame: card.querySelector('[data-role="frame"]'),
     grid: card.querySelector('[data-role="grid"]'),
     caption: card.querySelector('[data-field="caption"]'),
     less: card.querySelector('[data-field="less"]'),
@@ -163,6 +164,9 @@
       columns.push(week)
     }
 
+    // 列数写进样式：格子的边长从格子区的宽高里算，正方形要靠这个数（D20）。
+    el.grid.style.setProperty('--heatmap-weeks', String(weeks))
+
     var summary = [
       countText(label('total', '共 {n} 次'), total),
       countText(label('active', '{n} 天有记录'), active)
@@ -178,6 +182,7 @@
     write(el.meta, state.meta !== '' ? state.meta : weeks + (isZh() ? ' 周' : ' weeks'))
 
     var empty = Object.keys(days).length === 0
+    el.frame.hidden = empty
     el.grid.hidden = empty
     el.foot.hidden = empty
     el.empty.hidden = !empty

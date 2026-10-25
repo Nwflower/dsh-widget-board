@@ -1,17 +1,28 @@
 /*
  * 键值卡的样式：网格的列数由 props.columns 写成 --kv-cols，窄卡片自动退成一列。
+ *
+ * 三个场景各排一次：宽盒子把标题挪到左边（套件的 .t-data--split），字段按放得下的列数铺开，整块
+ * 与标题同一条中线；窄高盒子退成一列、值放大、在高度里居中；矮盒子收掉说明，只留键与值。
  */
-.kv-card__body {
+.kv-card__grid {
   display: grid;
   grid-template-columns: repeat(var(--kv-cols, 2), minmax(0, 1fr));
-  align-content: start;
   gap: var(--w-space-md, 12px) var(--w-space-lg, 16px);
-  overflow: auto;
+}
+
+/* 滚动区在行首吸附，停下时不会把一行切成两半。 */
+.kv-card__body {
+  scroll-snap-type: y proximity;
+  scroll-padding-block: var(--w-space-xs, 4px);
 }
 
 .kv-card__item {
   min-width: 0;
+  scroll-snap-align: start;
 }
+
+/* 没有字段时正文整块让位，空状态按套件的样子在卡里居中。 */
+.kv-card__body:has(> .kv-card__grid[hidden]) { display: none; }
 
 .kv-card__key {
   margin: 0;
@@ -42,16 +53,54 @@
 }
 
 /*
- * 档位：滚动区在行首吸附，停下时不会把一行切成两半；矮盒子收掉说明并保持两列，窄而不矮的盒子退成
- * 一列；高盒子把数值放大，行在主体里居中。
+ * 宽盒子：标题在左列竖排，字段按能放下的列数铺开，1280 的长条里四项并排，634 时两列；整块竖着
+ * 居中，与左边居中的标题对齐。auto-fit 让一项也能占满。
  */
-.kv-card__body { scroll-snap-type: y proximity; scroll-padding-block: var(--w-space-xs, 4px); }
-.kv-card__item { scroll-snap-align: start; }
-:root[data-box-width="narrow"]:not([data-box-height="short"]) .kv-card__body { grid-template-columns: minmax(0, 1fr); }
-:root[data-box-width="narrow"] .kv-card__value { font-size: var(--w-type-body, 14px); line-height: 20px; }
-:root[data-box-height="short"] .kv-card__body { gap: var(--w-space-sm, 8px) var(--w-space-md, 12px); }
+:root[data-box-width="wide"] .kv-card > .t-data__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .kv-card > .t-data__head .t-data__meta { text-align: left; }
+
+:root[data-box-width="wide"] .kv-card__grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-block: auto;
+}
+
+:root[data-box-width="wide"]:not([data-box-height="tall"]) .kv-card__value {
+  font-size: var(--w-type-heading, 20px);
+  line-height: 26px;
+}
+
+/* 矮盒子：间距收一档，说明让位给键与值。 */
+:root[data-box-height="short"] .kv-card__grid { gap: var(--w-space-sm, 8px) var(--w-space-md, 12px); }
 :root[data-box-height="short"] .kv-card__note { display: none; }
-:root[data-box-height="tall"] .kv-card__body { align-content: center; gap: var(--w-space-xl, 24px) var(--w-space-lg, 16px); }
+
+/* 窄盒子：一列排下来，值收到正文档。 */
+:root[data-box-width="narrow"]:not([data-box-height="short"]) .kv-card__grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:root[data-box-width="narrow"]:not([data-box-height="tall"]) .kv-card__value {
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
+}
+
+/* 窄高：一列铺开，键与说明升到正文档，值按宽度放大，整块在高度里居中。 */
+:root[data-box-height="tall"] .kv-card__grid {
+  margin-block: auto;
+  gap: var(--w-space-xl, 24px) var(--w-space-lg, 16px);
+}
+
 :root[data-box-height="tall"] .kv-card__key,
-:root[data-box-height="tall"] .kv-card__note { font-size: var(--w-type-body, 14px); line-height: 20px; }
-:root[data-box-height="tall"] .kv-card__value { font-size: clamp(24px, 7vmin, 40px); line-height: 1.15; }
+:root[data-box-height="tall"] .kv-card__note {
+  font-size: var(--w-type-body, 14px);
+  line-height: 20px;
+}
+
+:root[data-box-height="tall"] .kv-card__value {
+  font-size: clamp(24px, 9vmin, 40px);
+  line-height: 1.15;
+}

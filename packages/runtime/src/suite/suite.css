@@ -407,6 +407,43 @@ body { overflow: hidden; }
   flex-direction: column;
 }
 
+/*
+ * 宽盒子里的横排骨架（D20）：标题区挪到左边一列，正文占右边。
+ *
+ * 卡片宽到 600px 以上时，一行窄标题压在正文上面会留下大片空白；横排让两个方向都用上，正文里的
+ * 读数、图表与表格才能按宽度铺开。只改排法，字号仍由组件自己按宽盒子放大。窄盒子与正方盒子保持
+ * 原来的上下结构。
+ */
+:root[data-box-width="wide"] .t-data--split {
+  display: grid;
+  /* 标题列跟着卡片长，但有上限：1280px 的长条里标题不该占掉四成宽度。 */
+  grid-template-columns: clamp(132px, 22%, 260px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--w-space-xl, 24px);
+}
+
+/*
+ * 横排时标题区成一竖列：标题在上、范围内的事实在下。左栏只有一百多像素，标题和图右上角的
+ * 事实挤在一行会把标题挤成两行。
+ */
+:root[data-box-width="wide"] .t-data--split > .t-data__head {
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .t-data--split > .t-data__head .t-data__meta {
+  padding-top: 0;
+  text-align: left;
+}
+
+:root[data-box-width="wide"] .t-data--split > .t-data__body {
+  min-height: 0;
+  align-self: stretch;
+}
+
 .t-data__scroll {
   min-height: 0;
   flex: 1;
@@ -431,16 +468,21 @@ body { overflow: hidden; }
 
 .t-data [hidden] { display: none; }
 
-@media (max-width: 320px) {
-  .t-data { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
-  .t-data__title { font-size: var(--w-type-body, 14px); line-height: 20px; }
+/*
+ * 窄盒子与矮盒子里收紧骨架：内边距与间距各收一档，标题降一档，标签行不再留额外的下边距。
+ * 判据用根节点上的档位（D20），与组件自己的规则同源；媒体查询在 iframe 里虽然等价，但看不出来
+ * 它对应的是哪一档盒子。
+ */
+:root[data-box-width="narrow"] .t-data,
+:root[data-box-height="short"] .t-data {
+  gap: var(--w-space-sm, 8px);
+  padding: var(--w-space-md, 12px);
 }
 
-@media (max-height: 280px) {
-  .t-data { gap: var(--w-space-sm, 8px); padding: var(--w-space-md, 12px); }
-  .t-data__kicker { margin-bottom: 2px; }
-  .t-data__empty { padding: var(--w-space-md, 12px); }
-}
+:root[data-box-width="narrow"] .t-data__title { font-size: var(--w-type-body, 14px); line-height: 20px; }
+
+:root[data-box-height="short"] .t-data__kicker { margin-bottom: 2px; }
+:root[data-box-height="short"] .t-data__empty { padding: var(--w-space-md, 12px); }
 
 /*
  * 尺寸档与布局原语（D16）：运行时把内容盒归到宽度与高度两个档位，写在根节点的

@@ -1,5 +1,8 @@
 /*
  * 时间线卡的样式：左侧一条竖线，事件按时间往下排；状态只落在节点上。
+ *
+ * 三个场景各排一次：宽盒子把标题挪到左边（套件的 .t-data--split），事件在右边排成几列、竖线收起；
+ * 窄高盒子把正文高度分给每个事件，节点沿竖线铺开；正方与常规保持一条竖线往下。
  */
 .timeline-card__body {
   position: relative;
@@ -15,6 +18,14 @@
   width: 1px;
   background: color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
 }
+
+.timeline-card__list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 没有事件时正文整块让位：竖线与空状态不会挤在一起。 */
+.timeline-card__body:has(> .timeline-card__list[hidden]) { display: none; }
 
 .timeline-card__row {
   position: relative;
@@ -67,4 +78,43 @@
   font-size: var(--w-type-caption, 12px);
   line-height: 18px;
   overflow-wrap: anywhere;
+}
+
+/*
+ * 宽盒子：标题在左列竖排，事件在右边排成几列，一条 1280px 的长条里三个事件并排、634px 时两列两行。
+ * 每个事件块自带节点，竖线不再连着谁，收起来；整块竖着居中，与左边居中的标题对齐。
+ */
+:root[data-box-width="wide"] .timeline-card > .t-data__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="wide"] .timeline-card > .t-data__head .t-data__meta { text-align: left; }
+
+:root[data-box-width="wide"] .timeline-card__body::before { display: none; }
+
+:root[data-box-width="wide"] .timeline-card__list:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  column-gap: var(--w-space-xl, 24px);
+  margin-block: auto;
+}
+
+:root[data-box-width="wide"] .timeline-card__row { padding-bottom: var(--w-space-sm, 8px); }
+:root[data-box-width="wide"] .timeline-card__row:last-child { padding-bottom: 0; }
+
+/*
+ * 窄高：三个事件以上把正文的高度平均分给每个事件，节点沿着竖线铺开；只有一两个时整块居中，节点
+ * 落在竖线中段，事件多时照旧滚动。
+ */
+:root[data-box-width="narrow"][data-box-height="tall"] .timeline-card__list:not([hidden]) { margin-block: auto; }
+
+:root[data-box-width="narrow"][data-box-height="tall"] .timeline-card__list:has(> .timeline-card__row:nth-child(3)) {
+  flex: 1 0 auto;
+  margin-block: 0;
+}
+
+:root[data-box-width="narrow"][data-box-height="tall"] .timeline-card__list:has(> .timeline-card__row:nth-child(3)) > .timeline-card__row {
+  flex: 1 0 auto;
 }

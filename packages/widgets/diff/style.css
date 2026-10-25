@@ -3,6 +3,9 @@
  *
  * 新增与删除只染背景与符号，正文始终用前景色，浅色与深色下都读得清（D10）。等宽字体与行高跟着
  * 卡片内容滚动，不撑高卡片。
+ *
+ * 三个场景各排一次：宽盒子把标题挪到左边（套件的 .t-data--split），改动行用满右边整条、一屏多读
+ * 几行；窄高盒子行距放宽、整段代码在高度里居中；正方与常规保持一行一条。
  */
 .diff-card__body {
   gap: 0;
@@ -59,6 +62,31 @@
 .diff-card__line[data-type="add"] .diff-card__sign { color: color-mix(in srgb, #15803d 76%, var(--w-color-fg, #0b1016)); }
 .diff-card__line[data-type="remove"] .diff-card__sign { color: var(--w-tone-danger); }
 
-@media (max-width: 320px) {
-  .diff-card__scroll { font-size: var(--w-type-caption, 12px); line-height: 18px; }
+/*
+ * 宽盒子：标题在左列竖排，改动行用满右边整条；一屏里比上下结构多读两行。
+ */
+:root[data-box-width="wide"] .diff-card > .t-data__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w-space-xs, 4px);
 }
+
+:root[data-box-width="wide"] .diff-card > .t-data__head .t-data__meta { text-align: left; }
+
+/* 窄盒子：行的左右内边距收掉，一行代码在 311px 里正好占满，不用折行。 */
+:root[data-box-width="narrow"] .diff-card__line { padding-inline: 0; }
+
+/*
+ * 窄高：行距放宽一档，整段改动在高度里居中——几行代码不会缩在顶上、下面空一半。行比盒子高时
+ * auto 外边距归零，照旧从头滚动。
+ */
+:root[data-box-height="tall"] .diff-card__scroll:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  line-height: 22px;
+}
+
+:root[data-box-height="tall"] .diff-card__line { padding-block: 2px; }
+
+:root[data-box-height="tall"] .diff-card__scroll > .diff-card__line:first-child { margin-top: auto; }
+:root[data-box-height="tall"] .diff-card__scroll > .diff-card__line:last-child { margin-bottom: auto; }

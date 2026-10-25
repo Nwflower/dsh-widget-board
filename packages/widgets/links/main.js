@@ -16,6 +16,7 @@
     title: card.querySelector('[data-field="title"]'),
     meta: card.querySelector('[data-field="meta"]'),
     list: card.querySelector('[data-role="list"]'),
+    rows: card.querySelector('[data-role="rows"]'),
     empty: card.querySelector('[data-role="empty"]')
   }
 
@@ -110,7 +111,7 @@
       row.title = item.url
       rows.push(row)
     }
-    el.list.replaceChildren.apply(el.list, rows)
+    el.rows.replaceChildren.apply(el.rows, rows)
     el.empty.textContent = emptyLabel()
     el.list.hidden = rows.length === 0
     el.empty.hidden = rows.length > 0

@@ -1,65 +1,89 @@
 {
   "id": "heatmap",
   "title": {
-    "zh": "热力图",
-    "en": "Heatmap"
+    "zh": "活动",
+    "en": "Activity"
   },
   "description": {
-    "zh": "按日铺开的活动格子：颜色深浅表示多少，附总数、有记录的天数与连续天数。",
-    "en": "A grid of daily activity whose shade shows how much, with totals, active days and a streak."
+    "zh": "已经消耗的 Token 总量，加一张按卡片实际宽高铺开的用量格子：格子边长、列数与行数都跟着盒子走，格子总数跟着记录长度走并封顶 364 格，悬停读出当天用量。",
+    "en": "The tokens spent so far, over a grid of daily usage sized to the card: cell size, columns and rows follow the box, the number of cells follows how long the record is (at most 364), and each day reads out on hover."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
-  "sizes": ["s", "l"],
-  "defaultBox": { "w": 2, "h": 14 },
-  "minBox": { "w": 1, "h": 10 },
+  "version": "0.2.0",
+  "sizes": [
+    "s",
+    "l"
+  ],
+  "defaultBox": {
+    "w": 1,
+    "h": 16
+  },
+  "minBox": {
+    "w": 1,
+    "h": 12
+  },
+  "capabilities": [
+    "dsh-claude-style:usage",
+    "widget-board:usage"
+  ],
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
-  },
-  "data": {
-    "type": "object",
     "properties": {
-      "days": {
-        "type": "array",
-        "maxItems": 400,
-        "items": {
-          "type": "object",
-          "required": ["date", "value"],
-          "properties": {
-            "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-            "value": { "type": "number" }
-          }
-        }
+      "title": {
+        "type": "string",
+        "maxLength": 60
       },
-      "caption": { "type": "string", "maxLength": 160 }
+      "kicker": {
+        "type": "string",
+        "maxLength": 60
+      }
     }
   },
   "text": {
+    "title": {
+      "zh": "用量统计",
+      "en": "Usage"
+    },
+    "totalLabel": {
+      "zh": "Token 总量",
+      "en": "Total tokens"
+    },
     "empty": {
-      "zh": "暂无记录",
-      "en": "No activity"
+      "zh": "还没有用量记录",
+      "en": "Nothing recorded yet"
     },
-    "less": {
-      "zh": "少",
-      "en": "Less"
+    "pending": {
+      "zh": "正在汇总会话用量…",
+      "en": "Folding session usage…"
     },
-    "more": {
-      "zh": "多",
-      "en": "More"
+    "offline": {
+      "zh": "示例数据",
+      "en": "sample data"
     },
-    "total": {
-      "zh": "共 {n} 次",
-      "en": "{n} total"
+    "unavailable": {
+      "zh": "读不到用量：没有提供用量的插件",
+      "en": "No usage provider answered"
     },
-    "active": {
-      "zh": "{n} 天有记录",
-      "en": "{n} active days"
+    "noHost": {
+      "zh": "这个卡片不在宿主里，显示的是示例数据",
+      "en": "Not inside a host: showing sample data"
     },
-    "streak": {
-      "zh": "连续 {n} 天",
-      "en": "{n}-day streak"
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.title.hint": {
+      "zh": "留在空处时用「用量统计」。",
+      "en": "Leave it empty for “Usage”."
+    },
+    "props.kicker.label": {
+      "zh": "上方小字",
+      "en": "Kicker"
+    },
+    "props.kicker.hint": {
+      "zh": "显示在标题上方的范围或来源。",
+      "en": "Shown above the title: the range or the source."
     }
   }
 }

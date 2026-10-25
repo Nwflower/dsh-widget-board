@@ -1,174 +1,155 @@
 /*
- * 热力图的样式：一周一列、一天一格，颜色深浅表示当天的多少。
+ * 活动卡片的样式：一张铺满卡片的用量格子，外加一个已经消耗的 Token 总量。
  *
- * 格子按方格排，边长同时受格子区宽度与高度约束（格子区是尺寸容器）：宽盒子里不会先拉到全宽再从
- * 底部切掉，高度先卡住时最多放宽到方格的 1.5 倍。窄高盒子里一格一行地铺开、把高度用上。窗口的
- * 周数由脚本按盒子宽度挑（窄 16 周、常规 26 周、宽 53 周）并写成 `--heatmap-weeks`，所以这套样式
- * 只负责网格与配色（D20）。
+ * 格子按盒子的实际宽高铺开：列数、行数与格子边长都由脚本按像素写死，样式只管盒子和颜色。总量是
+ * 标题区里的一行大读数，宽盒子里跟标题一起落在左边一列，窄盒子里落在标题旁边，不另画底板。
  */
-.heatmap-card__body {
-  gap: var(--w-space-md, 12px);
+
+.usage-card {
+  position: relative;
 }
 
-.heatmap-card__frame {
+.usage-card__body {
+  gap: var(--w-space-sm, 8px);
+}
+
+/*
+ * 标题区：标题与范围在第一行、总量独占一行；宽盒子里竖成三行（标题、总量、范围），跟左边一列的排法
+ * 一致。位置用网格区域指定，盒子换档时只换模板。
+ */
+.usage-card__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'headline meta'
+    'total total';
+  align-items: start;
+  gap: 2px var(--w-space-sm, 8px);
+}
+
+.usage-card__headline {
+  grid-area: headline;
+  min-width: 0;
+}
+
+.usage-card__total {
   display: flex;
-  min-height: 0;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  container-type: size;
-}
-
-.heatmap-card__grid {
-  --heatmap-gap: 3px;
-  --heatmap-cols: var(--heatmap-weeks, 26);
-  --heatmap-rows: 7;
-  --heatmap-cell: max(1px, min(
-    calc((100cqw - (var(--heatmap-cols) - 1) * var(--heatmap-gap)) / var(--heatmap-cols)),
-    calc((100cqh - (var(--heatmap-rows) - 1) * var(--heatmap-gap)) / var(--heatmap-rows))
-  ));
-  /*
-   * 高度先卡住时格子仍按宽度放宽一档，最多比正方宽一半：53 周铺在一条宽矮的卡片里既不缩成一小块，
-   * 也不拉成横条。
-   */
-  --heatmap-cell-width: min(
-    calc((100cqw - (var(--heatmap-cols) - 1) * var(--heatmap-gap)) / var(--heatmap-cols)),
-    calc(var(--heatmap-cell) * 1.5)
-  );
-  display: flex;
-  flex: none;
-  gap: var(--heatmap-gap);
-  overflow: hidden;
-}
-
-.heatmap-card__week {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: var(--heatmap-gap);
-}
-
-.heatmap-card__cell {
-  width: var(--heatmap-cell-width);
-  height: var(--heatmap-cell);
-  flex: none;
-  border-radius: 2px;
-  background: var(--w-color-surface, #fff);
-}
-
-.heatmap-card__cell[data-level="0"],
-.heatmap-card__swatch[data-level="0"] {
-  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 8%, var(--w-color-surface, #fff));
-}
-
-.heatmap-card__cell[data-level="1"],
-.heatmap-card__swatch[data-level="1"] {
-  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 22%, var(--w-color-surface, #fff));
-}
-
-.heatmap-card__cell[data-level="2"],
-.heatmap-card__swatch[data-level="2"] {
-  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 44%, var(--w-color-surface, #fff));
-}
-
-.heatmap-card__cell[data-level="3"],
-.heatmap-card__swatch[data-level="3"] {
-  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 68%, var(--w-color-surface, #fff));
-}
-
-.heatmap-card__cell[data-level="4"],
-.heatmap-card__swatch[data-level="4"] {
-  background: var(--w-color-accent, #2563eb);
-}
-
-.heatmap-card__cell[data-today] {
-  outline: 1px solid color-mix(in srgb, var(--w-color-fg, #0b1016) 55%, transparent);
-  outline-offset: 1px;
-}
-
-.heatmap-card__cell[data-future] {
-  background: transparent;
-}
-
-.heatmap-card__foot {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 10px;
-}
-
-.heatmap-card__caption {
   margin: 0;
-  color: var(--w-color-muted, #6b7684);
-  font-size: var(--w-type-caption, 12px);
-  line-height: 18px;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  flex-direction: column;
+  grid-area: total;
+  gap: 2px;
 }
 
-.heatmap-card__legend {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 3px;
+.usage-card__head .t-data__meta {
+  grid-area: meta;
+  align-self: start;
 }
 
-.heatmap-card__legend-label {
+.usage-card__total-label {
   color: var(--w-color-muted, #6b7684);
   font-size: var(--w-type-caption, 12px);
   letter-spacing: 0;
   line-height: 16px;
 }
 
-.heatmap-card__swatch {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
+/*
+ * 总量按盒子的宽高收放：窄盒子里小些，宽盒子里可以撑到 56px；等宽数字，单位与数字同一行。
+ */
+.usage-card__total-value {
+  color: var(--w-color-fg, #0b1016);
+  font-size: clamp(26px, 7vw + 10px, 56px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-/* 窄盒子：格子与格子之间收到 2px，16 周的窗口挤得进一行的宽度。 */
-:root[data-box-width="narrow"] .heatmap-card__body { gap: var(--w-space-sm, 8px); }
-:root[data-box-width="narrow"] .heatmap-card__grid { --heatmap-gap: 2px; }
-
-/*
- * 窄高盒子（不是宽盒子）：把格子的行列对调，一周一行、七天一行排开，格子按高度铺开，
- * 不再缩成顶上的一条。宽高都不够时仍按两边的上限取小。
- */
-:root[data-box-height="tall"]:not([data-box-width="wide"]) .heatmap-card__grid {
-  --heatmap-cols: 7;
-  --heatmap-rows: var(--heatmap-weeks, 26);
-  flex-direction: column;
+/* 格子区占满正文，格子在里面居中铺开：一整行的取整余量落在上下两边。 */
+.usage-card__heat {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
 }
 
-:root[data-box-height="tall"]:not([data-box-width="wide"]) .heatmap-card__week { flex-direction: row; }
-
 /*
- * 宽而矮的盒子：摘要与图例挪到标题那一行，格子区占住整块正文。160px 高的卡片里，脚注占掉的
- * 一行高度正是格子边长的一半；放到标题行之后，53 周才按高度铺得开，宽度也用得满。
+ * 格子区是一张网格，列宽行高与每一格的位置都由脚本写死：`--usage-cols` 列、`--usage-rows` 行，
+ * 每格多大由 `--usage-cell` 给出，所以换一个盒子就换一套格子，不必等内核按内容推算。
  */
-:root[data-box-width="wide"][data-box-height="short"] .heatmap-card {
+.usage-card__grid {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  column-gap: var(--w-space-xl, 24px);
-  row-gap: var(--w-space-sm, 8px);
+  flex: none;
+  grid-template-columns: repeat(var(--usage-cols, 10), var(--usage-cell, 9px));
+  grid-template-rows: repeat(var(--usage-rows, 7), var(--usage-cell, 9px));
+  gap: var(--usage-gap, 3px);
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-:root[data-box-width="wide"][data-box-height="short"] .heatmap-card > .t-data__head { grid-area: 1 / 1; }
-
-:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__body { display: contents; }
-
-:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__frame {
-  grid-area: 2 / 1 / 3 / 3;
+.usage-card__cell {
+  width: var(--usage-cell, 9px);
+  height: var(--usage-cell, 9px);
+  border-radius: var(--usage-radius, 3px);
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 11%, transparent);
 }
 
-:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__foot {
-  grid-area: 1 / 2;
-  min-width: 0;
-  row-gap: var(--w-space-xs, 4px);
+/*
+ * 色阶：数据蓝是曲线与图表共用的那一支，与主色的选择无关，否则换个主色就读不出哪天用得多了。
+ * 每一档按份额混进同一个颜色，空档留在上面的中性底。
+ */
+.usage-card__cell[data-level="1"] { background: color-mix(in srgb, var(--usage-ink, #3b6ecf) 20%, transparent); }
+.usage-card__cell[data-level="2"] { background: color-mix(in srgb, var(--usage-ink, #3b6ecf) 40%, transparent); }
+.usage-card__cell[data-level="3"] { background: color-mix(in srgb, var(--usage-ink, #3b6ecf) 65%, transparent); }
+.usage-card__cell[data-level="4"] { background: var(--usage-ink, #3b6ecf); }
+
+/*
+ * 今天那一格在里面描一圈，剩下的日子不带描边。描边画在格子内部：格子区贴着卡片的边缘，向外描的
+ * 那一圈会被裁掉，右端与下端看起来就缺一块。
+ */
+.usage-card__cell[data-today] {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--w-color-fg, #0b1016) 55%, transparent);
 }
 
-:root[data-box-width="wide"][data-box-height="short"] .heatmap-card__empty {
-  grid-area: 2 / 1 / 3 / 3;
+/* 悬停提示：贴着格子的实心药丸，指针停在上面时才出现。 */
+.usage-card__tip {
+  position: absolute;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--w-color-fg, #0b1016);
+  color: var(--w-color-surface, #fff);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--w-motion-fast, 150ms) var(--w-motion-ease-standard, ease-in-out);
+}
+
+.usage-card__tip[data-open] {
+  opacity: 1;
+}
+
+/* 宽盒子里标题区是一竖列：标题、总量、范围依次往下。 */
+:root[data-box-width="wide"] .usage-card__head {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'headline'
+    'total'
+    'meta';
+  align-content: center;
+}
+
+/* 矮盒子里读数收一档，标题与格子让出高度。 */
+:root[data-box-height="short"] .usage-card__total-value {
+  font-size: clamp(20px, 5vw + 8px, 34px);
+}
+
+/* 缩略画面不接指针，提示也不出现。 */
+:root[data-placement="preview"] .usage-card__tip {
+  display: none;
 }

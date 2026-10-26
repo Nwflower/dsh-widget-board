@@ -59,6 +59,7 @@ import type { SelfChecks } from './selfcheck'
 import { selfCheckRoutes } from './selfcheck'
 import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
 import type { RateLimiter } from './limits'
+import { visibilityRoutes } from './visibility'
 import type { SaveOptions, Workspace } from './workspace'
 
 /** 卡片状态的请求体上限：界面状态只是几张表单的值，几 KB 足够。 */
@@ -539,14 +540,6 @@ const ROUTES: Route[] = [
   },
   {
     method: 'GET',
-    pattern: /^\/events$/,
-    limit: 0,
-    async handle(context, _request, response) {
-      context.live.subscribe(response)
-    },
-  },
-  {
-    method: 'GET',
     pattern: /^\/widget\/([0-9a-f]{64})\/document$/,
     limit: 0,
     async handle(context, request, response, match) {
@@ -656,7 +649,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...selfCheckRoutes()].flatMap((route) => {
+    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...selfCheckRoutes(), ...visibilityRoutes()].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

@@ -1,0 +1,230 @@
+{
+  "m": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "props": {
+      "scope": "session"
+    },
+    "data": {
+      "available": true,
+      "reason": null,
+      "startedAt": 1773907200000,
+      "scope": "session",
+      "date": "2026-03-19",
+      "session": "a41f7c02",
+      "empty": null,
+      "totals": {
+        "input": 412880,
+        "output": 96840,
+        "cacheRead": 1531200,
+        "cacheWrite": 74200,
+        "total": 2115120,
+        "calls": 216,
+        "estimated": false
+      },
+      "recent": {
+        "at": 1773908280000,
+        "session": "a41f7c02",
+        "input": 3120,
+        "output": 780,
+        "total": 12940,
+        "estimated": false
+      },
+      "trend": [
+        {
+          "at": 1773907290000,
+          "value": 62000
+        },
+        {
+          "at": 1773907380000,
+          "value": 145800
+        },
+        {
+          "at": 1773907470000,
+          "value": 88400
+        },
+        {
+          "at": 1773907560000,
+          "value": 231200
+        },
+        {
+          "at": 1773907650000,
+          "value": 132700
+        },
+        {
+          "at": 1773907740000,
+          "value": 198600
+        },
+        {
+          "at": 1773907830000,
+          "value": 74500
+        },
+        {
+          "at": 1773907920000,
+          "value": 264300
+        },
+        {
+          "at": 1773908010000,
+          "value": 158900
+        },
+        {
+          "at": 1773908100000,
+          "value": 121400
+        },
+        {
+          "at": 1773908190000,
+          "value": 186200
+        },
+        {
+          "at": 1773908280000,
+          "value": 12940
+        }
+      ]
+    }
+  },
+  "l": {
+    "lang": "en-US",
+    "motion": "full",
+    "props": {
+      "scope": "today"
+    },
+    "data": {
+      "available": true,
+      "reason": null,
+      "startedAt": 1773897600000,
+      "scope": "today",
+      "date": "2026-03-19",
+      "session": null,
+      "empty": null,
+      "totals": {
+        "input": 906240,
+        "output": 231580,
+        "cacheRead": 428800,
+        "cacheWrite": 51200,
+        "total": 1137820,
+        "calls": 512,
+        "estimated": true
+      },
+      "recent": {
+        "at": 1773898680000,
+        "session": "3c7f0a91",
+        "input": 31200,
+        "output": 10080,
+        "total": 41280,
+        "estimated": true
+      },
+      "trend": [
+        {
+          "at": 1773897660000,
+          "value": 30400
+        },
+        {
+          "at": 1773897720000,
+          "value": 88200
+        },
+        {
+          "at": 1773897780000,
+          "value": 54600
+        },
+        {
+          "at": 1773897840000,
+          "value": 141000
+        },
+        {
+          "at": 1773897900000,
+          "value": 96200
+        },
+        {
+          "at": 1773897960000,
+          "value": 173400
+        },
+        {
+          "at": 1773898020000,
+          "value": 61200
+        },
+        {
+          "at": 1773898080000,
+          "value": 204800
+        },
+        {
+          "at": 1773898140000,
+          "value": 118600
+        },
+        {
+          "at": 1773898200000,
+          "value": 87900
+        },
+        {
+          "at": 1773898260000,
+          "value": 152300
+        },
+        {
+          "at": 1773898320000,
+          "value": 231700
+        },
+        {
+          "at": 1773898380000,
+          "value": 68400
+        },
+        {
+          "at": 1773898440000,
+          "value": 195500
+        },
+        {
+          "at": 1773898500000,
+          "value": 127800
+        },
+        {
+          "at": 1773898560000,
+          "value": 163200
+        },
+        {
+          "at": 1773898620000,
+          "value": 99800
+        },
+        {
+          "at": 1773898680000,
+          "value": 41280
+        }
+      ]
+    }
+  },
+  "empty": {
+    "sessions-unavailable": {
+      "available": false,
+      "reason": "sessions-unavailable",
+      "startedAt": 1773907200000,
+      "scope": "session",
+      "date": "2026-03-19",
+      "session": null,
+      "empty": null,
+      "totals": null,
+      "recent": null,
+      "trend": []
+    },
+    "no-sessions": {
+      "available": true,
+      "reason": null,
+      "startedAt": 1773907200000,
+      "scope": "all",
+      "date": "2026-03-19",
+      "session": null,
+      "empty": "no-sessions",
+      "totals": null,
+      "recent": null,
+      "trend": []
+    },
+    "no-usage": {
+      "available": true,
+      "reason": null,
+      "startedAt": 1773907200000,
+      "scope": "session",
+      "date": "2026-03-19",
+      "session": null,
+      "empty": "no-usage",
+      "totals": null,
+      "recent": null,
+      "trend": []
+    }
+  }
+}

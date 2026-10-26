@@ -46,6 +46,7 @@ import {
 import { BoardTabs } from './tabs'
 import type { ShellTheme } from './theme'
 import { resolveTheme, watchTheme } from './theme'
+import { createVisibilityReporting } from './visibility'
 
 /** 根字号的像素值：列宽与卡片高度按它换算（D16）。 */
 function rootFontSize(): number {
@@ -121,6 +122,9 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /** 当前选中那块看板的「整理」：菜单上的按钮按它走。 */
   const tidyRef = useRef<(() => void) | null>(null)
   const frames = useMemo(() => frameHostOf(), [])
+  /** 现在看得见的卡片：观察器每次回调都换成这一份，再交给宿主（D6 的单卡可见性）。 */
+  const visibleIdsRef = useRef(new Set<string>())
+  const reporting = useMemo(() => createVisibilityReporting(), [])
 
   const controls = useMemo<CardControls>(() => ({
     register(id, handlers) {
@@ -421,7 +425,11 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     tidyRef.current = tidy
   }, [])
 
-  useEffect(() => subscribeLive(onEvent), [onEvent])
+  // 重连之后宿主那边这页的可见集合已经清掉了：接上时重报一次，宿主不必把断线当成「还在看」。
+  useEffect(() => subscribeLive(onEvent, () => { reporting.resend() }), [onEvent, reporting])
+
+  // 离开看板时这一页再看不见任何卡片（D6）。
+  useEffect(() => () => { reporting.dispose() }, [reporting])
 
   // 打开看板就算看过之前的通知。放在布局效果里：卡片 iframe 的握手要等这次提交之后，组件在
   // init 里发来的通知不会被这一下清掉（D7）。
@@ -453,24 +461,65 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   }, [])
 
   // 观察器只随卡片名单重建：状态与布局的通知每秒都在改快照对象，观察器不能跟着每秒拆装一遍
-  //（D18 的就地合并、页面级资源唯一拥有者）。
+  //（D18 的就地合并、页面级资源唯一拥有者）。同一批回调顺带把可见的卡片 id 报给宿主（D6）。
   const instanceIds = activeBoard === null ? '' : activeBoard.instances.map((instance) => instance.id).join(',')
   useEffect(() => {
     const node = boardsRef.current
     if (node === null) return
+    const visible = visibleIdsRef.current
+    const cells = [...node.querySelectorAll<HTMLElement>('[data-instance]')]
+    // 组卡的两面共用一个盒子，观察节点上只带正面那张的 id（D19）：背面那张与它同进同出。
+    const twins = new Map<string, string>()
+    const groups = new Map<string, string[]>()
+    for (const instance of activeBoard?.instances ?? []) {
+      const group = instance.group?.id
+      if (group === undefined) continue
+      groups.set(group, [...(groups.get(group) ?? []), instance.id])
+    }
+    for (const members of groups.values()) {
+      for (const id of members) {
+        for (const other of members) {
+          if (other !== id) twins.set(id, other)
+        }
+      }
+    }
+    const present = new Set<string>()
+    for (const cell of cells) {
+      const id = cell.dataset.instance
+      if (id === undefined) continue
+      present.add(id)
+      const twin = twins.get(id)
+      if (twin !== undefined) present.add(twin)
+    }
+    // 换到另一块看板时旧的一批 id 已经不在这块看板上了；观察器的第一次回调会补上新的那一批。
+    for (const id of [...visible]) {
+      if (!present.has(id)) visible.delete(id)
+    }
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         const id = (entry.target as HTMLElement).dataset.instance
-        const handlers = id === undefined ? undefined : cardControls.current.get(id)
+        if (id === undefined) continue
+        const twin = twins.get(id)
+        if (entry.isIntersecting) {
+          visible.add(id)
+          if (twin !== undefined) visible.add(twin)
+        } else {
+          visible.delete(id)
+          if (twin !== undefined) visible.delete(twin)
+        }
+        const handlers = cardControls.current.get(id)
         if (handlers === undefined) continue
         if (entry.isIntersecting) handlers.resume()
         else handlers.pause()
       }
+      reporting.report([...visible])
     }, { threshold: 0 })
-    for (const cell of node.querySelectorAll('[data-instance]')) observer.observe(cell)
+    for (const cell of cells) observer.observe(cell)
+    // 一块没有卡片的看板不会有回调：这一页看得见的是空集合。
+    if (cells.length === 0) reporting.report([])
     return () => observer.disconnect()
     // 热刷新让每张卡换一个 key 重挂：节点换了，观察器也要重新登记。
-  }, [activeBoard?.id, metrics, instanceIds, refreshGeneration])
+  }, [activeBoard?.id, metrics, instanceIds, refreshGeneration, reporting])
 
   let body: ReactNode = null
   if (failure !== null) body = <div className="dsh-widget-board__notice">{failure}</div>

@@ -1,0 +1,403 @@
+/*
+ * 最近 Token 用量卡的样式（D10、D20）：一块读数仪表，主读数是渐变面积走势上方的总量，四项分项
+ * 共用一条占比条，最近一次调用作为次读。字号、间距、圆角、颜色全部从令牌读，画面里没有字面色值。
+ *
+ * 盒子契约按运行时写下的两个方向档位走：宽盒子用套件的 `.t-data--split` 把标题挪到左列，读数与
+ * 走势并排；窄盒子把四项分项排成两行。高度方向另有三档收线——212px 以下收走势，176px 以下收次读，
+ * 120px 以下收分项与范围标签，只留标题与总量；任何一档都不靠溢出硬塞（D20）。
+ */
+.usage {
+  gap: var(--w-space-sm, 8px);
+}
+
+.usage__heading {
+  min-width: 0;
+}
+
+/*
+ * 正文是一列：总量、走势、分项、最近调用。走势取走剩余高度，其余几块各自固定；高度不够时先收走势，
+ * 再收次读，最后收分项。容器查询单位只用在这里的量级上，字号仍由盒子宽度决定。
+ */
+.usage__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--w-space-sm, 8px);
+  container-type: inline-size;
+}
+
+/* 主读数：标签、数字与单位、调用次数，推算时多一枚可见的文字标记。 */
+.usage__hero {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.usage__label {
+  margin: 0;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+}
+
+.usage__value {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  align-items: baseline;
+  gap: 2px;
+  line-height: 1;
+}
+
+.usage__number {
+  color: var(--w-color-fg);
+  font-size: clamp(26px, 8cqi, 46px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.usage__unit {
+  color: var(--w-color-muted);
+  font-size: var(--w-type-body);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.usage__sub {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  align-items: center;
+  gap: var(--w-space-xs, 4px);
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+/* 推算的标记写成字：「含推算」三个字自己说明读数从哪来，不靠颜色暗示（D10）。 */
+.usage__badge {
+  display: inline-flex;
+  padding: 0 6px;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-tone-warn) 14%, transparent);
+  color: var(--w-tone-warn);
+  font-size: var(--w-type-caption);
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* 走势：说明一行，下面是一块按盒子拉伸的 SVG 面积图，末点是 HTML 圆点，拉伸后仍是正圆。 */
+.usage__trend {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 44px;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.usage__trend-caption {
+  margin: 0;
+  overflow: hidden;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage__plot {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+}
+
+.usage__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.usage__stop {
+  stop-color: var(--w-color-accent);
+}
+
+.usage__stop--top { stop-opacity: 0.34; }
+.usage__stop--mid { stop-opacity: 0.12; }
+.usage__stop--base { stop-opacity: 0; }
+
+.usage__area {
+  fill: url(#usage-fill);
+}
+
+.usage__line {
+  fill: none;
+  stroke: var(--w-color-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.usage__end {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 2px solid var(--w-color-surface);
+  border-radius: 50%;
+  background: var(--w-color-accent);
+  box-shadow: 0 0 0 1px var(--w-color-accent);
+  transform: translate(-50%, -50%);
+}
+
+/* 四项分项：一条占比条在上，四格读数在下；四格宽度相等，读数用 tabular-nums 对齐。 */
+.usage__parts {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+}
+
+.usage__bar {
+  display: flex;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-color-fg) 8%, transparent);
+}
+
+.usage__bar-piece {
+  flex: var(--share, 0) 1 0;
+}
+
+.usage__bar-piece[data-piece="input"] { background: var(--w-color-accent); }
+.usage__bar-piece[data-piece="output"] { background: color-mix(in srgb, var(--w-color-accent) 66%, transparent); }
+.usage__bar-piece[data-piece="cacheRead"] { background: color-mix(in srgb, var(--w-color-accent) 40%, transparent); }
+.usage__bar-piece[data-piece="cacheWrite"] { background: var(--w-tone-idle); }
+
+.usage__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 2px var(--w-space-md, 12px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+}
+
+.usage__part {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.usage__part-label {
+  overflow: hidden;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage__part-value {
+  overflow: hidden;
+  color: var(--w-color-fg);
+  font-size: var(--w-type-body);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage__part-share {
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 14px;
+}
+
+/* 次读：一行放标题、读数与时间、会话、推算标记，过长时省略的是尾巴。 */
+.usage__recent {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-items: baseline;
+  gap: var(--w-space-sm, 8px);
+}
+
+.usage__recent-title {
+  flex: none;
+  margin: 0;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.usage__recent-line {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  align-items: baseline;
+  gap: var(--w-space-sm, 8px);
+}
+
+.usage__recent-value {
+  flex: none;
+  color: var(--w-color-fg);
+  font-size: var(--w-type-body);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.usage__recent-meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 宽盒子：标题在左列（套件负责），正文里总量与走势并排，分项与次读各占一整行，宽度真的用上。 */
+:root[data-box-width="wide"] .usage__body {
+  display: grid;
+  grid-template-areas:
+    "hero trend"
+    "parts parts"
+    "recent recent";
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  column-gap: var(--w-space-lg, 16px);
+  row-gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-width="wide"] .usage__hero {
+  grid-area: hero;
+  align-self: center;
+}
+
+:root[data-box-width="wide"] .usage__trend { grid-area: trend; }
+:root[data-box-width="wide"] .usage__parts { grid-area: parts; }
+:root[data-box-width="wide"] .usage__recent { grid-area: recent; }
+
+/* 窄盒子：四项分项排成两行；矮盒子同样把每格收成「名字 + 读数」一行，占比在窄与矮的地方让位。 */
+:root[data-box-width="narrow"] .usage__list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  row-gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="narrow"] .usage__part,
+:root[data-box-height="short"] .usage__part {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--w-space-xs, 4px);
+}
+
+:root[data-box-width="narrow"] .usage__part-label,
+:root[data-box-height="short"] .usage__part-label {
+  flex: 0 1 auto;
+}
+
+:root[data-box-width="narrow"] .usage__part-value,
+:root[data-box-height="short"] .usage__part-value {
+  flex: none;
+}
+
+:root[data-box-width="narrow"] .usage__part-share,
+:root[data-box-height="short"] .usage__part-share {
+  display: none;
+}
+
+/* 高盒子：主读数与分项升一档，走势的说明也跟着放大。 */
+:root[data-box-height="tall"] .usage__number {
+  font-size: clamp(34px, 9cqi, 56px);
+}
+
+:root[data-box-height="tall"] .usage__part-value,
+:root[data-box-height="tall"] .usage__recent-value {
+  font-size: var(--w-type-title);
+}
+
+/* 矮盒子：总量与调用次数横排，空间不足时换到下一行；字号按宽度收一档。 */
+:root[data-box-height="short"] .usage__hero {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--w-space-md, 12px);
+  row-gap: 2px;
+}
+
+:root[data-box-height="short"] .usage__value {
+  flex: none;
+}
+
+:root[data-box-height="short"] .usage__number {
+  font-size: clamp(26px, 7cqi, 36px);
+}
+
+/*
+ * 高度收线。iframe 的视口就是卡片的内容盒，所以断点与根节点上的 height 档位一一对应；档位只分矮、
+ * 常规、高，分不出 6rem 与 10rem，这里补上更细的几档（D20 记的等价关系）。
+ *
+ * 212px 以下只剩不到 40px 的高度，摆不下一块能读的走势；176px 以下连次读也要让位；120px 以下分项
+ * 与范围标签一起收掉，只留标题与总量。收掉的部分一律不靠滚动或裁切硬塞进盒子。
+ */
+@media (max-height: 212px) {
+  .usage__trend { display: none; }
+}
+
+@media (min-width: 480px) {
+  :root[data-box-height="short"] .usage .t-data__title {
+    font-size: var(--w-type-body);
+    line-height: 20px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-height: 176px) {
+  .usage__recent { display: none; }
+}
+
+@media (max-height: 120px) {
+  .usage__parts,
+  .usage__kicker { display: none; }
+}
+
+/* 常规与矮盒子不写「总量」这一行，读数自己说明；只有高盒子留出标签行。 */
+@media (max-height: 359px) {
+  .usage__label { display: none; }
+}
+
+/* 走势收起后，宽盒子里的总量独占整行，避免左边一小块、右边一大片空白。 */
+@media (max-height: 212px) {
+  :root[data-box-width="wide"] .usage__body {
+    grid-template-areas:
+      "hero hero"
+      "parts parts"
+      "recent recent";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-box-width="wide"] .usage__hero {
+    align-self: start;
+  }
+}

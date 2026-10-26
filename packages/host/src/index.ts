@@ -208,7 +208,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   }
   refreshLibrary = reload
 
-  // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读，没人看就停。
+  // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读——没人看就全停，一张卡没落进任何
+  // 一页的视口就不读它。
   const scheduler = createScheduler({
     // 卡片 id 全工作区唯一；定时链按全部看板算，不只看选中的那一块（D6、D21）。
     cards: () => context.workspace.list().flatMap((board) => board.instances.flatMap((instance) => {
@@ -216,12 +217,15 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
     })),
     viewers: () => live.viewers,
+    visible: () => live.visible,
     read: async (ids) => await readManyInto(context, ids),
     onError: (id, error) => {
       console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
     },
   })
   const stopWatchingViewers = live.onViewers(() => { scheduler.sync() })
+  // 可见集合一变就重算一次：新看得见的卡立刻读，离开视口的卡不再排期（D6）。
+  const stopWatchingVisibility = live.onVisible(() => { scheduler.sync() })
   syncScheduler = () => { scheduler.sync() }
 
   const handler = createHandler(context)
@@ -338,6 +342,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeSystemMetricsAction()
     disposeHttpSource()
     stopWatchingViewers()
+    stopWatchingVisibility()
     scheduler.stop()
     stopBuiltin()
     stopUser()

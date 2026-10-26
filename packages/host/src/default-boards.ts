@@ -52,7 +52,7 @@ const GALLERY_COLUMNS = 3
 
 /** 画廊的类别，按显示的先后；每个类别里的组件也按这里的先后，相邻的几个正好排满一行。 */
 const GALLERY_CATEGORIES: readonly { title: string, widgets: readonly string[] }[] = [
-  { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance', 'github-issues'] },
+  { title: '数据展示', widgets: ['stat', 'gauge', 'progress', 'chart', 'heatmap', 'session-usage', 'table', 'kv', 'list', 'timeline', 'image', 'markdown', 'json', 'diff', 'dsh-balance', 'github-issues'] },
   { title: '工具', widgets: ['board-hero', 'clock', 'calendar', 'fortune', 'year-progress', 'weather', 'pomodoro', 'todo', 'links', 'light-switch'] },
   { title: '动效模板', widgets: ['flip-card', 'holographic-card', 'magnetic-card'] },
 ]

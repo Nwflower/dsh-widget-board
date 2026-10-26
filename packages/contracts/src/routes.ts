@@ -51,6 +51,64 @@ export const EVENTS_PATH = '/events'
 /** 变更通知的地址，文档相对。 */
 export const CLIENT_EVENTS_PATH = `${CLIENT_ROUTE}${EVENTS_PATH}`
 
+/**
+ * 观众身份的查询参数：每个浏览器看板页一个，接在变更通知与可见性上报上（D6）。
+ *
+ * 断线重连沿用同一个 id，宿主把重连当成同一位观众回来，不会多出一个人。
+ */
+export const VIEWER_QUERY = 'viewer'
+
+/** 一个观众 id 最多多长：它只是路由参数，宿主按它存一份可见集合。 */
+export const VIEWER_MAX_LENGTH = 128
+
+/**
+ * 变更通知的地址，文档相对，带上观众身份（D6、D18）。
+ *
+ * @param viewer - 这个页面的观众 id。
+ * @returns 订阅通知的路径。
+ */
+export const eventsPath = (viewer: string): string =>
+  `${CLIENT_EVENTS_PATH}?${VIEWER_QUERY}=${encodeURIComponent(viewer)}`
+
+/**
+ * 单卡可见性上报：页面告诉宿主自己看得见哪些卡片（D6 的「没有观众不刷新」细化到单张卡）。
+ */
+export const VISIBILITY_PATH = '/visibility'
+
+/** 可见性上报的地址，文档相对。 */
+export const CLIENT_VISIBILITY_PATH = `${CLIENT_ROUTE}${VISIBILITY_PATH}`
+
+/** 一次上报的请求体上限。 */
+export const VISIBILITY_LIMIT = 16 * 1024
+
+/** 一次上报最多带多少个卡片 id；每次请求各算各的，不累计。 */
+export const VISIBILITY_MAX_IDS = 512
+
+/** 一次上报里一个卡片 id 最多多长。 */
+export const VISIBILITY_MAX_ID_LENGTH = 128
+
+/** 一次可见性上报的主体。 */
+export interface VisibilityReport {
+  /** 上报的观众 id，与接通知时的同一个。 */
+  viewer: string
+  /** 这个观众现在看得见的卡片 id；空数组表示这一页一张卡都没在视口里。 */
+  visible: string[]
+}
+
+/**
+ * 判定一份可见性上报。
+ *
+ * @param value - 解出来的 JSON。
+ * @returns 可以当 `VisibilityReport` 用时为真。
+ */
+export function isVisibilityReport(value: unknown): value is VisibilityReport {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const { viewer, visible } = value as Record<string, unknown>
+  if (typeof viewer !== 'string' || viewer === '' || viewer.length > VIEWER_MAX_LENGTH) return false
+  if (!Array.isArray(visible) || visible.length > VISIBILITY_MAX_IDS) return false
+  return visible.every((id: unknown) => typeof id === 'string' && id !== '' && id.length <= VISIBILITY_MAX_ID_LENGTH)
+}
+
 /** 单张卡片的路由前缀：状态、数据、动作、授权与移除都挂在它下面（D5、D6）。 */
 export const INSTANCE_ROUTE = '/instance'
 

@@ -10,11 +10,12 @@
 
 <h3 id="cn-unreleased">新增功能</h3>
 
-- 新增内置组件「开关灯」：一盏台灯，按底座上的开关在日间与夜间之间切换，窗外的太阳、月亮、星点与灯下的光束一起变化。切换经通用的 dsh.theme 能力完成；浏览器半边把整页的新配色从灯下的一点以圆点展开，旧画面留在圆外，卡片里的波纹与整页圆点共用按下点，并且等新配色落到卡片时才一起开始；圆心与半径用百分比写，1.5 倍像素密度的桌面上也不会偏向左上角。旧快照拍完后暂停其它卡片的逐帧绘制，转场结束分批恢复，按下的一刻其它卡片不会被提前停住；卡片 iframe 不在整页快照里，新主题按圆点盖住各卡片远角的时刻分批推送，圆外的卡片不会提前变色；浏览器不支持 View Transitions 或系统要求减弱动效时退回直接切换。宿主半边也能读改写主题偏好，作为兜底。
+- 新增内置组件「开关灯」：一盏台灯，按底座上的开关在日间与夜间之间切换，窗外的太阳、月亮、星点与灯下的光束一起变化。切换经通用的 dsh.theme 能力完成；浏览器半边把整页的新配色从灯下的一点以圆点展开，旧画面留在圆外，卡片里的波纹与整页圆点共用按下点，并且等新配色落到卡片时才一起开始；圆心与半径用百分比写，1.5 倍像素密度的桌面上也不会偏向左上角。旧快照拍完后暂停其它卡片的逐帧绘制，转场结束分批恢复，按下的一刻其它卡片不会被提前停住；浏览器不支持 View Transitions 或系统要求减弱动效时退回直接切换。宿主半边也能读改写主题偏好，作为兜底。
 - 天气卡新增六座城市街景：北京国贸 CBD（中国尊、国贸三期）、上海陆家嘴（东方明珠、三件套、江面）、纽约曼哈顿、东京涩谷、伦敦金融城与赛博霓虹峡谷；每座城有媒体立面、动画广告屏、霓虹招牌、人流与车流，按城市自动出现，也能在设置里直接指定。
 - 六座城市的街景不再用同一条街道模板：北京改成楼顶俯瞰 CBD、上海改在外滩隔江看陆家嘴、纽约改成低机位仰视一线天、东京改成路口斜上方俯看斑马线与人潮、伦敦改成河上船看塔桥、赛博霓虹改成驾驶位车景；每座城都带自己的镜头轨道（横移、仰视、环绕、随船起伏、随车前进）。
 - 新增会话用量能力：看板自己读本机的会话日志，折出每天的四类 token 分桶与按小时的结算次数，结果按日志的大小与修改时间缓存在看板自己的目录里；组件用它就不必依赖别的插件。
 - 天气卡按城市换景：北京一线是古建塔殿、苏杭是水墨山峦与庭院，设置里还能指定景观与动画方式（漂移、静止、轮播）；文字尺寸改为按卡片宽高比例缩放，大卡片不再被 px 上限卡住。
+- 新增内置数据源 widget-board:session.usage 与内置的「最近 Token 用量」卡片：插件启动之后订阅会话事件，按所选会话、本地当天与全部三个窗口给出带用量调用的 token 合计、最近一次与最近 30 个点，读数里只出现会话 id 的前 8 位；同时卡片离开视口后暂停刷新，回到视口时补读一次数据。
 
 ### 体验优化
 
@@ -32,7 +33,6 @@
 - 删除所有看板后补上的不再是空白的「未命名看板」，而是首次启动的默认看板「我的看板」：卡片与布局都回到默认。
 - 放一张绑着需授权数据源的卡不再报错：卡片照加、数据留空，在卡片上给出「允许」之后再读就有数据；界面上加卡失败与卡片凭空出现的矛盾组合消失。
 - 设置弹窗画出来的凭据现在都存得进去：能力提供方声明的凭据与组件自己声明的在读写两侧按同一份清单核对，填了值不再被「组件没有声明这个凭据」拒绝。
-- 天气卡的设置恢复城市名输入与定位：配置里重新出现「城市」选择器，输入中文名、英文名或拼音后从候选里选一条，也可以按「定位」填当前位置；双语地名与经纬度作为隐藏的派生字段写回，设置里不再直接要求填写经纬度。
 - 页面不再被旧快照盖掉刚收到的改动：快照带上变更通知的修订号，重取与写入答复换上快照之后，把比它新的事件按修订号重放一遍，状态与布局不再短暂回退。
 - widget_define 的自检在真实会话里量得出结果了：检查改经端口送进组件运行时（原先直接跨源读沙箱帧的窗口，必然失败），自检画廊也把组件的双语文案递进去，不再整页显示成 key。
 - 变更通知的心跳更稳：单个观众断线不再打断心跳，看板功能关掉再打开之后新连接的心跳也会重新起起来，长时间没有消息的连接不再被反向代理掐掉。
@@ -46,11 +46,12 @@
 
 <h3 id="en-unreleased">New Features</h3>
 
-- New built-in widget, Light switch: a desk lamp whose base switch flips the room between day and night, moving the sun, moon, stars and the light beam together. The switch goes through the generic dsh.theme capability; the browser half reveals the new palette across the whole page as a circle growing from the lamp, with the old picture left outside it. The card's ripple shares the press point and starts with the page circle once the new tokens reach the card; the circle's center and radius are percentages, so a 1.5x display no longer pulls it toward the top-left. Other cards are suspended only after the old snapshot is taken and resumed in batches, so the press never freezes them early; card iframes are not part of the page snapshot, so the new theme is pushed to each card when the circle covers its far corner, and cards outside the circle stay in the old mode; when View Transitions are unavailable or reduced motion is requested it switches directly, and the host half can read and write the theme preference as a fallback.
+- New built-in widget, Light switch: a desk lamp whose base switch flips the room between day and night, moving the sun, moon, stars and the light beam together. The switch goes through the generic dsh.theme capability; the browser half reveals the new palette across the whole page as a circle growing from the lamp, with the old picture left outside it. The card's ripple shares the press point and starts with the page circle once the new tokens reach the card; the circle's center and radius are percentages, so a 1.5x display no longer pulls it toward the top-left. Other cards are suspended only after the old snapshot is taken and resumed in batches, so the press never freezes them early; when View Transitions are unavailable or reduced motion is requested it switches directly, and the host half can read and write the theme preference as a fallback.
 - Six new city-scape scenes for the weather card: Beijing CBD with the CITIC Tower, Shanghai Lujiazui with the Pearl Tower and the Bund, Manhattan, Shibuya, the City of London, and a cyberpunk neon canyon; each has animated media facades, billboard screens, neon signs, pedestrians and traffic, picked by city or chosen in settings.
 - The six city scenes no longer share one street template: Beijing is a rooftop view over the CBD, Shanghai looks across the river from the Bund, New York is a low upward view through a canyon, Tokyo looks down on the scramble crossing, London rides a boat toward Tower Bridge, and the cyberpunk scene is a driver's-seat view; each scene brings its own camera track.
 - Add the session-usage capability: the board reads this machine's session logs itself, folds them into four token buckets per day and settlements per hour, and caches the result by each log's size and modification time in its own directory, so a widget no longer depends on another plugin for these figures.
 - The weather card now matches the city: historic towers and halls for Beijing, ink-wash mountains or a walled courtyard for Jiangnan cities, with settings for the scene and motion (drift, still, rotate); text now scales with the card instead of hitting a fixed pixel cap.
+- Add the built-in widget-board:session.usage data source and the built-in recent-token-usage card: from the moment the plugin starts it subscribes to session events and reports token totals for the selected session, the local day and everything since start, plus the latest call and the last 30 points, with only the first 8 characters of a session id in the reading. Cards also stop refreshing while they are out of view and read once when they come back.
 
 ### Improvements
 
@@ -68,7 +69,6 @@
 - Deleting every board now leaves the default "My board" from the first launch instead of a blank "Untitled board", with its cards and layout restored.
 - Adding a card bound to a source that needs authorization no longer fails: the card is added with empty data, and after the user allows it on the card the data arrives; the confusing mix of an error toast and a card that appeared anyway is gone.
 - Every credential shown in the card settings dialog can now be saved: credentials declared by capability providers and by the widget itself are checked against the same list on both the read and the write side, so filling one in no longer fails with "the widget does not declare this credential".
-- The weather card settings now choose a city again: the City picker is back, accepting a Chinese name, English name or pinyin with live suggestions, plus Locate for the current place. The bilingual place name and coordinates are filled into hidden derived fields instead of being edited as raw latitude and longitude.
 - Pages no longer lose freshly received changes to an older snapshot: snapshots now carry the change-notification revision, and events newer than the snapshot are replayed by revision after it is adopted, so state and layout no longer briefly revert.
 - The widget_define self-check now produces results in a real session: the inspection travels over the message port into the widget runtime (it previously read the sandboxed frame's window cross-origin, which always failed), and the gallery passes the widget's localized text so labels no longer render as raw keys.
 - Change notifications keep a steadier heartbeat: one broken viewer no longer interrupts the beat, and connections opened after the board was toggled off and back on get their heartbeat restarted, so idle connections are no longer cut by reverse proxies.

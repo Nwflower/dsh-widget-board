@@ -88,6 +88,8 @@ The runtime suite owns pointer and keyboard behaviour for flip, magnetic and hol
 
 A `source` of `provider:name` names a data source a plugin registered. `credentials` adds key fields to the settings modal; the value goes to the host's credential service and the widget cannot read it. Declare a capability in the manifest and call it with `widget.call(id, args)`; arguments and results are checked against JSON Schema. The built-in "Rest today" widget gets its account this way: add a `GITHUB_TOKEN` under Credentials and the card lists the open issues on the repositories you maintain, with no username to fill in, and a click on a row opens it in a new tab.
 
+The built-in "Recent token usage" card binds the `widget-board:session.usage` source a plugin registers and re-reads it every 10 seconds; while nobody is watching the card it does not read at all, and the card itself keeps no timer. Its "today" and "all" windows count only events after the widget board plugin starts, so whatever has accumulated since then is already there when a new card is placed.
+
 A widget cannot navigate or open popups itself. To send a link out, call `widget.open(url)` from inside a click handler and the page wrapping the widget opens it; only `http` and `https` addresses are accepted.
 
 <hr>

@@ -501,17 +501,19 @@ export function usageCapability(context: unknown, cacheFile: string): Capability
 /**
  * 把用量能力与实时用量的数据源一起注册进看板的注册表。
  *
- * 两者在同一个调用里建立、在同一个返回的释放函数里撤下：历史汇总折的是日志，实时数据源从这一刻起
- * 订阅 `session/event`（issue #6），组件的 manifest 按名字各取所需。
+ * 两者在同一个调用里建立、在同一个返回的释放函数里撤下：历史汇总折的是日志，实时数据源在取到
+ * dsh-usage 的启动前快照之后才订阅 `session/event`（issue #6），组件的 manifest 按名字各取所需。
+ *
+ * 读那份快照要走一次 HTTP，所以这个注册是异步的：`startedAt` 因此落在历史快照之后。
  *
  * @param sources - 看板的注册表。
  * @param context - 宿主上下文。
  * @param home - 看板自己的目录。
  * @returns 撤下这次注册的函数。
  */
-export function registerUsage(sources: Registries, context: unknown, home: string): () => void {
+export async function registerUsage(sources: Registries, context: unknown, home: string): Promise<() => void> {
   const disposeCapability = sources.registerCapability(usageCapability(context, join(home, CACHE_FILE)))
-  const disposeSessionUsage = registerSessionUsage(sources, context)
+  const disposeSessionUsage = await registerSessionUsage(sources, context)
   return () => {
     disposeSessionUsage()
     disposeCapability()

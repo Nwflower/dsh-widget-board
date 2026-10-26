@@ -96,13 +96,21 @@
       "date": "2026-03-19",
       "session": null,
       "empty": null,
+      "history": {
+        "source": "dsh-usage",
+        "available": true,
+        "reason": null,
+        "capturedAt": 1773898800000,
+        "from": "2026-01-01",
+        "to": "2026-03-19"
+      },
       "totals": {
-        "input": 906240,
-        "output": 231580,
-        "cacheRead": 428800,
-        "cacheWrite": 51200,
-        "total": 1137820,
-        "calls": 512,
+        "input": 2184400,
+        "output": 551800,
+        "cacheRead": 9641200,
+        "cacheWrite": 398200,
+        "total": 12775600,
+        "calls": 1402,
         "estimated": true
       },
       "recent": {

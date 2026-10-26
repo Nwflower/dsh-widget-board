@@ -2,10 +2,13 @@
  * 实时用量的数据源（issue #6）：事件从注册那一刻开始累计，窗口按卡片的 props 选，快照里只出现会话 id 的前 8 位。
  *
  * 事件按宿主的真实形状送进来（`session` 带 `id`，`event` 带 `type`、`seq`、`time` 与 `data.usage`），
- * 不经过宿主的会话存储与持久化。
+ * 不经过宿主的会话存储与持久化。历史那一段按启动时取到的一份投影交进来，合并的口径与启动竞态下的
+ * 有界重读都在这里测。
  */
 import { describe, expect, it } from 'vitest'
 import type { HostSessionEvent, HostSessions, InstanceFace } from '@dsh-widget-board/contracts'
+import type { UsageHistoryFetch, UsageHistoryProjection, UsageHistoryTally } from '../src/dsh-usage'
+import { USAGE_HISTORY_SOURCE, historyFailure } from '../src/dsh-usage'
 import type { SessionUsage, SessionUsageSnapshot } from '../src/session-usage'
 import {
   SESSION_USAGE_NAME,
@@ -13,7 +16,9 @@ import {
   SESSION_USAGE_SOURCE,
   SESSION_USAGE_TREND_POINTS,
   createSessionUsage,
+  registerSessionUsage,
 } from '../src/session-usage'
+import { createRegistries } from '../src/sources'
 
 const FACE: InstanceFace = { id: 'card', widget: 'session-usage', props: {} }
 
@@ -33,8 +38,37 @@ function dateOf(time: number): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-/** 一台测量用的看板：一个可拨的时钟、一个事件入口、一个可缺席的会话服务。 */
-function harness(startedAt: number, sessions: () => HostSessions | undefined = () => ({ list: () => [{ id: 'aaa11111-1' }] })) {
+/** 一份历史合计。 */
+function tally(input: number, output: number, cacheRead: number, cacheWrite: number, calls: number): UsageHistoryTally {
+  return { input, output, cacheRead, cacheWrite, total: input + output + cacheRead + cacheWrite, calls }
+}
+
+/** 一份可用的历史投影：today 与 all 各自一份合计，边界写成固定日期。 */
+function projection(parts: { today?: UsageHistoryTally, all?: UsageHistoryTally, capturedAt?: number } = {}): UsageHistoryProjection {
+  const today = parts.today ?? null
+  const all = parts.all ?? null
+  return {
+    available: true,
+    reason: null,
+    capturedAt: parts.capturedAt ?? 500,
+    today: today === null ? null : { from: '2026-10-25', to: '2026-10-25', tally: today },
+    all: all === null ? null : { from: '2026-09-01', to: '2026-10-25', tally: all },
+  }
+}
+
+/** 重读用的两件事：一条读历史的路，与注册时已经试过的次数。 */
+interface Retry {
+  loadHistory?: () => Promise<UsageHistoryProjection>
+  historyAttempts?: number
+}
+
+/** 一台测量用的看板：一个可拨的时钟、一个事件入口、一个可缺席的会话服务、一份历史投影与重读入口。 */
+function harness(
+  startedAt: number,
+  sessions: () => HostSessions | undefined = () => ({ list: () => [{ id: 'aaa11111-1' }] }),
+  history?: UsageHistoryProjection,
+  retry: Retry = {},
+) {
   let clock = startedAt
   let sink: ((session: { id: string }, event: HostSessionEvent) => void) | undefined
   let unsubscribed = 0
@@ -44,6 +78,9 @@ function harness(startedAt: number, sessions: () => HostSessions | undefined = (
       sink = listener
       return () => { unsubscribed += 1 }
     },
+    history,
+    loadHistory: retry.loadHistory,
+    historyAttempts: retry.historyAttempts,
     now: () => clock,
   })
   const emit = (id: string, seq: number, sample?: Sample, at?: number, type = 'assistant/message'): void => {
@@ -209,6 +246,7 @@ describe('实时用量的数据源', () => {
       totals: null,
       recent: null,
       trend: [],
+      history: { source: USAGE_HISTORY_SOURCE, available: false, reason: 'unavailable', capturedAt: null, from: null, to: null },
     })
   })
 
@@ -289,5 +327,240 @@ describe('实时用量的数据源', () => {
       expect(text).not.toContain('aaa11111-1')
       expect(text).not.toContain('bbb22222-2')
     }
+  })
+})
+
+describe('历史与实时的合并', () => {
+  it('today 与 all 把历史合计并进来，session 窗口只用实时数字', async () => {
+    const now = new Date(2026, 9, 25, 12, 0, 0).getTime()
+    const board = harness(now, undefined, projection({ today: tally(1, 1, 0, 0, 2), all: tally(5, 5, 10, 0, 7) }))
+    board.emit('aaa11111-1', 0, { input: 10, output: 5, total: 15 })
+    const today = await board.read({ scope: 'today' })
+    expect(today.empty).toBeNull()
+    expect(today.totals).toEqual({ input: 11, output: 6, cacheRead: 0, cacheWrite: 0, total: 17, calls: 3, estimated: false })
+    expect(today.recent).toEqual({ at: now, session: 'aaa11111', input: 10, output: 5, total: 15, estimated: false })
+    expect(today.trend).toEqual([{ at: now, value: 15 }])
+    expect(today.history).toEqual({
+      source: USAGE_HISTORY_SOURCE,
+      available: true,
+      reason: null,
+      capturedAt: 500,
+      from: '2026-10-25',
+      to: '2026-10-25',
+    })
+    const all = await board.read({ scope: 'all' })
+    expect(all.totals).toEqual({ input: 15, output: 10, cacheRead: 10, cacheWrite: 0, total: 35, calls: 8, estimated: false })
+    const session = await board.read()
+    expect(session.history).toBeNull()
+    expect(session.totals).toEqual({ input: 10, output: 5, cacheRead: 0, cacheWrite: 0, total: 15, calls: 1, estimated: false })
+  })
+
+  it('合并后的 estimated 是实时这一边有没有推算，历史那一份总是精确的', async () => {
+    const board = harness(30_000, undefined, projection({ today: tally(2, 2, 0, 0, 1) }))
+    board.emit('aaa11111-1', 0, { input: 40, output: 2 })
+    const snapshot = await board.read({ scope: 'today' })
+    expect(snapshot.totals).toEqual({ input: 42, output: 4, cacheRead: 0, cacheWrite: 0, total: 46, calls: 2, estimated: true })
+    expect(snapshot.recent?.estimated).toBe(true)
+  })
+
+  it('只有历史没有实时调用时合计非空，recent 是 null，trend 是空的，不算空态', async () => {
+    const now = new Date(2026, 9, 25, 12, 0, 0).getTime()
+    const board = harness(now, undefined, projection({ today: tally(2, 3, 0, 0, 1), all: tally(4, 4, 0, 0, 2) }))
+    const today = await board.read({ scope: 'today' })
+    expect(today.empty).toBeNull()
+    expect(today.reason).toBeNull()
+    expect(today.totals).toEqual({ input: 2, output: 3, cacheRead: 0, cacheWrite: 0, total: 5, calls: 1, estimated: false })
+    expect(today.recent).toBeNull()
+    expect(today.trend).toEqual([])
+    expect(today.history).toMatchObject({ available: true, capturedAt: 500 })
+    const all = await board.read({ scope: 'all' })
+    expect(all.totals?.calls).toBe(2)
+    expect(all.recent).toBeNull()
+  })
+
+  it('历史不可用时实时读数与空态照旧，原因写在 history 里', async () => {
+    const board = harness(9_000, undefined, historyFailure('not-installed'))
+    const empty = await board.read({ scope: 'today' })
+    expect(empty.empty).toBe('no-usage')
+    expect(empty.totals).toBeNull()
+    expect(empty.recent).toBeNull()
+    expect(empty.history).toEqual({
+      source: USAGE_HISTORY_SOURCE,
+      available: false,
+      reason: 'not-installed',
+      capturedAt: null,
+      from: null,
+      to: null,
+    })
+    board.emit('aaa11111-1', 0, { input: 1, output: 1, total: 2 })
+    const busy = await board.read({ scope: 'today' })
+    expect(busy.totals).toEqual({ input: 1, output: 1, cacheRead: 0, cacheWrite: 0, total: 2, calls: 1, estimated: false })
+    expect(busy.history).toMatchObject({ available: false, reason: 'not-installed' })
+  })
+
+  it('没有活着的会话时，只有历史有调用的 today 与 all 仍显示出来', async () => {
+    const now = new Date(2026, 9, 25, 12, 0, 0).getTime()
+    const gone = () => ({ list: () => [] })
+    const board = harness(now, gone, projection({ today: tally(1, 0, 0, 0, 1), all: tally(6, 2, 0, 0, 3) }))
+    const today = await board.read({ scope: 'today' })
+    expect(today.empty).toBeNull()
+    expect(today.totals?.calls).toBe(1)
+    expect(today.recent).toBeNull()
+    expect((await board.read({ scope: 'all' })).totals?.calls).toBe(3)
+    expect((await board.read()).empty).toBe('no-sessions')
+    const bare = harness(now, gone, projection())
+    expect((await bare.read({ scope: 'today' })).empty).toBe('no-sessions')
+    expect((await bare.read({ scope: 'all' })).totals).toBeNull()
+  })
+
+  it('历史快照先于实时订阅，startedAt 落在快照之后', async () => {
+    const order: string[] = []
+    let resolvedAt = 0
+    const today = dateOf(Date.now())
+    const body = {
+      updatedAt: 1_760_000_000_000,
+      usage: {
+        today: { date: today, totals: { inputTokens: 2, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0, calls: 1 } },
+        days: [{ date: today, totals: { inputTokens: 2, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0, calls: 1 } }],
+      },
+    }
+    const fetch: UsageHistoryFetch = async () => {
+      resolvedAt = Date.now()
+      order.push('history')
+      return { status: 200, ok: true, json: async () => body }
+    }
+    const context = {
+      get(name: string) { return name === 'sessions' ? { list: () => [{ id: 'aaa11111-1' }] } : undefined },
+      on() { order.push('subscribe'); return () => {} },
+    }
+    const sources = createRegistries()
+    const dispose = await registerSessionUsage(sources, context, {
+      history: { origin: () => 'http://127.0.0.1:3080', fetch },
+    })
+    expect(order).toEqual(['history', 'subscribe'])
+    const snapshot = await sources.readSource('session.usage', { ...FACE, props: { scope: 'today' } }) as SessionUsageSnapshot
+    expect(snapshot.history).toMatchObject({ available: true, capturedAt: 1_760_000_000_000, from: today, to: today })
+    expect(snapshot.totals).toEqual({ input: 2, output: 1, cacheRead: 0, cacheWrite: 0, total: 3, calls: 1, estimated: false })
+    expect(snapshot.startedAt).toBeGreaterThanOrEqual(resolvedAt)
+    dispose()
+    expect(sources.hasDataSource('session.usage')).toBe(false)
+  })
+
+  it('输出的 history 与共享契约逐字一致，任何窗口都不带完整会话 id', async () => {
+    const board = harness(1_000, undefined, projection({ today: tally(1, 0, 0, 0, 1), all: tally(1, 0, 0, 0, 1) }))
+    board.emit('aaa11111-1', 0, { input: 1, output: 0, total: 1 })
+    for (const scope of ['today', 'all']) {
+      const snapshot = await board.read({ scope })
+      expect(Object.keys(snapshot.history as object)).toEqual(['source', 'available', 'reason', 'capturedAt', 'from', 'to'])
+      expect(JSON.stringify(snapshot)).not.toContain('aaa11111-1')
+      expect(snapshot.history).toMatchObject({ source: 'dsh-usage' })
+    }
+    expect((await board.read()).history).toBeNull()
+  })
+})
+
+describe('历史的有界重读', () => {
+  it('首次读不到时，后续 today 读会补上一次并重定起点，首次之前的实时累计被清空', async () => {
+    let calls = 0
+    const load = async (): Promise<UsageHistoryProjection> => {
+      calls += 1
+      return projection({ today: tally(3, 0, 0, 0, 2), all: tally(3, 0, 0, 0, 2) })
+    }
+    const board = harness(40_000, undefined, historyFailure('unavailable'), { loadHistory: load })
+    board.emit('aaa11111-1', 0, { input: 100, output: 0, total: 100 })
+    const live = await board.read()
+    expect(live.totals?.calls).toBe(1)
+    expect(calls).toBe(0)
+    board.at(50_000)
+    const after = await board.read({ scope: 'today' })
+    expect(calls).toBe(1)
+    expect(after.startedAt).toBe(50_000)
+    expect(after.history).toMatchObject({ available: true, capturedAt: 500 })
+    expect(after.totals).toEqual({ input: 3, output: 0, cacheRead: 0, cacheWrite: 0, total: 3, calls: 2, estimated: false })
+    expect(after.recent).toBeNull()
+    expect(after.trend).toEqual([])
+    board.emit('aaa11111-1', 1, { input: 4, output: 0, total: 4 }, 50_100)
+    const next = await board.read({ scope: 'today' })
+    expect(next.totals).toEqual({ input: 7, output: 0, cacheRead: 0, cacheWrite: 0, total: 7, calls: 3, estimated: false })
+    expect(next.trend).toEqual([{ at: 50_100, value: 4 }])
+    expect(next.recent?.total).toBe(4)
+    expect(calls).toBe(1)
+  })
+
+  it('not-installed 会补读一次，invalid 不再试', async () => {
+    let calls = 0
+    const load = async (): Promise<UsageHistoryProjection> => {
+      calls += 1
+      return projection({ today: tally(1, 0, 0, 0, 1), all: tally(1, 0, 0, 0, 1) })
+    }
+    const missing = harness(60_000, undefined, historyFailure('not-installed'), { loadHistory: load })
+    const recovered = await missing.read({ scope: 'all' })
+    expect(calls).toBe(1)
+    expect(recovered.history).toMatchObject({ available: true })
+    expect(recovered.totals?.calls).toBe(1)
+    const broken = harness(60_000, undefined, historyFailure('invalid'), { loadHistory: load })
+    expect((await broken.read({ scope: 'today' })).history).toMatchObject({ available: false, reason: 'invalid' })
+    expect(calls).toBe(1)
+  })
+
+  it('注册时那一次之外最多再试两次', async () => {
+    let calls = 0
+    const always = async (): Promise<UsageHistoryProjection> => {
+      calls += 1
+      return historyFailure('unavailable')
+    }
+    const board = harness(70_000, undefined, historyFailure('unavailable'), { loadHistory: always })
+    for (let index = 0; index < 5; index += 1) await board.read({ scope: 'today' })
+    expect(calls).toBe(2)
+    expect((await board.read({ scope: 'all' })).history).toMatchObject({ available: false, reason: 'unavailable' })
+    expect(calls).toBe(2)
+  })
+
+  it('补读失败只换 history，起点与实时账本都不动', async () => {
+    let calls = 0
+    const board = harness(80_000, undefined, historyFailure('unavailable'), {
+      loadHistory: async () => { calls += 1; return historyFailure('invalid') },
+    })
+    board.emit('aaa11111-1', 0, { input: 5, output: 1, total: 6 })
+    const snapshot = await board.read({ scope: 'today' })
+    expect(calls).toBe(1)
+    expect(snapshot.startedAt).toBe(80_000)
+    expect(snapshot.totals).toEqual({ input: 5, output: 1, cacheRead: 0, cacheWrite: 0, total: 6, calls: 1, estimated: false })
+    expect(snapshot.history).toMatchObject({ available: false, reason: 'invalid' })
+    await board.read({ scope: 'today' })
+    expect(calls).toBe(1)
+  })
+
+  it('并发的两次读只调用一次 loadHistory', async () => {
+    let calls = 0
+    let release: (projection: UsageHistoryProjection) => void = () => {}
+    const pending = new Promise<UsageHistoryProjection>((resolve) => { release = resolve })
+    const board = harness(90_000, undefined, historyFailure('unavailable'), {
+      loadHistory: async () => { calls += 1; return await pending },
+    })
+    const first = board.read({ scope: 'today' })
+    const second = board.read({ scope: 'all' })
+    release(projection({ today: tally(2, 0, 0, 0, 1), all: tally(2, 0, 0, 0, 1) }))
+    const [today, all] = await Promise.all([first, second])
+    expect(calls).toBe(1)
+    expect(today.history).toMatchObject({ available: true })
+    expect(today.totals?.calls).toBe(1)
+    expect(all.totals?.calls).toBe(1)
+  })
+
+  it('历史可用时一次也不补读，session 窗口从不补读', async () => {
+    let calls = 0
+    const board = harness(1_000, undefined, projection({ today: tally(1, 0, 0, 0, 1), all: tally(1, 0, 0, 0, 1) }), {
+      loadHistory: async () => { calls += 1; return projection() },
+    })
+    await board.read({ scope: 'today' })
+    await board.read({ scope: 'all' })
+    await board.read()
+    expect(calls).toBe(0)
+    const live = harness(2_000, undefined, historyFailure('unavailable'), {
+      loadHistory: async () => { calls += 1; return projection() },
+    })
+    expect((await live.read()).history).toBeNull()
+    expect(calls).toBe(0)
   })
 })

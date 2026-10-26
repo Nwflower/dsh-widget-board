@@ -118,6 +118,14 @@
     return label('loading', '正在读取用量…')
   }
 
+  /** 总量从哪来：合并了历史、只有实时，以及历史读不到的两种原因。 */
+  function sourceText(source) {
+    if (source === 'history') return label('historySource', '历史 dsh-usage')
+    if (source === 'not-installed') return label('historyMissing', '历史未接入')
+    if (source === 'unavailable') return label('historyUnavailable', '历史不可用')
+    return label('realtimeSource', '仅实时')
+  }
+
   /** 固定文案先放好，读数随数据到来再写；语言切换后重画时会再走一遍。 */
   function setLabels(scope) {
     write(fields.title, label('title', '最近 Token 用量'))
@@ -187,7 +195,7 @@
 
   /** 一次读数画到卡片上：主读数、走势、分项、次读依次落位。 */
   function paintReady(model) {
-    write(fields.meta, model.date)
+    write(fields.meta, model.date + ' · ' + sourceText(model.source))
     write(fields.total, model.total.compact.value)
     write(fields.unit, model.total.compact.unit)
     write(fields.calls, template('calls', '{n} 次调用', { n: model.callsText }))
@@ -199,7 +207,7 @@
     write(fields.totalFull, model.estimated ? totalText + '，' + label('estimatedNote', '部分调用没有总数，总量按输入与输出推算') : totalText)
     paintTrend(model)
     paintParts(model)
-    paintRecent(model)
+    if (model.recent !== null) paintRecent(model)
   }
 
   /** 状态与文案一起落位；非 ready 时收起全部读数，只留一条说明。 */
@@ -211,7 +219,8 @@
     card.setAttribute('aria-busy', model.state === 'loading' ? 'true' : 'false')
     show(fields.hero, ready)
     show(fields.parts, ready)
-    show(fields.recent, ready)
+    // 最近一次调用只来自实时事件：这段时间只有历史用量时整块收起来，不报数据不完整。
+    show(fields.recent, ready && model.recent !== null)
     show(fields.empty, !ready)
     if (!ready) {
       write(fields.meta, '')

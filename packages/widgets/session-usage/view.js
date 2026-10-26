@@ -7,6 +7,10 @@
  * 状态按共享数据契约判定：available 为假只表示会话服务缺席；两种空态的 totals 都是 null，所以这里
  * 不拿 0 顶替缺失的读数（D11）。会话 id 超过 8 位说明提供方漏了截断，按数据不完整处理，组件不替
  * 它悄悄截一刀。
+ *
+ * history 缺省或为 null 表示只有实时事件；对象里 available 为假时按 reason 分出「历史未接入」与
+ * 「历史不可用」，卡上照旧画实时数据。历史只给合计与分项，最近一次调用可以是 null——这段时间只有
+ * 历史用量时就是这样。
  */
 ;(function (root) {
   'use strict'
@@ -20,6 +24,10 @@
   var BOTTOM = 29
 
   var SCOPES = ['session', 'today', 'all']
+
+  /** 历史的来源名与它的三种失败原因，与数据契约里的枚举一致。 */
+  var HISTORY_SOURCE = 'dsh-usage'
+  var HISTORY_REASONS = ['not-installed', 'unavailable', 'invalid']
 
   /** 四项分项的顺序：读数条、占比条与设置里都用这一个顺序。 */
   var PARTS = ['input', 'output', 'cacheRead', 'cacheWrite']
@@ -152,6 +160,43 @@
   }
 
   /**
+   * 总量从哪来：会话范围永远只有实时事件，今天与全部可能合并了 dsh-usage 的历史。
+   *
+   * @param history - 数据里的 history 字段。
+   * @returns history、realtime、not-installed 或 unavailable，卡面据此换来源说法。
+   */
+  function sourceOf(history) {
+    if (history === null || history === undefined) return 'realtime'
+    if (typeof history !== 'object' || Array.isArray(history)) return 'realtime'
+    if (history.available === true) return 'history'
+    if (history.reason === 'not-installed') return 'not-installed'
+    return 'unavailable'
+  }
+
+  /**
+   * 历史来源的形状：缺省与 null 都合法（旧数据没有这一段），对象要整份都对。
+   *
+   * @param value - 数据里的 history 字段。
+   * @returns ok 为假表示形状不对；history 为 null 表示没有历史这一段。
+   */
+  function historyOf(value) {
+    if (value === null || value === undefined) return { ok: true, history: null }
+    if (typeof value !== 'object' || Array.isArray(value)) return { ok: false, history: null }
+    if (value.source !== HISTORY_SOURCE) return { ok: false, history: null }
+    if (typeof value.available !== 'boolean') return { ok: false, history: null }
+    if (value.reason !== null && HISTORY_REASONS.indexOf(value.reason) < 0) return { ok: false, history: null }
+    if (value.capturedAt !== null && !number(value.capturedAt)) return { ok: false, history: null }
+    if (value.from !== null && !dateOf(value.from)) return { ok: false, history: null }
+    if (value.to !== null && !dateOf(value.to)) return { ok: false, history: null }
+    // 说可用却给不出读取时间，就没法说明这份历史是什么时候的。
+    if (value.available && !number(value.capturedAt)) return { ok: false, history: null }
+    return {
+      ok: true,
+      history: { available: value.available, reason: value.available ? null : value.reason }
+    }
+  }
+
+  /**
    * 走势的折线与面积路径；少于两个点时不画，卡上不留假折线。
    *
    * @param list - trend 数组，按时间从旧到新。
@@ -208,6 +253,7 @@
     if (!dateOf(data.date)) return 'invalid'
     if (!sessionOf(data.session).ok) return 'invalid'
     if (!Array.isArray(data.trend)) return 'invalid'
+    if (!historyOf(data.history).ok) return 'invalid'
     if (!data.available) {
       if (data.reason !== 'sessions-unavailable') return 'invalid'
       if (data.totals !== null || data.recent !== null || data.trend.length > 0) return 'invalid'
@@ -219,7 +265,8 @@
     }
     if (data.empty !== null) return 'invalid'
     if (totalsOf(data.totals) === null) return 'invalid'
-    if (recentOf(data.recent) === null) return 'invalid'
+    // 最近一次调用来自实时事件：这段时间只有历史用量时它是 null，总量与分项照旧画。
+    if (data.recent !== null && recentOf(data.recent) === null) return 'invalid'
     return 'ready'
   }
 
@@ -252,6 +299,7 @@
     return {
       state: 'ready',
       scope: data.scope,
+      source: sourceOf(data.history),
       date: data.date,
       session: sessionOf(data.session).session,
       started: timeOf(data.startedAt, lang),
@@ -260,7 +308,7 @@
       callsText: formatCount(totals.calls, lang),
       estimated: totals.estimated,
       parts: parts,
-      recent: {
+      recent: recent === null ? null : {
         time: timeOf(recent.at, lang),
         session: recent.session,
         full: formatCount(recent.total, lang),
@@ -279,6 +327,8 @@
     shareOf: shareOf,
     timeOf: timeOf,
     sessionOf: sessionOf,
+    sourceOf: sourceOf,
+    historyOf: historyOf,
     stateOf: stateOf,
     trendOf: trendOf,
     viewOf: viewOf

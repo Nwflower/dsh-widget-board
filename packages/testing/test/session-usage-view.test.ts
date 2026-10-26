@@ -4,6 +4,7 @@
  * `view.js` 同时以经典脚本内联进组件文档；这里按副作用模块载入同一份文件，读到的是卡片真正在用的
  * 实现，不是另写一份样例。
  */
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import '../../widgets/session-usage/view.js'
 
@@ -30,6 +31,8 @@ interface ViewApi {
   shareOf(value: unknown, total: unknown): number
   timeOf(at: unknown, lang: string): string
   sessionOf(value: unknown): { ok: boolean, session: string | null }
+  sourceOf(history: unknown): string
+  historyOf(value: unknown): { ok: boolean, history: unknown }
   stateOf(data: unknown): string
   trendOf(list: unknown, lang: string): Trend | null
   viewOf(data: unknown, lang: string): Record<string, unknown>
@@ -86,6 +89,32 @@ const UNAVAILABLE = {
 
 /** 有会话但没有一次带用量的调用。 */
 const NO_USAGE = { ...UNAVAILABLE, available: true, reason: null, empty: 'no-usage' }
+
+/** 一份可用的 dsh-usage 历史：今天窗口的总量是历史与实时的合计。 */
+const HISTORY = {
+  source: 'dsh-usage',
+  available: true,
+  reason: null,
+  capturedAt: 1773907200000,
+  from: '2026-01-01',
+  to: '2026-03-19',
+}
+
+/** 今天窗口的混合场景：历史撑着总量，最近一次调用与走势来自实时事件，recent 就是走势的最新点。 */
+const TODAY = { ...DATA, scope: 'today', session: null, history: HISTORY }
+
+/** 今天窗口只有历史：实时事件一次都没取到，最近一次调用与走势都空。 */
+const HISTORY_ONLY = { ...TODAY, recent: null, trend: [] }
+
+/** 真实样例：尺寸矩阵与组件库读的就是这一份文件。 */
+interface SampleData {
+  history?: { available: boolean }
+  recent: { at: number, total: number } | null
+  trend: { at: number, value: number }[]
+}
+const SAMPLES = JSON.parse(
+  readFileSync(new URL('../../widgets/session-usage/samples.json', import.meta.url), 'utf8'),
+) as Record<string, { data?: SampleData }>
 
 describe('数字换算', () => {
   it('按 K、M、B 换算，数越小留的小数位越多', () => {
@@ -153,7 +182,6 @@ describe('状态判定', () => {
     expect(view.stateOf({ ...DATA, scope: 'week' })).toBe('invalid')
     expect(view.stateOf({ ...DATA, session: 'a41f7c02-9b3e' })).toBe('invalid')
     expect(view.stateOf({ ...DATA, totals: null })).toBe('invalid')
-    expect(view.stateOf({ ...DATA, recent: null })).toBe('invalid')
     expect(view.stateOf({ ...DATA, totals: { ...DATA.totals, calls: undefined } })).toBe('invalid')
     expect(view.stateOf({ ...DATA, totals: { ...DATA.totals, estimated: 'no' } })).toBe('invalid')
   })
@@ -295,5 +323,111 @@ describe('一次读数的排版', () => {
     expect(single.trend).toBeNull()
     const ready = view.viewOf(DATA, 'zh-CN') as { trend: Trend | null }
     expect(ready.trend).not.toBeNull()
+  })
+})
+
+describe('历史来源', () => {
+  it('缺省与 null 都是「没有历史这一段」，旧数据因此仍然成立', () => {
+    expect(view.historyOf(undefined)).toEqual({ ok: true, history: null })
+    expect(view.historyOf(null)).toEqual({ ok: true, history: null })
+    expect(view.stateOf(DATA)).toBe('ready')
+  })
+
+  it('历史对象要整份对：来源名、可用的布尔、原因枚举与两个日期', () => {
+    expect(view.historyOf(HISTORY).ok).toBe(true)
+    expect(view.historyOf({ ...HISTORY, available: false, reason: 'not-installed' }).ok).toBe(true)
+    expect(view.historyOf({ ...HISTORY, source: 'dsh-sessions' }).ok).toBe(false)
+    expect(view.historyOf({ ...HISTORY, available: 'yes' }).ok).toBe(false)
+    expect(view.historyOf({ ...HISTORY, reason: 'later' }).ok).toBe(false)
+    expect(view.historyOf({ ...HISTORY, capturedAt: -1 }).ok).toBe(false)
+    expect(view.historyOf({ ...HISTORY, from: '2026/01/01' }).ok).toBe(false)
+    expect(view.historyOf({ ...HISTORY, to: 20260319 }).ok).toBe(false)
+    expect(view.historyOf([HISTORY]).ok).toBe(false)
+  })
+
+  it('说可用时必须带一个读得到的时间，不可用时没有时间也成立', () => {
+    expect(view.historyOf({ ...HISTORY, capturedAt: null }).ok).toBe(false)
+    expect(view.historyOf({ ...HISTORY, available: false, reason: 'invalid', capturedAt: null }).ok).toBe(true)
+  })
+
+  it('形状不对时整份数据算不完整，不拿实时读数顶替历史', () => {
+    expect(view.stateOf({ ...TODAY, history: { ...HISTORY, source: 'x' } })).toBe('invalid')
+    expect(view.stateOf({ ...TODAY, history: { ...HISTORY, capturedAt: null } })).toBe('invalid')
+    expect(view.stateOf({ ...TODAY, history: { ...HISTORY, reason: 'later' } })).toBe('invalid')
+  })
+
+  it('来源分四类：历史、仅实时、未接入与不可用', () => {
+    expect(view.sourceOf(undefined)).toBe('realtime')
+    expect(view.sourceOf(null)).toBe('realtime')
+    expect(view.sourceOf(HISTORY)).toBe('history')
+    expect(view.sourceOf({ ...HISTORY, available: false, reason: 'not-installed' })).toBe('not-installed')
+    expect(view.sourceOf({ ...HISTORY, available: false, reason: 'unavailable' })).toBe('unavailable')
+    expect(view.sourceOf({ ...HISTORY, available: false, reason: 'invalid' })).toBe('unavailable')
+  })
+
+  it('没有历史的读数标成仅实时', () => {
+    expect(view.viewOf(DATA, 'en-US')).toMatchObject({ source: 'realtime' })
+  })
+})
+
+describe('只有历史没有最近调用', () => {
+  it('recent 与走势都空时仍算 ready，总量与分项照画', () => {
+    const model = view.viewOf(HISTORY_ONLY, 'en-US') as {
+      state: string
+      source: string
+      total: { full: string }
+      callsText: string
+      recent: unknown
+      parts: { key: string }[]
+      trend: Trend | null
+    }
+    expect(view.stateOf(HISTORY_ONLY)).toBe('ready')
+    expect(model.state).toBe('ready')
+    expect(model.source).toBe('history')
+    expect(model.recent).toBeNull()
+    expect(model.trend).toBeNull()
+    expect(model.total.full).toBe('2,115,120')
+    expect(model.callsText).toBe('216')
+    expect(model.parts.map((part) => part.key)).toEqual(['input', 'output', 'cacheRead', 'cacheWrite'])
+  })
+
+  it('recent 不是 null 时形状必须完整，缺字段仍是数据不完整', () => {
+    expect(view.stateOf({ ...TODAY, recent: { at: 1, input: 2, output: 3 } })).toBe('invalid')
+    expect(view.stateOf(TODAY)).toBe('ready')
+  })
+})
+
+describe('混合场景的最近一次调用', () => {
+  it('recent 就是走势的最新点，总量仍是历史与实时的合计', () => {
+    const model = view.viewOf(TODAY, 'en-US') as {
+      state: string
+      source: string
+      recent: { full: string, time: string, estimated: boolean } | null
+      trend: Trend | null
+    }
+    expect(model.state).toBe('ready')
+    expect(model.source).toBe('history')
+    expect(model.recent).not.toBeNull()
+    expect(model.recent?.full).toBe(model.trend?.latestFull)
+    expect(model.recent?.full).toBe('12,940')
+  })
+})
+
+describe('样例里的 recent 与走势', () => {
+  it('格式对的两份样例都满足：recent 是走势的最新点，只有历史时两段都空', () => {
+    let ready = 0
+    for (const [key, sample] of Object.entries(SAMPLES)) {
+      if (sample.data === undefined) continue
+      ready += 1
+      const { recent, trend } = sample.data
+      if (recent === null) {
+        expect(trend, key).toHaveLength(0)
+        continue
+      }
+      expect(trend.length, key).toBeGreaterThan(0)
+      expect(recent.at, key).toBe(trend[trend.length - 1]?.at)
+      expect(recent.total, key).toBe(trend[trend.length - 1]?.value)
+    }
+    expect(ready).toBeGreaterThanOrEqual(2)
   })
 })

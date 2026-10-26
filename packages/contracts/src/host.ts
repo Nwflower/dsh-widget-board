@@ -35,9 +35,15 @@ export interface HostRoute {
   handler: (req: HostRequest, res: HostResponse) => void | Promise<void>
 }
 
-/** 宿主的 web 服务：注册一条路由，返回解除注册的函数。 */
+/**
+ * 宿主的 web 服务：注册一条路由，返回解除注册的函数。
+ *
+ * `getOrigin()` 是本机客户端访问的根地址（例如 `http://127.0.0.1:3080`），宿主在端口绑定之前或
+ * 没有 URL 形式时抛出；旧宿主可能没有这一项，用到它的地方按缺席处理（D11）。
+ */
 export interface HostWebServer {
   register(route: HostRoute): () => void
+  getOrigin?: () => string
 }
 
 /** 宿主的请求栅栏与认证：被拒绝时给出状态码，放行时是 `undefined`。 */

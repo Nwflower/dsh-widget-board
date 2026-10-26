@@ -1,8 +1,0 @@
-{
-  "group": "fixes",
-  "order": 0,
-  "external": false,
-  "at": "2026-10-24",
-  "zh": "删除所有看板后补上的不再是空白的「未命名看板」，而是首次启动的默认看板「我的看板」：卡片与布局都回到默认。",
-  "en": "Deleting every board now leaves the default \"My board\" from the first launch instead of a blank \"Untitled board\", with its cards and layout restored."
-}

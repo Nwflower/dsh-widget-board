@@ -13,7 +13,9 @@ import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { CapabilityRegistration, InstanceFace } from '@dsh-widget-board/contracts'
 import { WIDGET_BOARD_API_VERSION } from '@dsh-widget-board/contracts'
+import { localDate } from './local-date'
 import type { Registries } from './sources'
+import { registerSessionUsage } from './session-usage'
 
 /** 能力的名字；组件 manifest 用它声明（D24）。 */
 export const USAGE_CAPABILITY = 'usage'
@@ -191,14 +193,6 @@ function bucketsOf(sample: UsageSample | undefined): Buckets {
   }
 }
 
-/** 本地日历日，与宿主记日志的口径一致。 */
-function dayKey(time: number): string | null {
-  const date = new Date(time)
-  if (!Number.isFinite(date.getTime())) return null
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
 /**
  * 把一个会话的事件折成按天的分桶。同一个 turn/step 上的重试替换上一次的样本，不累加；被替换的那份
  * 从原来的那一天减掉。每天的结算落在哪一个小时也一并记下来，卡片据此找高峰时段。
@@ -228,7 +222,7 @@ export function foldSession(events: UsageEvent[]): Record<string, DayBuckets> {
     }
     const sample = sampleOf(event)
     if (sample === undefined || typeof event.time !== 'number') continue
-    const day = dayKey(event.time)
+    const day = localDate(event.time)
     if (day === null) continue
     const hour = new Date(event.time).getHours()
     const turn = typeof event.turn === 'number' ? event.turn : event.data?.turn
@@ -505,13 +499,23 @@ export function usageCapability(context: unknown, cacheFile: string): Capability
 }
 
 /**
- * 把用量能力注册进看板的注册表。
+ * 把用量能力与实时用量的数据源一起注册进看板的注册表。
+ *
+ * 两者在同一个调用里建立、在同一个返回的释放函数里撤下：历史汇总折的是日志，实时数据源在取到
+ * dsh-usage 的启动前快照之后才订阅 `session/event`（issue #6），组件的 manifest 按名字各取所需。
+ *
+ * 读那份快照要走一次 HTTP，所以这个注册是异步的：`startedAt` 因此落在历史快照之后。
  *
  * @param sources - 看板的注册表。
  * @param context - 宿主上下文。
  * @param home - 看板自己的目录。
  * @returns 撤下这次注册的函数。
  */
-export function registerUsage(sources: Registries, context: unknown, home: string): () => void {
-  return sources.registerCapability(usageCapability(context, join(home, CACHE_FILE)))
+export async function registerUsage(sources: Registries, context: unknown, home: string): Promise<() => void> {
+  const disposeCapability = sources.registerCapability(usageCapability(context, join(home, CACHE_FILE)))
+  const disposeSessionUsage = await registerSessionUsage(sources, context)
+  return () => {
+    disposeSessionUsage()
+    disposeCapability()
+  }
 }

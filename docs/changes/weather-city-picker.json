@@ -1,8 +1,0 @@
-{
-  "group": "fixes",
-  "order": 2,
-  "external": true,
-  "at": "2026-10-25",
-  "zh": "天气卡的设置恢复城市名输入与定位：配置里重新出现「城市」选择器，输入中文名、英文名或拼音后从候选里选一条，也可以按「定位」填当前位置；双语地名与经纬度作为隐藏的派生字段写回，设置里不再直接要求填写经纬度。",
-  "en": "The weather card settings now choose a city again: the City picker is back, accepting a Chinese name, English name or pinyin with live suggestions, plus Locate for the current place. The bilingual place name and coordinates are filled into hidden derived fields instead of being edited as raw latitude and longitude."
-}

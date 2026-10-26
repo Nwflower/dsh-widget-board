@@ -116,8 +116,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   // GitHub 的 issue 列表（D24）：令牌从卡片设置的凭据服务现取，看板核心不碰 GitHub。
   const disposeGithub = registerGithub(sources, () => credentialsOf(ctx))
   // 会话用量（D24）：看板自己读会话日志、自己缓存，组件不必依赖别的插件；装了 dsh-claude-style
-  // 时组件先问它，两份汇总不会同时算。
-  const disposeUsage = registerUsage(sources, ctx, home)
+  // 时组件先问它，两份汇总不会同时算。实时那一路先取 dsh-usage 的启动前快照再订阅，因此要等它。
+  const disposeUsage = await registerUsage(sources, ctx, home)
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
   // 卡片增删与组件库重读才改变定时刷新的表；状态、数据与布局写入不重算它（D6）。
   let syncScheduler: () => void = () => {}
@@ -208,7 +208,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   }
   refreshLibrary = reload
 
-  // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读，没人看就停。
+  // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读——没人看就全停，一张卡没落进任何
+  // 一页的视口就不读它。
   const scheduler = createScheduler({
     // 卡片 id 全工作区唯一；定时链按全部看板算，不只看选中的那一块（D6、D21）。
     cards: () => context.workspace.list().flatMap((board) => board.instances.flatMap((instance) => {
@@ -216,12 +217,15 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
     })),
     viewers: () => live.viewers,
+    visible: () => live.visible,
     read: async (ids) => await readManyInto(context, ids),
     onError: (id, error) => {
       console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
     },
   })
   const stopWatchingViewers = live.onViewers(() => { scheduler.sync() })
+  // 可见集合一变就重算一次：新看得见的卡立刻读，离开视口的卡不再排期（D6）。
+  const stopWatchingVisibility = live.onVisible(() => { scheduler.sync() })
   syncScheduler = () => { scheduler.sync() }
 
   const handler = createHandler(context)
@@ -338,6 +342,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeSystemMetricsAction()
     disposeHttpSource()
     stopWatchingViewers()
+    stopWatchingVisibility()
     scheduler.stop()
     stopBuiltin()
     stopUser()

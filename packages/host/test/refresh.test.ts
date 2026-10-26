@@ -5,6 +5,7 @@
  * 按最短的间隔跑、只读到期的那几张、一张读不出来不影响别的。
  */
 import { describe, expect, it, vi } from 'vitest'
+import type { VisibleCards } from '../src/live'
 import { createScheduler, intervalOf } from '../src/refresh'
 import type { ScheduledCard } from '../src/refresh'
 
@@ -27,14 +28,20 @@ function manualTimer() {
 }
 
 /** 一套替身。 */
-function harness(options: { cards?: ScheduledCard[], viewers?: number } = {}) {
+function harness(options: { cards?: ScheduledCard[], viewers?: number, visible?: VisibleCards } = {}) {
   const timer = manualTimer()
   const read: string[] = []
   const errors: { id: string, error: unknown }[] = []
-  const state = { cards: options.cards ?? [{ id: 'a', everyMs: 1000 }], viewers: options.viewers ?? 1 }
+  const state = {
+    cards: options.cards ?? [{ id: 'a', everyMs: 1000 }],
+    viewers: options.viewers ?? 1,
+    // 默认是「还没人上报」：老的页级行为，每张卡都读。
+    visible: options.visible ?? 'all' as VisibleCards,
+  }
   const scheduler = createScheduler({
     cards: () => state.cards,
     viewers: () => state.viewers,
+    visible: () => state.visible,
     read: async (ids) => { read.push(...ids); return ids.map((id) => ({ id })) },
     onError: (id, error) => { errors.push({ id, error }) },
     setTimer: timer.setTimer,
@@ -87,6 +94,7 @@ describe('调度器', () => {
     const scheduler = createScheduler({
       cards: () => [{ id: 'a', everyMs: 1000 }],
       viewers: () => 1,
+      visible: () => 'all',
       read: async (ids) => {
         read.push(...ids)
         await new Promise<void>((resolve) => { release = resolve })
@@ -108,6 +116,7 @@ describe('调度器', () => {
     const scheduler = createScheduler({
       cards: () => [{ id: 'a', everyMs: 1000 }, { id: 'b', everyMs: 1000 }],
       viewers: () => 1,
+      visible: () => 'all',
       read: async (ids) => {
         batches.push([...ids])
         return ids.map((id) => ({ id }))
@@ -128,6 +137,7 @@ describe('调度器', () => {
     const scheduler = createScheduler({
       cards: () => [{ id: 'bad', everyMs: 1000 }, { id: 'good', everyMs: 1000 }],
       viewers: () => 1,
+      visible: () => 'all',
       read: async (ids) => {
         read.push(...ids)
         return ids.map((id) => id === 'bad' ? { id, error: new Error('读不出来') } : { id })
@@ -175,6 +185,93 @@ describe('调度器', () => {
     test.scheduler.stop()
     expect(test.scheduler.running).toBe(false)
     expect(test.scheduler.due.size).toBe(0)
+  })
+})
+
+describe('单卡可见性', () => {
+  it('一张卡都看不见时不跑', () => {
+    const test = harness({ visible: new Set() })
+    test.scheduler.sync()
+    expect(test.scheduler.running).toBe(false)
+    expect(test.read).toEqual([])
+  })
+
+  it('看不见的卡不读，看得见的照读', () => {
+    const test = harness({ cards: [{ id: 'a', everyMs: 1000 }, { id: 'b', everyMs: 1000 }], visible: new Set(['a']) })
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a'])
+    expect(test.scheduler.due.has('b')).toBe(false)
+  })
+
+  it('没人上报时按全部可见读，老页面的行为不变', () => {
+    const test = harness({ cards: [{ id: 'a', everyMs: 1000 }, { id: 'b', everyMs: 1000 }], visible: 'all' })
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a', 'b'])
+  })
+
+  it('两个观众都看得见同一张卡时只读一次', () => {
+    const test = harness({ cards: [{ id: 'a', everyMs: 1000 }], viewers: 2, visible: new Set(['a']) })
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a'])
+  })
+
+  it('重新看得见时立刻读一次，不用等满一个间隔', () => {
+    const test = harness({ cards: [{ id: 'a', everyMs: 60_000 }], visible: new Set() })
+    test.scheduler.sync()
+    expect(test.scheduler.running).toBe(false)
+    test.state.visible = new Set(['a'])
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a'])
+  })
+
+  it('换成另一块看板时新出现的卡片也当场读', () => {
+    const test = harness({ cards: [{ id: 'a', everyMs: 1000 }, { id: 'b', everyMs: 1000 }], visible: new Set(['a']) })
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a'])
+    test.state.visible = new Set(['b'])
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a', 'b'])
+  })
+
+  it('离开视口之后不再发起新的读取', async () => {
+    const test = harness({ cards: [{ id: 'a', everyMs: 1000 }], visible: new Set(['a']) })
+    test.scheduler.sync()
+    expect(test.read).toEqual(['a'])
+    // 等那一次读落定，再让它离开视口：之后不该再排期。
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    test.state.visible = new Set()
+    test.scheduler.sync()
+    expect(test.scheduler.running).toBe(false)
+    ;(test.scheduler.due as Map<string, number>).set('a', Date.now() - 1)
+    test.timer.tick()
+    expect(test.read).toEqual(['a'])
+  })
+
+  it('在途的那一次读不被打断，回来之后这张卡不再排期', async () => {
+    const timer = manualTimer()
+    const read: string[] = []
+    let visible: VisibleCards = new Set(['a'])
+    let release: (() => void) | undefined
+    const scheduler = createScheduler({
+      cards: () => [{ id: 'a', everyMs: 1000 }],
+      viewers: () => 1,
+      visible: () => visible,
+      read: async (ids) => {
+        read.push(...ids)
+        await new Promise<void>((resolve) => { release = resolve })
+        return ids.map((id) => ({ id }))
+      },
+      setTimer: timer.setTimer,
+    })
+    scheduler.sync()
+    expect(read).toEqual(['a'])
+    // 读还没回来就离开视口：这一次照常结束，回来的结论仍然写给那张卡。
+    visible = new Set()
+    scheduler.sync()
+    expect(scheduler.running).toBe(false)
+    release?.()
+    await Promise.resolve()
+    expect(read).toEqual(['a'])
   })
 })
 

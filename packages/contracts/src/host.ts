@@ -35,9 +35,15 @@ export interface HostRoute {
   handler: (req: HostRequest, res: HostResponse) => void | Promise<void>
 }
 
-/** 宿主的 web 服务：注册一条路由，返回解除注册的函数。 */
+/**
+ * 宿主的 web 服务：注册一条路由，返回解除注册的函数。
+ *
+ * `getOrigin()` 是本机客户端访问的根地址（例如 `http://127.0.0.1:3080`），宿主在端口绑定之前或
+ * 没有 URL 形式时抛出；旧宿主可能没有这一项，用到它的地方按缺席处理（D11）。
+ */
 export interface HostWebServer {
   register(route: HostRoute): () => void
+  getOrigin?: () => string
 }
 
 /** 宿主的请求栅栏与认证：被拒绝时给出状态码，放行时是 `undefined`。 */
@@ -180,4 +186,97 @@ export function settingsOf(context: unknown): HostSettings | undefined {
   const get = (context as { get?: (name: string) => unknown }).get
   if (get === undefined) return undefined
   return get.call(context, 'settings') as HostSettings | undefined
+}
+
+/** 宿主的会话服务名；数据源按它读活着的会话（D1、D24）。 */
+export const HOST_SESSIONS_SERVICE = 'sessions'
+
+/** 宿主广播每条会话事件的 cordis 事件名。 */
+export const HOST_SESSION_EVENT = 'session/event'
+
+/**
+ * 宿主的会话服务里用量数据源用到的那一面。
+ *
+ * 只登记 `list`：它会话日志之外的读取入口（按序号取事件、整份快照）一律不用——用量只从启动之后的
+ * 实时事件累计（D24 的实时用量数据源）。
+ */
+export interface HostSessions {
+  /** 此刻活着的会话；每个只取 id。 */
+  list(): Array<{ id: string }>
+}
+
+/**
+ * 宿主的会话服务；没有安装时是 `undefined`，用量数据源据此给出可见的说法（D11）。
+ *
+ * `list()` 回的是活着的会话，已结束的会话不在其中；数据源只按它的数量判断「有没有会话」。
+ *
+ * @param context - 宿主交给插件 `apply` 的上下文。
+ * @returns 会话服务，或 `undefined`。
+ */
+export function sessionsOf(context: unknown): HostSessions | undefined {
+  const get = (context as { get?: (name: string) => unknown }).get
+  if (get === undefined) return undefined
+  return get.call(context, HOST_SESSIONS_SERVICE) as HostSessions | undefined
+}
+
+/**
+ * 一次调用的 token 结算，字段名沿用宿主的 `TokenUsage`。
+ *
+ * `inputTokens` 与 `outputTokens` 都在时直接相加；宿主给了 `totalTokens` 就用它。
+ */
+export interface HostTokenUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens?: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
+  reasoningTokens?: number
+}
+
+/**
+ * 一条会话事件里本插件读到的那几个字段（D1）。
+ *
+ * 消息正文、工具结果与会话标题不在其中：用量数据源只统计 token，不读会话内容。
+ */
+export interface HostSessionEvent {
+  /** 事件类型；用量只认 `assistant/message`。 */
+  type: string
+  /** 会话内的单调序号：同一会话里同一个序号就是同一条事件。 */
+  seq: number
+  /** Unix 毫秒。 */
+  time: number
+  /** `assistant/message` 的结算；适配器没有报告用量时整项缺席。 */
+  data?: { usage?: HostTokenUsage }
+}
+
+/** 事件交回的那一个会话；只用它的 id。 */
+export interface HostSessionRef {
+  id: string
+}
+
+/**
+ * 订阅宿主的会话事件。
+ *
+ * `global: true` 让同一个订阅看到全部会话：宿主按作用域筛选分发，不带这一项时只收到本上下文进入过
+ * 的会话。看板所有页面共用一个订阅，卡片只是读它（D24）。
+ *
+ * @param context - 宿主交给插件 `apply` 的上下文。
+ * @param listener - 每条新事件调用一次。
+ * @returns 退订函数。
+ */
+export function onSessionEvent(
+  context: unknown,
+  listener: (session: HostSessionRef, event: HostSessionEvent) => void,
+): () => void {
+  const on = (context as { on?: (event: string, listener: unknown, options?: { global?: boolean }) => unknown }).on
+  // 订阅是实时用量的必需项：没有它就永远只有空读数，别让它安静地退化成 no-usage（D11、D24）。
+  if (typeof on !== 'function') {
+    throw new Error(`宿主的上下文没有 on，订阅不了 ${HOST_SESSION_EVENT}；实时用量需要宿主的事件接口`)
+  }
+  const off = on.call(context, HOST_SESSION_EVENT, listener, { global: true })
+  // 退订函数也必须有：拿不到它，这条订阅就撤不下来，拆除时会一直留着（D11）。
+  if (typeof off !== 'function') {
+    throw new Error(`宿主的 on 没有为 ${HOST_SESSION_EVENT} 返回退订函数；这条订阅撤不下来`)
+  }
+  return off as () => void
 }

@@ -1,0 +1,87 @@
+<article class="t-data t-data--split usage" data-state="loading" aria-labelledby="usage-title">
+  <header class="t-data__head">
+    <div class="usage__heading">
+      <p class="t-data__kicker usage__kicker" data-field="kicker"></p>
+      <h2 class="t-data__title" id="usage-title" data-field="title">最近 Token 用量</h2>
+    </div>
+    <span class="t-data__meta w-hide-short" data-field="meta"></span>
+  </header>
+
+  <div class="t-data__body usage__body">
+    <section class="usage__hero" data-field="hero" hidden>
+      <p class="usage__label w-hide-short" data-field="totalLabel"></p>
+      <p class="usage__value" aria-hidden="true">
+        <span class="usage__number" data-field="total"></span>
+        <span class="usage__unit" data-field="unit"></span>
+      </p>
+      <p class="usage__sub">
+        <span data-field="calls"></span>
+        <span class="usage__badge" data-field="estimated" hidden></span>
+      </p>
+      <span class="w-sr" data-field="totalFull"></span>
+    </section>
+
+    <figure class="usage__trend" data-field="trend" hidden>
+      <figcaption class="usage__trend-caption w-hide-short" data-field="trendCaption"></figcaption>
+      <div class="usage__plot" data-field="plot" role="img">
+        <svg class="usage__svg" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="usage-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop class="usage__stop usage__stop--top" offset="0"></stop>
+              <stop class="usage__stop usage__stop--mid" offset="0.58"></stop>
+              <stop class="usage__stop usage__stop--base" offset="1"></stop>
+            </linearGradient>
+          </defs>
+          <path class="usage__area" data-field="area" d=""></path>
+          <path class="usage__line" data-field="line" d="" vector-effect="non-scaling-stroke"></path>
+        </svg>
+        <span class="usage__end" data-field="end" hidden></span>
+      </div>
+    </figure>
+
+    <section class="usage__parts" data-field="parts" hidden>
+      <span class="usage__bar" aria-hidden="true">
+        <span class="usage__bar-piece" data-piece="input"></span>
+        <span class="usage__bar-piece" data-piece="output"></span>
+        <span class="usage__bar-piece" data-piece="cacheRead"></span>
+        <span class="usage__bar-piece" data-piece="cacheWrite"></span>
+      </span>
+      <ul class="usage__list">
+        <li class="usage__part" data-part="input">
+          <span class="usage__part-label" data-label="input"></span>
+          <span class="usage__part-value" data-field="input"></span>
+          <span class="usage__part-share" data-field="inputShare"></span>
+          <span class="w-sr" data-field="inputFull"></span>
+        </li>
+        <li class="usage__part" data-part="output">
+          <span class="usage__part-label" data-label="output"></span>
+          <span class="usage__part-value" data-field="output"></span>
+          <span class="usage__part-share" data-field="outputShare"></span>
+          <span class="w-sr" data-field="outputFull"></span>
+        </li>
+        <li class="usage__part" data-part="cacheRead">
+          <span class="usage__part-label" data-label="cacheRead"></span>
+          <span class="usage__part-value" data-field="cacheRead"></span>
+          <span class="usage__part-share" data-field="cacheReadShare"></span>
+          <span class="w-sr" data-field="cacheReadFull"></span>
+        </li>
+        <li class="usage__part" data-part="cacheWrite">
+          <span class="usage__part-label" data-label="cacheWrite"></span>
+          <span class="usage__part-value" data-field="cacheWrite"></span>
+          <span class="usage__part-share" data-field="cacheWriteShare"></span>
+          <span class="w-sr" data-field="cacheWriteFull"></span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="usage__recent" data-field="recent" hidden>
+      <p class="usage__recent-title" data-field="recentTitle">最近一次调用</p>
+      <p class="usage__recent-line">
+        <span class="usage__recent-value" data-field="recentValue"></span>
+        <span class="usage__recent-meta" data-field="recentMeta"></span>
+      </p>
+    </section>
+
+    <p class="t-data__empty usage__empty" data-field="empty" role="status">正在读取用量…</p>
+  </div>
+</article>

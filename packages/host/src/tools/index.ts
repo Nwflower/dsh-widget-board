@@ -4,8 +4,9 @@
  * 工具只在宿主有 `tools` 服务时注册——会话里没有工具注册表就没有「暴露给会话」这回事，看板本身照常
  * 工作（D11）。注册与撤销都归这一行的 `ctx.effect`，插件卸载时一并收掉。
  *
- * 启动时只注册入口工具 `widget_catalog`；其余六个等它被点名之后再注册。模型看到的工具表因此默认只有
- * 一项，点名之后才变长。
+ * 七个工具在启动时一次注册完，不按点名增删。工具表在会话中途变化会让宿主那条线路的前缀缓存
+ * 整段失效——一次就是几十万 token 的重算——所以"点名之后才出现"这个机制被去掉：代价是每轮多带
+ * 六份 schema，而它们命中缓存后几乎免费。
  *
  * 工具读的是路由上下文这一份**活的**引用：组件库与看板随热重载、写入被替换，工具跟着看新的那一份。
  */
@@ -110,9 +111,9 @@ export function registerTools(ctx: Context, context: ToolContext, onRegistered?:
       onRegistered?.([...names])
     }
     const specs = toolSpecs(context)
-    // 入口工具常驻；其余六个等点名（D9）。
-    const entry = specs.find((spec) => spec.name === WIDGET_TOOL_NAMES.catalog)
-    if (entry !== undefined) register(entry)
+    // 一次全部挂上，会话中途不再增删：每次增删都会让前缀缓存整体作废
+    // （Kimi 那一类自动前缀缓存按内容匹配，工具表一变，前面的历史全部重算）。
+    for (const spec of specs) register(spec)
     context.reveal = (wanted) => {
       for (const spec of specs) if (wanted.includes(spec.name)) register(spec)
     }
@@ -187,12 +188,12 @@ export function createToolContext(
 /**
  * 注册给模型看的那一段系统提示。
  *
- * 讲清先加载编写指南，以及要动看板时先点名工具：工具表默认只有入口工具（D9）。
+ * 讲清先加载编写指南，并说明工具都已直接可用（D9 修订：一次挂载，不再点名）。
  */
 const PROMPT_SECTION = [
   '这个部署装着一个组件看板：一页可以拖动、缩放的卡片，每张卡片是一个沙箱里的小组件。',
   `要写一个新组件、或把看板上的卡片改一改时，先加载 \`${WIDGET_SKILL_NAME}\` 这条 skill，再用 ${WIDGET_TOOL_NAMES.catalog} 看现有的组件。`,
-  `写组件、放卡、改卡、推数据、内联显示各有一个工具，它们要经 ${WIDGET_TOOL_NAMES.catalog} 在 \`expose\` 里点名才会出现；点名的同一次调用里还不能用它们，从下一次调用起才能用。`,
+  '写组件、放卡、改卡、推数据、内联显示各有一个工具，都已经在工具表里，直接调用即可。',
   '组件的代码在沙箱里跑，拿不到网络与 cookie；要数据就声明一个数据源，要动手就声明一个动作，两者都由宿主上的插件提供。',
 ].join('\n')
 

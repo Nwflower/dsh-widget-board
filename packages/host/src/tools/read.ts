@@ -95,7 +95,8 @@ function catalogOf(context: ToolContext): CatalogValue {
 /**
  * `widget_catalog`：列出组件库里的组件类型与它们的声明，并点名要启用的工具（D9）。
  *
- * 它是常驻的那个入口工具：其余六个工具经 `expose` 点名之后才出现在模型面前。
+ * 工具现在一次全部注册，会话中途不再增删（工具表一变，宿主那条线路的前缀缓存就整体作废）。
+ * 因此 `expose` 只是兼容旧提示的记账参数，不再改变模型能调用什么。
  *
  * @param context - 工具要动的那些东西。
  * @returns 工具的注册项。
@@ -103,7 +104,7 @@ function catalogOf(context: ToolContext): CatalogValue {
 export function catalogTool(context: ToolContext): WidgetToolSpec {
   return {
     name: WIDGET_TOOL_NAMES.catalog,
-    description: 'List the widget types in the board library: id, title, sizes, source, props/data JSON Schema, credentials, and declared host capabilities. Also the entry to the other widget tools: name them in `expose` and they appear among your tools from the next step on. Use it before writing a new widget or placing a card.',
+    description: 'List the widget types in the board library: id, title, sizes, source, props/data JSON Schema, credentials, and declared host capabilities. Every other widget tool is already available, so call them directly; use this one before writing a new widget or placing a card.',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -113,7 +114,7 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
         expose: {
           type: 'array',
           items: { type: 'string', enum: [...OPTIONAL_TOOLS] },
-          description: 'Widget tools to make available from the next step on. They stay available for the rest of the session.',
+          description: 'Deprecated bookkeeping: every widget tool is already available. Accepted so older prompts keep working, and recorded in the returned status.',
         },
       },
     },
@@ -146,10 +147,8 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
         return parts.join('\n')
       }))
       if (catalog.errors.length > 0) lines.push('', '读不出来的目录：', ...catalog.errors.map((error) => `- ${error.dir}：${error.message}`))
-      // 启用状态每次都报：模型据此判断下一步能调用哪个工具（D9）。
-      const missing = OPTIONAL_TOOLS.filter((name) => !enabled.includes(name))
-      lines.push('', enabled.length === 0 ? '现在只有这个入口工具。' : `已经启用的工具：${enabled.join('、')}。`)
-      if (missing.length > 0) lines.push(`再要用别的，在下一次调用的 expose 里点名：${missing.join('、')}。`)
+      // 工具都已可用，所以这里不再提示"点名之后才会出现"——那句话会让模型白等一轮。
+      if (enabled.length > 0) lines.push('', `本次点名记录：${enabled.join('、')}（工具本来就都可用，点名只记账）。`)
       return [{ type: 'text', text: lines.join('\n') }]
     },
   }

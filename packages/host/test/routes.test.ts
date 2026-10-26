@@ -18,6 +18,8 @@ import { readManyInto } from '../src/batch-reads'
 import type { GrantStore } from '../src/grants'
 import type { WidgetRecord } from '../src/library'
 import { loadLibrary } from '../src/library'
+import type { Live } from '../src/live'
+import { createLive } from '../src/live'
 import { createRegistries } from '../src/sources'
 import { createRequestLog } from '../src/request-log'
 import { writeBoard } from '../src/state'
@@ -121,7 +123,11 @@ interface Harness {
 /** 这一轮起的临时目录，测试结束一并删掉。 */
 const homes: string[] = []
 
+/** 这一轮建的通知器：心跳与长连接在测试结束一并收掉。 */
+const lives: Live[] = []
+
 afterEach(async () => {
+  for (const live of lives.splice(0)) live.close()
   for (const home of homes.splice(0)) await rm(home, { recursive: true, force: true })
 })
 
@@ -187,6 +193,9 @@ async function harness(record: WidgetRecord = RECORD, extra = false, records?: M
   await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'board', boards: ids })}\n`, 'utf8')
   const sources = createRegistries()
   const workspace = await openWorkspace(home, records ?? new Map([[record.manifest.id, record]]), (event) => { events.push(event) })
+  // 真的通知器：/events 与可见性上报都落在它身上，测试因此判定的是真行为。
+  const live = createLive({ tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} })
+  lives.push(live)
   const context: RouteContext = {
     records: new Map([[record.manifest.id, record]]),
     entries: ENTRIES,
@@ -197,14 +206,7 @@ async function harness(record: WidgetRecord = RECORD, extra = false, records?: M
     workspace,
     get board() { return workspace.active() },
     save: async (change, options) => await workspace.save(workspace.activeId(), change, options),
-    live: {
-      assets: { tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} },
-      revision: 0,
-      subscribe: () => undefined,
-      publish: () => undefined,
-      notify: (event) => { events.push(event) },
-      close: () => undefined,
-    },
+    live,
     connection: undefined,
     refresh: async () => undefined,
     sources,
@@ -720,6 +722,95 @@ describe('动作', () => {
   it('没有声明 id 的请求被拒绝', async () => {
     const response = await (await harness()).send('POST', '/instance/board-first/action', JSON.stringify({ payload: null }))
     expect(response.status).toBe(400)
+  })
+})
+
+describe('变更通知与单卡可见性', () => {
+  it('GET /events 接上长连接，先补一条重取快照的通知', async () => {
+    const test = await harness()
+    const response = await test.send('GET', '/events?viewer=v1')
+    expect(response.status).toBe(200)
+    expect(response.headers['content-type']).toBe('text/event-stream; charset=utf-8')
+    expect(response.body).toContain('"type":"board"')
+  })
+
+  it('GET /events 不带观众身份也接得上', async () => {
+    const test = await harness()
+    const response = await test.send('GET', '/events')
+    expect(response.status).toBe(200)
+    expect(test.context.live.viewers).toBe(1)
+    expect(test.context.live.visible).toBe('all')
+  })
+
+  it('GET /events 的观众 id 超过 128 字符时回 400，连接不接', async () => {
+    const test = await harness()
+    const response = await test.send('GET', `/events?viewer=${'v'.repeat(129)}`)
+    expect(response.status).toBe(400)
+    expect(test.context.live.viewers).toBe(0)
+  })
+
+  it('GET /events 的观众 id 刚好 128 字符时接得上，之后的上报按这位观众记', async () => {
+    const test = await harness()
+    const viewer = 'v'.repeat(128)
+    const events = await test.send('GET', `/events?viewer=${viewer}`)
+    expect(events.status).toBe(200)
+    expect(test.context.live.viewers).toBe(1)
+    const posted = await test.send('POST', '/visibility', JSON.stringify({ viewer, visible: ['board-first'] }))
+    expect(JSON.parse(posted.body)).toEqual({ ok: true, accepted: true })
+    expect([...(test.context.live.visible as ReadonlySet<string>)]).toEqual(['board-first'])
+  })
+
+  it('GET /events 的 viewer 参数为空时按老页面算：仍然全部可见', async () => {
+    const test = await harness()
+    const response = await test.send('GET', '/events?viewer=')
+    expect(response.status).toBe(200)
+    expect(test.context.live.viewers).toBe(1)
+    expect(test.context.live.visible).toBe('all')
+  })
+
+  it('POST /visibility 记下这一页看得见的卡片', async () => {
+    const test = await harness()
+    await test.send('GET', '/events?viewer=v1')
+    const response = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible: ['board-first'] }))
+    expect(response.status).toBe(200)
+    expect(JSON.parse(response.body)).toEqual({ ok: true, accepted: true })
+    expect([...(test.context.live.visible as ReadonlySet<string>)]).toEqual(['board-first'])
+  })
+
+  it('已经断开的观众再上报时不记', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'ghost', visible: ['board-first'] }))
+    expect(response.status).toBe(200)
+    expect(JSON.parse(response.body)).toEqual({ ok: true, accepted: false })
+    expect([...(test.context.live.visible as ReadonlySet<string>)]).toEqual([])
+  })
+
+  it('形状不对的上报回 400', async () => {
+    const test = await harness()
+    expect((await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1' }))).status).toBe(400)
+    expect((await test.send('POST', '/visibility', JSON.stringify({ viewer: '', visible: [] }))).status).toBe(400)
+    expect((await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible: [1] }))).status).toBe(400)
+    expect((await test.send('POST', '/visibility', 'not json')).status).toBe(400)
+  })
+
+  it('一次上报超过 512 个卡片 id 时回 400', async () => {
+    const test = await harness()
+    const visible = Array.from({ length: 513 }, (_unused, index) => `c${String(index)}`)
+    const response = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible }))
+    expect(response.status).toBe(400)
+  })
+
+  it('一个卡片 id 超过 128 字符时回 400', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible: ['c'.repeat(129)] }))
+    expect(response.status).toBe(400)
+  })
+
+  it('请求体超过 16KB 时回 413', async () => {
+    const test = await harness()
+    // 200 个 120 字符的 id 已经超过 16KB：上限按每次请求算，不累计。
+    const big = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible: Array.from({ length: 200 }, () => 'c'.repeat(120)) }))
+    expect(big.status).toBe(413)
   })
 })
 

@@ -4,7 +4,9 @@
  * 只有一条定时链，按「有哪些卡片声明了定时刷新」与「现在有几个页面在看」这两件事算出来：
  *
  * - 没有观众时一律不跑。宿主上不该有没人看的轮询（D5）。
- * - 有观众时按最短的那个间隔跑；开始观察时先读一次，之后每次只读那些到期了的卡片。
+ * - 有观众时只读至少落在一页视口里的卡片（D6 的单卡可见性）：一张卡离开全部视口就不再有新的
+ *   定时读取，重新看得见时立刻读一次。在途的那一次读不打断，让它自然结束。
+ * - 按最短的那个间隔跑；开始观察时先读一次，之后每次只读那些到期了的卡片。
  * - 声明了按需（或没声明）的卡片从不被定时读，只有人按刷新或工具显式读一次时才读。
  *
  * 调度器自己不认识组件与数据源：调用方给出「哪些卡片要按什么间隔读」与「怎么读一张卡」，它只管
@@ -13,6 +15,7 @@
 
 import type { WidgetRefresh } from '@dsh-widget-board/contracts'
 import { REFRESH_DEFAULT_MS, REFRESH_MIN_MS } from '@dsh-widget-board/contracts'
+import type { VisibleCards } from './live'
 
 /** 一张要定时读的卡。 */
 export interface ScheduledCard {
@@ -36,6 +39,12 @@ export interface SchedulerDeps {
   cards: () => readonly ScheduledCard[]
   /** 现在有几个看板页在看。 */
   viewers: () => number
+  /**
+   * 现在看得见哪些卡片（D6 的单卡可见性）。
+   *
+   * `'all'` 表示还有看板页没上报过，按旧的页级行为算全部可见。
+   */
+  visible: () => VisibleCards
   /**
    * 读一批到期的卡；同一块看板的卡由实现合成一次写入（D6）。
    *
@@ -83,16 +92,23 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
   /** 上一轮的间隔，用来判断要不要重建定时器。 */
   let period: number | undefined
 
+  /** 这一轮要管的卡：声明了定时刷新，且至少有一个看板页看得见。 */
+  const covered = (): readonly ScheduledCard[] => {
+    const visible = deps.visible()
+    if (visible === 'all') return deps.cards()
+    return deps.cards().filter((card) => visible.has(card.id))
+  }
+
   /** 这一轮要不要跑，跑的话间隔是多少。 */
   const plan = (): number | undefined => {
     if (deps.viewers() <= 0) return undefined
-    const cards = deps.cards()
+    const cards = covered()
     if (cards.length === 0) return undefined
     return Math.min(...cards.map((card) => card.everyMs))
   }
 
   const tick = (): void => {
-    const cards = deps.cards()
+    const cards = covered()
     if (deps.viewers() <= 0 || cards.length === 0) {
       stop()
       return
@@ -136,16 +152,21 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
       stop()
       return
     }
-    // 卡片表变了就重算到期时刻：新来的卡在下一轮立刻读一次，走掉的卡不再占位。
-    const known = new Set(deps.cards().map((card) => card.id))
+    // 卡片表或可见集合变了就重算到期时刻：新来的卡立刻读一次，看不见的卡不再占位。
+    const known = new Set(covered().map((card) => card.id))
     for (const id of [...due.keys()]) {
       if (!known.has(id)) due.delete(id)
     }
-    if (timer !== undefined && period === wanted) return
-    timer?.cancel()
-    period = wanted
-    timer = setTimer(tick, wanted)
-    // 刚刚有观众（或换成更短的间隔）：立刻读一次，不用等满一个间隔。
+    // 刚看得见的卡在到期表里没有位置：这一轮读它，不用等满一个间隔。
+    const appeared = covered().some((card) => !due.has(card.id))
+    const rebuilding = timer === undefined || period !== wanted
+    if (!rebuilding && !appeared) return
+    if (rebuilding) {
+      timer?.cancel()
+      period = wanted
+      timer = setTimer(tick, wanted)
+    }
+    // 刚有观众、换成更短的间隔，或有卡片刚看得见：立刻读一次，不用等满一个间隔。
     tick()
   }
 

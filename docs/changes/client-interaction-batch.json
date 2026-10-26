@@ -1,8 +1,0 @@
-{
-  "group": "fixes",
-  "order": 6,
-  "external": false,
-  "at": "2026-10-24",
-  "zh": "界面交互的一批修复：从组件库拖出浏览器窗口松手不再让拖放层卡死、回窗点击也不再误加卡片（Escape 可取消）；设置里的数字框可以正常输入小数与科学计数法；在「关于」页做授权不再清空「配置」页的未保存草稿；布局提交期间加卡与刷新不再与它打架；组件库预览里的动作与能力调用不再发到宿主；关页前的最后一次状态保存改用 keepalive，更可靠；导入同名不同内容的组件时可以选「覆盖安装」。",
-  "en": "A batch of UI fixes: releasing a library drag outside the browser window no longer leaves the drag layer stuck and a stray click no longer drops a card (Escape cancels); number fields accept decimals and scientific notation; granting on the About tab no longer wipes unsaved drafts on the Config tab; adding cards and refreshing no longer race an in-flight layout submit; actions and capability calls from library previews no longer reach the host; the final state save before page close uses keepalive; and importing a same-id widget with different content now offers a replace option."
-}

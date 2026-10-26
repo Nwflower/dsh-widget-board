@@ -6,9 +6,11 @@
 
 ## [Unreleased]
 
-[中文](#cn-unreleased) | [English](#en-unreleased)
+## [0.1.6] - 2026-10-26
 
-<h3 id="cn-unreleased">新增功能</h3>
+[中文](#cn-0.1.6) | [English](#en-0.1.6)
+
+<h3 id="cn-0.1.6">新增功能</h3>
 
 - 新增内置组件「开关灯」：一盏台灯，按底座上的开关在日间与夜间之间切换，窗外的太阳、月亮、星点与灯下的光束一起变化。切换经通用的 dsh.theme 能力完成；浏览器半边把整页的新配色从灯下的一点以圆点展开，旧画面留在圆外，卡片里的波纹与整页圆点共用按下点，并且等新配色落到卡片时才一起开始；圆心与半径用百分比写，1.5 倍像素密度的桌面上也不会偏向左上角。旧快照拍完后暂停其它卡片的逐帧绘制，转场结束分批恢复，按下的一刻其它卡片不会被提前停住；浏览器不支持 View Transitions 或系统要求减弱动效时退回直接切换。宿主半边也能读改写主题偏好，作为兜底。
 - 天气卡新增六座城市街景：北京国贸 CBD（中国尊、国贸三期）、上海陆家嘴（东方明珠、三件套、江面）、纽约曼哈顿、东京涩谷、伦敦金融城与赛博霓虹峡谷；每座城有媒体立面、动画广告屏、霓虹招牌、人流与车流，按城市自动出现，也能在设置里直接指定。
@@ -20,10 +22,10 @@
 ### 体验优化
 
 - 组件库从浮在下方菜单上的小窗改成从底部上拉的整窗，铺满看板这一栏；打开与关闭用 Panel reveal 过渡（上移 100px、2px 交叉虚化，打开 400ms、关闭 350ms），开始拖动组件时面板先收起，落点直接露出来。
-- 会话工具改为按需出现：模型默认只看到 widget_catalog，写组件、放卡、推数据等工具经它的 expose 点名后才注册，常驻上下文从约 1.5k token 降到约 0.2k。
 - 天气卡换成 Three.js 搭的立体窗景：三层楼群与窗灯、湿路面上的车流、雨雪与雷电、塔顶航空灯与扫过的探照灯，镜头缓慢推拉并跟随指针；新增精选库 three，只有声明 libs 的组件才内联它。
 - 「活动」卡片改成一张用量图：上排一个已经消耗的 Token 总量，下面按卡片的实际宽高铺满用量格子。格子边长、列数与行数都由盒子算出来，格子总数跟着记录长度走并封顶 364 格，悬停读出当天用量；装了 dsh-claude-style 时先读它折好的那份，没装就用看板自己的汇总。
 - 卡片设置里的城市字段改成可检索的选择器：边输入边列出候选（中文名、英文名、地区），点一条就把城市名、双语地名与坐标一次填好，选中后显示已解析的坐标并能「换一座」。
+- 七个工具改为启动时一次全部注册，不再由 widget_catalog 的 expose 逐个放出来：工具表在会话中途变化会让宿主那条线路的前缀缓存整段失效（Kimi 线路上实测一次就是 62 万 token 的重算），所以 expose 保留为记账参数、不再改变模型能调用什么。
 - 内置组件按盒子重排：宽而矮的卡片改成横排（标题在左、内容在右或按列铺开），窄而高的卡片在竖直方向铺开，正方与常规仍是上下结构；大字读数按宽高一起收，长条里不再出现左边一小块、右边一大片空白。月历在矮卡片里改画一整周；组件套件新增 `.t-data--split`，数据卡骨架的内边距与标题字号也按档位收一档。
 - 天气卡恢复为低开销的 Canvas 窗景，并在这一版上重做界面：窗外加入黎明、黄金时刻、暮色与夜幕的二维天光，太阳/月亮位置、云的颜色与地平线暖光随当地时刻和日出日落变化；卡片头部加了阶段标记与地点光点，天气图标改成磨砂圆章，天气与高低温并成一行，底部预报改成带背景模糊的薄底舱；玻璃上的雨雪、水珠与城市灯火保留，像素比上限降到 1.5，浅色/深色按宿主令牌判断。
 - 「最近 Token 用量」卡片的 today 与 all 两个窗口开始合并插件启动之前的历史：注册时先读一次 dsh-usage 的用量总览，再建立实时订阅，两段来源不重复计数；session 窗口仍只用实时数字。插件可能在宿主绑上端口之前启动，那一次读会失败，所以这两个窗口最多再补读两次（含首次共三次尝试，成功或形状不合格即停）；补上时实时起点移到读完之后、这之间的实时累计整份清空，两段仍然不重复。没装 dsh-usage 时，这个地址上的 401 与 404 一样按未安装记——它自己的总览对回环请求放行，装上之后不会有 401，未装时先答话的是宿主的兜底鉴权。读不到或答出来的形状不合格时，卡片保留实时数据，并在读数里写明历史这一路的状态。
@@ -45,7 +47,7 @@
 - 导入安全加固：看板包里内嵌的组件文件按组件包同一组上限校验（路径不越出目录、扩展名白名单、文件数与大小），解压在解包前按声明的大小逐项拦截，内嵌的 manifest 与哈希同落盘内容核对不上就整包拒绝。
 - 会话工具读数据源补上授权闸门：widget_place 与 widget_show 的读取改走界面手动读的同一条路径，需要授权的数据源在没有人的允许之前不再被工具直接读取。
 
-<h3 id="en-unreleased">New Features</h3>
+<h3 id="en-0.1.6">New Features</h3>
 
 - New built-in widget, Light switch: a desk lamp whose base switch flips the room between day and night, moving the sun, moon, stars and the light beam together. The switch goes through the generic dsh.theme capability; the browser half reveals the new palette across the whole page as a circle growing from the lamp, with the old picture left outside it. The card's ripple shares the press point and starts with the page circle once the new tokens reach the card; the circle's center and radius are percentages, so a 1.5x display no longer pulls it toward the top-left. Other cards are suspended only after the old snapshot is taken and resumed in batches, so the press never freezes them early; when View Transitions are unavailable or reduced motion is requested it switches directly, and the host half can read and write the theme preference as a fallback.
 - Six new city-scape scenes for the weather card: Beijing CBD with the CITIC Tower, Shanghai Lujiazui with the Pearl Tower and the Bund, Manhattan, Shibuya, the City of London, and a cyberpunk neon canyon; each has animated media facades, billboard screens, neon signs, pedestrians and traffic, picked by city or chosen in settings.
@@ -57,10 +59,10 @@
 ### Improvements
 
 - The widget library is now a full-height panel that rises from the bottom of the board pane instead of a small window above the dock; opening and closing use the Panel reveal transition (100px rise, 2px cross-blur, 400ms in and 350ms out), and a drag dismisses the panel first so the drop target is visible.
-- Session tools now appear on demand: the model starts with widget_catalog only, and the write/place/push tools register after being named in its expose field, cutting the resident tool context from about 1.5k to 0.2k tokens.
 - The weather card now renders a Three.js cityscape: three depth bands of towers with lit windows, traffic on wet asphalt, rain, snow and lightning, rooftop beacons and sweeping searchlights, with a camera that drifts and follows the pointer; a new curated library, three, is inlined only into widgets that declare it.
 - The Activity card becomes a usage chart: the tokens spent so far, then a grid of daily usage that fits the card&#39;s own width and height. Cell size, columns and rows all follow the box; the number of cells follows how long the record actually is, capped at 364, and each day reads out on hover. It reads dsh-claude-style&#39;s fold when that plugin is installed and the board&#39;s own otherwise.
 - The city field in card settings is now a searchable picker: typing lists suggestions (Chinese name, English name, region), picking one fills the city name, both names and the coordinates, and the chosen place shows its coordinates with a Change button.
+- All seven tools are now registered at startup instead of being revealed one by one through widget_catalog's expose: a tool list that changes mid-session invalidates the whole prompt prefix cache on the host route (measured once at 620k tokens on the Kimi line), so expose stays as bookkeeping and no longer changes what the model can call.
 - Built-in widgets are laid out per box: wide-and-short cards read horizontally (title left, content right or in columns), narrow-and-tall cards distribute vertically, square and regular cards keep the stacked flow; large readouts scale with width and height, so a wide strip no longer leaves a small cluster on the left and empty space everywhere else. The calendar draws a single week in short cards; the suite gains `.t-data--split`, and the data-card skeleton tightens its padding and title size per box class.
 - The weather card returns to the lightweight canvas window scene, with a refined interface on top: the view now has two-dimensional dawn, golden hour, dusk and night light, with the sun/moon position, cloud colors and horizon glow following local time and sunrise/sunset; the header gains a phase marker and location dot, the weather icon becomes a frosted medallion, condition and high/low share one row, and the forecast becomes a softly blurred dock. Rain, snow, glass drops and city lamps remain, pixel ratio is capped at 1.5, and light/dark follows the host tokens.
 - The recent-token-usage card's today and all windows now merge the usage recorded before the plugin started: the board reads dsh-usage's overview once, then opens the live subscription, so the two sources never count the same stretch twice, while the session window stays live-only. The plugin can start before the host has bound its port and that first read then fails, so these two windows retry at most twice more (three attempts in total, stopping as soon as the history is available or its shape is unusable); a successful retry moves the live starting point to the moment it finishes and clears the live ledger recorded in between, so the two stretches still never overlap. Without dsh-usage installed, a 401 on that address counts as not installed just like a 404, because its own overview lets loopback requests through and never answers 401 once it is there, while the host's fallback authorization answers first when it is not. When the history cannot be read or answers in a shape the board cannot use, the card keeps its live figures and states the history source's condition in the reading.

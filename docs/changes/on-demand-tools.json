@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 0,
-  "external": true,
-  "at": "2026-10-24",
-  "zh": "会话工具改为按需出现：模型默认只看到 widget_catalog，写组件、放卡、推数据等工具经它的 expose 点名后才注册，常驻上下文从约 1.5k token 降到约 0.2k。",
-  "en": "Session tools now appear on demand: the model starts with widget_catalog only, and the write/place/push tools register after being named in its expose field, cutting the resident tool context from about 1.5k to 0.2k tokens."
-}

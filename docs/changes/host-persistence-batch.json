@@ -1,8 +1,0 @@
-{
-  "group": "fixes",
-  "order": 7,
-  "external": true,
-  "at": "2026-10-24",
-  "zh": "宿主侧持久化与拆除的一批修复：版本库与组件目录改用先写临时再换名的原子写法，崩溃不再留下半份文件；定时刷新的一批读取里一张卡被移除不再让整批失败；授权表里不合格的记录改为当场报错，不再被下次写入静默抹掉；widget_place 给出部分布局不再产出无效坐标，点名不存在的数据源先拒绝再动看板；卡片移除时它的请求日志一并回收；插件拆除时目录来源、授权与热更新订阅收干净；并发删除同一组回到 404。",
-  "en": "A batch of host-side persistence and teardown fixes: the version store and widget directories use write-temp-then-swap atomic writes so a crash no longer leaves half-written files; one removed card no longer fails a whole scheduled refresh batch; malformed grant records now fail loudly instead of being silently erased on the next write; widget_place no longer produces invalid coordinates from a partial layout and rejects unknown data sources before touching the board; a removed card's request log is reclaimed; plugin teardown removes its directories, grants, and hot-update subscription; and concurrent removal of the same group now returns 404."
-}

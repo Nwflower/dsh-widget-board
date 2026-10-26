@@ -1,8 +1,0 @@
-{
-  "group": "improvements",
-  "order": 4,
-  "external": true,
-  "at": "2026-10-25",
-  "zh": "「最近 Token 用量」卡片的 today 与 all 两个窗口开始合并插件启动之前的历史：注册时先读一次 dsh-usage 的用量总览，再建立实时订阅，两段来源不重复计数；session 窗口仍只用实时数字。插件可能在宿主绑上端口之前启动，那一次读会失败，所以这两个窗口最多再补读两次（含首次共三次尝试，成功或形状不合格即停）；补上时实时起点移到读完之后、这之间的实时累计整份清空，两段仍然不重复。没装 dsh-usage 时，这个地址上的 401 与 404 一样按未安装记——它自己的总览对回环请求放行，装上之后不会有 401，未装时先答话的是宿主的兜底鉴权。读不到或答出来的形状不合格时，卡片保留实时数据，并在读数里写明历史这一路的状态。",
-  "en": "The recent-token-usage card's today and all windows now merge the usage recorded before the plugin started: the board reads dsh-usage's overview once, then opens the live subscription, so the two sources never count the same stretch twice, while the session window stays live-only. The plugin can start before the host has bound its port and that first read then fails, so these two windows retry at most twice more (three attempts in total, stopping as soon as the history is available or its shape is unusable); a successful retry moves the live starting point to the moment it finishes and clears the live ledger recorded in between, so the two stretches still never overlap. Without dsh-usage installed, a 401 on that address counts as not installed just like a 404, because its own overview lets loopback requests through and never answers 401 once it is there, while the host's fallback authorization answers first when it is not. When the history cannot be read or answers in a shape the board cannot use, the card keeps its live figures and states the history source's condition in the reading."
-}

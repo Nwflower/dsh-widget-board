@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 1,
-  "external": true,
-  "at": "2026-10-24",
-  "zh": "天气卡按城市换景：北京一线是古建塔殿、苏杭是水墨山峦与庭院，设置里还能指定景观与动画方式（漂移、静止、轮播）；文字尺寸改为按卡片宽高比例缩放，大卡片不再被 px 上限卡住。",
-  "en": "The weather card now matches the city: historic towers and halls for Beijing, ink-wash mountains or a walled courtyard for Jiangnan cities, with settings for the scene and motion (drift, still, rotate); text now scales with the card instead of hitting a fixed pixel cap."
-}

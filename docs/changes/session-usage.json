@@ -1,8 +1,0 @@
-{
-  "group": "new",
-  "order": 2,
-  "external": true,
-  "at": "2026-10-25",
-  "zh": "新增内置数据源 widget-board:session.usage 与内置的「最近 Token 用量」卡片：插件启动之后订阅会话事件，按所选会话、本地当天与全部三个窗口给出带用量调用的 token 合计、最近一次与最近 30 个点，读数里只出现会话 id 的前 8 位；同时卡片离开视口后暂停刷新，回到视口时补读一次数据。",
-  "en": "Add the built-in widget-board:session.usage data source and the built-in recent-token-usage card: from the moment the plugin starts it subscribes to session events and reports token totals for the selected session, the local day and everything since start, plus the latest call and the last 30 points, with only the first 8 characters of a session id in the reading. Cards also stop refreshing while they are out of view and read once when they come back."
-}

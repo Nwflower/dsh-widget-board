@@ -360,33 +360,31 @@ describe('按需出现的工具（D9）', () => {
     return { ctx, registered }
   }
 
-  it('启动时只注册入口工具，点名之后补上其余工具', async () => {
+  it('启动时一次注册全部工具，之后点名不再改变工具表', async () => {
     const host = hostContext()
     const harnessed = harness()
     const registration = registerTools(host.ctx as never, harnessed.toolContext)
     expect(registration).toBeDefined()
-    expect(host.registered).toEqual([WIDGET_TOOL_NAMES.catalog])
+    // 工具表在会话中途变化会让前缀缓存整体作废，所以一次挂满。
+    expect([...host.registered].sort()).toEqual([WIDGET_TOOL_NAMES.catalog, ...OPTIONAL_TOOLS].sort())
 
     const catalog = toolOf(harnessed, WIDGET_TOOL_NAMES.catalog)
     await catalog.execute({ expose: [WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place] })
-    expect(host.registered).toEqual([WIDGET_TOOL_NAMES.catalog, WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place])
-
-    // 再点名同一个工具不会重复注册；新点名只追加。
-    await catalog.execute({ expose: [WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.push] })
-    expect(host.registered).toEqual([WIDGET_TOOL_NAMES.catalog, WIDGET_TOOL_NAMES.define, WIDGET_TOOL_NAMES.place, WIDGET_TOOL_NAMES.push])
+    // 点名只是记账：注册表一个字节都不动。
+    expect([...host.registered].sort()).toEqual([WIDGET_TOOL_NAMES.catalog, ...OPTIONAL_TOOLS].sort())
     expect(() => registration?.dispose()).not.toThrow()
   })
 
-  it('入口工具的渲染写明现在启用与还能点名的工具', async () => {
+  it('入口工具的渲染不再承诺"点名之后才出现"', async () => {
     const harnessed = harness()
     const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.catalog)
     const empty = tool.output.render(undefined, await tool.execute({}))
-    expect(empty[0]?.text).toContain('现在只有这个入口工具')
-    expect(empty[0]?.text).toContain(WIDGET_TOOL_NAMES.place)
+    // 这句话会让模型白等一轮：工具本来就都在。
+    expect(empty[0]?.text).not.toContain('现在只有这个入口工具')
+    expect(empty[0]?.text).not.toContain('点名')
 
     const some = tool.output.render(undefined, await tool.execute({ expose: [WIDGET_TOOL_NAMES.define] }))
-    expect(some[0]?.text).toContain(`已经启用的工具：${WIDGET_TOOL_NAMES.define}。`)
-    expect(some[0]?.text).not.toContain(`已经启用的工具：${WIDGET_TOOL_NAMES.define}、`)
+    expect(some[0]?.text).toContain('本次点名记录')
   })
 
   it('点名的次序与工具自身的启用集合一致', async () => {

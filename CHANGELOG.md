@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">问题修复</h3>
+
+- 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
+
+<h3 id="en-unreleased">Bug Fixes</h3>
+
+- A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
+
 ## [0.1.6] - 2026-10-26
 
 [中文](#cn-0.1.6) | [English](#en-0.1.6)

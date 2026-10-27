@@ -77,6 +77,7 @@ export function BoardTabs({
   const [overlay, setOverlay] = useState<Overlay | null>(null)
   /** 打开管理界面的那枚按钮：关掉之后把焦点还回去。 */
   const returnFocusRef = useRef<HTMLElement | null>(null)
+  const focusGenerationRef = useRef(0)
   const [writing, setWriting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
 
@@ -174,6 +175,7 @@ export function BoardTabs({
 
   /** 关掉菜单或弹窗，把焦点还给打开它的那枚控件。 */
   const close = useCallback((): void => {
+    const generation = ++focusGenerationRef.current
     setOverlay(null)
     setFailure(null)
     const target = returnFocusRef.current
@@ -182,13 +184,14 @@ export function BoardTabs({
     target.focus()
     // 外部按下时浏览器会在这一下之后自己挪焦点（多半挪到 body）：等这一轮走完再确认一次。
     window.setTimeout(() => {
-      if (!target.isConnected) return
+      if (!target.isConnected || generation !== focusGenerationRef.current) return
       target.focus()
     }, 0)
   }, [])
 
   /** 打开某块看板的菜单；落点取触发控件的盒子。 */
   const openMenu = useCallback((boardId: string, element: HTMLElement): void => {
+    focusGenerationRef.current += 1
     const box = element.getBoundingClientRect()
     returnFocusRef.current = element
     setFailure(null)

@@ -49,6 +49,9 @@ import {
   refreshPath,
 } from '@dsh-widget-board/contracts'
 
+/** 只缓存已成功预读的能力名称；正式调用仍核对宿主授权，失败后下次重新读取。 */
+const knownCapabilities = new Set<string>()
+
 /** 读一份失败响应里的原因。 */
 async function errorOf(response: Response, subject: string): Promise<string> {
   return (await failureOf(response, subject)).message
@@ -297,13 +300,27 @@ export async function callInstanceCapability(
   args: unknown,
   signal?: AbortSignal,
 ): Promise<unknown> {
+  // 设置读模型明确区分能力未注册；正常的提供方缺席在发起调用前可见，组件可继续选择其它提供方。
+  const key = JSON.stringify([id, capability])
+  if (!knownCapabilities.has(key)) {
+    const settings = await fetchInstanceSettings(id, signal)
+    const declared = settings.capabilities.find(entry => entry.id === capability)
+    if (declared === undefined) throw new Error(`组件没有声明能力 ${capability}`)
+    if (declared.unavailable !== undefined) throw new Error(declared.unavailable)
+    // 有界缓存避免媒体每一块都重读设置；没有注册的能力不缓存，安装提供方后可立即重试。
+    if (knownCapabilities.size >= 256) knownCapabilities.delete(knownCapabilities.values().next().value as string)
+    knownCapabilities.add(key)
+  }
   const response = await fetch(instanceCallPath(id), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ capability, args }),
     ...(signal === undefined ? {} : { signal }),
   })
-  if (!response.ok) throw await failureOf(response, `调用 ${capability} 失败`)
+  if (!response.ok) {
+    knownCapabilities.delete(key)
+    throw await failureOf(response, `调用 ${capability} 失败`)
+  }
   return (await response.json() as { result?: unknown }).result ?? null
 }
 
@@ -440,8 +457,8 @@ export async function addGroup(boardId: string, layout?: CardLayout): Promise<{ 
  * @returns 只含状态与 schema 的设置。
  * @throws {Error} 请求失败或响应不是设置读模型。
  */
-export async function fetchInstanceSettings(id: string): Promise<CardSettings> {
-  const response = await fetch(instanceSettingsPath(id), { headers: { accept: 'application/json' } })
+export async function fetchInstanceSettings(id: string, signal?: AbortSignal): Promise<CardSettings> {
+  const response = await fetch(instanceSettingsPath(id), { headers: { accept: 'application/json' }, ...(signal === undefined ? {} : { signal }) })
   if (!response.ok) throw new Error(await errorOf(response, '读不了这张卡的设置'))
   const value: unknown = await response.json()
   if (!isCardSettings(value)) throw new Error('读不了这张卡的设置：响应不是设置读模型')

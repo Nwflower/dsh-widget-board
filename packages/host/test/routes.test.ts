@@ -11,9 +11,9 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Board, BoardEvent, Grant, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
 import { PLUGIN_ROUTE, grantKey } from '@dsh-widget-board/contracts'
+import { BOARD_TITLE_LIMIT } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
-import { MY_BOARD_TITLE } from '../src/default-boards'
 import { readManyInto } from '../src/batch-reads'
 import type { GrantStore } from '../src/grants'
 import type { WidgetRecord } from '../src/library'
@@ -286,6 +286,37 @@ describe('看板的增删改与选中', () => {
     expect(response.status).toBe(400)
   })
 
+  it('八十个字符的标题可以存下，八十一个被拒绝', async () => {
+    const test = await harness()
+    const limit = '好'.repeat(BOARD_TITLE_LIMIT)
+    const saved = await test.send('POST', '/boards/board/rename', JSON.stringify({ title: limit }))
+    expect(saved.status).toBe(200)
+    expect(test.context.workspace.board('board').title).toBe(limit)
+    const longer = await test.send('POST', '/boards/board/rename', JSON.stringify({ title: `${limit}好` }))
+    expect(longer.status).toBe(400)
+    expect((JSON.parse(longer.body) as { error: string }).error).toContain(String(BOARD_TITLE_LIMIT))
+    expect(test.context.workspace.board('board').title).toBe(limit)
+  })
+
+  it('长度按字符计，星号表情不额外占位', async () => {
+    const test = await harness()
+    const title = '📌'.repeat(BOARD_TITLE_LIMIT)
+    const response = await test.send('POST', '/boards/board/rename', JSON.stringify({ title }))
+    expect(response.status).toBe(200)
+    expect(test.context.workspace.board('board').title).toBe(title)
+  })
+
+  it('新建看板也受同一份标题规则约束', async () => {
+    const test = await harness()
+    const tooLong = await test.send('POST', '/boards', JSON.stringify({ title: '好'.repeat(BOARD_TITLE_LIMIT + 1) }))
+    expect(tooLong.status).toBe(400)
+    const blank = await test.send('POST', '/boards', JSON.stringify({ title: '  ' }))
+    expect(blank.status).toBe(400)
+    const named = await test.send('POST', '/boards', JSON.stringify({ title: ' 工作 ' }))
+    expect(named.status).toBe(201)
+    expect((JSON.parse(named.body) as { snapshot: { boards: Board[] } }).snapshot.boards[1]?.title).toBe('工作')
+  })
+
   it('移除一块看板：文件与索引都不再提它', async () => {
     const test = await harness(RECORD, true)
     const response = await test.send('POST', '/boards/second/remove')
@@ -294,7 +325,7 @@ describe('看板的增删改与选中', () => {
     expect((JSON.parse(response.body) as { boards: Board[] }).boards).toHaveLength(1)
   })
 
-  it('移除最后一块看板时补上默认看板', async () => {
+  it('移除最后一块看板时补上空看板', async () => {
     const library = (await loadLibrary([{ dir: join(ROOT, 'packages', 'widgets'), source: 'builtin' }])).records
     const test = await harness(RECORD, false, library)
     const response = await test.send('POST', '/boards/board/remove')
@@ -303,8 +334,8 @@ describe('看板的增删改与选中', () => {
     expect(body.boards).toHaveLength(1)
     const replacement = body.boards[0] as Board
     expect(replacement.id).not.toBe('board')
-    expect(replacement.title).toBe(MY_BOARD_TITLE)
-    expect(replacement.instances.length).toBeGreaterThan(0)
+    expect(replacement.title).toBe('未命名看板')
+    expect(replacement.instances).toEqual([])
     expect(body.active).toBe(replacement.id)
     expect(test.events.at(-1)).toEqual({ type: 'board' })
   })

@@ -21,6 +21,7 @@ import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { GridMetrics } from '@dsh-widget-board/model'
 import { DEFAULT_HEIGHT_REM, gridMetrics, snapCardY } from '@dsh-widget-board/model'
 import { BoardGrid } from './board-grid'
+import { deleteBoardById, renameBoardTo } from './board-management/actions'
 import type { CardControls } from './card'
 import { CARD_CLIP_RADIUS } from './card-shell'
 import { isChinese, t } from './copy'
@@ -272,6 +273,26 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
         setBusy(false)
       })
   }, [apply])
+
+  /**
+   * 改一块看板的名字（D21）：标签条那边的弹窗负责收回自己的忙碌与失败，这里只把宿主的答复换进快照。
+   *
+   * @param id - 看板 id。
+   * @param title - 新标题。
+   */
+  const onRenameBoard = useCallback(async (id: string, title: string): Promise<void> => {
+    apply(await renameBoardTo(id, title))
+  }, [apply])
+
+  /**
+   * 删除一块看板（D21）：删掉的那块已经不在快照里；宿主决定之后哪一块是当前看板。
+   *
+   * @param id - 看板 id。
+   */
+  const onDeleteBoard = useCallback(async (id: string): Promise<void> => {
+    if (editor !== null && (activeBoard?.id === id)) closeEditor()
+    apply(await deleteBoardById(id))
+  }, [activeBoard, apply, closeEditor, editor])
 
   /** 加一张翻面组（D19）：两张卡的落点相同；加完直接打开槽条，让用户挑两面（D27）。 */
   const addGroupCard = useCallback((layout?: CardLayout): Promise<string | null> => {
@@ -538,8 +559,11 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
           boards={snapshot === null ? [] : snapshot.boards}
           active={snapshot?.active ?? ''}
           busy={busy || snapshot === null}
+          anchor={shellRef.current}
           onSelect={onSelectBoard}
           onCreate={onNewBoard}
+          onRename={onRenameBoard}
+          onDelete={onDeleteBoard}
         />
         {body}
         <div ref={boardsRef} className="dsh-widget-board__boards">

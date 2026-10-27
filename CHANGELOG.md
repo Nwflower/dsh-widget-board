@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">体验优化</h3>
+
+- 看板标签就地管理：每块标签右边多一个更多按钮，悬停或键盘聚焦时出现，右键标签也打开同一张菜单。菜单里可以给这块看板改名或删掉它，从别的标签打开不切换当前看板，关掉之后焦点回到按下的那枚按钮。改名弹窗预填当前名字，空名字就地报错，上限八十个字符（界面与宿主读同一份判定），中文输入法组合期间的回车不提交，保存失败时输入原样留在框里。删除确认写出看板标题、几格与几张卡片，删的是最后一块时说明会补一块空的；删掉哪一块之后显示哪一块由宿主决定。
+
+### 问题修复
+
+- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。
+
+<h3 id="en-unreleased">Improvements</h3>
+
+- Boards are managed right on their tabs: each tab gains a more button that appears on hover or keyboard focus, and right-clicking the tab opens the same menu. Rename or delete the board from there without switching to it; closing the menu returns focus to the button that opened it. The rename dialog is prefilled with the current name, reports an empty name in place, caps it at 80 characters (one rule shared by the UI and the host), never submits the Enter that confirms an IME composition, and keeps what you typed when saving fails. The delete confirmation names the board, its cells and its cards, says so when it is the last board, and leaves the host to decide which board shows afterwards.
+
+### Bug Fixes
+
+- Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading.
+
 ## [0.1.6] - 2026-10-26
 
 [中文](#cn-0.1.6) | [English](#en-0.1.6)

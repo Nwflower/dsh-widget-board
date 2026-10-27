@@ -93,6 +93,8 @@ async function boardManagementPass(page, { check }) {
     const staying = await strip(page)
     check('从非当前标签打开菜单不切换看板', staying.selected === second, `${String(staying.selected)} / 期望 ${String(second)}`)
     const menu = page.locator(MENU)
+    const motion = await menu.evaluate(node => ({ curve: getComputedStyle(node).getPropertyValue('--w-motion-ease-pop').trim(), animation: getComputedStyle(node).animationName }))
+    check('管理菜单从外壳继承统一动效令牌', motion.curve !== '' && motion.animation !== 'none', JSON.stringify(motion))
     const actions = await menu.locator('[role="menuitem"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-dsh-widget-board-board-menu-action')))
     check('菜单里有改名与移除两项', actions.length === 2 && actions.includes('rename') && actions.includes('remove'), JSON.stringify(actions))
     check('菜单写着它管的是哪一块', (await menu.textContent())?.includes((await page.locator(`[data-dsh-widget-board-tab="${base}"]`).textContent()) ?? '') === true)
@@ -124,6 +126,8 @@ async function boardManagementPass(page, { check }) {
       `${String(rightClick.selected)} / 期望仍是 ${String(second)}`)
     await page.keyboard.press('Escape')
     await page.waitForFunction((selector) => document.querySelector(selector) === null, MENU, { timeout: 5000 })
+    await page.waitForFunction(id => document.activeElement?.getAttribute('data-dsh-widget-board-tab-more') === id, base)
+    check('右键菜单关闭后焦点回到同组更多按钮', true)
 
     // V08：标签的语义与键盘。标签里不能再套按钮，更多按钮自己是一个可聚焦控件，菜单首项拿到焦点，
     // 方向键在两项之间绕行，aria-expanded 跟着开合走。
@@ -280,7 +284,6 @@ async function boardManagementPass(page, { check }) {
     check('删除确认打开时焦点在取消上', deleteFocus === true, String(deleteFocus))
     await page.locator(DELETE_CANCEL).click()
     await page.waitForSelector(DELETE, { state: 'detached', timeout: 5000 })
-
     // B11：删除失败不丢前端看板。让这一次删除在宿主那一侧失败，确认弹窗留着并写出原因。
     await openMenu(page, base)
     await page.locator(MENU_REMOVE).click()
@@ -299,6 +302,8 @@ async function boardManagementPass(page, { check }) {
     }
     await page.locator(DELETE_CANCEL).click()
     await page.waitForSelector(DELETE, { state: 'detached', timeout: 5000 })
+    await page.waitForFunction(id => document.activeElement?.getAttribute('data-dsh-widget-board-tab-more') === id, base)
+    check('删除失败后取消仍归还触发按钮焦点', true)
 
     // B09：删非当前看板不改变活动看板。
     const beforeRemove = await strip(page)

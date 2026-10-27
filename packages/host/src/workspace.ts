@@ -85,7 +85,7 @@ export interface Workspace {
    */
   rename(id: string, title: string): Promise<void>
   /**
-   * 移除一块看板；移除最后一块时补上默认看板并选中它。
+   * 移除一块看板；移除最后一块时补上空看板并选中它。
    *
    * @param id - 看板 id。
    */

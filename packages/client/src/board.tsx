@@ -63,6 +63,7 @@ const SHELL_STYLE = {
   '--w-motion-base': MOTION.base,
   '--w-motion-ease-standard': MOTION['ease-standard'],
   '--w-motion-ease-decel': MOTION['ease-decel'],
+  '--w-motion-ease-pop': MOTION['ease-pop'],
   '--w-type-caption': TYPE.caption,
   '--w-type-body': TYPE.body,
   '--w-type-title': TYPE.title,

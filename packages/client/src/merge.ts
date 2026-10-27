@@ -5,7 +5,7 @@
  * 重取整份快照，卡片与看板的增删、组件库变化返回原快照，调用处据此重取。合并只认通知里带来的
  * 字段，缺的字段保留原值；卡片 id 全工作区唯一，所以状态与数据的事件不必带看板。
  */
-import type { BoardEventFrame, BoardInstance, CardLayout, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
+import type { Arrangement, BoardEventFrame, BoardInstance, CardLayout, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
 import { mergeState } from './state-merge'
 
 /**
@@ -38,6 +38,9 @@ export function mergeEvent(snapshot: WorkspaceSnapshot, frame: BoardEventFrame):
   if (event.type === 'layout') {
     return mergeLayout(snapshot, event.board, event.layoutRevision, event.layouts)
   }
+  if (event.type === 'arrangement') {
+    return mergeArrangement(snapshot, event.board, event.layoutRevision, event.arrangement)
+  }
   if (event.type === 'active') return { ...snapshot, active: event.board }
   return snapshot
 }
@@ -67,6 +70,28 @@ export function mergeLayout(
       return layout === undefined ? instance : { ...instance, layout }
     }),
   })
+  return { ...snapshot, boards }
+}
+
+/**
+ * 把一次排列偏好提交的落定结果并进工作区（D30）。
+ *
+ * 排列提交成功时宿主的答复与变更通知同形，都走这一条；只有那块看板的布局修订号与排列偏好变，
+ * 卡片实例与它们的自由坐标不动。
+ *
+ * @param snapshot - 页面上的工作区。
+ * @param boardId - 提交的那块看板。
+ * @param layoutRevision - 宿主写入之后的布局修订号。
+ * @param arrangement - 宿主存下的排列偏好。
+ * @returns 合并后的工作区。
+ */
+export function mergeArrangement(
+  snapshot: WorkspaceSnapshot,
+  boardId: string,
+  layoutRevision: number,
+  arrangement: Arrangement,
+): WorkspaceSnapshot {
+  const boards = snapshot.boards.map((board) => board.id !== boardId ? board : { ...board, layoutRevision, arrangement })
   return { ...snapshot, boards }
 }
 

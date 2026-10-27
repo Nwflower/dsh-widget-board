@@ -9,7 +9,7 @@ import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import { nextCardLayout } from '@dsh-widget-board/model'
 import { isRecord } from '../guards'
 import { loadData } from '../routes'
-import { defaultBoxOf, withInstanceAdded, withInstancePatched, withInstanceRemoved } from '../state'
+import { defaultBoxOf, withGroupRemoved, withInstanceAdded, withInstancePatched, withInstanceRemoved } from '../state'
 import type { WidgetRecord } from '../library'
 import type { ToolContext } from './index'
 
@@ -226,7 +226,7 @@ export function removeTool(context: ToolContext): WidgetToolSpec {
         found.board.id,
         (current) => (group === undefined
           ? withInstanceRemoved(current, instance.id)
-          : { ...current, instances: current.instances.filter((candidate) => candidate.group?.id !== group) }),
+          : withGroupRemoved(current, group)),
         { layoutChanged: true, event: () => ({ type: 'board' }) },
       )
       // 移走的卡连同它同组的另一面，请求日志一起收掉（与 /instance/<id>/remove 同一条规则，D28）。

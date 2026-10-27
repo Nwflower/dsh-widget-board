@@ -28,12 +28,35 @@ function activeBoard(snapshot) {
 }
 
 /**
+ * 把当前选中的那块看板切回自由布局：自由坐标只属于自由模式，写 free 盒子的测试先走这一步（D30）。
+ *
+ * @param page - 宿主页面。
+ * @returns 切换之后的看板；排列提交被拒绝（修订号过期之类）时是 `undefined`。
+ */
+async function ensureFree(page) {
+  const snapshot = await workspace(page)
+  const board = activeBoard(snapshot)
+  if (board.arrangement?.mode !== 'aligned') return board
+  const status = await page.evaluate(async ({ boardId, layoutRevision }) => {
+    const response = await fetch(`api/widget-board/boards/${encodeURIComponent(boardId)}/arrangement`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedLayoutRevision: layoutRevision, arrangement: { mode: 'free' } }),
+    })
+    return response.status
+  }, { boardId: board.id, layoutRevision: board.layoutRevision })
+  if (status !== 200) throw new Error(`切回自由布局失败：${status}`)
+  return activeBoard(await workspace(page))
+}
+
+/**
  * 按当前快照给选中的那块看板写一份整块布局。
  *
  * @param page - 宿主页面。
  * @param build - 从快照里的实例算出新的布局表。
  */
 async function writeLayouts(page, build) {
+  await ensureFree(page)
   const snapshot = await workspace(page)
   const board = activeBoard(snapshot)
   const layouts = build(board.instances)
@@ -149,4 +172,4 @@ async function addInstance(page, widget) {
   }, widget)
 }
 
-module.exports = { activeBoard, addInstance, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+module.exports = { activeBoard, addInstance, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

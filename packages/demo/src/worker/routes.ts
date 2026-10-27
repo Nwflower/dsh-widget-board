@@ -7,7 +7,9 @@
  * 原因的拒绝，页面把它显示出来（D11）。组件文档是静态文件，不经过这里（见 `data.ts` 的 `documentFile`）。
  */
 import type {
+  Arrangement,
   Board,
+  BoardArrangementRequest,
   BoardEvent,
   BoardInstance,
   BoardLayoutRequest,
@@ -27,6 +29,12 @@ import { Refusal } from '../../../host/src/refusal'
 import { dataError, propsError, propsIssues } from '../../../host/src/schema'
 import {
   StaleRevisionError,
+  arrangementUnitOf,
+  defaultBoxOf,
+  groupUnitOf,
+  isArrangement,
+  withArrangementUnits,
+  withBoardArrangement,
   withBoardLayouts,
   withGroupAdded,
   withGroupRemoved,
@@ -37,6 +45,7 @@ import {
   withInstanceRemoved,
   withInstanceStateChecked,
 } from '../../../host/src/state'
+import type { HostData } from '../data'
 import type { HostData } from '../data'
 import type { Boards } from './boards'
 import type { Live } from './live'
@@ -114,9 +123,31 @@ async function requireInstance(context: DemoContext, id: string): Promise<{ boar
   return found
 }
 
+/**
+ * 从看板上移除一个排列单元并写入：组卡按整组、普通卡按自己（D30）。
+ *
+ * @param context - 演示宿主上下文。
+ * @param boardId - 看板 id。
+ * @param pick - 从当前看板里挑出要移除的那张实例。
+ * @param unit - 这张实例代表的排列单元 id。
+ * @param change - 把实例从看板上拿掉的纯函数。
+ */
+async function removeUnit(
+  context: DemoContext,
+  boardId: string,
+  pick: (current: Board) => BoardInstance | undefined,
+  unit: (current: Board, picked: BoardInstance) => string,
+  change: (current: Board, id: string) => Board,
+): Promise<void> {
+  await context.boards.save(boardId, (current) => {
+    const picked = pick(current)
+    const gone = picked === undefined ? [] : [unit(current, picked)]
+    return withArrangementUnits(change(current, picked?.id ?? ''), gone, [])
+  }, { layoutChanged: true, event: () => ({ type: 'board' }) })
+}
+
 /** 一块看板上的卡片布局提交：真实宿主的 `POST /boards/<id>/layout`。 */
-async function submitLayout(context: DemoContext, id: string, request: Request): Promise<Response> {
-  const body = await jsonBody(request, LIMITS.layout)
+async function submitLayout(context: DemoContext, id: string, request: Request): Promise<Response> {  const body = await jsonBody(request, LIMITS.layout)
   const valid = isRecord(body) && Number.isSafeInteger(body.layoutRevision) && (body.layoutRevision as number) >= 0 && isRecord(body.layouts)
   if (!valid) throw new Refusal(400, '布局提交的形状不对：需要 layoutRevision 与 layouts')
   const wanted = body as unknown as BoardLayoutRequest
@@ -158,7 +189,7 @@ async function addInstance(context: DemoContext, boardId: string, request: Reque
     ...(wanted.props === undefined ? {} : { props: wanted.props }),
     ...(wanted.layout === undefined ? {} : { layout: wanted.layout }),
   }
-  await context.boards.save(boardId, (current) => withInstanceAdded(current, record, options, id).board, {
+  await context.boards.save(boardId, (current) => withArrangementUnits(withInstanceAdded(current, record, options, id).board, [], [{ id, box: defaultBoxOf(record) }]), {
     layoutChanged: true,
     event: () => ({ type: 'board' }),
   })
@@ -178,9 +209,35 @@ async function addGroup(context: DemoContext, boardId: string, request: Request)
   await context.boards.save(boardId, (current) => {
     const added = withGroupAdded(current, front, back, layout === undefined ? {} : { layout })
     id = added.id
-    return added.board
+    // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D30）。
+    return withArrangementUnits(added.board, [], groupUnitOf(added.board, id))
   }, { layoutChanged: true, event: () => ({ type: 'board' }) })
   return json(201, { id, snapshot: await context.boards.snapshot() })
+}
+
+/** 一次排列偏好的提交：真实宿主的 `POST /boards/<id>/arrangement`（D30）。 */
+async function submitArrangement(context: DemoContext, id: string, request: Request): Promise<Response> {
+  const body = await jsonBody(request, LIMITS.layout)
+  const valid = isRecord(body) && Number.isSafeInteger(body.expectedLayoutRevision) && (body.expectedLayoutRevision as number) >= 0
+    && isRecord(body.arrangement) && isArrangement(body.arrangement)
+  if (!valid) throw new Refusal(400, '排列提交的形状不对：需要 expectedLayoutRevision 与 arrangement')
+  const wanted = (body as unknown as BoardArrangementRequest).arrangement
+  try {
+    let saved: Arrangement = wanted
+    const next = await context.boards.save(id, (current) => {
+      const changed = withBoardArrangement(current, wanted)
+      saved = changed.arrangement as Arrangement
+      return changed
+    }, {
+      expectedLayoutRevision: (body as unknown as BoardArrangementRequest).expectedLayoutRevision,
+      layoutChanged: true,
+      event: (board, boardId) => ({ type: 'arrangement', board: boardId, layoutRevision: board.layoutRevision, arrangement: board.arrangement as Arrangement }),
+    })
+    return json(200, { layoutRevision: next.layoutRevision, arrangement: saved })
+  } catch (error) {
+    if (error instanceof StaleRevisionError) return json(409, await context.boards.snapshot())
+    throw error
+  }
 }
 
 /** 一张卡的状态补丁：先过写入预算，再并进状态（D23）。 */
@@ -275,6 +332,15 @@ const ROUTES: Route[] = [
       return await submitLayout(context, id, request)
     },
   },
+  {
+    method: 'POST',
+    pattern: /^\/boards\/([^/]+)\/arrangement$/,
+    async handle(context, request, match) {
+      const id = decodeURIComponent(match[1] as string)
+      await requireBoard(context, id)
+      return await submitArrangement(context, id, request)
+    },
+  },
   { method: 'POST', pattern: /^\/boards\/([^/]+)\/instance$/, handle: async (context, request, match) => await addInstance(context, decodeURIComponent(match[1] as string), request) },
   { method: 'POST', pattern: /^\/boards\/([^/]+)\/group$/, handle: async (context, request, match) => await addGroup(context, decodeURIComponent(match[1] as string), request) },
   {
@@ -286,7 +352,14 @@ const ROUTES: Route[] = [
       const group = body.group
       const board = await context.boards.findGroup(group)
       if (board === undefined) throw new Refusal(404, `看板上没有这一组：${group}`)
-      await context.boards.save(board.id, (current) => withGroupRemoved(current, group), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      // 整组离开时它的排列单元一起离开（D30）。
+      await removeUnit(
+        context,
+        board.id,
+        (current) => current.instances.find((instance) => instance.group?.id === group),
+        (current, picked) => arrangementUnitOf(current, picked),
+        (current, id) => withGroupRemoved(current, id),
+      )
       return json(200, await context.boards.snapshot())
     },
   },
@@ -339,7 +412,14 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const { board } = await requireInstance(context, id)
       await jsonBody(request, LIMITS.small)
-      await context.boards.save(board.id, (current) => withInstanceRemoved(current, id), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      // 这张卡代表的排列单元（组卡是整组）一起离开（D30）。
+      await removeUnit(
+        context,
+        board.id,
+        (current) => current.instances.find((instance) => instance.id === id),
+        (current, picked) => arrangementUnitOf(current, picked),
+        (current, picked) => withInstanceRemoved(current, picked),
+      )
       return json(200, await context.boards.snapshot())
     },
   },

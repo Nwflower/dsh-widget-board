@@ -5,7 +5,7 @@
  * 被删光后补上的那一块（D21）；画廊把每个内置组件各铺一张，按类别分行，同一行的卡片同高。清单里的
  * 组件不在内置组件库里时抛出，不静默少铺（D11）。
  */
-import type { Board, BoardInstance, CardLayout } from '@dsh-widget-board/contracts'
+import type { Arrangement, Board, BoardInstance, CardLayout } from '@dsh-widget-board/contracts'
 import { POSITION_STEP_REM } from '@dsh-widget-board/model'
 import type { WidgetRecord } from './library'
 import { defaultBoxOf, emptyBoard, instanceOf, withGroupAdded } from './state'
@@ -130,6 +130,27 @@ function cardOf(record: WidgetRecord, layout: CardLayout, content: CardContent):
 }
 
 /**
+ * 一串实例的整齐偏好（D30）：清单的次序就是第一屏的阅读顺序，期望盒子取实例写下的大小。
+ *
+ * 组卡占一格，单元 id 是正面那张实例的 id；与运行时 `arrangementUnitsOf` 的同一条规则在这里按
+ * 构造顺序直接算出来，种子不需要先落盘再读一遍。
+ *
+ * @param instances - 按阅读顺序铺好的实例。
+ * @returns 整齐模式的偏好。
+ */
+function alignedArrangementOf(instances: readonly BoardInstance[]): Arrangement {
+  const order: string[] = []
+  const boxes: Record<string, { w: number, h: number }> = {}
+  for (const instance of instances) {
+    const id = instance.group === undefined || instance.group.side === 'front' ? instance.id : undefined
+    if (id === undefined || order.includes(id)) continue
+    order.push(id)
+    boxes[id] = { w: instance.layout.w, h: instance.layout.h }
+  }
+  return { mode: 'aligned', aligned: { order, boxes } }
+}
+
+/**
  * 精选看板。
  *
  * @param records - 已校验的组件。
@@ -146,7 +167,7 @@ function myBoard(records: Map<string, WidgetRecord>): Board {
       instances.push(cardOf(builtinRecord(records, entry.widget), entry.layout, entry))
     }
   }
-  return { ...emptyBoard(MY_BOARD_TITLE), instances }
+  return { ...emptyBoard(MY_BOARD_TITLE), instances, arrangement: alignedArrangementOf(instances) }
 }
 
 /**
@@ -188,7 +209,7 @@ function galleryBoard(records: Map<string, WidgetRecord>): Board {
     }
     flush()
   }
-  return { ...emptyBoard(GALLERY_BOARD_TITLE), instances }
+  return { ...emptyBoard(GALLERY_BOARD_TITLE), instances, arrangement: alignedArrangementOf(instances) }
 }
 
 /**

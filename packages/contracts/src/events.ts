@@ -5,7 +5,7 @@
  * 几倍。现在事件带着改动本身：卡片状态与数据就地合并，布局就地换掉，只有卡片增删与组件库
  * 变化才重取快照。
  */
-import type { CardLayout } from './board'
+import type { Arrangement, CardLayout } from './board'
 
 /** 一条变更通知。 */
 export type BoardEvent =
@@ -13,6 +13,8 @@ export type BoardEvent =
   | { type: 'board' }
   /** 一次布局提交落定：页面换掉这块看板的卡片盒子（D16、D21）。 */
   | { type: 'layout', board: string, layoutRevision: number, layouts: Record<string, CardLayout> }
+  /** 一次排列偏好提交落定：页面换掉这块看板的模式与整齐顺序，不碰自由坐标（D30）。 */
+  | { type: 'arrangement', board: string, layoutRevision: number, arrangement: Arrangement }
   /** 一张卡的状态、数据或 props 变了：页面就地合并（D5、D27、D23）；卡片 id 全工作区唯一，所以不带看板。 */
   | { type: 'instance', id: string, state?: unknown, patch?: unknown, data?: unknown, props?: Record<string, unknown> }
   /** 换了一块看板：页面把选中的标签换过去，不必重取快照（D21）。 */
@@ -41,6 +43,13 @@ export function isBoardEventFrame(value: unknown): value is BoardEventFrame {
     const { board, layoutRevision, layouts } = event as Record<string, unknown>
     return typeof board === 'string' && board !== ''
       && Number.isSafeInteger(layoutRevision) && typeof layouts === 'object' && layouts !== null && !Array.isArray(layouts)
+  }
+  if (kind === 'arrangement') {
+    const { board, layoutRevision, arrangement } = event as Record<string, unknown>
+    return typeof board === 'string' && board !== ''
+      && Number.isSafeInteger(layoutRevision)
+      && typeof arrangement === 'object' && arrangement !== null && !Array.isArray(arrangement)
+      && ((arrangement as { mode?: unknown }).mode === 'free' || (arrangement as { mode?: unknown }).mode === 'aligned')
   }
   if (kind === 'instance') {
     const { id } = event as Record<string, unknown>

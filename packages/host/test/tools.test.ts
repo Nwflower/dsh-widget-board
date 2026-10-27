@@ -395,6 +395,25 @@ describe('按需出现的工具（D9）', () => {
 })
 
 describe('widget_push 与 widget_remove', () => {
+  it.each(['aligned', 'free'] as const)('工具增删维护%s模式保存的整齐偏好', async mode => {
+    const initial = { ...emptyBoard(), version: 3, arrangement: { mode, aligned: { order: [] as string[], boxes: {} } } }
+    const harnessed = harness({ boards: [initial] })
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat' }) as { id: string }
+    expect(harnessed.context.board.arrangement?.aligned?.order).toEqual([placed.id])
+    await toolOf(harnessed, WIDGET_TOOL_NAMES.remove).execute({ id: placed.id })
+    expect(harnessed.context.board.arrangement).toEqual({ mode, aligned: { order: [], boxes: {} } })
+  })
+
+  it('工具移除整组同步清理排列引用', async () => {
+    const front = { id: 'front', widget: 'stat', hash: 'a'.repeat(64), props: {}, data: null, state: null, layout: { x: 0, y: 0, w: 1, h: 22 }, group: { id: 'group', side: 'front' as const, template: 'flip' as const } }
+    const back = { ...front, id: 'back', group: { ...front.group, side: 'back' as const } }
+    const initial = { ...emptyBoard(), version: 3, instances: [front, back], arrangement: { mode: 'aligned' as const, aligned: { order: ['front'], boxes: { front: { w: 1, h: 22 } } } } }
+    const harnessed = harness({ boards: [initial] })
+    await toolOf(harnessed, WIDGET_TOOL_NAMES.remove).execute({ id: 'back' })
+    expect(harnessed.context.board.instances).toEqual([])
+    expect(harnessed.context.board.arrangement?.aligned).toEqual({ order: [], boxes: {} })
+  })
+
   it('推数据先按 schema 校验，合格才写入', async () => {
     const harnessed = harness()
     const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'stat' })

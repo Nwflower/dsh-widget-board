@@ -6,6 +6,32 @@
 
 ## [Unreleased]
 
+[中文](#cn-unreleased) | [English](#en-unreleased)
+
+<h3 id="cn-unreleased">新增功能</h3>
+
+- 看板多出第二种排列：整齐行列。卡片按保存的顺序逐行铺开，同一排的卡片等高，行列间距一致；期望的跨列数与高度存在看板上，像素坐标每次按当前窗口宽度与根字号现算，窗口变宽变窄都不用重新摆。看板数据格式升到版本 3，旧看板读出来仍是自由位置，新建的看板默认用整齐行列。下方菜单多一枚「排列模式」：一键在两种排法之间切换，第一次切到整齐时把屏幕上的阅读顺序存下来，再切回去还是那份自由位置。整齐模式里拖动是调整顺序，缩放横向改自己的跨列数、纵向把整行抬到同一档；卡片与组卡的增删会同步维护顺序。布局与排列共用一套修订号并发规则，两个窗口同时改时后到的提交收到 409 与当前快照。
+
+### 体验优化
+
+- 看板标签就地管理：每块标签右边多一个更多按钮，悬停或键盘聚焦时出现，右键标签也打开同一张菜单。菜单里可以给这块看板改名或删掉它，从别的标签打开不切换当前看板，关掉之后焦点回到按下的那枚按钮。改名弹窗预填当前名字，空名字就地报错，上限八十个字符（界面与宿主读同一份判定），中文输入法组合期间的回车不提交，保存失败时输入原样留在框里。删除确认写出看板标题、几格与几张卡片，删的是最后一块时说明会补一块空的；删掉哪一块之后显示哪一块由宿主决定。
+
+### 问题修复
+
+- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。
+
+<h3 id="en-unreleased">New Features</h3>
+
+- The board gains a second arrangement: aligned rows. Cards flow row by row in a saved order; cards in the same row share one height and the row/column gaps match. Only the wanted column span and height tier are stored — pixel positions derive from the current window width and root font size, so resizing never asks you to re-arrange. The board format moves to version 3: existing boards stay free-positioned, new boards start aligned. The dock menu gains an arrangement toggle; switching to aligned captures the on-screen reading order once, and switching back restores the saved free positions. In aligned mode dragging reorders cards, horizontal resize changes the card's own span, vertical resize lifts the whole row one tier; adding or removing cards keeps the order intact. Layout and arrangement share one revision-based concurrency rule: a late submission from another window gets a 409 with the current snapshot.
+
+### Improvements
+
+- Boards are managed right on their tabs: each tab gains a more button that appears on hover or keyboard focus, and right-clicking the tab opens the same menu. Rename or delete the board from there without switching to it; closing the menu returns focus to the button that opened it. The rename dialog is prefilled with the current name, reports an empty name in place, caps it at 80 characters (one rule shared by the UI and the host), never submits the Enter that confirms an IME composition, and keeps what you typed when saving fails. The delete confirmation names the board, its cells and its cards, says so when it is the last board, and leaves the host to decide which board shows afterwards.
+
+### Bug Fixes
+
+- Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading.
+
 ## [0.1.6] - 2026-10-26
 
 [中文](#cn-0.1.6) | [English](#en-0.1.6)
@@ -91,6 +117,7 @@
 <h3 id="cn-0.1.5">新增功能</h3>
 
 - 新增内置组件「今日宜休」：按卡片设置里的 GitHub 令牌认账号，列出这个账号名下还开着的 issue，带仓库、编号、标签与开了几天；点一行就在新标签页里打开那一条。组件自己不能导航，跳转交给宿主页面完成。
+- 看板多出第二种排列：整齐行列。卡片按保存的顺序逐行铺开，同一排的卡片等高，行列间距一致；期望的跨列数与高度存在看板上，像素坐标每次按当前窗口宽度与根字号现算，窗口变宽变窄都不用重新摆。看板数据格式升到版本 3，旧看板读出来仍是自由位置，新建的看板默认用整齐行列。下方菜单多一枚「排列模式」：一键在两种排法之间切换，第一次切到整齐时把屏幕上的阅读顺序存下来，再切回去还是那份自由位置。整齐模式里拖动是调整顺序，缩放横向改自己的跨列数、纵向把整行抬到同一档；卡片与组卡的增删会同步维护顺序。布局与排列共用一套修订号并发规则，两个窗口同时改时后到的提交收到 409 与当前快照。
 - 新增内置组件「运行成本」：左边是宿主进程的常驻内存，右边是一块机器体检面板——堆与外部内存、系统内存、CPU 核数与负载、看板数据所在卷的磁盘余量、系统版本，外加卡片数、状态序列化总量、文档体积与组件库规模，最近 60 次采样画成折线。面板上的「再测一次」由宿主经同一条读取路径重读一次。数据源 `widget-board:system.metrics` 只读宿主自己的内存、机器读数与工作区，没有观众时不采样；卡片离开视口或页面隐藏时停止绘制与状态写入。矮盒子里保留四行带条形图的读数，堆、系统内存、CPU 与磁盘始终看得到。
 - 组件可以把链接交给宿主打开：`widget.open(url)` 发一条桥消息，由宿主页面在新标签页里开出这一页，协议只限 http 与 https。沙箱仍然不给导航与弹窗，组件拿到的只是「请宿主开一个网页」这一件事；会话里内联显示的卡片同样可用。
 - 天气卡改成按城市名取天气：设置里写「杭州」或「Hangzhou」，保存时由设置界面解析成经纬度与双语地名，卡片按它取 Open-Meteo 的五天预报；旁边新增「定位」，先问浏览器位置，拿不到时按网络出口确定城市。城市名、地名与坐标由同一份配置一起写进卡片，城市名与坐标不会再各说各的。组件的 props schema 新增两个可选的 `format`：`city` 是一个可以定位的城市名，`fills` 指明解析出的地名与坐标写到哪几个字段；`hidden` 的字段不出控件，留给这类派生值。
@@ -116,6 +143,7 @@
 <h3 id="en-0.1.5">New Features</h3>
 
 - New built-in widget "Rest today": uses the GitHub token from the card settings to find the account and lists the open issues on its repositories, with repository, number, labels and age; clicking a row opens it in a new tab. Widgets cannot navigate themselves, so the host page opens the link.
+- The board gains a second arrangement: aligned rows. Cards flow row by row in a saved order; cards in the same row share one height and the row/column gaps match. Only the wanted column span and height tier are stored — pixel positions derive from the current window width and root font size, so resizing never asks you to re-arrange. The board format moves to version 3: existing boards stay free-positioned, new boards start aligned. The dock menu gains an arrangement toggle; switching to aligned captures the on-screen reading order once, and switching back restores the saved free positions. In aligned mode dragging reorders cards, horizontal resize changes the card's own span, vertical resize lifts the whole row one tier; adding or removing cards keeps the order intact. Layout and arrangement share one revision-based concurrency rule: a late submission from another window gets a 409 with the current snapshot.
 - New built-in widget "Running cost": the host process's resident memory on the left and a machine check panel on the right — heap and external memory, system memory, CPU cores and load, free space on the volume holding board data, and the OS version, plus card count, serialized state size, document weight and library size, with the last 60 samples drawn as a sparkline. The panel's "Measure again" button asks the host to reread through the same path. The `widget-board:system.metrics` source reads only the host's own memory, machine readings and workspace; it samples nothing without an audience and stops drawing and writing state when the card leaves the viewport or the page is hidden. Short boxes keep four rows with bars, so heap, system memory, CPU and disk stay visible.
 - Widgets can hand a link to the host: `widget.open(url)` sends one bridge message and the host page opens it in a new tab, limited to http and https. The sandbox still grants no navigation or popups — a widget only gets to ask the host to open a page, and inline cards in a session can do it too.
 - The weather card now takes a city name: type “杭州” or “Hangzhou” in the settings, and the dialog resolves it into coordinates and a bilingual place name that the card uses for the five-day Open-Meteo forecast; a new Locate button asks the browser first and falls back to the city of this network. The name, place and coordinates are written together, so the city shown and the weather fetched no longer disagree. The widget props schema gained two optional formats: `city` marks a locatable city name, with `fills` naming the props that receive the resolved place and coordinates; `hidden` fields get no control and are left for those derived values.

@@ -59,7 +59,8 @@ import { Refusal } from './refusal'
 import { shareRoutes } from './share'
 import type { SelfChecks } from './selfcheck'
 import { selfCheckRoutes } from './selfcheck'
-import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
+import { StaleRevisionError, arrangementUnitOf, defaultBoxOf, groupUnitOf, withArrangementUnits, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
+import { arrangementRoutes } from './arrangement-routes'
 import type { RateLimiter } from './limits'
 import { visibilityRoutes } from './visibility'
 import type { SaveOptions, Workspace } from './workspace'
@@ -68,7 +69,7 @@ import type { SaveOptions, Workspace } from './workspace'
 const STATE_LIMIT = 16 * 1024
 
 /** 一次布局提交的上限：一整块看板的卡片盒子，比单张卡的状态大一些。 */
-const LAYOUT_LIMIT = 64 * 1024
+export const LAYOUT_LIMIT = 64 * 1024
 
 /** 加一张卡的请求体上限。 */
 const ADD_LIMIT = 32 * 1024
@@ -185,6 +186,7 @@ function isBoardLayoutRequest(value: unknown): value is BoardLayoutRequest {
   return Number.isSafeInteger(layoutRevision) && (layoutRevision as number) >= 0 && isRecord(layouts)
 }
 
+
 /**
  * 一块看板。
  *
@@ -193,7 +195,7 @@ function isBoardLayoutRequest(value: unknown): value is BoardLayoutRequest {
  * @returns 那块看板。
  * @throws {Refusal} 没有这块看板。
  */
-function boardById(context: RouteContext, id: string): Board {
+export function boardById(context: RouteContext, id: string): Board {
   if (!context.workspace.has(id)) throw new Refusal(404, `没有这块看板：${id}`)
   return context.workspace.board(id)
 }
@@ -302,7 +304,12 @@ const ROUTES: Route[] = [
         let saved: Record<string, CardLayout> = {}
         const next = await context.workspace.save(
           id,
-          (current) => withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox),
+          (current) => {
+            // 自由坐标只属于自由模式：看板已经换成整齐行列时，过时的自由提交整体退回，
+            // 让页面按当前快照重画，避免两种客户端互相覆盖（D30、技术契约2）。
+            if (current.arrangement?.mode === 'aligned') throw new StaleRevisionError(body.layoutRevision, current.layoutRevision)
+            return withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox)
+          },
           {
             expectedLayoutRevision: body.layoutRevision,
             layoutChanged: true,
@@ -352,7 +359,9 @@ const ROUTES: Route[] = [
         ...(wanted.props === undefined ? {} : { props: wanted.props }),
         ...(wanted.layout === undefined ? {} : { layout: wanted.layout }),
       }
-      await context.workspace.save(boardId, (current) => withInstanceAdded(current, record, options, id).board, {
+      // 排列单元的初始盒子来自组件的 defaultBox；整齐模式的新卡接在顺序末尾（D30）。
+      const box = defaultBoxOf(record)
+      await context.workspace.save(boardId, (current) => withArrangementUnits(withInstanceAdded(current, record, options, id).board, [], [{ id, box }]), {
         layoutChanged: true,
         event: () => ({ type: 'board' }),
       })
@@ -393,7 +402,8 @@ const ROUTES: Route[] = [
       await context.workspace.save(boardId, (current) => {
         const added = withGroupAdded(current, front, back, wanted.layout === undefined ? {} : { layout: wanted.layout })
         id = added.id
-        return added.board
+        // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D30）；盒子取落点或组默认。
+        return withArrangementUnits(added.board, [], groupUnitOf(added.board, id))
       }, { layoutChanged: true, event: () => ({ type: 'board' }) })
       json(response, 201, { id, snapshot: workspaceSnapshot(context) })
     },
@@ -408,7 +418,8 @@ const ROUTES: Route[] = [
       const wanted = body as unknown as GroupRemoveRequest
       const board = context.workspace.findGroup(wanted.group)
       if (board === undefined) throw new Refusal(404, `看板上没有这一组：${wanted.group}`)
-      await context.workspace.save(board.id, (current) => withGroupRemoved(current, wanted.group), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      // 整组离开时它的排列单元一起离开（D30）。
+      await context.workspace.save(board.id, (current) => withArrangementUnits(withGroupRemoved(current, wanted.group), [arrangementUnitOf(current, current.instances.find((instance) => instance.group?.id === wanted.group) as BoardInstance)], []), { layoutChanged: true, event: () => ({ type: 'board' }) })
       // 组里的卡一起走了，它们的请求日志跟着收掉（D28）。
       for (const instance of board.instances.filter((instance) => instance.group?.id === wanted.group)) {
         context.requests.drop(instance.id)
@@ -547,7 +558,11 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const { board } = locate(context, id)
       await readJson(request, EMPTY_LIMIT)
-      await context.workspace.save(board.id, (current) => withInstanceRemoved(current, id), { layoutChanged: true, event: () => ({ type: 'board' }) })
+      // 这张卡代表的排列单元（组卡是整组）一起离开（D30）。
+      await context.workspace.save(board.id, (current) => {
+        const unit = arrangementUnitOf(current, current.instances.find((instance) => instance.id === id) as BoardInstance)
+        return withArrangementUnits(withInstanceRemoved(current, id), [unit], [])
+      }, { layoutChanged: true, event: () => ({ type: 'board' }) })
       context.requests.drop(id)
       json(response, 200, workspaceSnapshot(context))
     },
@@ -663,7 +678,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = [...ROUTES, ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...selfCheckRoutes(), ...visibilityRoutes()].flatMap((route) => {
+    const matched = [...ROUTES, ...arrangementRoutes(), ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...selfCheckRoutes(), ...visibilityRoutes()].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

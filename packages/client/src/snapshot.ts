@@ -6,6 +6,9 @@
  * 的 id 是全工作区唯一的，路由因此不必再带看板（D21）。
  */
 import type {
+  Arrangement,
+  BoardArrangementRequest,
+  BoardArrangementSaved,
   BoardCreateRequest,
   BoardLayoutRequest,
   BoardLayoutSaved,
@@ -26,6 +29,7 @@ import type {
 } from '@dsh-widget-board/contracts'
 import {
   boardActivatePath,
+  boardArrangementPath,
   boardGroupPath,
   boardInstancePath,
   boardLayoutPath,
@@ -409,6 +413,40 @@ export async function saveBoardLayouts(boardId: string, layoutRevision: number, 
     throw new Error('存不下卡片布局：响应不是布局结果')
   }
   return { kind: 'saved', layout: saved as BoardLayoutSaved }
+}
+
+/**
+ * 一次排列偏好提交的结果：宿主存下这份偏好，或修订号过期时给出当前工作区（D30）。
+ */
+export type BoardArrangementResult =
+  | { kind: 'saved', saved: BoardArrangementSaved }
+  | { kind: 'stale', snapshot: WorkspaceSnapshot }
+
+/**
+ * 把一块看板的排列偏好交给宿主（D30）：模式切换、整齐顺序与期望宽高一次提交。
+ *
+ * 修订号过期时宿主返回当前工作区，这里把它交回去让页面按宿主的那一份重画（D5）。
+ *
+ * @param boardId - 看板 id。
+ * @param expectedLayoutRevision - 页面读到的那一块的布局修订号。
+ * @param arrangement - 要提交的排列偏好。
+ * @returns 存下的偏好，或修订号过期时的当前工作区。
+ * @throws {Error} 请求失败，或响应形状不对。
+ */
+export async function saveBoardArrangement(boardId: string, expectedLayoutRevision: number, arrangement: Arrangement): Promise<BoardArrangementResult> {
+  const body: BoardArrangementRequest = { expectedLayoutRevision, arrangement }
+  const response = await fetch(boardArrangementPath(boardId), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (response.status === 409) return { kind: 'stale', snapshot: await snapshotBodyOf(response, '存不下排列偏好') }
+  if (!response.ok) throw new Error(await errorOf(response, '存不下排列偏好'))
+  const saved = await response.json() as Partial<BoardArrangementSaved>
+  if (!Number.isSafeInteger(saved.layoutRevision) || saved.arrangement === undefined || saved.arrangement === null) {
+    throw new Error('存不下排列偏好：响应不是排列结果')
+  }
+  return { kind: 'saved', saved: saved as BoardArrangementSaved }
 }
 
 /**

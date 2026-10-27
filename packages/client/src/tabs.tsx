@@ -198,7 +198,8 @@ export function BoardTabs({
   /** 右键标签与按更多按钮打开同一个菜单：都不切换看板。 */
   const onContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>, boardId: string): void => {
     event.preventDefault()
-    openMenu(boardId, event.currentTarget)
+    const trigger = event.currentTarget.querySelector<HTMLElement>('[data-dsh-widget-board-tab-more]')
+    if (trigger !== null) openMenu(boardId, trigger)
   }, [openMenu])
 
   const menuBoard = overlay !== null && overlay.kind === 'menu' ? boards.find((board) => board.id === overlay.boardId) : undefined
@@ -218,10 +219,10 @@ export function BoardTabs({
   const submitDelete = useCallback((id: string): void => {
     setWriting(true)
     setFailure(null)
-    // 删掉的可能是触发器所在的那一块：那个按钮会跟着消失，归还焦点的对象一并作废。
+    // 成功删除后触发器可能消失；失败时仍保留它供取消弹窗后归还焦点。
     const trigger = returnFocusRef.current
-    returnFocusRef.current = null
     onDelete(id).then(() => {
+      returnFocusRef.current = null
       setWriting(false)
       setOverlay(null)
       setFailure(null)

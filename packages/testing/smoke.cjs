@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
+const { keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -32,6 +32,7 @@ const { titlebarPass } = require('./titlebar.cjs')
 const { boardManagementPass, overflowPass, reducedMotionPass } = require('./board-management.cjs')
 const { providerPass } = require('./provider.cjs')
 const { githubPass } = require('./github.cjs')
+const { metricsPass } = require('./metrics.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -51,7 +52,6 @@ const TODO_FRAME = 'iframe.dsh-widget-board__frame[title="待办"]'
 const FLIP_FRAME = 'iframe.dsh-widget-board__frame[title="翻转卡"]'
 const MAGNETIC_FRAME = 'iframe.dsh-widget-board__frame[title="磁吸卡"]'
 const HOLO_FRAME = 'iframe.dsh-widget-board__frame[title="全息卡"]'
-const METRICS_FRAME = 'iframe.dsh-widget-board__frame[title="运行成本"]'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -94,43 +94,6 @@ async function timeOf(frame) {
   return `${digits.slice(0, 2).join('')}:${digits.slice(2).join('')}`
 }
 
-/**
- * 运行成本卡（issue #5）：数据源在真实宿主里返回完整结构，卡片把宿主、机器与看板的读数画出来。
- *
- * 不核对具体字节数：它随机器与当时的负载变化；只核对数据源结构、面板字段与文案接上了。
- *
- * @param page - 宿主页面，看板已经打开。
- */
-async function metricsPass(page) {
-  const frame = await frameOf(page, METRICS_FRAME)
-  await frame.waitForSelector('.metrics[data-state="ready"]', { timeout: 30000 })
-  const view = await frame.evaluate(() => ({
-    rss: document.querySelector('[data-field="rss"]')?.textContent ?? '',
-    unit: document.querySelector('[data-field="rssUnit"]')?.textContent ?? '',
-    panelTitle: document.querySelector('[data-field="panelTitle"]')?.textContent ?? '',
-    system: document.querySelector('[data-field="system"]')?.textContent ?? '',
-    board: document.querySelector('[data-field="board"]')?.textContent ?? '',
-    library: document.querySelector('[data-field="library"]')?.textContent ?? '',
-  }))
-  check('运行成本卡读到宿主读数', /^[\d.,]+$/.test(view.rss) && view.unit !== '', `${view.rss} ${view.unit}`)
-  check('运行成本卡画出系统、看板与组件库', view.panelTitle !== '' && view.system !== '' && view.board !== '' && view.library !== '', `${view.panelTitle} / ${view.system} / ${view.board} / ${view.library}`)
-  const data = await page.evaluate(async () => {
-    const workspace = await (await fetch('api/widget-board/boards')).json()
-    const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
-    return board.instances.find((entry) => entry.widget === 'system-metrics')?.data ?? null
-  })
-  check(
-    '运行成本的数据源返回完整结构',
-    data !== null && typeof data.host?.rss === 'number' && typeof data.host?.heapUsed === 'number' &&
-      typeof data.system?.platform === 'string' && data.system.platform !== '' && typeof data.system?.cpus === 'number' &&
-      typeof data.system?.totalMemory === 'number' && typeof data.readMs === 'number' &&
-      typeof data.board?.cards === 'number' && typeof data.board?.stateBytes === 'number' &&
-      typeof data.board?.documentsBytes === 'number' && typeof data.library?.widgets === 'number' &&
-      typeof data.library?.versions === 'number' && data.host.rss > 0 && data.board.documentsBytes > 0 &&
-      !Number.isNaN(Date.parse(data.sampledAt)),
-    data === null ? '没有数据' : `rss ${data.host.rss} / ${data.system.platform} / cards ${data.board.cards} / docs ${data.board.documentsBytes}`,
-  )
-}
 
 /**
  * 主路径：入口、卡片栅格、天气卡切预报日、番茄钟开合。
@@ -144,6 +107,8 @@ async function mainPass(page, problems) {
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
   await keepOnlyGallery(page)
   await resetCards(page)
+  // 默认看板是整齐行列（D30）：自由坐标的几何检查先把看板切回自由布局。
+  await ensureFree(page)
   await openBoard(page)
   await ensureTemplates(page)
   await resetLayout(page)
@@ -157,7 +122,7 @@ async function mainPass(page, problems) {
   check('卡片大小由布局给出', weatherBox.height > 300, `天气 ${weatherBox.width}×${weatherBox.height}`)
   check('组件填满卡片', Math.abs(weatherBox.frameWidth - weatherBox.width) <= 1 && Math.abs(weatherBox.frameHeight - weatherBox.height) <= 1, `iframe ${weatherBox.frameWidth}×${weatherBox.frameHeight}`)
   await settled(page)
-  await metricsPass(page)
+  await metricsPass(page, check)
 
   const boxes = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
     const rect = node.getBoundingClientRect()
@@ -519,6 +484,7 @@ async function templatePass(page) {
  */
 async function layoutPass(page) {
   await resetLayout(page)
+  await ensureFree(page)
   await openBoard(page)
   await settled(page)
 
@@ -598,6 +564,7 @@ async function layoutPass(page) {
   const kept = await layoutOf(page, weatherId)
   check('重载之后布局还在', kept?.x === resized.x && kept?.w === resized.w && kept?.h === resized.h, JSON.stringify(kept))
 
+  await ensureFree(page)
   await resetLayout(page)
   await sleep(600)
 }
@@ -671,6 +638,7 @@ async function reloadPass(page) {
 async function reducedPass(page) {
   await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
   await openBoard(page)
+  await page.locator(WEATHER_FRAME).scrollIntoViewIfNeeded()
   const weather = await frameOf(page, WEATHER_FRAME)
   check('根部标着减弱动效', (await weather.evaluate(() => document.documentElement.dataset.motion)) === 'reduced')
   const still = await weather.evaluate(() => ({

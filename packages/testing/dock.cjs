@@ -69,7 +69,7 @@ async function dockPass(page, check) {
       bottom: rect === undefined ? false : window.innerHeight - rect.bottom < 60,
     }
   }, DOCK)
-  check('下方菜单展开三个动作', menu.expanded === 'true' && menu.actions.join(',') === 'add,tidy,refresh', menu.actions.join(' / '))
+  check('下方菜单展开四个动作', menu.expanded === 'true' && menu.actions.join(',') === 'add,tidy,arrange,refresh', menu.actions.join(' / '))
   check('三个动作都有名字', menu.labels.every((label) => label.length > 0), menu.labels.join(' / '))
   check('菜单固定在看板这一栏的下方居中', menu.centered && menu.bottom)
 

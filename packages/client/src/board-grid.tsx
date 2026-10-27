@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type {
+  Arrangement,
   Board,
   BoardInstance,
   CardLayout,
@@ -17,12 +18,15 @@ import type {
   WidgetSummary,
   WorkspaceSnapshot,
 } from '@dsh-widget-board/contracts'
-import type { GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
+import type { AlignedPlacement, GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
 import {
   DEFAULT_HEIGHT_REM,
   clampCardLayout,
+  displayColumns,
   normalizeCardLayout,
+  resolveAlignedLayout,
   resolveLayout,
+  rowHeightFor,
   snapCardHeight,
   snapCardY,
   tidyLayout,
@@ -35,7 +39,7 @@ import { FlipGroupCard } from './flip-group'
 import type { FrameHost } from './frame-host'
 import type { BoardCard } from './group'
 import { cardId, cardLayout, groupCards, layoutItemsOf } from './group'
-import { saveBoardLayouts } from './snapshot'
+import { saveBoardArrangement, saveBoardLayouts } from './snapshot'
 import type { ShellTheme } from './theme'
 
 /** 把数字收进区间。 */
@@ -76,8 +80,10 @@ interface DragState {
   /** 拖动开始时看板内容区的左上角：滚动之后指针相对内容区的位移仍然算得对。 */
   flowLeft: number
   flowTop: number
-  /** 松手后卡片会落到的格子；虚影画在这里。 */
+  /** 自由模式：松手后卡片会落到的格子；虚影画在这里。 */
   layout: CardLayout
+  /** 整齐模式：松手后的顺序；虚影画在插入位置。 */
+  order: string[] | null
   /** 拖动开始时卡片在屏幕上的像素位置；自由跟随从它加上指针位移。 */
   startPlacement: GridPlacement
   /** 卡片当前跟着指针的像素盒子：它不受格子约束，落在虚影上方。 */
@@ -121,6 +127,8 @@ export interface BoardGridProps {
   onSnapshot: (snapshot: WorkspaceSnapshot) => void
   /** 宿主存下了这次布局：只把这一块看板的盒子并回去。 */
   onLayouts: (boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>) => void
+  /** 宿主存下了这次排列偏好：把这一块看板的偏好并回去（D30）。 */
+  onArrangement: (boardId: string, layoutRevision: number, arrangement: Arrangement) => void
   /** 记下或清掉一条失败提示。 */
   onFailure: (message: string | null) => void
   /** 这次写宿主要不要挡住菜单与拖动。 */
@@ -161,6 +169,7 @@ export function BoardGrid({
   onTidyReady,
   onSnapshot,
   onLayouts,
+  onArrangement,
   onFailure,
   onBusyChange,
   onSettings,
@@ -172,9 +181,11 @@ export function BoardGrid({
 }: BoardGridProps): ReactNode {
   const [drag, setDrag] = useState<DragState | null>(null)
   const [draft, setDraft] = useState<Record<string, CardLayout> | null>(null)
+  const [orderDraft, setOrderDraft] = useState<string[] | null>(null)
   const flowRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const draftRef = useRef<Record<string, CardLayout> | null>(null)
+  const orderDraftRef = useRef<string[] | null>(null)
   const busyRef = useRef(false)
 
   const setFlow = useCallback((element: HTMLDivElement | null): void => {
@@ -183,6 +194,37 @@ export function BoardGrid({
   }, [board.id, onFlow])
 
   const cards = useMemo(() => groupCards(board.instances), [board.instances])
+  const aligned = board.arrangement?.mode === 'aligned'
+  /** 整齐模式的排列顺序：草稿在手势里时按它画，否则按保存的那一份；新单元接在末尾（D30）。 */
+  const order = useMemo(() => {
+    const saved = board.arrangement?.aligned?.order ?? []
+    const known = cards.map(cardId)
+    const kept = saved.filter((id) => known.includes(id))
+    for (const id of known) if (!kept.includes(id)) kept.push(id)
+    return orderDraft ?? kept
+  }, [board.arrangement, cards, orderDraft])
+  const boxesById = useMemo(() => {
+    const boxes = new Map<string, { w: number, h: number }>()
+    for (const card of cards) {
+      const id = cardId(card)
+      const wanted = board.arrangement?.aligned?.boxes[id]
+      const layout = cardLayout(card)
+      boxes.set(id, wanted ?? { w: layout.w, h: layout.h })
+    }
+    return boxes
+  }, [board.arrangement, cards])
+  const alignedItems = useMemo(
+    () => order.flatMap((id) => boxesById.has(id) ? [{ id, box: boxesById.get(id) as { w: number, h: number } }] : []),
+    [order, boxesById],
+  )
+  const minBoxOf = useCallback(
+    (id: string): WidgetMinBox | undefined => {
+      const card = cards.find((entry) => cardId(entry) === id)
+      return card === undefined ? undefined : minBoxOfCard(card, widgets)
+    },
+    [cards, widgets],
+  )
+
   const items = cards.map((card) => ({
     id: cardId(card),
     layout: normalizeCardLayout(
@@ -190,9 +232,10 @@ export function BoardGrid({
       metrics?.columns,
     ),
   }))
-  const layout: GridLayout | null = metrics === null ? null : resolveLayout(items, metrics, drag?.id)
+  const layout: GridLayout | null = metrics === null || aligned ? null : resolveLayout(items, metrics, drag?.id)
+  const alignedLayout = metrics === null || !aligned ? null : resolveAlignedLayout(alignedItems, metrics, minBoxOf)
 
-  /** 密排：按当前画面上的阅读顺序把每张卡放进最低的列。 */
+  /** 密排：按当前画面上的阅读顺序把每张卡放进最低的列。只在自由模式下有。 */
   const onTidy = useCallback(() => {
     if (metrics === null || layout === null || dragRef.current !== null || busyRef.current) return
     const tidied = tidyLayout(
@@ -227,8 +270,10 @@ export function BoardGrid({
     if (dragRef.current === null) return
     dragRef.current = null
     draftRef.current = null
+    orderDraftRef.current = null
     setDrag(null)
     setDraft(null)
+    setOrderDraft(null)
   }, [])
 
   const beginDrag = useCallback((event: ReactPointerEvent<HTMLElement>, id: string, kind: DragKind) => {
@@ -240,6 +285,35 @@ export function BoardGrid({
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
     // 从屏幕上正在显示的那一份开始拖：存储里的布局在窄列里可能被推开过，直接用它会跳一下。
+    if (aligned) {
+      // 整齐模式：卡片从派生格子的当前位置跟手；落点是顺序草稿决定的那一格（D30）。
+      const resolved = resolveAlignedLayout(alignedItems, metrics, minBoxOf)
+      const placement = resolved.placements.find((entry) => entry.id === id)
+      if (placement === undefined) return
+      const flow = flowRef.current?.getBoundingClientRect()
+      const minBox = minBoxOfCard(dragCards[index] as BoardCard, widgets)
+      const started: DragState = {
+        id,
+        kind,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        flowLeft: flow?.left ?? 0,
+        flowTop: flow?.top ?? 0,
+        layout: cardLayout(dragCards[index] as BoardCard),
+        order: [...order],
+        startPlacement: placement,
+        free: { x: placement.x, y: placement.y, width: placement.width, height: placement.height },
+        layoutRevision: board.layoutRevision,
+        ...(minBox === undefined ? {} : { minBox }),
+        moved: false,
+      }
+      dragRef.current = started
+      orderDraftRef.current = [...order]
+      setOrderDraft([...order])
+      setDrag(started)
+      return
+    }
     const resolved = resolveLayout(layoutItemsOf(dragCards), metrics)
     const placement = resolved.placements[index]
     if (placement === undefined) return
@@ -254,6 +328,7 @@ export function BoardGrid({
       flowLeft: flow?.left ?? 0,
       flowTop: flow?.top ?? 0,
       layout: resolved.layouts[id] as CardLayout,
+      order: null,
       startPlacement: placement,
       free: { x: placement.x, y: placement.y, width: placement.width, height: placement.height },
       layoutRevision: board.layoutRevision,
@@ -264,12 +339,13 @@ export function BoardGrid({
     draftRef.current = resolved.layouts
     setDraft(resolved.layouts)
     setDrag(started)
-  }, [board.instances, board.layoutRevision, busy, metrics, widgets])
+  }, [aligned, alignedItems, board.instances, board.layoutRevision, busy, metrics, minBoxOf, order, widgets])
 
   const moveDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const current = dragRef.current
     const currentDraft = draftRef.current
-    if (current === null || currentDraft === null || metrics === null) return
+    const currentOrder = orderDraftRef.current
+    if (current === null || metrics === null) return
     if (event.pointerId !== current.pointerId) return
     const flow = flowRef.current
     const rect = flow?.getBoundingClientRect()
@@ -280,6 +356,70 @@ export function BoardGrid({
     const columnStep = metrics.columnWidth + metrics.gap
     const flowWidth = flow?.clientWidth
       ?? metrics.columns * metrics.columnWidth + (metrics.columns - 1) * metrics.gap
+    if (aligned) {
+      // 整齐模式：卡片跟手，落点按指针中心落入的派生格子定插入位置（B4）。
+      const pointerX = event.clientX - (rect?.left ?? current.flowLeft)
+      const pointerY = event.clientY - (rect?.top ?? current.flowTop)
+      let free = current.free
+      let nextOrder = currentOrder
+      if (current.kind === 'move') {
+        const x = clamp(current.startPlacement.x + dx, 0, Math.max(0, flowWidth - current.startPlacement.width))
+        const y = Math.max(0, current.startPlacement.y + dy)
+        free = { ...current.free, x, y }
+        if (alignedLayout !== null) {
+          const pointer = { x: pointerX, y: pointerY }
+          const hit = alignedLayout.placements.find((entry) => pointer.x >= entry.x && pointer.x < entry.x + entry.width
+            && pointer.y >= entry.y && pointer.y < entry.y + entry.height)
+          const target = hit?.id ?? alignedLayout.placements[alignedLayout.placements.length - 1]?.id
+          if (target !== undefined && nextOrder !== null) {
+            const without = nextOrder.filter((entry) => entry !== current.id)
+            const at = target === current.id ? without.length : without.indexOf(target)
+            const insertAt = at === -1 ? without.length : at
+            const candidate = [...without.slice(0, insertAt), current.id, ...without.slice(insertAt)]
+            if (candidate.join('\u0000') !== nextOrder.join('\u0000')) {
+              nextOrder = candidate
+              orderDraftRef.current = candidate
+              setOrderDraft(candidate)
+            }
+          }
+        }
+      } else {
+        // 整齐模式的缩放：横向改自己的期望宽度，纵向抬整行（B4）。
+        const box = boxesById.get(current.id) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
+        const wanted = clamp(Math.round(box.w + dx / columnStep), 1, metrics.columns)
+        const nextBoxes = new Map(boxesById)
+        nextBoxes.set(current.id, { ...box, w: wanted })
+        const rowIds = alignedLayout?.placements
+          .filter((entry) => entry.y === current.startPlacement.y)
+          .map((entry) => entry.id) ?? [current.id]
+        if (dy !== 0) {
+          const rowBoxes = rowIds.map((rowId) => {
+            const entry = nextBoxes.get(rowId) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
+            const minBox = minBoxOf(rowId)
+            const lifted = minBox === undefined ? entry : { w: entry.w, h: Math.max(entry.h, minBox.h) }
+            return { ...lifted, h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize) }
+          })
+          const rowMinBoxes = rowIds.map((rowId) => minBoxOf(rowId))
+          const height = rowHeightFor(rowBoxes, rowMinBoxes)
+          rowIds.forEach((rowId, index) => {
+            const entry = nextBoxes.get(rowId) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
+            nextBoxes.set(rowId, { ...entry, h: height })
+          })
+        }
+        boxesRef.current = nextBoxes
+        const lifted = nextBoxes.get(current.id) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
+        free = {
+          ...current.free,
+          width: displayColumns(lifted, current.minBox, metrics.columns) * metrics.columnWidth + (displayColumns(lifted, current.minBox, metrics.columns) - 1) * metrics.gap,
+          height: lifted.h * metrics.rootFontSize,
+        }
+      }
+      const nextDrag = { ...current, free, moved: true }
+      dragRef.current = nextDrag
+      setDrag(nextDrag)
+      return
+    }
+    if (currentDraft === null) return
     let free = current.free
     let next: CardLayout
     if (current.kind === 'move') {
@@ -307,12 +447,90 @@ export function BoardGrid({
     draftRef.current = nextDraft
     setDraft(nextDraft)
     setDrag(nextDrag)
-  }, [metrics])
+  }, [aligned, alignedLayout, boxesById, metrics, minBoxOf])
+
+  const boxesRef = useRef<Map<string, { w: number, h: number }> | null>(null)
+
+  /** 一次手势的排列提交：把顺序与盒子草稿合并成一份偏好交给宿主（B4、D30）。 */
+  const commitArrangement = useCallback((nextOrder: string[] | null, nextBoxes: Map<string, { w: number, h: number }> | null) => {
+    if (metrics === null || dragRef.current !== null) return
+    const saved = board.arrangement?.aligned?.order ?? []
+    const known = cards.map(cardId)
+    const keptOrder = nextOrder ?? saved.filter((id) => known.includes(id)).concat(known.filter((id) => !saved.includes(id)))
+    const base = board.arrangement?.aligned?.boxes ?? {}
+    const wanted: Record<string, { w: number, h: number }> = {}
+    for (const card of cards) {
+      const id = cardId(card)
+      wanted[id] = nextBoxes?.get(id) ?? base[id] ?? cardLayout(card)
+    }
+    const arrangement: Arrangement = { mode: 'aligned', aligned: { order: keptOrder, boxes: wanted } }
+    busyRef.current = true
+    onBusyChange(true)
+    saveBoardArrangement(board.id, board.layoutRevision, arrangement).then((result) => {
+      busyRef.current = false
+      onBusyChange(false)
+      if (result.kind === 'stale') onSnapshot(result.snapshot)
+      else onArrangement(board.id, result.saved.layoutRevision, result.saved.arrangement)
+    }, (error: Error) => {
+      busyRef.current = false
+      onBusyChange(false)
+      console.error(`widget-board: ${t('arrangementFailed')}：${error.message}`)
+      onRefetch()
+    })
+  }, [board.arrangement, board.id, board.layoutRevision, cards, metrics, onArrangement, onBusyChange, onRefetch, onSnapshot])
 
   const endDrag = useCallback(() => {
     const current = dragRef.current
     const currentDraft = draftRef.current
-    if (current === null || currentDraft === null || metrics === null) {
+    const currentOrder = orderDraftRef.current
+    if (current === null || metrics === null) {
+      cancelDrag()
+      return
+    }
+    if (aligned) {
+      const moved = current.moved
+      const order = currentOrder
+      const boxes = current.kind === 'resize' ? boxesRef.current : null
+      dragRef.current = null
+      boxesRef.current = null
+      setDrag(null)
+      if (!moved) {
+        orderDraftRef.current = null
+        setOrderDraft(null)
+        return
+      }
+      // 提交在路上时保持本地预览，等宿主的答复到了再换；松手瞬间不闪回旧位置（B4）。
+      busyRef.current = true
+      onBusyChange(true)
+      const savedOrder = board.arrangement?.aligned?.order ?? []
+      const known = cards.map(cardId)
+      const keptOrder = (order ?? savedOrder.filter((id) => known.includes(id)).concat(known.filter((id) => !savedOrder.includes(id)))).filter((id) => boxesById.has(id))
+      const base = board.arrangement?.aligned?.boxes ?? {}
+      const wanted: Record<string, { w: number, h: number }> = {}
+      for (const card of cards) {
+        const id = cardId(card)
+        wanted[id] = boxes?.get(id) ?? base[id] ?? cardLayout(card)
+      }
+      const arrangement: Arrangement = { mode: 'aligned', aligned: { order: keptOrder, boxes: wanted } }
+      saveBoardArrangement(board.id, current.layoutRevision, arrangement).then((result) => {
+        busyRef.current = false
+        orderDraftRef.current = null
+        setOrderDraft(null)
+        onBusyChange(false)
+        if (result.kind === 'stale') onSnapshot(result.snapshot)
+        else onArrangement(board.id, result.saved.layoutRevision, result.saved.arrangement)
+      }, (error: Error) => {
+        // 提交没成：按宿主的当前一份重画，不把本地预览留在屏幕上（D5）。
+        busyRef.current = false
+        orderDraftRef.current = null
+        setOrderDraft(null)
+        onBusyChange(false)
+        console.error(`widget-board: ${t('arrangementFailed')}：${error.message}`)
+        onRefetch()
+      })
+      return
+    }
+    if (currentDraft === null) {
       cancelDrag()
       return
     }
@@ -346,7 +564,7 @@ export function BoardGrid({
       console.error(`widget-board: ${t('layoutFailed')}：${error.message}`)
       onRefetch()
     })
-  }, [board.id, cancelDrag, metrics, onBusyChange, onLayouts, onRefetch, onSnapshot])
+  }, [aligned, board.arrangement, board.id, boxesById, cancelDrag, cards, metrics, onArrangement, onBusyChange, onLayouts, onRefetch, onSnapshot])
 
   useEffect(() => {
     if (drag === null) return
@@ -358,16 +576,25 @@ export function BoardGrid({
   }, [drag, cancelDrag])
 
   // 松手后的落点画成虚影；卡片自己用 free 的像素盒子跟手。
-  const ghost = drag === null || layout === null ? undefined : layout.placements.find((placement) => placement.id === drag.id)
+  const freeLayout: GridLayout | null = layout
+  const placementsById = new Map<string, GridPlacement | AlignedPlacement>()
+  if (freeLayout !== null) for (const placement of freeLayout.placements) placementsById.set(placement.id, placement)
+  if (alignedLayout !== null) for (const placement of alignedLayout.placements) placementsById.set(placement.id, placement)
+  const ghostId = drag === null || aligned === false ? drag?.id : drag.kind === 'move' ? drag.id : undefined
+  const ghost = drag === null || (alignedLayout === null && freeLayout === null)
+    ? undefined
+    : ghostId === undefined ? undefined : placementsById.get(ghostId)
+  const contentHeight = aligned ? alignedLayout?.height ?? 0 : freeLayout?.height ?? 0
 
   return (
     <div
       ref={setFlow}
       className="dsh-widget-board__flow"
       data-dsh-widget-board-board={board.id}
+      data-arrangement={board.arrangement?.mode ?? 'free'}
       data-active={active ? 'true' : 'false'}
       data-dragging={drag === null ? undefined : 'true'}
-      style={layout === null || cards.length === 0 ? undefined : { height: layout.height }}
+      style={metrics === null || cards.length === 0 ? undefined : { height: contentHeight }}
     >
       {cards.length === 0 ? <div className="dsh-widget-board__notice">{t('empty')}</div> : null}
       {ghost === undefined
@@ -379,13 +606,13 @@ export function BoardGrid({
             style={{ left: ghost.x, top: ghost.y, width: ghost.width, height: ghost.height }}
           />
         )}
-      {layout === null || metrics === null
+      {metrics === null || (freeLayout === null && alignedLayout === null)
         ? null
-        : cards.map((card, index) => {
-            const target = layout.placements[index]
+        : cards.map((card) => {
+            const key = cardId(card)
+            const target = placementsById.get(key)
             if (target === undefined) return null
-            const cardKey = cardId(card)
-            const placement = drag !== null && drag.id === cardKey
+            const placement = drag !== null && drag.id === key
               ? { ...target, x: drag.free.x, y: drag.free.y, width: drag.free.width, height: drag.free.height }
               : target
             if (card.kind === 'group') {
@@ -399,7 +626,7 @@ export function BoardGrid({
                   frontWidget={frontWidget}
                   backWidget={backWidget}
                   placement={placement}
-                  gesture={drag !== null && drag.id === cardKey ? drag.kind : null}
+                  gesture={drag !== null && drag.id === key ? drag.kind : null}
                   exiting={exiting.has(card.id)}
                   theme={theme}
                   frames={frames}
@@ -445,7 +672,7 @@ export function BoardGrid({
                 instance={instance}
                 widget={widget}
                 placement={placement}
-                gesture={drag !== null && drag.id === instance.id ? drag.kind : null}
+                gesture={drag !== null && drag.id === key ? drag.kind : null}
                 exiting={exiting.has(instance.id)}
                 theme={theme}
                 frames={frames}

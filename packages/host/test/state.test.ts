@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Board, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
-import { withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
+import { withArrangementUnits, withBoardArrangement, withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
 
 /** 一块带两张卡的看板。 */
 function board(): Board {
@@ -244,5 +244,39 @@ describe('翻面组', () => {
 
   it('移除看板上没有的组时报错', () => {
     expect(() => withGroupRemoved(board(), 'missing')).toThrow(/看板上没有这一组/)
+  })
+})
+
+describe('排列偏好（D30）', () => {
+  it('一次提交换掉整份偏好，不合法的形状整体拒绝', () => {
+    const current = { ...board(), arrangement: { mode: 'aligned' as const, aligned: { order: ['first', 'second'], boxes: { first: { w: 1, h: 22 }, second: { w: 1, h: 22 } } } } }
+    const next = withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['second', 'first'], boxes: { second: { w: 2, h: 18 }, first: { w: 1, h: 14 } } } })
+    expect(next.arrangement).toEqual({ mode: 'aligned', aligned: { order: ['second', 'first'], boxes: { second: { w: 2, h: 18 }, first: { w: 1, h: 14 } } } })
+    expect(() => withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['first'], boxes: { first: { w: 1, h: 22 } } } })).toThrow(/漏掉了看板上的卡片/)
+    expect(() => withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['first', 'missing'], boxes: { first: { w: 1, h: 22 }, missing: { w: 1, h: 22 } } } })).toThrow(/看板上没有这个排列单元/)
+  })
+
+  it('切回自由模式只换偏好，卡片坐标不动', () => {
+    const current = { ...board(), arrangement: { mode: 'aligned' as const, aligned: { order: ['first', 'second'], boxes: { first: { w: 1, h: 22 }, second: { w: 1, h: 22 } } } } }
+    const next = withBoardArrangement(current, { mode: 'free' })
+    expect(next.arrangement).toEqual({ ...current.arrangement, mode: 'free' })
+    expect(next.instances).toEqual(current.instances)
+  })
+
+  it('排列单元的接上与去掉由 withArrangementUnits 完成', () => {
+    const aligned = { mode: 'aligned' as const, aligned: { order: ['first'], boxes: { first: { w: 1, h: 22 } } } }
+    const added = withInstanceAdded({ ...board(), instances: board().instances.slice(0, 1), arrangement: aligned }, record('clock'))
+    const withUnit = withArrangementUnits(added.board, [], [{ id: added.id, box: { w: 1, h: 22 } }])
+    expect(withUnit.arrangement?.aligned?.order).toEqual(['first', added.id])
+    expect(withUnit.arrangement?.aligned?.boxes).toHaveProperty(added.id)
+    const removed = withArrangementUnits(withInstanceRemoved(withUnit, added.id), [added.id], [])
+    expect(removed.arrangement?.aligned?.order).toEqual(['first'])
+    expect(removed.arrangement?.aligned?.boxes).toEqual({ first: { w: 1, h: 22 } })
+  })
+
+  it('自由模式的看板加卡移卡不动偏好', () => {
+    const current = { ...board(), arrangement: { mode: 'free' as const } }
+    const added = withInstanceAdded(current, record('clock'))
+    expect(added.board.arrangement).toEqual({ mode: 'free' })
   })
 })

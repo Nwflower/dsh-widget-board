@@ -43,6 +43,48 @@ export interface InstanceGroup {
   template: GroupTemplate
 }
 
+/** 看板的两种排列偏好：自由位置与整齐行列（D30）。 */
+export const ARRANGEMENT_MODES = ['free', 'aligned'] as const
+
+/** 一种排列偏好。 */
+export type ArrangementMode = (typeof ARRANGEMENT_MODES)[number]
+
+/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D30）。 */
+export interface AlignedBox {
+  w: number
+  h: number
+}
+
+/**
+ * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D30）。
+ *
+ * 只留顺序与期望宽高，像素坐标每次画的时候现算：窗口宽度与根字号变了，存下的东西不用重写。
+ * `order` 用的是排列单元 id——普通实例 id，或组卡取正面那张实例的 id。
+ */
+export interface AlignedArrangement {
+  order: string[]
+  boxes: Record<string, AlignedBox>
+}
+
+/**
+ * 一块看板的排列偏好（D30）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
+ *
+ * 自由模式的坐标继续存在每张卡的 `layout` 里；两种模式共用卡片、内容与状态，不复制卡片。
+ */
+export interface Arrangement {
+  mode: ArrangementMode
+  aligned?: AlignedArrangement
+}
+
+/**
+ * 新看板与第一次创建的那块看板用的排列偏好（D30）：整齐行列，空顺序。
+ *
+ * 旧看板读到的是 `free`，不给它们补这一份——已经存在的画廊不该在升级时自己换一种排法。
+ */
+export function defaultArrangement(): Arrangement {
+  return { mode: 'aligned', aligned: { order: [], boxes: {} } }
+}
+
 /** 一张卡片：哪个组件的哪个版本，它自己的 props、data、state，以及它在看板上的盒子。 */
 export interface BoardInstance {
   id: string
@@ -118,6 +160,12 @@ export interface Board {
    * 不会被同一页面上的计时器写成过期（D5、D16）。
    */
   layoutRevision: number
+  /**
+   * 排列偏好（D30）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
+   *
+   * 缺席表示自由模式：读盘时在内存里补一份，下一次保存才写进文件。
+   */
+  arrangement?: Arrangement
   instances: BoardInstance[]
 }
 
@@ -398,4 +446,20 @@ export interface GroupRemoveRequest {
 export interface BoardLayoutRequest {
   layoutRevision: number
   layouts: Record<string, CardLayout>
+}
+
+/**
+ * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D30）。
+ *
+ * 模式切换、整齐顺序与期望宽高一起提交；宿主核对布局修订号，过期时回 409 与当前快照。
+ */
+export interface BoardArrangementRequest {
+  expectedLayoutRevision: number
+  arrangement: Arrangement
+}
+
+/** 一次排列提交成功后的答复：宿主写入之后的布局修订号与规范化过的那一份。 */
+export interface BoardArrangementSaved {
+  layoutRevision: number
+  arrangement: Arrangement
 }

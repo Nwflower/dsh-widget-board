@@ -270,6 +270,19 @@ export function resolveLayout(items: readonly GridItem[], metrics: GridMetrics, 
   return { placements, layouts, height }
 }
 
+/** 按阅读顺序（y、x、原输入次序）排一串卡片：整齐模式的初始顺序与「整理」共用同一条规则（D30）。 */
+export function readOrderOf(items: readonly GridItem[]): GridItem[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const y = left.item.layout.y - right.item.layout.y
+      if (y !== 0) return y
+      const x = left.item.layout.x - right.item.layout.x
+      return x !== 0 ? x : left.index - right.index
+    })
+    .map(({ item }) => item)
+}
+
 /**
  * 紧密排布：按当前画面上的阅读顺序，把每张卡片放进连续列里最低的位置。
  *
@@ -281,17 +294,10 @@ export function resolveLayout(items: readonly GridItem[], metrics: GridMetrics, 
  * @returns 每张卡片整理后的布局。
  */
 export function tidyLayout(items: readonly GridItem[], metrics: GridMetrics): Record<string, CardLayout> {
-  const ordered = items
-    .map((item, index) => ({ item, index }))
-    .sort((left, right) => {
-      const y = left.item.layout.y - right.item.layout.y
-      if (y !== 0) return y
-      const x = left.item.layout.x - right.item.layout.x
-      return x !== 0 ? x : left.index - right.index
-    })
+  const ordered = readOrderOf(items)
   const levels = Array.from({ length: metrics.columns }, () => 0)
   const layouts: Record<string, CardLayout> = {}
-  for (const { item } of ordered) {
+  for (const item of ordered) {
     const layout = normalizeCardLayout(item.layout, metrics.columns)
     const height = layout.h * metrics.rootFontSize
     let column = 0

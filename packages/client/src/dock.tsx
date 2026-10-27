@@ -59,6 +59,8 @@ export interface BoardDockProps {
   libraryOpen: boolean
   /** 正在写宿主：按钮暂时不可按。 */
   busy: boolean
+  /** 当前看板的排列模式：整齐模式的「整理」没有意义，按钮换成模式切换（D30）。 */
+  arrangement: 'free' | 'aligned' | undefined
   /** 打开组件库面板。 */
   onOpenLibrary: () => void
   /** 关掉组件库面板。 */
@@ -69,6 +71,8 @@ export interface BoardDockProps {
   onAddAt: (id: string, clientX: number, clientY: number) => Promise<boolean>
   /** 密排全部卡片。 */
   onTidy: () => void
+  /** 在两种排列模式之间切换（D30）。 */
+  onToggleArrangement: () => void
   /** 主动重读组件库与运行时。 */
   onRefresh: () => void
 }
@@ -84,8 +88,8 @@ interface AddDrag {
   active: boolean
 }
 
-/** 加号 / 整理 / 刷新三个图标。尺寸与线宽按参考的 16px 图标。 */
-function ActionIcon({ kind }: { kind: 'add' | 'tidy' | 'refresh' }): ReactNode {
+/** 加号 / 整理 / 刷新 / 排列模式四个图标。尺寸与线宽按参考的 16px 图标。 */
+function ActionIcon({ kind }: { kind: 'add' | 'tidy' | 'refresh' | 'arrange' }): ReactNode {
   if (kind === 'add') {
     return (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -104,6 +108,13 @@ function ActionIcon({ kind }: { kind: 'add' | 'tidy' | 'refresh' }): ReactNode {
       </svg>
     )
   }
+  if (kind === 'arrange') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 6h16M4 12h16M4 18h10" />
+      </svg>
+    )
+  }
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M20 11a8 8 0 1 0-2.3 6.7" />
@@ -112,11 +123,12 @@ function ActionIcon({ kind }: { kind: 'add' | 'tidy' | 'refresh' }): ReactNode {
   )
 }
 
-/** 菜单的三个动作：位置照参考的扇面，i 决定展开的先后。 */
+/** 菜单的四个动作：位置照参考的扇面，i 决定展开的先后。 */
 const GOO_ACTIONS = [
   { kind: 'add' as const, fx: '0px', fy: '-64px', i: 1 },
-  { kind: 'tidy' as const, fx: '-54px', fy: '-34px', i: 0 },
-  { kind: 'refresh' as const, fx: '54px', fy: '-34px', i: 2 },
+  { kind: 'tidy' as const, fx: '-60px', fy: '-30px', i: 0 },
+  { kind: 'arrange' as const, fx: '-64px', fy: '0px', i: 3 },
+  { kind: 'refresh' as const, fx: '60px', fy: '-30px', i: 2 },
 ]
 
 /**
@@ -125,10 +137,12 @@ const GOO_ACTIONS = [
  * 底色、桥接与投影都画在同一张 SVG 的 goo 滤镜里：先用高斯模糊与色阶把四个圆连成一片，
  * 再按参考的三层阴影把合并后的剪影投下来。图标与按钮是压在上面的清晰层，滤镜不碰文字。
  */
-function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
+function DockMenu({ busy, arrangement, onAdd, onTidy, onToggleArrangement, onRefresh }: {
   busy: boolean
+  arrangement: 'free' | 'aligned' | undefined
   onAdd: () => void
   onTidy: () => void
+  onToggleArrangement: () => void
   onRefresh: () => void
 }): ReactNode {
   const [open, setOpen] = useState(false)
@@ -184,6 +198,7 @@ function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
   const runs = {
     add: onAdd,
     tidy: onTidy,
+    arrange: onToggleArrangement,
     refresh: onRefresh,
   }
 
@@ -258,10 +273,10 @@ function DockMenu({ busy, onAdd, onTidy, onRefresh }: {
           className="dsh-widget-board__dock-action"
           data-dsh-widget-board-dock-action={action.kind}
           style={{ '--fx': action.fx, '--fy': action.fy, '--i': action.i } as CSSProperties}
-          title={t(action.kind)}
-          aria-label={t(action.kind)}
+          title={action.kind === 'arrange' ? (arrangement === 'aligned' ? t('arrangeFree') : t('arrangeAligned')) : t(action.kind)}
+          aria-label={action.kind === 'arrange' ? (arrangement === 'aligned' ? t('arrangeFree') : t('arrangeAligned')) : t(action.kind)}
           tabIndex={open ? 0 : -1}
-          disabled={busy}
+          disabled={busy || (action.kind === 'tidy' && arrangement === 'aligned')}
           onClick={() => {
             close()
             runs[action.kind]()
@@ -306,11 +321,13 @@ export function BoardDock({
   frames,
   libraryOpen,
   busy,
+  arrangement,
   onOpenLibrary,
   onCloseLibrary,
   onAdd,
   onAddAt,
   onTidy,
+  onToggleArrangement,
   onRefresh,
 }: BoardDockProps): ReactNode {
   const dragRef = useRef<AddDrag | null>(null)
@@ -520,8 +537,10 @@ export function BoardDock({
       <div ref={dockRef}>
         <DockMenu
           busy={busy}
+          arrangement={arrangement}
           onAdd={() => { setProxy(null); onOpenLibrary() }}
           onTidy={onTidy}
+          onToggleArrangement={onToggleArrangement}
           onRefresh={onRefresh}
         />
       </div>

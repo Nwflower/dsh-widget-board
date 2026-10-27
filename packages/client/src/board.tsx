@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type {
+  Arrangement,
   BoardEventFrame,
   BoardInstance,
   CardLayout,
@@ -21,6 +22,7 @@ import tokens from '@dsh-widget-board/contracts/tokens.json'
 import type { GridMetrics } from '@dsh-widget-board/model'
 import { DEFAULT_HEIGHT_REM, gridMetrics, snapCardY } from '@dsh-widget-board/model'
 import { BoardGrid } from './board-grid'
+import { useBoardArrangement } from './board-arrangement'
 import { deleteBoardById, renameBoardTo } from './board-management/actions'
 import type { CardControls } from './card'
 import { CARD_CLIP_RADIUS } from './card-shell'
@@ -31,7 +33,7 @@ import { BoardDock } from './dock'
 import { frameHostOf } from './page-frames'
 import { FLIP_GROUP_ENTRY } from './group'
 import { subscribeLive } from './live'
-import { mergeEvent, mergeLayout, needsSnapshot } from './merge'
+import { mergeArrangement, mergeEvent, mergeLayout, needsSnapshot } from './merge'
 import { noticeOf, notificationStore } from './notifications'
 import {
   activateBoard,
@@ -63,6 +65,7 @@ const SHELL_STYLE = {
   '--w-motion-base': MOTION.base,
   '--w-motion-ease-standard': MOTION['ease-standard'],
   '--w-motion-ease-decel': MOTION['ease-decel'],
+  '--w-motion-ease-pop': MOTION['ease-pop'],
   '--w-type-caption': TYPE.caption,
   '--w-type-body': TYPE.body,
   '--w-type-title': TYPE.title,
@@ -228,6 +231,16 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     setSnapshot((previous) => {
       if (previous === null) return previous
       const next = mergeLayout(previous, boardId, layoutRevision, layouts)
+      cachedWorkspace = next
+      return next
+    })
+  }, [])
+
+  /** 排列偏好提交成功：把这一块看板的偏好并回去（D30）。 */
+  const onArrangement = useCallback((boardId: string, layoutRevision: number, arrangement: Arrangement) => {
+    setSnapshot((previous) => {
+      if (previous === null) return previous
+      const next = mergeArrangement(previous, boardId, layoutRevision, arrangement)
       cachedWorkspace = next
       return next
     })
@@ -436,6 +449,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     busyRef.current = next
     setBusy(next)
   }, [])
+  const onToggleArrangement = useBoardArrangement({ activeBoard, metrics, busyRef, setBusy, apply, onArrangement, setFailure, refetch })
 
   const registerFlow = useCallback((id: string, element: HTMLDivElement | null): void => {
     if (element === null) flowRefs.current.delete(id)
@@ -587,6 +601,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
                 onTidyReady={registerTidy}
                 onSnapshot={apply}
                 onLayouts={onLayouts}
+                onArrangement={onArrangement}
                 onFailure={setFailure}
                 onBusyChange={onBusyChange}
                 onSettings={openEditor}
@@ -623,11 +638,13 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
         frames={frames}
         libraryOpen={libraryOpen}
         busy={busy}
+        arrangement={activeBoard?.arrangement?.mode}
         onOpenLibrary={() => setLibraryOpen(true)}
         onCloseLibrary={() => setLibraryOpen(false)}
         onAdd={onAdd}
         onAddAt={onAddAt}
         onTidy={onTidy}
+        onToggleArrangement={onToggleArrangement}
         onRefresh={onRefresh}
       />
     </>

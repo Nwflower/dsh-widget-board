@@ -35,6 +35,8 @@ import type {
   WidgetRoot,
 } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import { BOARD_TITLE_LIMIT, boardTitleProblem } from '@dsh-widget-board/contracts'
+import type { BoardTitleProblem } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import { groupRoutes } from './groups'
@@ -77,6 +79,13 @@ const DATA_LIMIT = 256 * 1024
 
 /** 加卡片、移除卡片与看板管理这类请求体可以没有。 */
 const EMPTY_LIMIT = 1024
+
+/** 看板标题不合规矩时回给客户端的那一句（D21）。 */
+const BOARD_TITLE_REFUSAL: Record<BoardTitleProblem, string> = {
+  'not-text': '看板标题要是文字',
+  empty: '看板标题不能是空的',
+  'too-long': `看板标题最多 ${String(BOARD_TITLE_LIMIT)} 个字符`,
+}
 
 /** 路由处理器读到的一切；组件库与资产随热重载替换，所以这里持有一个可变的对象。 */
 export interface RouteContext {
@@ -232,7 +241,10 @@ const ROUTES: Route[] = [
       const body = await readJson(request, EMPTY_LIMIT)
       if (body !== undefined && !isRecord(body)) throw new Refusal(400, '新建看板要写明标题')
       const wanted = (body ?? {}) as BoardCreateRequest
-      if (wanted.title !== undefined && typeof wanted.title !== 'string') throw new Refusal(400, '看板标题要是文字')
+      if (wanted.title !== undefined) {
+        const problem = boardTitleProblem(wanted.title)
+        if (problem !== null) throw new Refusal(400, BOARD_TITLE_REFUSAL[problem])
+      }
       const board = await context.workspace.create(wanted.title)
       json(response, 201, { id: board.id, snapshot: workspaceSnapshot(context) })
     },
@@ -245,7 +257,9 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       boardById(context, id)
       const body = await readJson(request, EMPTY_LIMIT)
-      if (!isRecord(body) || typeof body.title !== 'string' || body.title.trim() === '') throw new Refusal(400, '改标题要写明 title')
+      if (!isRecord(body)) throw new Refusal(400, '改标题要写明 title')
+      const problem = boardTitleProblem(body.title)
+      if (problem !== null) throw new Refusal(400, BOARD_TITLE_REFUSAL[problem])
       await context.workspace.rename(id, (body as unknown as BoardRenameRequest).title)
       json(response, 200, workspaceSnapshot(context))
     },

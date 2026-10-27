@@ -41,7 +41,7 @@ export function registerPanel(ctx: Context): () => void {
       name: MAIN_SLOT,
       key: WIDGET_BOARD_PANEL_ID,
     }, Page)),
-    // 看板的改名、移除与选中收在设置页（D21）；标签条上只留切换与新建。
+    // 看板的改名、移除与选中在设置页与标签菜单两处都能做（D21），两处调同一份动作。
     slots.inject(SETTINGS_SECTION_SLOT, () => slots.register({
       name: SETTINGS_SECTION_SLOT,
       id: SETTINGS_SECTION_ID,

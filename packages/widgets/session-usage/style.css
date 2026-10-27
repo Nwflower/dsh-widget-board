@@ -4,7 +4,7 @@
  *
  * 盒子契约按运行时写下的两个方向档位走：宽盒子用套件的 `.t-data--split` 把标题挪到左列，读数与
  * 走势并排；窄盒子把四项分项排成两行。高度方向另有三档收线——212px 以下收走势，176px 以下收次读，
- * 120px 以下收分项与范围标签，只留标题与总量；任何一档都不靠溢出硬塞（D20）。
+ * 160px 以下收分项，120px 以下收范围标签，只留标题与总量；任何一档都不靠溢出硬塞（D20）。
  */
 .usage {
   gap: var(--w-space-sm, 8px);
@@ -377,8 +377,11 @@
   .usage__recent { display: none; }
 }
 
+@media (max-height: 160px) {
+  .usage__parts { display: none; }
+}
+
 @media (max-height: 120px) {
-  .usage__parts,
   .usage__kicker { display: none; }
 }
 

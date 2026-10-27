@@ -28,6 +28,7 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 ## A few doors
 
 | Board in the sidebar | Switch board tabs, drag and tidy cards; the default board is filled on first launch |
+| More button on a tab | Rename or delete that board; right-clicking the tab opens the same menu without switching boards |
 |---|---|
 | Plus menu | Add, tidy, refresh; Add opens the library as a full-height panel that rises from the bottom |
 | Card gear | Change the widget's props, fill in credentials, review and grant data sources and permissions |

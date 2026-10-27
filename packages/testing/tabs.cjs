@@ -93,7 +93,8 @@ async function markPomodoro(page) {
 async function tabsPass(page, { check }) {
   await page.waitForSelector(TABS, { timeout: 10000 })
   const before = await stripState(page)
-  check('标签条上只有一个标签与一个新建入口', before.tabs === 1 && before.controls === 2, JSON.stringify(before))
+  // 一块标签现在是一组：切换按钮、它的更多按钮，再加新建入口（D21）。
+  check('标签条上只有一个标签、它的更多按钮与一个新建入口', before.tabs === 1 && before.controls === 3, JSON.stringify(before))
   check('活动标签有一枚药丸', before.pill === true && before.selected.length === 1, JSON.stringify(before.selected))
   check('标签条把活动标签整个包住',
     before.strip !== null && before.active !== null

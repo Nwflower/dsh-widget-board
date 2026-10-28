@@ -1,0 +1,37 @@
+{
+  "id": "example-data",
+  "title": { "zh": "示例：数据", "en": "Example: data" },
+  "description": {
+    "zh": "演示 data schema、samples.json 的 data 字段，以及没有数据时的空态。",
+    "en": "Demonstrates the data schema, the data field in samples.json, and the empty state when no data is available."
+  },
+  "version": "1.0.0",
+  "sizes": ["s", "m"],
+  "data": {
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["label", "value"],
+          "properties": {
+            "label": { "type": "string" },
+            "value": { "type": "number" }
+          }
+        }
+      }
+    }
+  },
+  "text": {
+    "empty": {
+      "zh": "还没有数据。",
+      "en": "No data yet."
+    },
+    "hint": {
+      "zh": "这个示例不声明数据源；给它推数据之后这里会列出条目。",
+      "en": "This example declares no data source; push data to the card and items will be listed here."
+    }
+  }
+}

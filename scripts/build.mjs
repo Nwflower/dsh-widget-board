@@ -24,6 +24,7 @@ const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const TOKENS = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'contracts', 'tokens.json'), 'utf8'))
 const RUNTIME = path.join(ROOT, 'packages', 'runtime', 'src')
 const WIDGETS = path.join(ROOT, 'packages', 'widgets')
+const WIDGETS_EXAMPLES = path.join(ROOT, 'packages', 'widgets-examples')
 const TSC = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 
 /** 宿主的模块表交给浏览器半边的包：留在产物里，由加载器的 `require` 解析。 */
@@ -214,6 +215,12 @@ function writeAssets() {
   const staging = path.join(LIB, '.widgets-staging')
   fs.cpSync(WIDGETS, staging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
   fs.renameSync(staging, path.join(LIB, 'widgets'))
+  // 示例组件（D17）：目录可能还不存在，那时 lib/widgets-examples 就缺席，宿主按空来源算。
+  if (fs.existsSync(WIDGETS_EXAMPLES)) {
+    const examplesStaging = path.join(LIB, '.widgets-examples-staging')
+    fs.cpSync(WIDGETS_EXAMPLES, examplesStaging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
+    fs.renameSync(examplesStaging, path.join(LIB, 'widgets-examples'))
+  }
 }
 
 /**

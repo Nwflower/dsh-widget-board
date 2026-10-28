@@ -11,7 +11,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import { dirname, join } from 'node:path'
 import Ajv from 'ajv'
 import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
-import { WIDGET_MANIFEST_SCHEMA } from '@dsh-widget-board/contracts'
+import { WIDGET_MANIFEST_SCHEMA, WIDGET_SOURCES } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
 
 /** 一个可用的组件版本：manifest、来源、目录、内容哈希与目录里的全部文件。 */
@@ -34,6 +34,12 @@ export interface LibraryLoad {
 
 const ajv = new Ajv({ allErrors: true, strict: true })
 const validate = ajv.compile(WIDGET_MANIFEST_SCHEMA)
+
+/** 包内来源：目录随构建产物一起发布，读不出来或为空都说明构建没写完（D7）。 */
+const PACKAGED_SOURCES: readonly WidgetRoot['source'][] = ['builtin', 'example']
+
+/** 包内来源在报错里的说法。 */
+const PACKAGED_SOURCE_LABELS: Partial<Record<WidgetRoot['source'], string>> = { builtin: '内置', example: '示例' }
 
 /**
  * 一个目录里的全部文件，键是相对路径。
@@ -107,6 +113,11 @@ export async function readWidget(dir: string, root: Pick<WidgetRoot, 'source' | 
   const manifest = JSON.parse(manifestFile.toString('utf8')) as WidgetManifest
   const problem = manifestProblem(manifest)
   if (problem !== undefined) throw new Error(`${dir}/widget.json：${problem}`)
+  // 带作者域的 id 只属于市场来源（D8）：本地的用户、插件与内置目录用一个带点的 id 会抢在市场
+  // 前面占用同一个名字，安装与升级都会绕不开它。
+  if (root.source !== 'market' && manifest.id.includes('.')) {
+    throw new Error(`${dir}/widget.json：带作者域的 id ${manifest.id} 只用于市场来源，${root.source} 来源请用扁平 id（D8）`)
+  }
   for (const required of ['index.html', 'style.css']) {
     if (!files.has(required)) throw new Error(`${dir} 缺少 ${required}（D7）`)
   }
@@ -151,9 +162,9 @@ async function readRoot(root: WidgetRoot, load: LibraryLoad): Promise<void> {
   try {
     entries = await readdir(root.dir, { withFileTypes: true })
   } catch (error) {
-    // 用户与插件来源的目录可以还不存在；包内来源读不出来是构建没写完（D11）。
+    // 用户、市场与插件来源的目录可以还不存在；包内来源（内置、示例）读不出来是构建没写完（D7、D11）。
     const code = (error as NodeJS.ErrnoException).code
-    if (code === 'ENOENT' && root.source !== 'builtin') return
+    if (code === 'ENOENT' && !PACKAGED_SOURCES.includes(root.source)) return
     throw new Error(`组件库目录读不出来：${root.dir}（${(error as Error).message}）`)
   }
   for (const entry of entries) {
@@ -213,22 +224,44 @@ export async function writeWidgetDirectory(dir: string, files: readonly { path: 
 }
 
 /**
+ * 把一个来源插进来源表，保持在 `WIDGET_SOURCES` 里的优先级（D17）。
+ *
+ * 同 id 先到者胜，来源表的顺序就是这份优先级。插件在运行时才注册目录；直接追加会让它排到示例之后，
+ * 同 id 时被示例挡住，所以追加也按来源的次序找位置。
+ *
+ * @param roots - 来源表。
+ * @param root - 要加进去的来源。
+ */
+export function insertRoot(roots: WidgetRoot[], root: WidgetRoot): void {
+  const rank = (source: WidgetRoot['source']): number => WIDGET_SOURCES.indexOf(source)
+  const index = roots.findIndex((existing) => rank(existing.source) > rank(root.source))
+  if (index === -1) roots.push(root)
+  else roots.splice(index, 0, root)
+}
+
+/**
  * 读组件库的全部来源。
  *
- * @param roots - 来源目录，按优先级排列；包内的来源必须能读出组件。
+ * 包内来源（内置与示例）读不出东西说明构建没有写完，直接抛出；用户、市场与插件来源的目录可以还不
+ * 存在，按空目录算（D7、D17）。
+ *
+ * @param roots - 来源目录，按优先级排列。
  * @returns 可用的组件、给界面的全部类型与失败的原因。
- * @throws {Error} 包内的来源目录读不出来，或它一个组件都没读出来。
+ * @throws {Error} 包内来源的目录读不出来，或它一个组件都没读出来。
  */
 export async function loadLibrary(roots: readonly WidgetRoot[]): Promise<LibraryLoad> {
   const load: LibraryLoad = { records: new Map(), entries: [], errors: [] }
-  let builtin = 0
+  /** 每个来源读进来的组件数：包内来源要至少有一个。 */
+  const loaded = new Map<WidgetRoot['source'], number>()
   for (const root of roots) {
     const before = load.records.size
     await readRoot(root, load)
-    if (root.source === 'builtin') builtin += load.records.size - before
+    loaded.set(root.source, (loaded.get(root.source) ?? 0) + (load.records.size - before))
   }
-  if (builtin === 0) {
-    throw new Error(`内置组件库是空的：${roots.filter((root) => root.source === 'builtin').map((root) => root.dir).join('、')}（D7）`)
+  for (const source of PACKAGED_SOURCES) {
+    const dirs = roots.filter((root) => root.source === source).map((root) => root.dir)
+    if (dirs.length === 0 || (loaded.get(source) ?? 0) > 0) continue
+    throw new Error(`${PACKAGED_SOURCE_LABELS[source] ?? source}组件库是空的：${dirs.join('、')}（D7）`)
   }
   return load
 }

@@ -21,6 +21,7 @@ import { loadLibrary } from '../src/library'
 import type { Live } from '../src/live'
 import { createLive } from '../src/live'
 import { createRegistries } from '../src/sources'
+import { createMarketRegistry } from '../src/market'
 import { createRequestLog } from '../src/request-log'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
@@ -212,6 +213,8 @@ async function harness(record: WidgetRecord = RECORD, extra = false, records?: M
     sources,
     grants: memoryGrants(),
     requests: createRequestLog(),
+    market: createMarketRegistry(),
+    marketDir: join(home, 'market-widgets'),
     limits: {
       stateCard: createRateLimiter(STATE_WRITES_PER_SECOND),
       stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
@@ -241,6 +244,19 @@ describe('工作区快照', () => {
     expect(body.boards[0]?.instances).toHaveLength(2)
     expect(body.widgets.weather?.source).toBe('builtin')
     expect(body.library).toHaveLength(1)
+  })
+
+  it('快照带上这张卡可用的能力：提供方不在的能力不在其中', async () => {
+    const declared = {
+      ...RECORD,
+      manifest: { ...RECORD.manifest, capabilities: ['demo:present', 'demo:absent'] },
+    }
+    const test = await harness(declared)
+    // 这个替身的注册表里没有注册任何能力：两项都不可用。
+    const response = await test.send('GET', '/boards')
+    const body = JSON.parse(response.body) as { widgets: Record<string, { capabilities?: string[], availableCapabilities?: string[] }> }
+    expect(body.widgets.weather?.capabilities).toEqual(['demo:present', 'demo:absent'])
+    expect(body.widgets.weather?.availableCapabilities).toEqual([])
   })
 
   it('方法不对时回 405 并给出允许的方法', async () => {
@@ -811,6 +827,165 @@ describe('变更通知与单卡可见性', () => {
     // 200 个 120 字符的 id 已经超过 16KB：上限按每次请求算，不累计。
     const big = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible: Array.from({ length: 200 }, () => 'c'.repeat(120)) }))
     expect(big.status).toBe(413)
+  })
+})
+
+describe('市场安装', () => {
+  /** 一个装了给定 id 的市场提供方；包装成真包（manifest 的 id 与条目一致），哈希按内容算。 */
+  async function marketHarness(widgetId = 'acme.weather') {
+    const { packWidget, bytesOf } = await import('../src/package')
+    const { createHash } = await import('node:crypto')
+    const manifest = JSON.stringify({
+      id: widgetId,
+      title: { zh: '市场天气', en: 'Market weather' },
+      version: '1.0.0',
+      sizes: ['s'],
+    })
+    const bytes = packWidget([
+      { path: 'widget.json', content: bytesOf(manifest) },
+      { path: 'index.html', content: bytesOf('<p>market</p>') },
+      { path: 'style.css', content: bytesOf('p{}') },
+    ])
+    const sha256 = createHash('sha256').update(bytes).digest('hex')
+    const test = await harness()
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(test.context.marketDir, { recursive: true })
+    test.context.market.register({
+      apiVersion: 3,
+      provider: 'acme-market',
+      id: 'acme',
+      title: { zh: 'acme 市场', en: 'Acme market' },
+      list: async () => [{
+        id: widgetId,
+        title: { zh: '市场天气', en: 'Market weather' },
+        author: { name: 'acme' },
+        versions: [{ version: '1.0.0', sizes: ['s'], package: { url: 'https://example.invalid/x.dshw', sha256, bytes: bytes.byteLength } }],
+      }],
+      fetch: async () => bytes,
+    })
+    await test.context.market.refresh('acme-market')
+    return test
+  }
+
+  it('装一个条目：写进市场目录并记录来源', async () => {
+    const test = await marketHarness()
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(201)
+    const { readFile } = await import('node:fs/promises')
+    const records = JSON.parse(await readFile(join(test.context.marketDir, 'sources.json'), 'utf8')) as Record<string, { provider: string, version: string }>
+    expect(records['acme.weather']).toMatchObject({ provider: 'acme-market', version: '1.0.0' })
+    const written = await readFile(join(test.context.marketDir, 'acme.weather', 'widget.json'), 'utf8')
+    expect(JSON.parse(written).id).toBe('acme.weather')
+  })
+
+  it('哈希不符拒绝安装', async () => {
+    const test = await marketHarness()
+    const section = test.context.market.sections()[0]
+    // 把索引里的哈希换掉：包没变，对不上就拒绝。
+    section?.listings.forEach((entry) => { entry.versions[0]!.package.sha256 = 'f'.repeat(64) })
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/sha256/)
+  })
+
+  it('扁平 id 在市场 schema 里就被拒，到不了安装', async () => {
+    // 市场条目必须带作者域（D8 之后的市场契约）：`weather` 这种扁平 id 在 refresh 时进 errors。
+    const test = await marketHarness('weather')
+    const section = test.context.market.sections()[0]
+    expect(section?.listings).toEqual([])
+    expect(section?.errors[0]).toMatch(/weather/)
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'weather', version: '1.0.0' }))
+    expect(response.status).toBe(404)
+  })
+
+  it('索引声明的能力不在包内 manifest 里时拒绝安装', async () => {
+    const test = await marketHarness()
+    const section = test.context.market.sections()[0]
+    section?.listings.forEach((entry) => { entry.versions[0]!.declares = { capabilities: ['acme:not-in-package'] } })
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/对不上/)
+  })
+
+  it('请求体不是合法 JSON 时回 400', async () => {
+    const test = await marketHarness()
+    const response = await test.send('POST', '/library/market/install', '{不是 JSON')
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/合法的 JSON/)
+  })
+
+  it('提供方的 fetch 没有返回字节时回 400', async () => {
+    const test = await marketHarness()
+    test.context.market.register({
+      apiVersion: 3,
+      provider: 'acme-broken',
+      id: 'broken',
+      title: { zh: '坏市场', en: 'Broken market' },
+      list: async () => [{
+        id: 'acme.broken',
+        title: { zh: '坏包', en: 'Broken package' },
+        author: { name: 'acme' },
+        versions: [{ version: '1.0.0', sizes: ['s'], package: { url: 'https://example.invalid/z.dshw', sha256: 'e'.repeat(64), bytes: 4 } }],
+      }],
+      fetch: async () => 'nope' as unknown as Uint8Array,
+    })
+    await test.context.market.refresh('acme-broken')
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-broken', id: 'acme.broken', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/没有返回字节/)
+  })
+
+  it('市场来源里同 id 不同内容要明确的 replace', async () => {
+    // 提供方手里有两个版本，fetch 按版本回包；装过 1.0.0 之后再装 1.0.1，不带 replace 是 409。
+    const { packWidget, bytesOf } = await import('../src/package')
+    const { createHash } = await import('node:crypto')
+    const pack = (version: string, marker: string): { bytes: Uint8Array, sha256: string } => {
+      const bytes = packWidget([
+        { path: 'widget.json', content: bytesOf(JSON.stringify({ id: 'acme.weather', title: { zh: '市场天气', en: 'Market weather' }, version, sizes: ['s'] })) },
+        { path: 'index.html', content: bytesOf(`<p>${marker}</p>`) },
+        { path: 'style.css', content: bytesOf('p{}') },
+      ])
+      return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') }
+    }
+    const one = pack('1.0.0', 'market')
+    const two = pack('1.0.1', 'changed')
+    const test = await harness()
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(test.context.marketDir, { recursive: true })
+    test.context.market.register({
+      apiVersion: 3,
+      provider: 'acme-market',
+      id: 'acme',
+      title: { zh: 'acme 市场', en: 'Acme market' },
+      list: async () => [{
+        id: 'acme.weather',
+        title: { zh: '市场天气', en: 'Market weather' },
+        author: { name: 'acme' },
+        versions: [
+          { version: '1.0.0', sizes: ['s'], package: { url: 'https://example.invalid/x.dshw', sha256: one.sha256, bytes: one.bytes.byteLength } },
+          { version: '1.0.1', sizes: ['s'], package: { url: 'https://example.invalid/y.dshw', sha256: two.sha256, bytes: two.bytes.byteLength } },
+        ],
+      }],
+      fetch: async (_listing, version) => version === '1.0.1' ? two.bytes : one.bytes,
+    })
+    await test.context.market.refresh('acme-market')
+    const first = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(first.status).toBe(201)
+    // 把市场来源读进 records：路由的 records 表是安装之后才认识这个组件的。
+    const { readWidget } = await import('../src/library')
+    test.context.records.set('acme.weather', await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market' }))
+    const conflict = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.1' }))
+    expect(conflict.status).toBe(409)
+    expect(conflict.body).toMatch(/widget-conflict/)
+    // 带上 replace=true 就换掉。
+    const replaced = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.1', replace: true }))
+    expect(replaced.status).toBe(201)
+  })
+
+  it('提供方不在时回 404', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'ghost', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(404)
   })
 })
 

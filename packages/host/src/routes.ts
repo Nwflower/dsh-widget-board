@@ -59,6 +59,7 @@ import type { SelfChecks } from './selfcheck'
 import { selfCheckRoutes } from './selfcheck'
 import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
 import type { RateLimiter } from './limits'
+import type { MarketRegistry } from './market'
 import { visibilityRoutes } from './visibility'
 import type { SaveOptions, Workspace } from './workspace'
 
@@ -122,6 +123,10 @@ export interface RouteContext {
   selfChecks: SelfChecks
   /** 组件对外请求的日志（D28）：按卡片记最近几十条。 */
   requests: RequestLog
+  /** 市场提供方注册表（D8 之后的市场契约）。 */
+  market: MarketRegistry
+  /** 市场组件的来源目录（D17）。 */
+  marketDir: string
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */

@@ -108,7 +108,7 @@ export function showTool(context: ToolContext): WidgetToolSpec {
           data: instance.data,
           state: instance.state,
           family: familyOf(record, wanted.size),
-          summary: { ...widgetSummaryOf(record), hash: instance.hash },
+          summary: { ...widgetSummaryOf(record, context.route.sources.listCapabilities()), hash: instance.hash },
           board: { id: found.board.id, title: found.board.title },
         } satisfies ShowValue
       }
@@ -145,7 +145,7 @@ export function showTool(context: ToolContext): WidgetToolSpec {
       return {
         ...instance,
         family: familyOf(record, wanted.size),
-        summary: widgetSummaryOf(record),
+        summary: widgetSummaryOf(record, context.route.sources.listCapabilities()),
       } satisfies ShowValue
     },
     view(value) {

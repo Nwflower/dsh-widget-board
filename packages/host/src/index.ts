@@ -35,6 +35,7 @@ import { readManyInto } from './batch-reads'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
 import { createProviderRegistry, widgetIdsIn } from './providers'
+import { createMarketRegistry } from './market'
 import { registerDshAccount } from './dsh-account'
 import { createSystemMetricsAction, createSystemMetricsSource } from './system-metrics'
 import { registerGithub } from './github'
@@ -100,9 +101,16 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const versions = createVersionStore(join(home, 'blobs'))
   // 用户组件目录先建出来：拖进来的组件有地方放，监视也挂得上（D17）。
   await mkdir(join(home, 'widgets'), { recursive: true })
+  // 市场组件落在自己的来源目录里（D17）：与内置、用户、插件来源分开，提供方卸载后组件保留。
+  const marketDir = join(home, 'market-widgets')
+  await mkdir(marketDir, { recursive: true })
   const roots: WidgetRoot[] = [
     { dir: builtin, source: 'builtin' },
     { dir: join(home, 'widgets'), source: 'user' },
+    // 市场来源排在插件之前、示例之前：同 id 先到者胜，索引见 contracts 的 WIDGET_SOURCES。
+    { dir: marketDir, source: 'market' },
+    // 给 agent 的写法样例（D17）：包内目录，构建写进 lib/widgets-examples；缺失按空算。
+    { dir: join(lib, 'widgets-examples'), source: 'example' },
   ]
   let enabled = readConfigField(config.enabled, true)
   let library: LibraryLoad = await loadLibrary(roots)
@@ -143,6 +151,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   /** 组件对外请求的日志（D28）：按卡片记在进程里。 */
   const requests = createRequestLog()
 
+  // 市场提供方（D8 之后的市场契约）：注册、条目缓存与超时在这里；安装走路由，提供方不碰文件系统。
+  const market = createMarketRegistry()
+
   const context: RouteContext = {
     records: library.records,
     entries: library.entries,
@@ -164,6 +175,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     credentials: () => credentialsOf(ctx),
     selfChecks: createSelfChecks(),
     requests,
+    market,
+    marketDir,
   }
   // 运行成本的数据源（issue #5）：只读宿主自己的内存与工作区、组件库，不声明权限（D6）。
   const disposeSystemMetrics = sources.registerDataSource(createSystemMetricsSource({
@@ -296,6 +309,17 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     registerCapability(registration: { apiVersion: number } & Parameters<typeof sources.registerCapability>[0]) {
       if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
       return sources.registerCapability(registration)
+    },
+    registerMarketProvider(registration: { apiVersion: number } & Parameters<typeof market.register>[0]) {
+      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
+      const release = market.register(registration)
+      // 注册后立刻读一次条目：市场区打开时已经有东西可看；失败只进那一节的错误（D11）。
+      // 市场条目随快照走：读完了发 `board`，页面重取一份。
+      void market.refresh(registration.provider).then(() => live.notify({ type: 'board' }))
+      return () => {
+        release()
+        live.notify({ type: 'board' })
+      }
     },
   }
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide

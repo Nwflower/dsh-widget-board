@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 1,
+  "at": "2026-10-24",
+  "external": true,
+  "zh": "创建卡片与编辑内容弹窗补齐间距令牌，恢复表单、模板和预览的留白；输入控件统一使用宿主字体与正文行距。",
+  "en": "Restore spacing tokens in the card composer and content editor so forms, templates and previews retain their padding and gaps; use the host font and consistent body line height for inputs."
+}

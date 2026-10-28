@@ -7,6 +7,8 @@
  * 卡片内容之外。查完把卡片移除，后面的场景仍从原来的看板开始。
  */
 const { openLibrary } = require('./library.cjs')
+const { visualContractPass } = require('./visual-contract.cjs')
+const { mediaPass } = require('./media.cjs')
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -17,6 +19,14 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * @param check - 记一条判据的函数。
  */
 async function markdownPass(page, check) {
+  await visualContractPass(page, check)
+  await mediaPass(page, check)
+  await page.waitForFunction(async () => {
+    const workspace = await (await fetch('api/widget-board/boards')).json()
+    return document.querySelector('.dsh-widget-board__flow[data-active="true"]')?.getAttribute('data-dsh-widget-board-board') === workspace.active
+  }, undefined, { timeout: 5000 })
+  // 媒体场景刚移除的卡片仍在播放作者的退场动画，先等它真正离开再记数量。
+  await page.waitForFunction(() => document.querySelector('[data-instance][data-exiting="true"]') === null, undefined, { timeout: 5000 })
   const before = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
   await openLibrary(page)
   await page.waitForSelector('[data-dsh-widget-board-add="markdown"]:visible', { timeout: 10000 })

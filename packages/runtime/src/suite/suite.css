@@ -18,7 +18,13 @@ html, body {
   background-image: radial-gradient(circle, color-mix(in srgb, var(--w-color-fg, #0b1016) 6%, transparent) 1px, transparent 1.2px);
   background-size: 18px 18px;
 }
-body { overflow: hidden; }
+body {
+  overflow: hidden;
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, sans-serif);
+  font-size: var(--w-type-body, 14px);
+  line-height: 1.5;
+}
+button, input, select, textarea { font-family: inherit; }
 
 /* 数字滚动：逐位换成新值，后两位错开出现，没变的位不动。 */
 @keyframes w-digit-in {
@@ -341,7 +347,7 @@ body { overflow: hidden; }
   box-sizing: border-box;
   flex-direction: column;
   gap: var(--w-space-md, 12px);
-  padding: var(--w-space-lg, 16px);
+  padding: var(--w-space-xl, 24px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
   border-radius: var(--w-radius-card, 24px);
@@ -356,8 +362,9 @@ body { overflow: hidden; }
   flex: none;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--w-space-md, 12px);
 }
+.t-data__head > :first-child { min-width: 0; }
 
 /*
  * 标题区只有标题，加一行可选的标签与右上角的事实。
@@ -371,7 +378,7 @@ body { overflow: hidden; }
   font-size: var(--w-type-caption, 12px);
   font-weight: 500;
   letter-spacing: 0;
-  line-height: 16px;
+  line-height: 1.5;
   text-transform: none;
 }
 
@@ -384,7 +391,8 @@ body { overflow: hidden; }
   font-size: var(--w-type-title, 16px);
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 22px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .t-data__meta {
@@ -394,7 +402,7 @@ body { overflow: hidden; }
   font-size: var(--w-type-caption, 12px);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
-  line-height: 16px;
+  line-height: 1.5;
   text-align: right;
   text-transform: none;
   white-space: nowrap;
@@ -537,4 +545,10 @@ body { overflow: hidden; }
   clip-path: inset(50%);
   border: 0;
   white-space: nowrap;
+}
+
+/* 已确认的紧凑排版以实际盒子为准；short 高度档不能代替 320px 边界。 */
+@media (max-width: 320px), (max-height: 320px) {
+  :root[data-box-width] .t-data { padding: var(--w-space-md, 12px); }
+  :root[data-box-width] .t-data__title { font-size: var(--w-type-body, 14px); }
 }

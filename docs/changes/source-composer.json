@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 2,
+  "at": "2026-10-24",
+  "external": true,
+  "zh": "新增按需加载的源码编辑器、独立草稿和真实沙箱预览。源码默认另存为独立用户组件，可保留当前卡片的内容与布局；明确选择更新全部实例后按 expectedHash 检查并发。组件写入、工具和导入共用来源保护与目录交换，二进制资源保持原字节。预览只更新局部状态，拒绝正式动作、能力调用和通知，并在关闭或过期时释放。",
+  "en": "Add an on-demand source editor, independent drafts and a real sandbox preview. Save source as a separate user type while retaining the current card's content and layout; explicitly updating all instances checks expectedHash. Definition, tool and import paths share source protection and directory replacement, preserving binary resource bytes. Preview updates local state only, rejects formal actions, capability calls and notifications, and releases sessions on close or expiry."
+}

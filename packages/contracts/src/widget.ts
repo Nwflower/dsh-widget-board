@@ -204,6 +204,13 @@ export interface WidgetManifest {
   props?: Record<string, unknown>
   data?: Record<string, unknown>
   /**
+   * state 的 JSON Schema：组件交给宿主保存的界面状态（D5）。
+   *
+   * 省略时宿主不校验状态，写入只受字节额度约束；声明了它，模板创建与内容编辑就按同一份 schema
+   * 画表单、定位错误，组件作者不必再写一份硬编码的必填规则（D27）。
+   */
+  state?: Record<string, unknown>
+  /**
    * 这个组件的默认数据源（D17）：加卡片时用它读第一次数据。
    *
    * 数据源不在时卡片照样加得进来，数据留空——提供方可能只是还没装好。`"http"`（或写全的
@@ -297,6 +304,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
     sizes: { type: 'array', minItems: 1, uniqueItems: true, items: { enum: WIDGET_FAMILIES } },
     props: { type: 'object' },
     data: { type: 'object' },
+    state: { type: 'object' },
     source: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
     credentials: {
       type: 'array',

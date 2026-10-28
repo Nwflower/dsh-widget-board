@@ -2,6 +2,10 @@
 
 [English](README.en.md)
 
+本地图片：在“创建卡片”中选择图片模板，上传不超过 10MiB 的静态 PNG/JPEG/WebP，填写 alt、说明与焦点。宿主会去除元数据并转换为受限 WebP；图片以实例媒体引用保存。组件声明 `widget-board:media.read` 后可用 `await widget.readMedia('background', { signal })` 取得 Blob，创建的对象 URL 由组件在暂停、替换和卸载时释放。
+
+`.dshboard` 的 format2 使用 gzip 压缩 JSON，包含引用的图片、实例和组的标识及排列元数据。需要正文和状态时仍勾选“带上数据”。导入先校验全部资源，再创建完整看板；format1 仍可读取。`.dshw` 继续只导出组件源码和类型资源。媒体整理通过人工 `POST api/widget-board/media/collect` 清除超过 24 小时、没有实例或有效上传 ticket 引用的资源。
+
 DeepSeek Harness 的组件看板：一页可以拖动、缩放的卡片，每张卡片是一个小组件。组件由你或会话里的 agent 写成三份文件，也可以由其他插件提供。
 
 **[在线演示](https://nwflower.github.io/dsh-widget-board/)** · [安装](#安装) · [写一个组件](#写一个组件) · [给插件提供方](#给插件提供方)
@@ -32,6 +36,8 @@ DeepSeek Harness 的组件看板：一页可以拖动、缩放的卡片，每张
 |---|---|
 | 加号菜单 | 添加、整理、刷新；添加打开从底部上拉的组件库面板 |
 | 卡片齿轮 | 改组件的 props，填凭据，查看并授权数据源与权限 |
+| 编辑组件源码 | 按需加载 CodeMirror；默认另存为用户组件，可应用到当前卡片；更新全部实例需要明确选择并核对版本 |
+| 源码草稿与预览 | 保存、恢复和删除草稿；预览使用真实沙箱，动作、能力调用及通知不产生正式副作用 |
 | 会话工具 | agent 列出组件、写组件、放卡、推数据；`widget_show` 在回答里当场画一张。默认只露出 `widget_catalog`，其余工具经它的 `expose` 点名后出现 |
 | `widgetBoard` 服务 | 其他插件注册组件、数据源、动作与宿主能力 |
 

@@ -7,8 +7,8 @@
  *
  * 格式用成熟的实现（zip 用 fflate），不自己拼字节。
  */
-import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
-import type { WidgetManifest } from '@dsh-widget-board/contracts'
+import { Gunzip, gzipSync, strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
+import type { InstanceGroup, InstanceMedia, WidgetManifest } from '@dsh-widget-board/contracts'
 
 /** 组件包里允许出现的扩展名。 */
 export const PACKAGE_EXTENSIONS = ['.html', '.css', '.js', '.json', '.svg', '.png', '.webp', '.woff2', '.md', '.txt']
@@ -151,10 +151,15 @@ export function bytesOf(text: string): Uint8Array {
 }
 
 /** 看板包的格式版本。 */
-export const BOARD_PACKAGE_FORMAT = 1
+export const BOARD_PACKAGE_FORMAT = 2
+export const BOARD_PACKAGE_BYTES = 16 * 1024 * 1024
+export const BOARD_JSON_BYTES = 64 * 1024 * 1024
 
 /** 看板包里的一张卡。 */
 export interface BoardPackageCard {
+  id?: string
+  group?: InstanceGroup
+  media?: InstanceMedia
   widget: string
   props: Record<string, unknown>
   layout: { x: number, y: number, w: number, h: number }
@@ -178,6 +183,8 @@ export interface BoardPackage {
   title: string
   cards: BoardPackageCard[]
   widgets: BoardPackageWidget[]
+  media?: Record<string, string>
+  arrangement?: { mode: 'free' | 'aligned', aligned?: { order: string[], boxes: Record<string, { w: number, h: number }> } }
 }
 
 /**
@@ -191,9 +198,13 @@ export interface BoardPackage {
  * @param widgets - 用到的组件版本。
  * @returns 文本的字节。
  */
-export function packBoard(title: string, cards: readonly BoardPackageCard[], widgets: readonly BoardPackageWidget[]): Uint8Array {
-  const pkg: BoardPackage = { format: BOARD_PACKAGE_FORMAT, title, cards: [...cards], widgets: [...widgets] }
-  return strToU8(JSON.stringify(pkg))
+export function packBoard(title: string, cards: readonly BoardPackageCard[], widgets: readonly BoardPackageWidget[], extras: Pick<BoardPackage, 'media' | 'arrangement'> = {}): Uint8Array {
+  const pkg: BoardPackage = { format: BOARD_PACKAGE_FORMAT, title, cards: [...cards], widgets: [...widgets], ...extras }
+  const json = strToU8(JSON.stringify(pkg))
+  if (json.length > BOARD_JSON_BYTES) throw new Error('看板包 JSON 超过 64MiB')
+  const bytes = gzipSync(json)
+  if (bytes.length > BOARD_PACKAGE_BYTES) throw new Error('看板包压缩后超过 16MiB')
+  return bytes
 }
 
 /**
@@ -227,7 +238,22 @@ function checkEmbeddedFiles(id: string, files: Record<string, unknown>): void {
  * @throws {Error} 不是合法 JSON、格式版本不认识、或卡片的字段不合格。
  */
 export function unpackBoard(bytes: Uint8Array): BoardPackage {
-  if (bytes.byteLength > PACKAGE_MAX_TOTAL_BYTES * 4) throw new Error('看板包太大')
+  const inputBytes = bytes.length
+  const compressed = bytes[0] === 31 && bytes[1] === 139
+  if (bytes.byteLength > (compressed ? BOARD_PACKAGE_BYTES : BOARD_JSON_BYTES)) throw new Error('看板包太大')
+  if (compressed) {
+    const chunks: Uint8Array[] = []
+    let total = 0
+    const decoder = new Gunzip((chunk) => {
+      total += chunk.length
+      if (total > BOARD_JSON_BYTES) throw new Error('看板包解开后超过 64MiB')
+      chunks.push(chunk)
+    })
+    for (let offset = 0; offset < bytes.length; offset += 1024) decoder.push(bytes.subarray(offset, offset + 1024), offset + 1024 >= bytes.length)
+    bytes = new Uint8Array(total)
+    let offset = 0
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
+  }
   let parsed: unknown
   try {
     parsed = JSON.parse(strFromU8(bytes)) as unknown
@@ -236,7 +262,9 @@ export function unpackBoard(bytes: Uint8Array): BoardPackage {
   }
   if (typeof parsed !== 'object' || parsed === null) throw new Error('看板包不是一个对象')
   const pkg = parsed as Partial<BoardPackage>
-  if (pkg.format !== BOARD_PACKAGE_FORMAT) throw new Error(`看板包的格式版本是 ${String(pkg.format)}，这个宿主只认 ${BOARD_PACKAGE_FORMAT}`)
+  if (pkg.format !== 1 && pkg.format !== BOARD_PACKAGE_FORMAT) throw new Error(`看板包的格式版本是 ${String(pkg.format)}，这个宿主只认 1、${BOARD_PACKAGE_FORMAT}`)
+  if (pkg.format === 1 && inputBytes > PACKAGE_MAX_COMPRESSED_BYTES) throw new Error('旧格式看板包超过原有 8MiB 上限')
+  if (pkg.format === 2 && !compressed && bytes.length > BOARD_PACKAGE_BYTES) throw new Error('看板包超过 16MiB')
   if (typeof pkg.title !== 'string') throw new Error('看板包没有标题')
   if (!Array.isArray(pkg.cards) || !Array.isArray(pkg.widgets)) throw new Error('看板包缺少 cards 或 widgets')
   for (const card of pkg.cards) {

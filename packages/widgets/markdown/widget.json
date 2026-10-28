@@ -17,7 +17,10 @@
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 60 }
+    }
   },
   "data": {
     "type": "object",
@@ -29,6 +32,22 @@
     "empty": {
       "zh": "还没有内容",
       "en": "Nothing here yet"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "眉题",
+      "en": "Kicker"
+    },
+    "data.markdown.label": {
+      "zh": "正文",
+      "en": "Body"
+    },
+    "data.markdown.hint": {
+      "zh": "Markdown 写法，表格与代码块都支持",
+      "en": "Markdown; tables and fenced code are supported"
     }
   }
 }

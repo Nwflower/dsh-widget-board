@@ -9,17 +9,19 @@
  * 同 id 不同内容的导入不静默覆盖：先回 409 并带上两边的哈希，调用方带 `replace=true` 再来一次才会
  * 覆盖。内置与插件提供的组件不允许被覆盖——它们不落在用户目录里（D17）。
  */
-import { join } from 'node:path'
-import type { BoardInstance, WidgetLibraryEntry, WidgetManifest } from '@dsh-widget-board/contracts'
+import type { WidgetLibraryEntry } from '@dsh-widget-board/contracts'
 import { readBody } from './body'
-import { contentHash, manifestProblem, writeWidgetDirectory } from './library'
+import { contentHash } from './library'
 import type { WidgetRecord } from './library'
 import type { BoardPackageCard, BoardPackageWidget } from './package'
 import { PACKAGE_MAX_COMPRESSED_BYTES, packBoard, packWidget, unpackBoard, unpackWidget } from './package'
 import { Refusal } from './refusal'
 import type { Route, RouteContext } from './routes'
-import { dataError, propsError } from './schema'
-import { instanceOf, withInstanceStateChecked } from './state'
+import { writeWidgetType } from './widget-write/write'
+import { BOARD_PACKAGE_BYTES } from './package'
+import { boardFromPackage, exportedMedia, validateBoardPackage } from './media/board-package'
+import { mediaOf } from './media/routes'
+import { importTransaction } from './media/import-transaction'
 
 /** 导入时最多读多少字节。 */
 const IMPORT_LIMIT = PACKAGE_MAX_COMPRESSED_BYTES
@@ -39,115 +41,52 @@ function embeddedOf(record: WidgetRecord): BoardPackageWidget {
 }
 
 /**
- * 写一个组件的目录；同 id 的旧版本先由 `writeWidgetDirectory` 清掉。
+ * 写一个组件的目录；同 id 的旧版本先由共享写入服务换掉。
+ *
+ * 来源保护与并发核对都在共享的写入服务里（技术契约 4）：导入与工具、界面写组件走同一条路，不会
+ * 各自写一套检查。
  *
  * @param context - 路由上下文。
  * @param id - 组件 id。
  * @param files - 相对路径与内容。
+ * @param expectedHash - 更新时读到的版本哈希；导入没有这一份，省略时按「新建」处理。
  * @throws {Refusal} 没有可写的用户目录，或来源不允许覆盖。
  */
-async function install(context: RouteContext, id: string, files: readonly { path: string, content: Uint8Array }[]): Promise<void> {
+async function install(
+  context: RouteContext,
+  id: string,
+  files: readonly { path: string, content: Uint8Array }[],
+  expectedHash?: string,
+  onSwapped?: () => void,
+): Promise<void> {
   const existing = context.records.get(id)
   if (existing !== undefined && existing.source !== 'user') {
-    throw new Refusal(400, `${id} 是${existing.source === 'builtin' ? '内置' : '插件提供'}的组件，不能覆盖；换一个 id 再导入`)
+    throw new Refusal(403, `${id} 是${existing.source === 'builtin' ? '内置' : '插件提供'}的组件，不能覆盖；换一个 id 再导入`, { code: 'readonly-source' })
   }
-  const root = context.roots.find((candidate) => candidate.source === 'user')
-  if (root === undefined) throw new Refusal(500, '没有可写的用户组件目录')
-  await writeWidgetDirectory(join(root.dir, id), files)
+  const manifestFile = files.find((file) => file.path === 'widget.json')
+  if (manifestFile === undefined) throw new Refusal(400, '组件包里没有 widget.json（D7）')
+  const manifest = JSON.parse(Buffer.from(manifestFile.content).toString('utf8')) as unknown
+  const rest = files
+    .filter((file) => file.path !== 'widget.json')
+    .map((file) => ({ path: file.path, content: Buffer.from(file.content) }))
+  await writeWidgetType({
+    assets: context.live.assets,
+    roots: context.roots,
+    records: () => context.records,
+    request: {
+      id,
+      manifest,
+      files: rest,
+      ...(expectedHash === undefined ? {} : { expectedHash }),
+    },
+    reload: async () => { onSwapped?.(); await context.refresh() },
+  })
 }
 
 /** 一个组件在界面上的样子；刚装上、重读还没跟上时给出最小的那一份。 */
 function entryOf(context: RouteContext, id: string, hash: string): WidgetLibraryEntry {
   return context.entries.find((candidate) => candidate.id === id && candidate.hash === hash)
     ?? { id, source: 'user', title: { zh: id, en: id }, sizes: [], hash }
-}
-
-/**
- * 把一组内嵌的组件版本装上：同一个哈希已经有就跳过；同 id 有别的版本时按 `replace` 决定方向。
- *
- * @param context - 路由上下文。
- * @param widgets - 包里的组件版本。
- * @param replace - 允许覆盖同 id 的另一个版本。
- * @returns 装了几个新的。
- * @throws {Refusal} 同 id 冲突（409）或来源不允许覆盖（400）。
- */
-async function importWidgets(context: RouteContext, widgets: readonly BoardPackageWidget[], replace: boolean): Promise<number> {
-  let installed = 0
-  for (const widget of widgets) {
-    // 内嵌的组件按组件库同一条规则校验，写盘之前整包拒绝：widget.json 是落盘后真正生效的那一份，
-    // 包里另带的 manifest 字段只当声明，两边对不上 id 或哈希对不上内容都不装（D3、D7）。
-    const files = Object.entries(widget.files).map(([path, content]) => ({ path, content: Buffer.from(content, 'base64') }))
-    const manifestFile = files.find((file) => file.path === 'widget.json')
-    if (manifestFile === undefined) throw new Refusal(400, `${widget.manifest.id} 的内嵌文件里没有 widget.json（D7）`)
-    let actual: unknown
-    try {
-      actual = JSON.parse(manifestFile.content.toString('utf8'))
-    } catch (error) {
-      throw new Refusal(400, `${widget.manifest.id} 的 widget.json 不是合法 JSON：${(error as Error).message}`)
-    }
-    const problem = manifestProblem(actual)
-    if (problem !== undefined) throw new Refusal(400, `${widget.manifest.id}：${problem}`)
-    const id = (actual as WidgetManifest).id
-    if (id !== widget.manifest.id) {
-      throw new Refusal(400, `包里声明的组件 id 是 ${widget.manifest.id}，widget.json 里写的是 ${id}`)
-    }
-    if (contentHash(new Map(files.map((file) => [file.path, file.content]))) !== widget.hash) {
-      throw new Refusal(400, `${id} 的内容与它声称的哈希不一致`)
-    }
-    const existing = context.records.get(id)
-    if (existing !== undefined && existing.hash === widget.hash) continue
-    if (existing !== undefined && !replace) {
-      throw new Refusal(409, `${id} 已经在组件库里，内容不一样；带上 replace=true 才会覆盖`, {
-        code: 'widget-conflict',
-        id,
-        current: existing.hash,
-        incoming: widget.hash,
-      })
-    }
-    await install(context, id, files)
-    installed += 1
-  }
-  if (installed > 0) await context.refresh()
-  return installed
-}
-
-/**
- * 把包里的卡片放进一块看板：布局沿用包里那一份，数据与状态只有包里带了才写。
- *
- * @param context - 路由上下文。
- * @param boardId - 目标看板的 id。
- * @param cards - 包里的卡片。
- * @returns 新卡片的 id。
- * @throws {Refusal} 有卡片引用了没装进来的组件（400）。
- */
-async function importCards(context: RouteContext, boardId: string, cards: readonly BoardPackageCard[]): Promise<string[]> {
-  const missing = [...new Set(cards.map((card) => card.widget).filter((widget) => !context.records.has(widget)))]
-  if (missing.length > 0) throw new Refusal(400, `看板包里的这些组件没有装进来：${missing.join('、')}`)
-  const added: string[] = []
-  if (cards.length === 0) return added
-  await context.workspace.save(boardId, (current) => {
-    let board = current
-    for (const card of cards) {
-      const record = context.records.get(card.widget) as WidgetRecord
-      // 导入的卡与路由加的卡同一条规则：props 与 data 按组件 schema 核对，状态受同一组额度约束（D6、D23）。
-      const propsProblem = propsError(record.manifest.props, card.props)
-      if (propsProblem !== undefined) throw new Refusal(400, `${card.widget}：${propsProblem}`)
-      if (card.data !== undefined && card.data !== null) {
-        const dataProblem = dataError(record.manifest.data, card.data)
-        if (dataProblem !== undefined) throw new Refusal(400, `${card.widget}：${dataProblem}`)
-      }
-      const base = instanceOf(record, board.instances, { props: card.props, layout: card.layout })
-      const staged: BoardInstance = {
-        ...base,
-        ...(card.data === undefined ? {} : { data: card.data }),
-      }
-      board = { ...board, instances: [...board.instances, staged] }
-      if (card.state !== undefined) board = withInstanceStateChecked(board, staged.id, card.state)
-      added.push(staged.id)
-    }
-    return board
-  }, { layoutChanged: true, event: () => ({ type: 'board' }) })
-  return added
 }
 
 /**
@@ -188,19 +127,31 @@ export function shareRoutes(context: RouteContext): Route[] {
           throw new Refusal(400, (error as Error).message)
         }
         const hash = contentHash(new Map(unpacked.files.map((file) => [file.path, Buffer.from(file.content)])))
-        const existing = routes.records.get(unpacked.manifest.id)
+        const id = unpacked.manifest.id
+        const existing = routes.records.get(id)
+        // 来源保护先于别的判定：内置与插件提供的组件谁也不能用导入覆盖，哪怕内容一模一样
+        // （技术契约 4）。
+        if (existing !== undefined && existing.source !== 'user') {
+          throw new Refusal(403, `${id} 是${existing.source === 'builtin' ? '内置' : '插件提供'}的组件，不能覆盖；换一个 id 再导入`, { code: 'readonly-source' })
+        }
         if (existing !== undefined && existing.hash !== hash && !replace) {
-          throw new Refusal(409, `${unpacked.manifest.id} 已经在组件库里，内容不一样；带上 replace=true 才会覆盖`, {
+          throw new Refusal(409, `${id} 已经在组件库里，内容不一样；带上 replace=true 才会覆盖`, {
             code: 'widget-conflict',
-            id: unpacked.manifest.id,
+            id,
             current: existing.hash,
             incoming: hash,
           })
         }
-        await install(routes, unpacked.manifest.id, unpacked.files)
+        // 同 id 同内容时按「已经是这一份」处理：不必重写目录，也免掉一次并发核对。
+        if (existing !== undefined && existing.hash === hash) {
+          response.writeHead(201, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+          response.end(JSON.stringify({ ok: true, entry: entryOf(routes, id, hash) }))
+          return
+        }
+        await install(routes, id, unpacked.files, existing?.hash)
         await routes.refresh()
         response.writeHead(201, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-        response.end(JSON.stringify({ ok: true, entry: entryOf(routes, unpacked.manifest.id, hash) }))
+        response.end(JSON.stringify({ ok: true, entry: entryOf(routes, id, hash) }))
       },
     },
     {
@@ -218,15 +169,20 @@ export function shareRoutes(context: RouteContext): Route[] {
           const record = routes.records.get(instance.widget)
           if (record !== undefined) used.set(record.hash, record)
           cards.push({
+            id: instance.id,
+            ...(instance.group === undefined ? {} : { group: instance.group }),
+            ...(instance.media === undefined ? {} : { media: instance.media }),
             widget: instance.widget,
             props: instance.props,
             layout: instance.layout,
             ...(withData ? { data: instance.data, state: instance.state } : {}),
           })
         }
-        const bytes = packBoard(board.title, cards, [...used.values()].map(embeddedOf))
+        if (cards.some(card => ![...used.values()].some(record => record.manifest.id === card.widget))) throw new Refusal(400, '看板含不可用组件，不能导出不完整备份')
+        const media = await exportedMedia(routes, board)
+        const bytes = packBoard(board.title, cards, [...used.values()].map(embeddedOf), { media, ...(board.arrangement ? { arrangement: board.arrangement } : {}) })
         response.writeHead(200, {
-          'content-type': 'application/json',
+          'content-type': 'application/gzip',
           'content-disposition': `attachment; filename="${encodeURIComponent(board.title)}.dshboard"`,
           'cache-control': 'no-store',
         })
@@ -241,14 +197,27 @@ export function shareRoutes(context: RouteContext): Route[] {
         const replace = new URL(request.url ?? '/', 'http://board.invalid').searchParams.get('replace') === 'true'
         let unpacked
         try {
-          unpacked = unpackBoard(new Uint8Array(await readBody(request, IMPORT_LIMIT)))
+          unpacked = unpackBoard(new Uint8Array(await readBody(request, BOARD_PACKAGE_BYTES)))
         } catch (error) {
           throw new Refusal(400, (error as Error).message)
         }
-        const installed = await importWidgets(routes, unpacked.widgets, replace)
-        // 导入的看板是新的那一块，并选中它：不动原来的看板（D21）。
-        const board = await routes.workspace.create(unpacked.title)
-        const cards = await importCards(routes, board.id, unpacked.cards)
+        const validated = await validateBoardPackage(routes, unpacked)
+        // 安装前先检查全部冲突；所有卡片、图片与格式均已校验。
+        for (const widget of unpacked.widgets) {
+          const existing = routes.records.get(widget.manifest.id)
+          if (existing && existing.hash !== widget.hash) {
+            if (existing.source !== 'user') throw new Refusal(403, '不能覆盖只读组件')
+            if (!replace) throw new Refusal(409, '组件版本冲突', { code: 'widget-conflict', id: widget.manifest.id, current: existing.hash, incoming: widget.hash })
+          }
+        }
+        const installAndCreate = async () => {
+          return await importTransaction(routes, unpacked.widgets, install, async installed => {
+            const board = await routes.workspace.create(unpacked.title, current => boardFromPackage(current, unpacked, routes.records))
+            return { installed, board }
+          })
+        }
+        const { installed, board } = validated.resources.size === 0 ? await installAndCreate() : await mediaOf(routes).import(validated.resources, installAndCreate)
+        const cards = board.instances.map(instance => instance.id)
         response.writeHead(201, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
         response.end(JSON.stringify({ ok: true, installed, cards, title: unpacked.title, board: board.id }))
       },

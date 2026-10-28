@@ -20,6 +20,32 @@
     caption: card.querySelector('[data-field="caption"]')
   }
   var loaded = null
+  var localUrl = null
+  var reading = null
+
+  function release() {
+    if (reading) reading.abort()
+    reading = null
+    if (localUrl) URL.revokeObjectURL(localUrl)
+    localUrl = null
+  }
+
+  async function loadLocal() {
+    release()
+    if (!widget || !widget.props.localImage || widget.paused) return
+    var current = new AbortController()
+    reading = current
+    showPlaceholder()
+    try {
+      var blob = await widget.readMedia('background', { signal: current.signal })
+      if (current.signal.aborted) return
+      localUrl = URL.createObjectURL(blob)
+      loaded = null
+      applyData(Object.assign({}, widget.data || {}, { src: localUrl }))
+    } catch (error) {
+      if (!current.signal.aborted) { showPlaceholder(); write(el.empty, error.message) }
+    }
+  }
 
   function isZh() {
     return widget === undefined || String(widget.lang || 'zh').toLowerCase().indexOf('zh') === 0
@@ -39,6 +65,7 @@
   function applyProps(source) {
     var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
+    el.img.style.objectPosition = String(typeof props.focusX === 'number' ? props.focusX : 50) + '% ' + String(typeof props.focusY === 'number' ? props.focusY : 50) + '%'
     write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     write(el.meta, typeof props.meta === 'string' ? props.meta : '')
@@ -85,7 +112,10 @@
   applyProps(widget === undefined ? {} : widget.props)
   applyData(widget === undefined ? null : widget.data)
   if (widget !== undefined) {
-    widget.onProps(applyProps)
-    widget.onData(applyData)
+    widget.onProps(function (props) { applyProps(props); void loadLocal() })
+    widget.onData(function (data) { applyData(data); void loadLocal() })
+    widget.onPause(function (paused) { if (paused) release(); else void loadLocal() })
+    window.addEventListener('pagehide', release)
+    void loadLocal()
   }
 })()

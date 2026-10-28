@@ -16,7 +16,11 @@
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "title": { "type": "string", "maxLength": 60 },
+      "kicker": { "type": "string", "maxLength": 60 },
+      "meta": { "type": "string", "maxLength": 60 }
+    }
   },
   "data": {
     "type": "object",
@@ -40,6 +44,38 @@
     "empty": {
       "zh": "暂无链接",
       "en": "No links"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "眉题",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "右上角说明",
+      "en": "Top-right note"
+    },
+    "data.items.label": {
+      "zh": "链接",
+      "en": "Links"
+    },
+    "data.items.hint": {
+      "zh": "每一项要一个标题与地址，说明可留空",
+      "en": "Each item needs a title and an address; the note is optional"
+    },
+    "data.items.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "data.items.url.label": {
+      "zh": "地址",
+      "en": "Address"
+    },
+    "data.items.note.label": {
+      "zh": "说明",
+      "en": "Note"
     }
   }
 }

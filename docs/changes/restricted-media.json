@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 3,
+  "at": "2026-10-25",
+  "external": true,
+  "zh": "创建器支持本地图片：受限解码、静态 WebP、按实例归属的分块读取与完整看板媒体备份；旧看板包继续可读。组件导入失败的恢复与源码保存共用目录队列，避免回滚覆盖并发保存的新版本。",
+  "en": "Create local image cards with bounded decoding, static WebP, instance-owned chunked reads and board media backups; older board packages remain readable. Failed widget imports restore through the same directory queue as source saves, preserving concurrently saved versions."
+}

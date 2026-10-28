@@ -55,7 +55,7 @@
   overflow: hidden;
   color: var(--w-color-fg, #0b1016);
   font-size: var(--w-type-body, 14px);
-  line-height: 20px;
+  line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

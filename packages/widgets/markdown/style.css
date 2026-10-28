@@ -5,7 +5,7 @@
 .md-card__body {
   gap: 0;
   font-size: var(--w-type-body, 14px);
-  line-height: 22px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
@@ -251,3 +251,6 @@
 :root[data-box-width="wide"][data-box-height="short"] .md-code { margin: 0; }
 /* 代码块的语言标签在这个高度里让位：留出两行代码的位置，比标一行语言更有用。 */
 :root[data-box-width="wide"][data-box-height="short"] .md-code__bar { display: none; }
+
+/* 正文始终使用 body 令牌；宽盒只改变排版，标题与代码仍各按自己的层级显示。 */
+:root[data-box-width] .md-card__body { font-size: var(--w-type-body, 14px); }

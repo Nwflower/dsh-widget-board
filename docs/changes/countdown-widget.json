@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 2,
+  "at": "2026-10-24",
+  "external": true,
+  "zh": "新增内置组件「日期倒计时」：名称、日期、时刻、全天、时区与一行备注，读成距目标还有几天几时几分，到点之后改成已经过去的说法。Luxon校验IANA时区和夏令时边界；非法时区及不存在的时刻显示原因并停止计时，重复时刻须填写明确的UTC偏移分钟。分钟精度，每15秒重算一次，暂停时停掉计时器。",
+  "en": "New built-in Countdown widget with a name, date, time, all-day option, time zone and note. Luxon validates IANA zones and daylight-saving boundaries. Invalid zones and nonexistent local times show an error instead of counting; ambiguous times require an explicit UTC offset in minutes. Readings use minute precision, refresh every 15 seconds and stop while paused."
+}

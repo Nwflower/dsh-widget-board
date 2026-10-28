@@ -1,0 +1,137 @@
+/*
+ * 日期倒计时的样式：标题区下面三组读数（天、时、分），一组一行说明。
+ *
+ * 读数用等宽数字，位数变化时那一列不跳；底色、字色、分隔都走主题令牌，浅色与深色各自可读（D10）。
+ * 盒子由看板给定（D16、D20）：矮盒子收掉说明行、收小读数；窄盒子让右上角的目标日期最多占一半宽度，
+ * 三组读数不至于挤出横向滚动。
+ */
+
+/* 标题区让出位置：名字再长也只占两行，右上角的日期不被挤掉。 */
+.countdown-card__heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.countdown-card__heading .t-data__title {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.countdown-card__body {
+  gap: var(--w-space-sm, 8px);
+  justify-content: center;
+}
+
+/* 三组读数并排：每组一列，数字在上、单位在下。 */
+.countdown-card__units {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--w-space-lg, 16px);
+}
+
+.countdown-card__unit {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/*
+ * 数字按盒子的宽度收放：三组读数并排，一列宽的卡片里也不能把字挤出盒子。等宽数字让每一秒的重绘
+ * 都落在同一处，位数变化时整行不左右跳。
+ */
+.countdown-card__value {
+  color: var(--w-color-fg, #0b1016);
+  font-family: var(--w-font-family, ui-sans-serif, system-ui, sans-serif);
+  font-size: clamp(24px, 13vw, 64px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+  transition: color var(--w-motion-base) var(--w-motion-ease-standard);
+}
+
+.countdown-card__label {
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* 到点之后读数退到次要色：状态不只靠这一处颜色，上面还有一句「已经过去」。 */
+.countdown-card[data-phase="passed"] .countdown-card__value {
+  color: var(--w-color-muted, #6b7684);
+}
+
+/*
+ * 说明行与备注：两行以内，超出的部分省略。行内文字可能很长（时区说明、用户写的备注），
+ * 让它折行也不会把卡片撑出盒子。
+ */
+.countdown-card__note,
+.countdown-card__hint {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 16px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.countdown-card__note:empty,
+.countdown-card__hint:empty {
+  display: none;
+}
+
+/* 时区读不出来时的说明：收窄到两行以内，并换成提醒色，好让人知道算的是本地时间。 */
+.countdown-card__hint[data-warn="true"] {
+  color: var(--w-tone-warn, #b45309);
+}
+
+/* 矮盒子：说明行收掉，读数收紧，一组读数也只占一行的高度。 */
+:root[data-box-height="short"] .countdown-card__value {
+  font-size: clamp(20px, 9vw, 36px);
+}
+
+:root[data-box-height="short"] .countdown-card__units {
+  gap: var(--w-space-md, 12px);
+}
+
+/*
+ * 时区读不出来时的那一句在矮盒子里也留着：这是「算在哪一个时区」的唯一说明，收掉它用户会以为
+ * 卡片按本地时间算。:not([hidden]) 让空卡片状态下的 hidden 仍然生效。
+ */
+:root[data-box-height="short"] .countdown-card__hint[data-warn="true"]:not([hidden]) {
+  display: -webkit-box;
+}
+
+/* 窄盒子：三组读数收一收间距，读数各自再窄一点也还排得下。 */
+:root[data-box-width="narrow"] .countdown-card__units {
+  gap: var(--w-space-sm, 8px);
+}
+
+:root[data-box-width="narrow"] .countdown-card__value {
+  font-size: clamp(22px, 11vw, 56px);
+}
+
+/* 窄盒子里的目标日期让位给名字：最多占一半宽度，写不下就省略。 */
+:root[data-box-width="narrow"] .countdown-card .t-data__meta {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 减弱动效：颜色直切，不走过渡（D10）。 */
+:root[data-motion="reduced"] .countdown-card__value {
+  transition: none;
+}

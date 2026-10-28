@@ -159,6 +159,9 @@ async function start(options = {}) {
     detached: process.platform !== 'win32',
   })
   const stop = () => {
+    const logs = path.join(ROOT, '.debug', 'host-logs')
+    fs.mkdirSync(logs, { recursive: true })
+    fs.writeFileSync(path.join(logs, `${path.basename(home)}.log`), log.replace(/([?&]token=)[^\s"']+/g, '$1<redacted>') + `\n[test-host] exitCode=${child.exitCode} signal=${child.signalCode}\n`)
     if (child.exitCode !== null || child.signalCode !== null) return
     if (process.platform === 'win32') {
       spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
@@ -203,6 +206,7 @@ async function start(options = {}) {
  */
 async function openPage(url, options = {}) {
   const browser = await launchBrowser({ headless: options.headless ?? true })
+  try {
   const context = await newContextOn(browser, {
     width: options.width ?? 1440,
     height: options.height ?? 900,
@@ -216,6 +220,10 @@ async function openPage(url, options = {}) {
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
   return { page, problems, close: () => browser.close() }
+  } catch (error) {
+    await browser.close()
+    throw error
+  }
 }
 
 /**

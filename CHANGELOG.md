@@ -11,25 +11,37 @@
 <h3 id="cn-unreleased">新增功能</h3>
 
 - 看板多出第二种排列：整齐行列。卡片按保存的顺序逐行铺开，同一排的卡片等高，行列间距一致；期望的跨列数与高度存在看板上，像素坐标每次按当前窗口宽度与根字号现算，窗口变宽变窄都不用重新摆。看板数据格式升到版本 3，旧看板读出来仍是自由位置，新建的看板默认用整齐行列。下方菜单多一枚「排列模式」：一键在两种排法之间切换，第一次切到整齐时把屏幕上的阅读顺序存下来，再切回去还是那份自由位置。整齐模式里拖动是调整顺序，缩放横向改自己的跨列数、纵向把整行抬到同一档；卡片与组卡的增删会同步维护顺序。布局与排列共用一套修订号并发规则，两个窗口同时改时后到的提交收到 409 与当前快照。
+- 看板上可以直接创建与编辑卡片内容：下方菜单与组件库头部多了「创建卡片」，选一个模板（文本笔记、待办清单、常用链接、日期倒计时，或从组件库里挑任意组件）之后按组件自己声明的 schema 填内容，右边是真实的渲染预览，一次提交才建出实例。表单能编辑字符串、数字、布尔、枚举、日期、时刻、多层的对象与数组；数组项可以加、删、上下移动，表单不支持的写法给一个显式的 JSON 入口并说明原因。卡片设置里多了「编辑内容」，按读到的修订号保存，冲突时保留输入并给出重新读取与另存为新卡片两条路。宿主新增 `POST /boards/<id>/compose`、`GET|POST /instance/<id>/content` 与 `GET /library/<id>/form` 三条人工内容路由，请求体 128KiB，props、data 与 state 分别按 schema 校验，单卡状态、整板状态与握手消息的额度各报一次。
+- 新增内置组件「日期倒计时」：名称、日期、时刻、全天、时区与一行备注，读成距目标还有几天几时几分，到点之后改成已经过去的说法。Luxon校验IANA时区和夏令时边界；非法时区及不存在的时刻显示原因并停止计时，重复时刻须填写明确的UTC偏移分钟。分钟精度，每15秒重算一次，暂停时停掉计时器。
+- 新增按需加载的源码编辑器、独立草稿和真实沙箱预览。源码默认另存为独立用户组件，可保留当前卡片的内容与布局；明确选择更新全部实例后按 expectedHash 检查并发。组件写入、工具和导入共用来源保护与目录交换，二进制资源保持原字节。预览只更新局部状态，拒绝正式动作、能力调用和通知，并在关闭或过期时释放。
+- 创建器支持本地图片：受限解码、静态 WebP、按实例归属的分块读取与完整看板媒体备份；旧看板包继续可读。组件导入失败的恢复与源码保存共用目录队列，避免回滚覆盖并发保存的新版本。
 
 ### 体验优化
 
+- 统一卡片与编辑界面的宿主字体、正文层级和留白；普通正文在宽高变化时保持字号，紧凑盒子使用同一套内边距与标题档位。补充共享视觉契约和真实沙箱排版检查，保留时钟、倒计时主读数与图表的专用比例。
 - 看板标签就地管理：每块标签右边多一个更多按钮，悬停或键盘聚焦时出现，右键标签也打开同一张菜单。菜单里可以给这块看板改名或删掉它，从别的标签打开不切换当前看板，关掉之后焦点回到按下的那枚按钮。改名弹窗预填当前名字，空名字就地报错，上限八十个字符（界面与宿主读同一份判定），中文输入法组合期间的回车不提交，保存失败时输入原样留在框里。删除确认写出看板标题、几格与几张卡片，删的是最后一块时说明会补一块空的；删掉哪一块之后显示哪一块由宿主决定。
 
 ### 问题修复
 
+- 创建卡片与编辑内容弹窗补齐间距令牌，恢复表单、模板和预览的留白；输入控件统一使用宿主字体与正文行距。
 - 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留原期望宽度。组件通过既有端口明确确认初始化，零高度正文不再因缺少高度消息触发超时重载。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。今日运势缩略图缩小分数并收起装饰进度条，为两行判词保留空间，避免较长每日判词被裁掉。
 
 <h3 id="en-unreleased">New Features</h3>
 
 - The board gains a second arrangement: aligned rows. Cards flow row by row in a saved order; cards in the same row share one height and the row/column gaps match. Only the wanted column span and height tier are stored — pixel positions derive from the current window width and root font size, so resizing never asks you to re-arrange. The board format moves to version 3: existing boards stay free-positioned, new boards start aligned. The dock menu gains an arrangement toggle; switching to aligned captures the on-screen reading order once, and switching back restores the saved free positions. In aligned mode dragging reorders cards, horizontal resize changes the card's own span, vertical resize lifts the whole row one tier; adding or removing cards keeps the order intact. Layout and arrangement share one revision-based concurrency rule: a late submission from another window gets a 409 with the current snapshot.
+- Cards can be created and edited on the board: the dock menu and the library header gain "Create card", which picks a template (text note, to-do list, bookmarks, date countdown, or any widget from the library) and fills in what the widget's own schema declares, with a real rendered preview; the instance is written in one submit. The form edits strings, numbers, booleans, enums, dates, times, nested objects and arrays; array items can be added, removed and reordered, and schemas the form cannot render get an explicit JSON editor with the reason. The card settings gain "Edit content", which saves against the revision it read, keeps the input on conflict, and offers reload or save-as-new-card. The host gains three human content routes — `POST /boards/<id>/compose`, `GET|POST /instance/<id>/content` and `GET /library/<id>/form` — with a 128KiB body limit, per-schema checks for props, data and state, and separate reports for the single-card, whole-board and handshake budgets.
+- New built-in Countdown widget with a name, date, time, all-day option, time zone and note. Luxon validates IANA zones and daylight-saving boundaries. Invalid zones and nonexistent local times show an error instead of counting; ambiguous times require an explicit UTC offset in minutes. Readings use minute precision, refresh every 15 seconds and stop while paused.
+- Add an on-demand source editor, independent drafts and a real sandbox preview. Save source as a separate user type while retaining the current card's content and layout; explicitly updating all instances checks expectedHash. Definition, tool and import paths share source protection and directory replacement, preserving binary resource bytes. Preview updates local state only, rejects formal actions, capability calls and notifications, and releases sessions on close or expiry.
+- Create local image cards with bounded decoding, static WebP, instance-owned chunked reads and board media backups; older board packages remain readable. Failed widget imports restore through the same directory queue as source saves, preserving concurrently saved versions.
 
 ### Improvements
 
+- Unify host fonts, body hierarchy and spacing across cards and editors. Ordinary text keeps its size as the box grows, and compact boxes share padding and heading levels. Add a shared visual contract and real-sandbox typography checks while retaining specialized clock, countdown and chart proportions.
 - Boards are managed right on their tabs: each tab gains a more button that appears on hover or keyboard focus, and right-clicking the tab opens the same menu. Rename or delete the board from there without switching to it; closing the menu returns focus to the button that opened it. The rename dialog is prefilled with the current name, reports an empty name in place, caps it at 80 characters (one rule shared by the UI and the host), never submits the Enter that confirms an IME composition, and keeps what you typed when saving fails. The delete confirmation names the board, its cells and its cards, says so when it is the last board, and leaves the host to decide which board shows afterwards.
 
 ### Bug Fixes
 
+- Restore spacing tokens in the card composer and content editor so forms, templates and previews retain their padding and gaps; use the host font and consistent body line height for inputs.
 - Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Aligned dragging within the same cell preserves order, and vertical resizing in a narrow window retains the wanted column span. Widgets acknowledge initialization through the existing port, so zero-height documents do not reload for lack of height messages. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading. Fortune previews use a compact score without the decorative meter to keep longer daily readings visible in two lines.
 
 ## [0.1.6] - 2026-10-26

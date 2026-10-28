@@ -1,6 +1,8 @@
 import { PACKAGE_NAME } from '@dsh-widget-board/contracts'
+import visual from './visual.css'
 import badge from './badge.css'
 import board from './board.css'
+import composer from './composer.css'
 import management from './board-management/management.css'
 import dock from './dock.css'
 import editor from './editor.css'
@@ -8,11 +10,12 @@ import editorPanels from './editor-panels.css'
 import inline from './inline.css'
 import library from './library.css'
 import settings from './settings.css'
+import source from './composer/source.css'
 import tabs from './tabs.css'
 import tool from './tool.css'
 
-/** 看板外壳、标签条与其管理菜单、设置节、设置弹窗、下方浮层、组件库面板、会话内联显示、会话工具视图与入口徽标各一份样式，挂进文档头时拼成一张。 */
-const sheet = `${board}\n${tabs}\n${management}\n${settings}\n${editor}\n${editorPanels}\n${dock}\n${library}\n${inline}\n${tool}\n${badge}`
+/** 看板、标签管理、编辑器、创建器与源码面板共用宿主样式表。 */
+const sheet = `${board}\n${tabs}\n${management}\n${settings}\n${editor}\n${editorPanels}\n${composer}\n${dock}\n${library}\n${inline}\n${tool}\n${badge}\n${source}`
 
 /**
  * 把本插件的样式表挂进文档头。
@@ -25,7 +28,7 @@ export function mountStyle(): () => void {
   const element = document.createElement('style')
   element.dataset.plugin = PACKAGE_NAME
   element.dataset.pluginCss = 'widget-board'
-  element.textContent = sheet
+  element.textContent = `${sheet}\n${visual}`
   document.head.append(element)
   return () => element.remove()
 }

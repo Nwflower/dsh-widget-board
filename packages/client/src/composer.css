@@ -1,0 +1,400 @@
+/*
+ * 创建器与内容编辑（C01—C07）：弹窗沿用设置弹窗的外壳，里面是两栏——左边表单，右边预览。
+ *
+ * 颜色只读宿主的 --dsw-* 别名，间距、字号与时长读看板令牌（D10）；窄窗口改成上下两段，不让横向
+ * 溢出。表单的每一行与设置弹窗的配置一节同一套密度（VISUAL-SPEC 3）。
+ */
+
+.dsh-widget-board__composer {
+  width: min(960px, calc(100% - 40px));
+  font-family: var(--dsw-font-family);
+  line-height: 1.5;
+}
+
+.dsh-widget-board__composer .dsh-widget-board__input {
+  line-height: 1.5;
+}
+
+.dsh-widget-board__composer-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  overflow: hidden;
+}
+
+.dsh-widget-board__composer-form {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--w-space-lg);
+  padding: var(--w-space-xl);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* 模板一排按钮：名字在上、一行为什么用它。 */
+.dsh-widget-board__composer-templates {
+  display: grid;
+  gap: var(--w-space-sm);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.dsh-widget-board__composer-template {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color var(--w-motion-fast) var(--w-motion-ease-standard),
+    background-color var(--w-motion-fast) var(--w-motion-ease-standard);
+}
+
+.dsh-widget-board__composer-template:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, var(--dsw-alias-border-l1));
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, var(--dsw-alias-bg-layer-1));
+}
+
+.dsh-widget-board__composer-template[aria-pressed="true"] {
+  border-color: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, var(--dsw-alias-bg-layer-1));
+}
+
+.dsh-widget-board__composer-template:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.dsh-widget-board__composer-template-title {
+  font-size: var(--w-type-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 20px;
+}
+
+.dsh-widget-board__composer-template-hint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+}
+
+/* 高级模板的组件挑一格。 */
+.dsh-widget-board__composer-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__composer-picker-grid {
+  display: grid;
+  gap: var(--w-space-sm);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.dsh-widget-board__composer-picker-item {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--w-type-body);
+  text-align: left;
+}
+
+.dsh-widget-board__composer-picker-item:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, var(--dsw-alias-border-l1));
+}
+
+/* 一节：小标题加它下面那张表。 */
+.dsh-widget-board__composer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__composer-heading {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--w-type-caption);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 16px;
+}
+
+/* 表单：字段一行一行排，每个字段自己带名字、说明与错误。 */
+.dsh-widget-board__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 60%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 40%, var(--dsw-alias-bg-layer-1));
+}
+
+.dsh-widget-board__field-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.dsh-widget-board__field-label {
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--w-type-body);
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.dsh-widget-board__field-required {
+  margin-left: 3px;
+  color: var(--dsw-alias-brand-primary);
+}
+
+.dsh-widget-board__field-hint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+}
+
+.dsh-widget-board__field-error {
+  color: var(--dsw-alias-state-error-primary, #d64545);
+  font-size: var(--w-type-caption);
+  line-height: 16px;
+}
+
+.dsh-widget-board__field[data-disabled="true"] { opacity: 0.6; }
+
+/* 数组：每一项一张小卡，标题行带上下移与删除。 */
+.dsh-widget-board__array {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__array-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+  padding: 10px;
+  border: 1px dashed color-mix(in srgb, var(--dsw-alias-border-l1) 80%, transparent);
+  border-radius: 12px;
+}
+
+.dsh-widget-board__array-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__array-index {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--w-type-caption);
+  font-weight: 600;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__array-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.dsh-widget-board__icon-button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--w-type-caption);
+  line-height: 1;
+  place-items: center;
+}
+
+.dsh-widget-board__icon-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
+}
+
+.dsh-widget-board__icon-button:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.dsh-widget-board__icon-button--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d64545) 12%, transparent);
+  color: var(--dsw-alias-state-error-primary, #d64545);
+}
+
+.dsh-widget-board__array-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__array-count {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--w-type-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* JSON 入口：一段单行预览加一个开关，展开之后是一块等宽文本。 */
+.dsh-widget-board__json {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dsh-widget-board__json-preview {
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  border-radius: 10px;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: var(--w-type-caption);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__json-input {
+  font-family: var(--dsh-widget-board-mono);
+  font-size: var(--w-type-caption);
+  line-height: 18px;
+}
+
+.dsh-widget-board__json-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--w-space-sm);
+}
+
+/* 预览一栏：一块自己的底，盒子按真实尺寸缩进这一栏。 */
+.dsh-widget-board__composer-preview {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+  padding: var(--w-space-xl);
+  border-left: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 60%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, var(--dsw-alias-bg-layer-1));
+}
+
+.dsh-widget-board__composer-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--w-space-sm);
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--w-type-caption);
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.dsh-widget-board__composer-sizes {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.dsh-widget-board__composer-size {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.dsh-widget-board__composer-size[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 预览的盒子：三个宽度档各一个像素宽度，高度随这一栏。 */
+.dsh-widget-board__composer-frame {
+  display: flex;
+  min-height: 180px;
+  flex: 1;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dsh-widget-board__composer-frame > * {
+  width: 100%;
+  max-width: 100%;
+}
+
+.dsh-widget-board__composer-frame[data-size="narrow"] > * { width: 260px; }
+.dsh-widget-board__composer-frame[data-size="wide"] > * { width: 100%; }
+.dsh-widget-board__composer-frame[data-size="regular"] > * { width: 320px; }
+
+/* 冲突：修订号过期时把两条路摆出来，草稿不动。 */
+.dsh-widget-board__composer-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary, #b98900) 45%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-state-warning-primary, #b98900) 8%, transparent);
+}
+
+.dsh-widget-board__composer-conflict p {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--w-type-body);
+  line-height: 20px;
+}
+
+@media (max-width: 760px) {
+  .dsh-widget-board__composer-body {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .dsh-widget-board__composer-form { overflow: visible; padding: var(--w-space-lg); }
+
+  .dsh-widget-board__composer-preview {
+    border-top: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 60%, transparent);
+    border-left: 0;
+    padding: var(--w-space-lg);
+  }
+
+  .dsh-widget-board__composer-frame { min-height: 160px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-widget-board__composer-template { transition: none; }
+}

@@ -10,6 +10,7 @@
  * 与组的 id 全工作区唯一（D21）。
  */
 import { randomUUID } from 'node:crypto'
+import { arrangementRoutes } from './arrangement-routes'
 import type {
   Board,
   BoardCreateRequest,
@@ -41,6 +42,14 @@ import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import { groupRoutes } from './groups'
 import { capabilityRoutes } from './capabilities'
+import { contentRoutes } from './content/routes'
+import type { MediaStore } from './media/store'
+import { mediaRoutes } from './media/routes'
+import type { DraftStore } from './drafts/store'
+import { draftRoutes } from './drafts/routes'
+import type { PreviewStore } from './preview/store'
+import { previewRoutes } from './preview/routes'
+import { sourceRoutes } from './widget-write/routes'
 import type { GrantStore } from './grants'
 import { isRecord } from './guards'
 import { requireGrant } from './permissions'
@@ -60,7 +69,6 @@ import { shareRoutes } from './share'
 import type { SelfChecks } from './selfcheck'
 import { selfCheckRoutes } from './selfcheck'
 import { StaleRevisionError, arrangementUnitOf, defaultBoxOf, groupUnitOf, withArrangementUnits, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
-import { arrangementRoutes } from './arrangement-routes'
 import type { RateLimiter } from './limits'
 import { visibilityRoutes } from './visibility'
 import type { SaveOptions, Workspace } from './workspace'
@@ -90,6 +98,7 @@ const BOARD_TITLE_REFUSAL: Record<BoardTitleProblem, string> = {
 
 /** 路由处理器读到的一切；组件库与资产随热重载替换，所以这里持有一个可变的对象。 */
 export interface RouteContext {
+  media?: MediaStore
   /** 当前可用的组件，按 id 索引。 */
   records: Map<string, WidgetRecord>
   /** 给界面的全部组件类型，含读不出来的那些（D17）。 */
@@ -132,6 +141,10 @@ export interface RouteContext {
   selfChecks: SelfChecks
   /** 组件对外请求的日志（D28）：按卡片记最近几十条。 */
   requests: RequestLog
+  /** 草稿的存储（技术契约 4）：只在插件自己的 `drafts/` 目录里。 */
+  drafts: DraftStore
+  /** 预览会话的管理处（技术契约 5）：与正式的 widgets、versions、boards 与 grants 分开。 */
+  previews: PreviewStore
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */
@@ -219,7 +232,7 @@ async function saveData(context: RouteContext, id: string, data: unknown): Promi
 
 /** 一条路由：方法、路径、请求体上限与处理器。 */
 export interface Route {
-  method: 'GET' | 'POST'
+  method: 'GET' | 'POST' | 'DELETE'
   pattern: RegExp
   limit: number
   handle(context: RouteContext, request: HostRequest, response: HostResponse, match: RegExpExecArray): Promise<void>
@@ -678,7 +691,7 @@ export function createHandler(context: RouteContext): (req: HostRequest, res: Ho
     }
     const url = new URL(request.url ?? '/', 'http://board.invalid')
     const path = url.pathname.startsWith(PLUGIN_ROUTE) ? url.pathname.slice(PLUGIN_ROUTE.length) : ''
-    const matched = [...ROUTES, ...arrangementRoutes(), ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...selfCheckRoutes(), ...visibilityRoutes()].flatMap((route) => {
+    const matched = [...ROUTES, ...arrangementRoutes(), ...shareRoutes(context), ...settingsRoutes(), ...groupRoutes(), ...capabilityRoutes(), ...contentRoutes(context), ...mediaRoutes(), ...selfCheckRoutes(), ...sourceRoutes(context), ...draftRoutes(context.drafts), ...previewRoutes(context.previews), ...visibilityRoutes()].flatMap((route) => {
       const match = route.pattern.exec(path)
       return match === null ? [] : [{ route, match }]
     })

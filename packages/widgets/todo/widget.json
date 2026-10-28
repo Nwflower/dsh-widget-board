@@ -13,6 +13,24 @@
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 22 },
   "minBox": { "w": 1, "h": 12 },
+  "state": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "maxItems": 200,
+        "items": {
+          "type": "object",
+          "required": ["text"],
+          "properties": {
+            "id": { "type": "string", "maxLength": 40 },
+            "text": { "type": "string", "maxLength": 200 },
+            "done": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  },
   "text": {
     "title": {
       "zh": "待办",
@@ -29,6 +47,22 @@
     "remove": {
       "zh": "删掉这一条",
       "en": "Remove this item"
+    },
+    "state.items.label": {
+      "zh": "待办事项",
+      "en": "To-dos"
+    },
+    "state.items.hint": {
+      "zh": "每一项是文字加是否完成，次序照这里排",
+      "en": "Each item is text plus whether it is done; the order here is the order on the card"
+    },
+    "state.items.text.label": {
+      "zh": "内容",
+      "en": "Text"
+    },
+    "state.items.done.label": {
+      "zh": "已完成",
+      "en": "Done"
     }
   }
 }

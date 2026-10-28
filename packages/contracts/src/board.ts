@@ -6,6 +6,7 @@
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
 import type { ActionPermission } from './service'
+import type { InstanceMedia } from './media'
 
 /**
  * 一张卡片在看板上的位置与尺寸。
@@ -87,6 +88,7 @@ export function defaultArrangement(): Arrangement {
 
 /** 一张卡片：哪个组件的哪个版本，它自己的 props、data、state，以及它在看板上的盒子。 */
 export interface BoardInstance {
+  media?: InstanceMedia
   id: string
   widget: string
   /** 组件内容的哈希（D7）。 */
@@ -293,6 +295,9 @@ export interface CardSettings {
     source: WidgetSource
     provider?: string
     propsSchema?: Record<string, unknown>
+    /** manifest 的 `data` 与 `state` schema（技术契约 3）：有其中一份时这张卡有「编辑内容」入口。 */
+    dataSchema?: Record<string, unknown>
+    stateSchema?: Record<string, unknown>
     text?: Record<string, LocalizedText>
     refresh?: WidgetRefresh
   }

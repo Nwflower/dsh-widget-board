@@ -2,6 +2,10 @@
 
 [中文](README.md)
 
+Local images: choose the image template in Create card, upload a static PNG/JPEG/WebP up to 10MiB, then set alt text, caption and focal point. The host removes metadata and converts the image to bounded WebP. Images are stored as instance-owned references. A widget declaring `widget-board:media.read` can obtain a Blob with `await widget.readMedia('background', { signal })`; it must revoke object URLs when paused, replaced or unloaded.
+
+The format2 `.dshboard` is gzip-compressed JSON containing referenced images, instance/group identifiers and arrangement metadata. Select “Include data” to retain content and state. Import validates resources before creating the complete board; format1 remains readable. `.dshw` still contains only widget source and type resources. A manual `POST api/widget-board/media/collect` removes resources older than 24 hours that have no instance or valid upload-ticket reference.
+
 A widget board for DeepSeek Harness: a page of cards you drag and resize, each card a small widget. You or the agent in a session write a widget as three files, and other plugins can provide widgets too.
 
 **[Live demo](https://nwflower.github.io/dsh-widget-board/)** · [Install](#install) · [Write a widget](#write-a-widget) · [For plugin providers](#for-plugin-providers)
@@ -32,6 +36,8 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 |---|---|
 | Plus menu | Add, tidy, refresh; Add opens the library as a full-height panel that rises from the bottom |
 | Card gear | Change the widget's props, fill in credentials, review and grant data sources and permissions |
+| Edit widget source | Load CodeMirror on demand; save a separate user type and apply it to the current card; updating all instances requires an explicit choice and a version check |
+| Source drafts and preview | Save, restore and delete drafts; preview uses the real sandbox without performing formal actions, capability calls or notifications |
 | Session tools | The agent lists, writes, places widgets and pushes data; `widget_show` draws one in the answer. Only `widget_catalog` starts out visible; the rest appear after being named in its `expose` field |
 | `widgetBoard` service | Other plugins register widgets, data sources, actions and host capabilities |
 

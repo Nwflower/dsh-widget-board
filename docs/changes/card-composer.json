@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 1,
+  "at": "2026-10-24",
+  "external": true,
+  "zh": "看板上可以直接创建与编辑卡片内容：下方菜单与组件库头部多了「创建卡片」，选一个模板（文本笔记、待办清单、常用链接、日期倒计时，或从组件库里挑任意组件）之后按组件自己声明的 schema 填内容，右边是真实的渲染预览，一次提交才建出实例。表单能编辑字符串、数字、布尔、枚举、日期、时刻、多层的对象与数组；数组项可以加、删、上下移动，表单不支持的写法给一个显式的 JSON 入口并说明原因。卡片设置里多了「编辑内容」，按读到的修订号保存，冲突时保留输入并给出重新读取与另存为新卡片两条路。宿主新增 `POST /boards/<id>/compose`、`GET|POST /instance/<id>/content` 与 `GET /library/<id>/form` 三条人工内容路由，请求体 128KiB，props、data 与 state 分别按 schema 校验，单卡状态、整板状态与握手消息的额度各报一次。",
+  "en": "Cards can be created and edited on the board: the dock menu and the library header gain \"Create card\", which picks a template (text note, to-do list, bookmarks, date countdown, or any widget from the library) and fills in what the widget's own schema declares, with a real rendered preview; the instance is written in one submit. The form edits strings, numbers, booleans, enums, dates, times, nested objects and arrays; array items can be added, removed and reordered, and schemas the form cannot render get an explicit JSON editor with the reason. The card settings gain \"Edit content\", which saves against the revision it read, keeps the input on conflict, and offers reload or save-as-new-card. The host gains three human content routes — `POST /boards/<id>/compose`, `GET|POST /instance/<id>/content` and `GET /library/<id>/form` — with a 128KiB body limit, per-schema checks for props, data and state, and separate reports for the single-card, whole-board and handshake budgets."
+}

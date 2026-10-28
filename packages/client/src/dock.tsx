@@ -61,7 +61,7 @@ export interface BoardDockProps {
   busy: boolean
   /** 当前看板的排列模式：整齐模式的「整理」没有意义，按钮换成模式切换（D30）。 */
   arrangement: 'free' | 'aligned' | undefined
-  /** 打开组件库面板。 */
+  /** 打开组件库浮窗。 */
   onOpenLibrary: () => void
   /** 关掉组件库面板。 */
   onCloseLibrary: () => void
@@ -75,6 +75,8 @@ export interface BoardDockProps {
   onToggleArrangement: () => void
   /** 主动重读组件库与运行时。 */
   onRefresh: () => void
+  /** 打开创建卡片（C01）。 */
+  onCreate: () => void
 }
 
 /** 一次从组件库开始的拖放。 */
@@ -88,8 +90,16 @@ interface AddDrag {
   active: boolean
 }
 
-/** 加号 / 整理 / 刷新 / 排列模式四个图标。尺寸与线宽按参考的 16px 图标。 */
-function ActionIcon({ kind }: { kind: 'add' | 'tidy' | 'refresh' | 'arrange' }): ReactNode {
+/** 创建、组件库、整理、排列与刷新动作共用 16px 图标。 */
+function ActionIcon({ kind }: { kind: 'create' | 'add' | 'tidy' | 'refresh' | 'arrange' }): ReactNode {
+  if (kind === 'create') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h6L20 12.5 12.5 20 4 11.5Z" />
+        <path d="M9 9h.01" />
+      </svg>
+    )
+  }
   if (kind === 'add') {
     return (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -123,12 +133,13 @@ function ActionIcon({ kind }: { kind: 'add' | 'tidy' | 'refresh' | 'arrange' }):
   )
 }
 
-/** 菜单的四个动作：位置照参考的扇面，i 决定展开的先后。 */
+/** 菜单按扇面排列，i 决定展开先后。 */
 const GOO_ACTIONS = [
-  { kind: 'add' as const, fx: '0px', fy: '-64px', i: 1 },
-  { kind: 'tidy' as const, fx: '-60px', fy: '-30px', i: 0 },
-  { kind: 'arrange' as const, fx: '-64px', fy: '0px', i: 3 },
-  { kind: 'refresh' as const, fx: '60px', fy: '-30px', i: 2 },
+  { kind: 'create' as const, fx: '-17px', fy: '-62px', i: 0 },
+  { kind: 'add' as const, fx: '17px', fy: '-62px', i: 1 },
+  { kind: 'tidy' as const, fx: '-58px', fy: '-27px', i: 2 },
+  { kind: 'refresh' as const, fx: '58px', fy: '-27px', i: 3 },
+  { kind: 'arrange' as const, fx: '0px', fy: '-108px', i: 4 },
 ]
 
 /**
@@ -137,8 +148,9 @@ const GOO_ACTIONS = [
  * 底色、桥接与投影都画在同一张 SVG 的 goo 滤镜里：先用高斯模糊与色阶把四个圆连成一片，
  * 再按参考的三层阴影把合并后的剪影投下来。图标与按钮是压在上面的清晰层，滤镜不碰文字。
  */
-function DockMenu({ busy, arrangement, onAdd, onTidy, onToggleArrangement, onRefresh }: {
+function DockMenu({ busy, arrangement, onCreate, onAdd, onTidy, onToggleArrangement, onRefresh }: {
   busy: boolean
+  onCreate: () => void
   arrangement: 'free' | 'aligned' | undefined
   onAdd: () => void
   onTidy: () => void
@@ -196,6 +208,7 @@ function DockMenu({ busy, arrangement, onAdd, onTidy, onToggleArrangement, onRef
   }, [close, open])
 
   const runs = {
+    create: onCreate,
     add: onAdd,
     tidy: onTidy,
     arrange: onToggleArrangement,
@@ -329,6 +342,7 @@ export function BoardDock({
   onTidy,
   onToggleArrangement,
   onRefresh,
+  onCreate,
 }: BoardDockProps): ReactNode {
   const dragRef = useRef<AddDrag | null>(null)
   const [session, setSession] = useState<{ entry: WidgetLibraryEntry, pointerId: number } | null>(null)
@@ -537,6 +551,7 @@ export function BoardDock({
       <div ref={dockRef}>
         <DockMenu
           busy={busy}
+          onCreate={() => { setProxy(null); onCloseLibrary(); onCreate() }}
           arrangement={arrangement}
           onAdd={() => { setProxy(null); onOpenLibrary() }}
           onTidy={onTidy}
@@ -558,6 +573,7 @@ export function BoardDock({
               onBeginDrag={beginDrag}
               onClose={onCloseLibrary}
               onImported={onRefresh}
+              onCreate={() => { onCloseLibrary(); onCreate() }}
             />
           </div>
         )

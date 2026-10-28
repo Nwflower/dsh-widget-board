@@ -13,6 +13,7 @@ import Ajv from 'ajv'
 import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
 import { WIDGET_MANIFEST_SCHEMA } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
+import { Refusal } from './refusal'
 
 /** 一个可用的组件版本：manifest、来源、目录、内容哈希与目录里的全部文件。 */
 export interface WidgetRecord {
@@ -187,6 +188,47 @@ async function readRoot(root: WidgetRoot, load: LibraryLoad): Promise<void> {
     }
     load.records.set(record.manifest.id, record)
     load.entries.push(entryOf(record))
+  }
+}
+
+/**
+ * 从组件库里取一个组件：没有它就说清楚是哪一个（D17）。
+ *
+ * 源码、组件定义与表单模型三条读路由都用这一处，免得各处对同一个 id 给出不同的说法。
+ *
+ * @param records - 组件库。
+ * @param id - 组件 id。
+ * @returns 组件记录。
+ * @throws {Refusal} 组件库里没有这个组件。
+ */
+export function recordOf(records: Map<string, WidgetRecord>, id: string): WidgetRecord {
+  const record = records.get(id)
+  if (record === undefined) throw new Refusal(404, `组件库里没有可用的组件 ${id}`)
+  return record
+}
+
+/**
+ * 一份文件：相对路径与内容。
+ */
+export interface WidgetFile {
+  path: string
+  content: Uint8Array
+}
+
+/**
+ * 把一组文件写进一个目录：逐份建目录再写。
+ *
+ * 目录本身已经由调用方准备好：这里只管往里写（技术契约 4 的暂存目录就用它）。
+ *
+ * @param dir - 目录的绝对路径。
+ * @param files - 相对路径与内容；路径已经由调用方校验过不越出目录。
+ */
+export async function writeTree(dir: string, files: readonly { path: string, content: Uint8Array }[]): Promise<void> {
+  await mkdir(dir, { recursive: true })
+  for (const file of files) {
+    const target = join(dir, file.path)
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, file.content)
   }
 }
 

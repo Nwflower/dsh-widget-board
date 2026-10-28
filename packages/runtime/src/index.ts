@@ -15,9 +15,11 @@ import type {
 import { PARENT_MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
 import { installInspector, problemsOf } from './inspect'
 import { installMotionTemplates } from './motion'
+import { readMedia } from './media/read'
 
 /** 组件的公共接口，写在编写指南里的那一份。 */
 export interface WidgetApi extends WidgetHandles {
+  readMedia(ref: string, options?: { signal?: AbortSignal }): Promise<Blob>
   /** 当前的像素盒与尺寸族；握手之前是 null。 */
   readonly size: WidgetSize | null
   /** 宿主的界面语言，如 `zh-CN`。 */
@@ -63,6 +65,11 @@ let props: Record<string, unknown> = {}
 let data: unknown = undefined
 let state: unknown = undefined
 let paused = false
+let mediaLifetime = new AbortController()
+function cancelMedia(): void {
+  mediaLifetime.abort()
+  mediaLifetime = new AbortController()
+}
 let text: Record<string, { zh: string, en: string }> = {}
 
 /** 在途能力调用的等待者，按 requestId 索引。 */
@@ -147,6 +154,7 @@ function motionLevel(fromHost: MotionLevel): MotionLevel {
 function receive(message: ParentMessage): void {
   switch (message.type) {
     case 'init':
+      cancelMedia()
       lang = message.lang
       root.lang = message.lang
       text = message.text ?? {}
@@ -168,10 +176,12 @@ function receive(message: ParentMessage): void {
       reportHeightSoon()
       return
     case 'props':
+      cancelMedia()
       props = (message.props ?? {}) as Record<string, unknown>
       for (const handler of listeners.props) handler(props)
       return
     case 'data':
+      cancelMedia()
       data = message.data
       for (const handler of listeners.data) handler(data)
       return
@@ -186,6 +196,7 @@ function receive(message: ParentMessage): void {
       applyTokens(message.tokens)
       return
     case 'pause':
+      cancelMedia()
       paused = true
       root.toggleAttribute('data-paused', true)
       for (const handler of listeners.pause) handler(true)
@@ -230,6 +241,7 @@ function subscribe<T>(list: Array<(value: T) => void>, handler: (value: T) => vo
 /** 装好 `window.widget`。 */
 function install(): void {
   const api: WidgetApi = {
+    readMedia: async (ref, options) => await readMedia(api.call, ref, options?.signal === undefined ? mediaLifetime.signal : AbortSignal.any([mediaLifetime.signal, options.signal])),
     get size() { return size },
     get lang() { return lang },
     get props() { return props },
@@ -374,6 +386,7 @@ function installPress(): void {
 }
 
 install()
+window.addEventListener('pagehide', cancelMedia)
 installPress()
 installMotionTemplates()
 installFailureReports()

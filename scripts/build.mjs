@@ -45,8 +45,8 @@ const CLIENT_BASELINE = [
   '@deepseek-ai/dsh-client-ui-dockkit',
 ]
 
-/** 宿主进程提供的包：留在产物里，由宿主按自己的 node_modules 解析。 */
-const HOST_NODE_PACKAGES = ['@deepseek-ai/*']
+/** 平台包及原生图片库保留模块导入，由运行时加载对应的平台二进制。 */
+const HOST_NODE_PACKAGES = ['@deepseek-ai/*', 'sharp']
 
 /**
  * 加载器工厂的包装：`require` 解析宿主提供的包，产物的 `module.exports` 就是加载器拿到的插件导出。
@@ -59,8 +59,30 @@ window.__ModuleLoader__.load({
   id: ${JSON.stringify(PACKAGE.name)},
   factory: (require) => {
     var module = { exports: {} }
-    var exports = module.exports`
+    var exports = module.exports
+    // 加载器给的 require 带一个 async：按需加载的分包经它去取（源码编辑器那一份，D2）。
+    // 加载器不把这个 require 交给插件的 apply，只能在工厂执行时记下来。
+    globalThis.__dshWidgetBoardRequire = require`
 const FACTORY_CLOSE = `    return module.exports
+  },
+})`
+
+/**
+ * 一个按需加载的分包的包装：源码面板进入高级模式时才去取它。
+ *
+ * 宿主的加载器按 `chunk` 认领这个工厂，文件名要与 `require.async` 里写的一致（D2）。
+ */
+const CHUNK_OPEN = `/**
+ * ${PACKAGE.name} — 按需加载的源码编辑器
+ * GENERATED FILE — 不要编辑。源码在 packages/client/src/composer/，由 \`npm run build\` 打包。
+ */
+window.__ModuleLoader__.load({
+  id: ${JSON.stringify(PACKAGE.name)},
+  chunk: ${JSON.stringify('client.source-editor.js')},
+  factory: (require) => {
+    var module = { exports: {} }
+    var exports = module.exports`
+const CHUNK_CLOSE = `    return module.exports
   },
 })`
 
@@ -155,6 +177,33 @@ async function buildClientHalf() {
   return Buffer.byteLength(code)
 }
 
+/**
+ * 源码编辑器这一个按需加载的分包。
+ *
+ * CodeMirror 有几百 KB，而绝大多数人不会进高级模式：它单独打成一个分包，源码面板第一次打开
+ * 高级模式时才去取（D2 的分包原则，与精选库同一套做法）。
+ *
+ * @returns 分包的字节数。
+ */
+async function buildClientChunk() {
+  const code = await output({
+    entryPoints: [path.join(ROOT, 'packages', 'client', 'src', 'composer', 'source-editor-chunk.ts')],
+    outfile: path.join(LIB, 'client.source-editor.js'),
+    bundle: true,
+    format: 'cjs',
+    platform: 'browser',
+    target: 'esnext',
+    minify: true,
+    sourcemap: 'linked',
+    jsx: 'automatic',
+    loader: { '.css': 'text' },
+    banner: { js: CHUNK_OPEN },
+    footer: { js: CHUNK_CLOSE },
+  }, '.js')
+  writeAtomic(path.join(LIB, 'client.source-editor.js'), code)
+  return Buffer.byteLength(code)
+}
+
 /** 宿主半边：Ajv 与仓库内的包内联，宿主提供的包留在产物里。 */
 async function buildHostHalf() {
   const code = await output({
@@ -207,12 +256,15 @@ function tokenCss(tokens) {
 }
 
 /** 把组件套件、精选库与内置组件放进 lib/，并按令牌生成样式表。 */
-function writeAssets() {
+async function writeAssets() {
   writeAtomic(path.join(LIB, 'runtime', 'suite.css'), fs.readFileSync(path.join(RUNTIME, 'suite', 'suite.css'), 'utf8'))
   writeAtomic(path.join(LIB, 'runtime', 'tokens.css'), tokenCss(TOKENS))
   // 组件树先拷到旁边再改名：逐个文件出现的过程中，宿主读到的组件可能是半份。
   const staging = path.join(LIB, '.widgets-staging')
   fs.cpSync(WIDGETS, staging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
+  const luxonLicense = fs.readFileSync(path.join(ROOT, 'node_modules/luxon/LICENSE.md'), 'utf8').replaceAll('*/', '* /')
+  const countdown = await output({ entryPoints: [path.join(WIDGETS, 'countdown', 'main.js')], outfile: path.join(staging, 'countdown', 'main.js'), bundle: true, format: 'iife', platform: 'browser', target: 'esnext', minify: true, banner: { js: `/*! Luxon 3.7.2\n${luxonLicense}\n*/` } }, '.js')
+  writeAtomic(path.join(staging, 'countdown', 'main.js'), countdown)
   fs.renameSync(staging, path.join(LIB, 'widgets'))
 }
 
@@ -257,8 +309,9 @@ fs.rmSync(LIB, { recursive: true, force: true })
 fs.mkdirSync(LIB, { recursive: true })
 emitServiceTypes()
 const client = await buildClientHalf()
+const chunk = await buildClientChunk()
 const host = await buildHostHalf()
 const runtime = await buildRuntime()
-writeAssets()
+await writeAssets()
 const libs = await buildLibs()
-console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位，服务类型入口已写出`)
+console.log(`build: lib/client.js ${client} 字节，lib/client.source-editor.js ${chunk} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位，服务类型入口已写出`)

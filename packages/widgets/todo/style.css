@@ -18,7 +18,7 @@
   height: 100vh;
   min-height: 0;
   overflow: hidden;
-  padding: var(--w-space-lg, 16px) var(--w-space-lg, 16px) var(--w-space-md, 12px);
+  padding: var(--w-space-xl, 24px);
   border-radius: var(--w-radius-card, 24px);
   background: var(--w-color-surface, #fff);
   color: var(--w-color-fg, #0b1016);
@@ -39,15 +39,17 @@
   margin: 0;
   font-size: var(--w-type-title, 16px);
   font-weight: 600;
-  line-height: 22px;
+  line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .todo-count {
   margin: 0;
   color: var(--w-color-muted, #6b7684);
-  font-size: 12px;
+  font-size: var(--w-type-caption, 12px);
   font-variant-numeric: tabular-nums;
-  line-height: 20px;
+  line-height: 1.5;
 }
 
 /* 进度：一整条细轨，按完成的占比从左往右填。 */
@@ -166,7 +168,7 @@
   min-width: 0;
   color: inherit;
   font-size: var(--w-type-body, 14px);
-  line-height: 22px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
   transition: color var(--w-motion-fast) var(--w-motion-ease-standard);
 }
@@ -285,10 +287,14 @@
 :root[data-box-height="short"] .todo-submit { height: 32px; }
 :root[data-box-height="short"]:not([data-box-width="wide"]) .todo-empty::before { display: none; }
 
-/* 高盒子：字号与行距长一档，空态的说明跟着放大。 */
-:root[data-box-height="tall"] .todo-text { font-size: var(--w-type-title, 16px); line-height: 24px; }
+/* 高盒子增加可见内容，正文保留统一字号。 */
 :root[data-box-height="tall"] .todo-empty { font-size: var(--w-type-body, 14px); line-height: 22px; }
 :root[data-box-height="tall"] .todo-row { padding-block: 4px; }
+
+@media (max-width: 320px), (max-height: 320px) {
+  .todo { padding: var(--w-space-md, 12px); gap: var(--w-space-sm, 8px); }
+  .todo-title { font-size: var(--w-type-body, 14px); }
+}
 
 /* 加一条：底下一道分隔，输入框占满，右边一个加号。 */
 .todo-add {

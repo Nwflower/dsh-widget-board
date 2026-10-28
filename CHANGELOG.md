@@ -8,11 +8,35 @@
 
 [中文](#cn-unreleased) | [English](#en-unreleased)
 
-<h3 id="cn-unreleased">问题修复</h3>
+<h3 id="cn-unreleased">新增功能</h3>
+
+- 组件库浮窗按角色分成三个区：示例、内置与市场。新增两个组件来源：`example`（包内 `packages/widgets-examples/`，给 agent 的写法样例）与 `market`（市场插件装进来的组件，落在 `$DSH_HOME/widget-board/market-widgets/`）。加载顺序是内置 → 我的 → 市场 → 插件 → 示例，同 id 先到者胜。`widget_catalog` 可以按这两种来源过滤。「市场」区显示已接入的市场提供方给的条目；没有提供方时显示固定的空状态。
+- 新增一组给 agent 的示例组件：`example-basic`（最小目录）、`example-props`（props 与设置弹窗）、`example-data`（data schema 与空态）、`example-state`（setState 与暂停恢复）、`example-action`（动作与失败原因）、`example-size`（盒子契约）、`example-asset`（资源引用）。它们在组件库的「示例」区，`widget_catalog` 按 `source: "example"` 列出并给出目录路径；widget-authoring 技能里有「想学什么 → 看哪个示例」的对照表。
+- 组件市场：宿主服务新增 `registerMarketProvider`，插件实现 `list()` 与 `fetch()` 交出远端条目与包；安装走 `POST /library/market/install`，依次核对大小与 sha256、解包校验、包内 id 与条目一致、索引声明与包内声明一致，再检查来源冲突后写进市场来源目录并记录来源。市场条目的 id 必须带作者域（`<作者域>.<名字>`），本地组件继续用扁平 id；已有本地组件同名时拒绝安装并说明来源。提供方读取有 15 秒超时、最多 256 条，失败只影响市场区。
+- 组件市场原型：索引格式 1 的 JSON Schema、原生 HTML 的浏览页与两个示例包挂在 GitHub Pages 的 `market/` 子路径下。`npm run market` 从仓库里的组件目录重新打包并改写索引；`node scripts/market.mjs --check` 核对索引与包（sha256、字节数、包内 id 与版本、尺寸族、声明），在 `npm run verify` 与 Pages 部署前各跑一次。
+
+### 体验优化
+
+- 会话里的 agent 不再收到插件注入的系统提示段：看板的存在与使用边界只写在 widget-authoring 的技能描述里，其余任务不被告知看板。描述写明什么时候该碰看板（用户点名看板、卡片、组件，或要改的卡片已经在板上）、看板归用户所有（未经请求不新增、删除、重排卡片，也不改既有卡片的 props 或数据源、不向它推数据；改前读回、改后确认），以及请求缺宾语时先查状态证据再澄清。工具清单只留在 skill 里，七个工具与「放卡与改卡是同一个工具」的说法一致，翻面组整组移除、换数据源只读一次与刷新策略也写进了指南。
+- 握手把这张卡可用的能力告诉组件：`init` 消息带上 `capabilities`（manifest 声明过、宿主当前解析得到的那些），运行时暴露为 `widget.capabilities`。热力图卡按它筛掉没装插件提供的能力，不再先发一次注定失败的调用再回退。
+
+### 问题修复
 
 - 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
 
-<h3 id="en-unreleased">Bug Fixes</h3>
+<h3 id="en-unreleased">New Features</h3>
+
+- The widget library panel is now split into three sections by role: examples, installed, and market. Two sources are new: example (authoring samples shipped in packages/widgets-examples for agents) and market (widgets installed by a market plugin, stored under $DSH_HOME/widget-board/market-widgets/). Load order is built-in, mine, market, plugin, examples; with duplicate ids the earlier source wins. widget_catalog can filter by either source. The market section lists the entries of connected market providers and shows a fixed empty state when none is connected.
+- A set of authoring examples for agents: example-basic (minimal directory), example-props (props and the settings dialog), example-data (data schema and empty state), example-state (setState and pause/resume), example-action (actions and failure reasons), example-size (the box contract), and example-asset (asset references). They live in the library's Examples section; widget_catalog lists them under source "example" with their directory paths, and the widget-authoring skill maps each authoring question to the example that answers it.
+- Widget market: the host service gains registerMarketProvider, where a plugin supplies remote listings and packages through list() and fetch(). Installation goes through POST /library/market/install, which checks size and sha256, unpacks and validates, matches the package id against the listing, verifies the index declarations against the package, then checks source conflicts before writing into the market source directory and recording provenance. Market listing ids carry an author domain (<author>.<name>) while local widgets keep flat ids; a local widget with the same id blocks installation with a visible reason. Provider reads time out after 15 seconds and cap at 256 entries, and failures are confined to the market section.
+- A widget market prototype: a format-1 index schema, a plain-HTML browse page and two sample packages under the market/ subpath of GitHub Pages. npm run market repacks from the repository's widget directories and rewrites the index; node scripts/market.mjs --check verifies the index against the packages (sha256, byte count, package id and version, size families, declarations) and runs before both npm run verify and the Pages deployment.
+
+### Improvements
+
+- A session agent no longer receives a system prompt section injected by the plugin: the board's existence and its usage boundaries live in the widget-authoring skill description, and other tasks are told nothing about a board. The description states when the board is in scope (the user names the board, a card, or a widget, or the card being changed is already on the board), that the board belongs to the user (no cards added, removed, or reordered, no props or data source changes and no data pushes without a request, and every change is read back before and after), and that a request with a missing object gets the cheapest state evidence first. The tool list lives only in the skill, which states the seven tools and that widget_place covers both placing and editing; it also notes that removing one side of a flip group removes both, that a rebound data source is read once, and how to declare a refresh policy.
+- The handshake now tells a widget which of its declared capabilities are actually available: the init message carries capabilities (declared in the manifest and resolvable in the host), exposed as widget.capabilities in the runtime. The activity card filters by it and no longer sends a call bound to fail before falling back.
+
+### Bug Fixes
 
 - A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
 

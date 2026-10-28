@@ -405,7 +405,9 @@ async function addRemovePass(page) {
  */
 async function sharePass(page) {
   await openLibrary(page)
-  const link = await page.waitForSelector('[data-dsh-widget-board-export]', { timeout: 15000 })
+  // 组件库按角色分区，示例区排在最前（D17）：那里第一格是示例组件，不是内置组件。
+  // 这一趟要验的是内置组件，所以只在「已装」区里取导出入口。
+  const link = await page.waitForSelector('[data-dsh-widget-section="installed"] [data-dsh-widget-board-export]', { timeout: 15000 })
   const id = await link.getAttribute('data-dsh-widget-board-export')
   check('组件库里有导出入口', typeof id === 'string' && id !== '', String(id))
   const roundTrip = await page.evaluate(async (widget) => {

@@ -284,6 +284,17 @@
   display: none;
 }
 
+/* 缩略格高度有限：保留完整判词，装饰分数条让位给两行正文。 */
+:root[data-placement="preview"] .fortune-card__body { gap: var(--w-space-xs, 4px); }
+:root[data-placement="preview"] .fortune-card__meter { display: none; }
+:root[data-placement="preview"] .fortune-card__seal {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  font-size: var(--w-type-body);
+}
+:root[data-placement="preview"] .fortune-card__score { font-size: 24px; }
+
 :root[data-motion="reduced"] .fortune-card__fill {
   transition: none;
 }

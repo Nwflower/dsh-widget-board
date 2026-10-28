@@ -422,11 +422,11 @@ describe('卡片状态与数据', () => {
 
   it('写入太频繁时回 429', async () => {
     const test = await harness()
-    let last = 0
-    for (let index = 0; index < STATE_WRITES_PER_SECOND + 1; index += 1) {
-      last = (await test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { n: index } }))).status
-    }
-    expect(last).toBe(429)
+    // 并发发起一批请求，避免串行落盘把测试本身拖过一秒窗口。
+    const responses = await Promise.all(Array.from({ length: STATE_WRITES_PER_SECOND + 1 }, (_, index) =>
+      test.send('POST', '/instance/board-first/state', JSON.stringify({ patch: { n: index } }))))
+    expect(responses.filter(response => response.status === 429)).toHaveLength(1)
+    expect(responses.filter(response => response.status === 200)).toHaveLength(STATE_WRITES_PER_SECOND)
   })
 
   it('同一块看板的到期卡一次读取只写一次看板', async () => {

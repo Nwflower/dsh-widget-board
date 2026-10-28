@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict'
+const { mkdirSync, writeFileSync } = require('node:fs')
+const { join } = require('node:path')
 /**
  * board.cjs — 看板的测试辅助：读工作区快照、整块提交、复位卡片状态与盒子、改一张卡片的高度、只留画廊（D16、D17、D21）。
  *
@@ -172,4 +174,91 @@ async function addInstance(page, widget) {
   }, widget)
 }
 
-module.exports = { activeBoard, addInstance, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+/** 整齐模式的真实手势：自身格子内移动不换序，窄屏纵向缩放保留期望宽度。 */
+async function alignedGesturesPass(page, check) {
+  const { settled } = require('./geometry.cjs')
+  const viewport = page.viewportSize()
+  const original = (await workspace(page)).active
+  const call = (route, body) => page.evaluate(async ({ route, body }) => {
+    const response = await fetch(`api/widget-board/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+    if (!response.ok) throw new Error(`手势夹具请求失败：${response.status}`)
+    return response.json()
+  }, { route, body })
+  const id = (await call('boards', { title: '排列手势回归' })).id
+  try {
+    const ids = []
+    for (let index = 0; index < 3; index++) ids.push((await call(`boards/${id}/instance`, { widget: 'markdown' })).id)
+    let board = activeBoard(await workspace(page))
+    await call(`boards/${id}/arrangement`, { expectedLayoutRevision: board.layoutRevision, arrangement: { mode: 'aligned', aligned: { order: ids, boxes: Object.fromEntries(ids.map((key, index) => [key, { w: index === 0 ? 2 : 1, h: 22 }])) } } })
+    const card = page.locator(`.dsh-widget-board__flow[data-active="true"] [data-instance="${ids[0]}"]`).first()
+    await card.waitFor()
+    await card.scrollIntoViewIfNeeded()
+    await settled(page)
+    board = activeBoard(await workspace(page))
+    const move = await card.locator('[data-dsh-widget-board-handle="move"]').boundingBox()
+    if (move === null) throw new Error('找不到移动手柄')
+    await page.mouse.move(move.x + move.width / 2, move.y + move.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(move.x + move.width / 2 + 8, move.y + move.height / 2)
+    await page.mouse.up()
+    await page.waitForFunction(async ({ id, revision }) => (await (await fetch('api/widget-board/boards')).json()).boards.find(board => board.id === id).layoutRevision > revision, { id, revision: board.layoutRevision })
+    const moved = activeBoard(await workspace(page))
+    check('整齐模式在自身格子内拖动保持顺序', JSON.stringify(moved.arrangement.aligned.order) === JSON.stringify(ids))
+    await page.setViewportSize({ width: 640, height: 900 })
+    await page.waitForFunction(() => document.querySelector('[data-dsh-widget-board-columns]')?.getAttribute('data-dsh-widget-board-columns') === '1')
+    await card.scrollIntoViewIfNeeded()
+    await settled(page)
+    board = activeBoard(await workspace(page))
+    const resize = await card.locator('[data-dsh-widget-board-handle="resize"]').boundingBox()
+    if (resize === null) throw new Error('找不到缩放手柄')
+    await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2 + 64, { steps: 8 })
+    await page.mouse.up()
+    await page.waitForFunction(async ({ id, revision }) => (await (await fetch('api/widget-board/boards')).json()).boards.find(board => board.id === id).layoutRevision > revision, { id, revision: board.layoutRevision })
+    const resized = activeBoard(await workspace(page)).arrangement.aligned.boxes[ids[0]]
+    check('窄屏只纵向缩放保留跨列期望', resized.w === 2 && resized.h > board.arrangement.aligned.boxes[ids[0]].h, JSON.stringify(resized))
+  } finally {
+    await page.mouse.up()
+    await call(`boards/${original}/activate`)
+    await call(`boards/${id}/remove`)
+    await page.setViewportSize(viewport)
+  }
+}
+
+/** 在本轮独立home中放入一个合法的零高度用户组件，不依赖高度消息确认初始化。 */
+function createHandshakeFixture(home) {
+  const directory = join(home, 'widget-board/widgets/handshake-zero')
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(join(directory, 'widget.json'), JSON.stringify({ id: 'handshake-zero', title: { zh: '零高度握手', en: 'Zero-height handshake' }, version: '0.1.0', sizes: ['s'], props: { type: 'object', additionalProperties: false } }))
+  writeFileSync(join(directory, 'index.html'), '<div>握手回执回归</div>')
+  writeFileSync(join(directory, 'style.css'), 'html,body{height:0!important;min-height:0!important}div{position:fixed;top:0}')
+  writeFileSync(join(directory, 'main.js'), 'window.handshakeBoot = String(Date.now())')
+}
+
+/** 初始化成功后跨过父页面原有六秒看门时限，文档不能因为没有高度消息而重载。 */
+async function handshakePass(page, check) {
+  const original = (await workspace(page)).active
+  const call = (route, body) => page.evaluate(async ({ route, body }) => {
+    const response = await fetch(`api/widget-board/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+    if (!response.ok) throw new Error(`握手夹具请求失败：${response.status}`)
+    return response.json()
+  }, { route, body })
+  const id = (await call('boards', { title: '握手回归' })).id
+  try {
+    const instance = (await call(`boards/${id}/instance`, { widget: 'handshake-zero' })).id
+    const card = page.locator(`[data-instance="${instance}"]`).first()
+    await card.waitFor()
+    const frame = await (await card.locator('iframe').elementHandle()).contentFrame()
+    await frame.waitForFunction(() => window.handshakeBoot && getComputedStyle(document.documentElement).getPropertyValue('--w-color-bg').trim())
+    const before = await frame.evaluate(() => ({ boot: window.handshakeBoot, height: document.body.getBoundingClientRect().height }))
+    await page.waitForTimeout(7200)
+    const after = await frame.evaluate(() => ({ boot: window.handshakeBoot, height: document.body.getBoundingClientRect().height }))
+    check('零高度组件确认初始化且不触发超时重载', before.height === 0 && after.height === 0 && before.boot === after.boot)
+  } finally {
+    await call(`boards/${original}/activate`)
+    await call(`boards/${id}/remove`)
+  }
+}
+
+module.exports = { activeBoard, addInstance, alignedGesturesPass, createHandshakeFixture, handshakePass, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

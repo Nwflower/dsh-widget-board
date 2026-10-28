@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
+const { alignedGesturesPass, createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -173,6 +173,7 @@ async function mainPass(page, problems) {
   )
   check('图标是天气图标之一', ['sun', 'moon', 'cloud', 'rain', 'snow', 'bolt'].includes(String(after.icon)), String(after.icon))
 
+  await page.locator(POMODORO_FRAME).scrollIntoViewIfNeeded()
   const pomodoro = await frameOf(page, POMODORO_FRAME)
   check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
   const box = await pomodoro.evaluate(() => ({
@@ -663,6 +664,7 @@ async function reducedPass(page) {
 }
 
 const home = scratchHome('smoke-')
+createHandshakeFixture(home)
 start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
   // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
   // 在地址打印之后，所以等一会儿再看。
@@ -691,6 +693,8 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (h
     await providerPass(opened.page, check, host.home)
     await sharePass(opened.page)
     await dockPass(opened.page, check)
+    await alignedGesturesPass(opened.page, check)
+    await handshakePass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)
     await reloadPass(opened.page)

@@ -10,6 +10,7 @@ const METRICS_FRAME = 'iframe.dsh-widget-board__frame[title="运行成本"]'
  * @param page - 宿主页面，看板已经打开。
  */
 async function metricsPass(page, check) {
+  await page.locator(METRICS_FRAME).scrollIntoViewIfNeeded()
   const frame = await frameOf(page, METRICS_FRAME)
   await frame.waitForSelector('.metrics[data-state="ready"]', { timeout: 30000 })
   const view = await frame.evaluate(() => ({

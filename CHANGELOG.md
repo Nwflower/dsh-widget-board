@@ -18,7 +18,7 @@
 
 ### 问题修复
 
-- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。
+- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留原期望宽度。组件通过既有端口明确确认初始化，零高度正文不再因缺少高度消息触发超时重载。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。今日运势缩略图缩小分数并收起装饰进度条，为两行判词保留空间，避免较长每日判词被裁掉。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -30,7 +30,7 @@
 
 ### Bug Fixes
 
-- Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading.
+- Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Aligned dragging within the same cell preserves order, and vertical resizing in a narrow window retains the wanted column span. Widgets acknowledge initialization through the existing port, so zero-height documents do not reload for lack of height messages. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading. Fortune previews use a compact score without the decorative meter to keep longer daily readings visible in two lines.
 
 ## [0.1.6] - 2026-10-26
 

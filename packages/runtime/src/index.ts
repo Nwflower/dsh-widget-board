@@ -159,6 +159,8 @@ function receive(message: ParentMessage): void {
       for (const handler of listeners.props) handler(props)
       for (const handler of listeners.data) handler(data)
       for (const handler of listeners.state) handler(state)
+      // 初始化回执不依赖正文高度或下一帧绘制，零高度和离屏组件也能确认端口已接通。
+      send({ type: 'ready' })
       reportHeightSoon()
       return
     case 'size':

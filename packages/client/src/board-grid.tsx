@@ -21,6 +21,7 @@ import type {
 import type { AlignedPlacement, GridLayout, GridMetrics, GridPlacement } from '@dsh-widget-board/model'
 import {
   DEFAULT_HEIGHT_REM,
+  MAX_COLUMNS,
   clampCardLayout,
   displayColumns,
   normalizeCardLayout,
@@ -371,9 +372,9 @@ export function BoardGrid({
           const hit = alignedLayout.placements.find((entry) => pointer.x >= entry.x && pointer.x < entry.x + entry.width
             && pointer.y >= entry.y && pointer.y < entry.y + entry.height)
           const target = hit?.id ?? alignedLayout.placements[alignedLayout.placements.length - 1]?.id
-          if (target !== undefined && nextOrder !== null) {
+          if (target !== undefined && target !== current.id && nextOrder !== null) {
             const without = nextOrder.filter((entry) => entry !== current.id)
-            const at = target === current.id ? without.length : without.indexOf(target)
+            const at = without.indexOf(target)
             const insertAt = at === -1 ? without.length : at
             const candidate = [...without.slice(0, insertAt), current.id, ...without.slice(insertAt)]
             if (candidate.join('\u0000') !== nextOrder.join('\u0000')) {
@@ -386,7 +387,7 @@ export function BoardGrid({
       } else {
         // 整齐模式的缩放：横向改自己的期望宽度，纵向抬整行（B4）。
         const box = boxesById.get(current.id) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
-        const wanted = clamp(Math.round(box.w + dx / columnStep), 1, metrics.columns)
+        const wanted = clamp(Math.round(box.w + dx / columnStep), 1, MAX_COLUMNS)
         const nextBoxes = new Map(boxesById)
         nextBoxes.set(current.id, { ...box, w: wanted })
         const rowIds = alignedLayout?.placements
@@ -451,33 +452,6 @@ export function BoardGrid({
 
   const boxesRef = useRef<Map<string, { w: number, h: number }> | null>(null)
 
-  /** 一次手势的排列提交：把顺序与盒子草稿合并成一份偏好交给宿主（B4、D30）。 */
-  const commitArrangement = useCallback((nextOrder: string[] | null, nextBoxes: Map<string, { w: number, h: number }> | null) => {
-    if (metrics === null || dragRef.current !== null) return
-    const saved = board.arrangement?.aligned?.order ?? []
-    const known = cards.map(cardId)
-    const keptOrder = nextOrder ?? saved.filter((id) => known.includes(id)).concat(known.filter((id) => !saved.includes(id)))
-    const base = board.arrangement?.aligned?.boxes ?? {}
-    const wanted: Record<string, { w: number, h: number }> = {}
-    for (const card of cards) {
-      const id = cardId(card)
-      wanted[id] = nextBoxes?.get(id) ?? base[id] ?? cardLayout(card)
-    }
-    const arrangement: Arrangement = { mode: 'aligned', aligned: { order: keptOrder, boxes: wanted } }
-    busyRef.current = true
-    onBusyChange(true)
-    saveBoardArrangement(board.id, board.layoutRevision, arrangement).then((result) => {
-      busyRef.current = false
-      onBusyChange(false)
-      if (result.kind === 'stale') onSnapshot(result.snapshot)
-      else onArrangement(board.id, result.saved.layoutRevision, result.saved.arrangement)
-    }, (error: Error) => {
-      busyRef.current = false
-      onBusyChange(false)
-      console.error(`widget-board: ${t('arrangementFailed')}：${error.message}`)
-      onRefetch()
-    })
-  }, [board.arrangement, board.id, board.layoutRevision, cards, metrics, onArrangement, onBusyChange, onRefetch, onSnapshot])
 
   const endDrag = useCallback(() => {
     const current = dragRef.current

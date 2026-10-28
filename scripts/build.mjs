@@ -279,7 +279,7 @@ async function writeAssets() {
   const countdown = await output({ entryPoints: [path.join(WIDGETS, 'countdown', 'main.js')], outfile: path.join(staging, 'countdown', 'main.js'), bundle: true, format: 'iife', platform: 'browser', target: 'esnext', minify: true, banner: { js: `/*! Luxon 3.7.2\n${luxonLicense}\n*/` } }, '.js')
   writeAtomic(path.join(staging, 'countdown', 'main.js'), countdown)
   // 源码复用纯模型，发布的标准组件仍是完整独立脚本，不依赖外部模块。
-  await esbuild.build({ entryPoints: [path.join(WIDGETS, 'campus', 'main.js')], outfile: path.join(staging, 'campus', 'main.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2022', minify: true })
+  await esbuild.build({ entryPoints: [path.join(WIDGETS, 'campus', 'main.js')], outfile: path.join(staging, 'campus', 'main.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2022', minify: true, banner: { js: `/*! Luxon 3.7.2\n${luxonLicense}\n*/` } })
   fs.renameSync(staging, path.join(LIB, 'widgets'))
 }
 

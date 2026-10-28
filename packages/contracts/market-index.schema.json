@@ -23,7 +23,7 @@
         "additionalProperties": false,
         "required": ["id", "title", "author", "versions"],
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,39}\\.[a-z][a-z0-9-]{1,39}$" },
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,39}\\.[a-z][a-z0-9-]{1,39}$" },
           "title": { "$ref": "#/$defs/text" },
           "description": { "$ref": "#/$defs/text" },
           "author": {

@@ -1,0 +1,28 @@
+{
+  "id": "testv3.beta",
+  "title": {
+    "zh": "v3 组件乙",
+    "en": "v3 widget beta"
+  },
+  "description": {
+    "zh": "新把手第二个目录里的原生组件：与组件甲同在一个把手下，用来核对一个把手挂得住多个目录。",
+    "en": "The native widget in the new handle's second directory: registered under the same handle as alpha."
+  },
+  "author": "dsh-widget-board-test-provider-v3",
+  "version": "0.3.0",
+  "sizes": [
+    "s"
+  ],
+  "source": "testv3.count",
+  "data": {
+    "type": "object",
+    "required": [
+      "count"
+    ],
+    "properties": {
+      "count": {
+        "type": "number"
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
  * 每次 `GET /boards`、写入之后与组卡换槽都从同一处拼出来；设置弹窗的读模型不在这里，它按需单独取
  * （D27）。
  */
-import type { WidgetManifest, WidgetSummary, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
+import type { WidgetManifest, WidgetProviderHealth, WidgetSummary, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
 import type { GrantStore } from './grants'
 import type { Live } from './live'
@@ -21,8 +21,11 @@ export type SnapshotContext = Pick<RouteContext, 'records' | 'entries'> & {
   live?: Pick<Live, 'revision'>
   /** 市场区（D8 之后的市场契约）；没有市场注册表的构建步骤（演示页）省略。 */
   market?: { sections(): MarketSection[] }
-  /** 能力注册表：给出这张卡可用的能力（D24）；演示页的构建步骤省略。 */
-  sources?: { listCapabilities(): string[] }
+  /**
+   * 能力注册表与提供方的健康记录（D24、D31）：前者给出这张卡可用的能力，后者投影成
+   * `WorkspaceSnapshot.providers`；演示页的构建步骤省略。
+   */
+  sources?: { listCapabilities(): string[], health: { snapshot(): WidgetProviderHealth[] } }
 }
 
 /**
@@ -91,6 +94,7 @@ export function workspaceSnapshot(context: SnapshotContext): WorkspaceSnapshot {
     widgets,
     library: context.entries,
     ...(context.market === undefined ? {} : { market: context.market.sections() }),
+    ...(context.sources === undefined ? {} : { providers: context.sources.health.snapshot() }),
     grants,
   }
 }

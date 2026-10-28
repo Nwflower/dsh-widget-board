@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto'
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import type { BoardInstance, MarketInstallRecord, WidgetLibraryEntry, WidgetManifest, WidgetPermissions } from '@dsh-widget-board/contracts'
 import { readBody } from './body'
-import { contentHash, manifestProblem, writeWidgetDirectory } from './library'
+import { contentHash, manifestProblem, requiresMismatch, writeWidgetDirectory } from './library'
 import type { WidgetRecord } from './library'
 import type { BoardPackageCard, BoardPackageWidget } from './package'
 import { PACKAGE_MAX_COMPRESSED_BYTES, packBoard, packWidget, unpackBoard, unpackWidget } from './package'
@@ -159,7 +159,7 @@ async function importCards(context: RouteContext, boardId: string, cards: readon
 
 /**
  * 市场安装（D8 之后的市场契约）：按提供方解析条目与版本，取包、核对哈希与大小、解包校验，
- * 检查 id 冲突后写进市场来源目录，并记录来源。
+ * 核对包内 manifest 与索引的 declares、requires，检查 id 冲突后写进市场来源目录，并记录来源。
  *
  * @param context - 路由上下文。
  * @param body - 请求体：提供方、条目 id 与版本。
@@ -199,9 +199,17 @@ async function marketInstall(context: RouteContext, body: unknown): Promise<{ id
     throw new Refusal(400, `包里的组件 id 是 ${unpacked.manifest.id}，条目声明的是 ${wanted.id}`)
   }
 
-  // 安装前摘要与包内声明要一致（D6、D24）：索引里写的权限与凭据是给人看的，包里的才是真的。
+  // 包内的 manifest 按组件库同一条规则校验（D3、D7）：市场条目是不可信输入，版本要求在写盘之前判，
+  // 不合格的包一个字节都不落进组件库。
+  const manifestIssue = manifestProblem(unpacked.manifest)
+  if (manifestIssue !== undefined) throw new Refusal(400, `包里的 widget.json：${manifestIssue}`)
+
+  // 安装前摘要与包内声明要一致（D6、D24、D30）：索引里写的权限、凭据与版本要求是给人看的，包里的
+  // 才是真的。
   const declaresProblem = declaresMismatch(summary.declares, unpacked.manifest)
   if (declaresProblem !== undefined) throw new Refusal(400, declaresProblem)
+  const requiresProblem = requiresMismatch(summary.requires, unpacked.manifest.requires)
+  if (requiresProblem !== undefined) throw new Refusal(400, `${requiresProblem}，拒绝安装`)
 
   // id 冲突：内置、我的、插件与示例来源一律拒绝；市场来源里同 id 不同包要明确的 replace。
   const replace = (wanted as { replace?: unknown }).replace === true

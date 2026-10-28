@@ -1,16 +1,112 @@
 /**
  * 设置页里的「看板」一节（D21）：列出全部看板，改名、移除与选中都在这里，标签条上只留新建。
+ * 看板列表下面是提供方的健康表（D31）：每个提供方能不能用、声明了哪些用途、累计注册与失败。
  *
  * 这一节由宿主的设置外壳挂上来，与看板页不共享内存：它自己取一次工作区，之后跟随变更通知
  * （D18）；每一次写都以宿主的答复为准（D5）。
  */
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { BoardEventFrame, SettingsSectionProps, WorkspaceSnapshot } from '@dsh-widget-board/contracts'
+import type {
+  BoardEventFrame,
+  SettingsSectionProps,
+  WidgetProviderHealth,
+  WorkspaceSnapshot,
+} from '@dsh-widget-board/contracts'
 import { t } from './copy'
 import { subscribeLive } from './live'
 import { mergeEvent, needsSnapshot } from './merge'
 import { activateBoard, fetchWorkspace, removeBoard, renameBoard } from './snapshot'
+
+/** 没有提供方时共用的空表：快照还没到时也返回它。 */
+const NO_PROVIDERS: readonly WidgetProviderHealth[] = []
+
+/**
+ * 快照里的提供方健康记录（D31）。
+ *
+ * @param snapshot - 页面上的工作区；还没读到时为 `null`。
+ * @returns 健康记录，按宿主给的次序；宿主不带 `providers` 时为空。
+ */
+export function providerHealthOf(snapshot: WorkspaceSnapshot | null): readonly WidgetProviderHealth[] {
+  if (snapshot === null) return NO_PROVIDERS
+  return snapshot.providers ?? NO_PROVIDERS
+}
+
+/**
+ * 提供方健康表：每个提供方一行，写明能不能用、声明了哪些用途、累计注册与失败。
+ *
+ * 只按传进来的行画，自己不留状态；快照换了，表跟着换。
+ *
+ * @param props - `providers`：宿主给的健康行。没有提供方时画空状态。
+ * @returns 设置页里的一张表。
+ */
+export function ProviderHealthTable({ providers }: { providers: readonly WidgetProviderHealth[] }): ReactNode {
+  return (
+    <section
+      className="dsh-widget-board__provider-health"
+      data-dsh-widget-board-provider-health=""
+      aria-label={t('providerHealth')}
+    >
+      <h3 className="dsh-widget-board__provider-health-title">{t('providerHealth')}</h3>
+      {providers.length === 0
+        ? (
+          <p
+            className="dsh-widget-board__board-settings-notice"
+            data-dsh-widget-board-provider-health-empty=""
+          >
+            {t('providerHealthEmpty')}
+          </p>
+        )
+        : (
+          <div className="dsh-widget-board__provider-health-scroll">
+            <table className="dsh-widget-board__provider-health-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('provider')}</th>
+                  <th scope="col">{t('providerState')}</th>
+                  <th scope="col">{t('providerFeatures')}</th>
+                  <th scope="col" className="dsh-widget-board__provider-health-number">{t('providerRegistrations')}</th>
+                  <th scope="col" className="dsh-widget-board__provider-health-number">{t('providerFailures')}</th>
+                  <th scope="col" className="dsh-widget-board__provider-health-number">{t('providerTimeouts')}</th>
+                  <th scope="col">{t('providerLastError')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providers.map((row) => (
+                  <tr
+                    key={row.provider}
+                    className="dsh-widget-board__provider-health-row"
+                    data-dsh-widget-board-provider={row.provider}
+                    data-available={row.available ? 'true' : 'false'}
+                  >
+                    <th scope="row" className="dsh-widget-board__provider-health-name">{row.provider}</th>
+                    <td className="dsh-widget-board__provider-health-state">
+                      {row.available ? t('providerAvailable') : t('providerUnavailable')}
+                    </td>
+                    <td>
+                      {row.features.length === 0
+                        ? <span className="dsh-widget-board__provider-health-none">{t('providerNoFeatures')}</span>
+                        : (
+                          <span className="dsh-widget-board__provider-health-features">
+                            {row.features.map((feature) => (
+                              <code key={feature} className="dsh-widget-board__provider-health-feature">{feature}</code>
+                            ))}
+                          </span>
+                        )}
+                    </td>
+                    <td className="dsh-widget-board__provider-health-number">{row.registrations}</td>
+                    <td className="dsh-widget-board__provider-health-number">{row.failures}</td>
+                    <td className="dsh-widget-board__provider-health-number">{row.timeouts}</td>
+                    <td className="dsh-widget-board__provider-health-error">{row.lastError ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </section>
+  )
+}
 
 /**
  * 看板一节。
@@ -166,6 +262,7 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
             ))}
           </ul>
         )}
+      {snapshot === null ? null : <ProviderHealthTable providers={providerHealthOf(snapshot)} />}
     </div>
   )
 }

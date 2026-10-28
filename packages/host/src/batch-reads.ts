@@ -1,14 +1,13 @@
 /**
  * 定时刷新的一批读取（D6）：同一块看板的到期卡一次写入。
  *
- * 单张卡的读取在 `routes.ts` 的 `loadData` 里；这里只负责把一批结果按看板分组、校验并合成
+ * 单张卡的读取与校验在 `instance-operations.ts` 的 `loadData` 里；这里只负责把一批结果按看板分组并合成
  * 一次 `workspace.save`，读失败的卡只影响自己。放进单独的文件，路由表不再跟着批处理变长。
  */
 import type { Board } from '@dsh-widget-board/contracts'
 import type { ReadOutcome } from './refresh'
+import { loadData } from './instance-operations'
 import type { RouteContext } from './routes'
-import { loadData } from './routes'
-import { dataError } from './schema'
 import { withInstanceData } from './state'
 
 /**
@@ -24,10 +23,8 @@ import { withInstanceData } from './state'
 export async function readManyInto(context: RouteContext, ids: readonly string[]): Promise<readonly ReadOutcome[]> {
   const loaded = await Promise.all(ids.map(async (id) => {
     try {
-      const value = await loadData(context, id)
-      const problem = dataError(context.records.get(value.instance.widget)?.manifest.data, value.data)
-      if (problem !== undefined) throw new Error(problem)
-      return { id, value }
+      // 校验在 loadData 里做过：失败的卡在这里只留下原因，提供方的失败计数也只记那一次（D31）。
+      return { id, value: await loadData(context, id) }
     } catch (error) {
       return { id, error }
     }

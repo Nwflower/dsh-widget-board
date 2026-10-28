@@ -2,12 +2,15 @@
  * 宿主能力的调用路由（D24）：组件经桥发来 `call`，宿主按注册表解析、鉴权、校验与回传。
  *
  * 这里没有按功能分支的代码：余额、回声或别的能力都走同一条路，形状由提供方注册的 schema 决定。
+ * 超时与并发由 `provider-health.ts` 的执行器管——这一层只把连接断开的中止信号传下去，不再自己计时。
  */
 import type { InstanceCallRequest } from '@dsh-widget-board/contracts'
 import { readJson } from './body'
 import { isRecord } from './guards'
+import { refusalOf } from './instance-operations'
 import { faceOf, grantFacts, locate } from './lookup'
 import { requireGrant } from './permissions'
+import { ProviderCallError } from './provider-health'
 import { Refusal } from './refusal'
 import { json } from './response'
 import type { Route, RouteContext } from './routes'
@@ -16,21 +19,29 @@ import { issuesOf } from './schema'
 /** 一次能力调用的参数上限；桥上的消息上限是 64 KB，这里对齐。 */
 export const CALL_LIMIT = 64 * 1024
 
-/** 一次能力调用的最长等待；超时后中止提供方并回一条可见的错误（D24）。 */
-export const CALL_TIMEOUT_MS = 15_000
-
-/** 注册里 `timeoutMs` 的上限：再长就与浏览器半边的 30 秒等待撞上了。 */
-export const CALL_TIMEOUT_MAX_MS = 25_000
-
 /**
- * 这次调用等多久：注册声明的时长，缺省或越界时回到默认值。
+ * 调一次能力：执行器的拒绝翻成状态码，提供方自己的异常回 502。
  *
- * @param declared - 注册里的 `timeoutMs`。
- * @returns 毫秒。
+ * @param context - 路由上下文。
+ * @param capability - 能力的名字。
+ * @param face - 发起调用的这张卡片。
+ * @param args - 已经按 input schema 校验过的参数。
+ * @param signal - 连接断开时中止提供方。
+ * @returns 能力的返回值。
  */
-function waitOf(declared: unknown): number {
-  if (typeof declared !== 'number' || !Number.isFinite(declared) || declared <= 0) return CALL_TIMEOUT_MS
-  return Math.min(CALL_TIMEOUT_MAX_MS, Math.max(1_000, Math.round(declared)))
+async function capabilityResult(
+  context: RouteContext,
+  capability: string,
+  face: ReturnType<typeof faceOf>,
+  args: unknown,
+  signal: AbortSignal,
+): Promise<unknown> {
+  try {
+    return await context.sources.callCapability(capability, face, args, signal)
+  } catch (error) {
+    if (error instanceof ProviderCallError) refusalOf(error)
+    throw new Refusal(502, `能力 ${capability} 调用失败：${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 /**
@@ -40,7 +51,7 @@ function waitOf(declared: unknown): number {
  * @param id - 卡片实例的 id。
  * @param request - 宿主的请求。
  * @returns 能力的返回值。
- * @throws {Refusal} 卡片、组件、声明、提供方、授权或参数/结果不一致。
+ * @throws {Refusal} 卡片、组件、声明、提供方、授权、参数/结果不一致，或超时与并发已满。
  */
 async function callOf(context: RouteContext, id: string, request: Parameters<Route['handle']>[1]): Promise<unknown> {
   const found = locate(context, id)
@@ -60,26 +71,16 @@ async function callOf(context: RouteContext, id: string, request: Parameters<Rou
   requireGrant(grantFacts(context, found.board), id, 'capability', wanted.capability, resolved.registration.permission, resolved.provider)
   const inputIssues = issuesOf(resolved.registration.input, wanted.args)
   if (inputIssues !== undefined) {
+    // 参数是调用方写错的，提供方根本没有被调用：这一条不计提供方的失败（D31）。
     throw new Refusal(400, `调用 ${wanted.capability} 的参数与 input schema 不符`, { issues: inputIssues })
   }
   const controller = new AbortController()
-  const onAborted = (): void => { controller.abort() }
-  request.on?.('aborted', onAborted)
-  const timer = setTimeout(() => { controller.abort() }, waitOf(resolved.registration.timeoutMs))
-  let result: unknown
-  try {
-    result = await context.sources.callCapability(wanted.capability, face, wanted.args, controller.signal)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    throw new Refusal(
-      controller.signal.aborted ? 504 : 502,
-      controller.signal.aborted ? `调用 ${wanted.capability} 超时或被取消` : `能力 ${wanted.capability} 调用失败：${message}`,
-    )
-  } finally {
-    clearTimeout(timer)
-  }
+  request.on?.('aborted', () => { controller.abort() })
+  const result = await capabilityResult(context, wanted.capability, face, wanted.args, controller.signal)
   const outputIssues = issuesOf(resolved.registration.output, result)
   if (outputIssues !== undefined) {
+    // 提供方跑完了但交出来的东西不合 schema：这是它的一次失败，记一次，不再叠加（D31）。
+    context.sources.health.failed(resolved.provider, 'provider-output', `能力 ${wanted.capability} 的结果与 output schema 不符`)
     throw new Refusal(502, `能力 ${wanted.capability} 的结果与 output schema 不符`, { issues: outputIssues })
   }
   return result ?? null

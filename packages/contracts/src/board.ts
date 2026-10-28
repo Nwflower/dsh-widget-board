@@ -5,7 +5,7 @@
  */
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
-import type { ActionPermission, MarketListing } from './service'
+import type { ActionPermission, MarketListing, WidgetBoardFeature } from './service'
 
 /**
  * 一张卡片在看板上的位置与尺寸。
@@ -110,6 +110,29 @@ export interface WidgetSummary {
   settings?: boolean
 }
 
+/**
+ * 一个提供方的健康记录（D31）：设置页据此看出谁在失败、谁还在。
+ *
+ * 失败与超时按提供方分开计数，一个提供方出错不影响别的提供方；看板上已经有失败显示的卡片照旧按
+ * 那张卡的故障画，不因为这里多了一条记录而改变。
+ */
+export interface WidgetProviderHealth {
+  /** 提供方的包名。 */
+  provider: string
+  /** 这次注册声明的功能（D31）；旧入口与内置提供方没有声明时是空数组。 */
+  features: readonly WidgetBoardFeature[]
+  /** 累计成功的注册数：组件目录、数据源、动作、能力与市场各算一项。 */
+  registrations: number
+  /** 累计失败的次数，含提供方抛出的异常与不合格的结果。 */
+  failures: number
+  /** 累计超时的次数。 */
+  timeouts: number
+  /** 现在有没有活着的注册：全部撤下之后为假，重新注册恢复；计数不清零。 */
+  available: boolean
+  /** 最近一次失败或超时，形如 `provider-timeout：数据源 weather.now 在 15000 毫秒内没有答完`。 */
+  lastError?: string
+}
+
 /** `GET /boards` 的响应：整个工作区。 */
 export interface WorkspaceSnapshot {
   /**
@@ -132,6 +155,11 @@ export interface WorkspaceSnapshot {
    * 没有市场提供方时是空数组，界面画固定的空状态。
    */
   market?: MarketSectionSnapshot[]
+  /**
+   * 每个提供方一份的健康记录（D31）：注册数、失败与超时。没有提供方注册表的构建步骤（演示页）
+   * 省略这一项。
+   */
+  providers?: WidgetProviderHealth[]
   /** 看板上的卡片拿到过的授权（D6）；界面据此决定要不要问人。 */
   grants: Grant[]
 }

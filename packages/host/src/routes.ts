@@ -4,7 +4,7 @@
  * 每条请求先过宿主的请求栅栏；宿主没有这项服务时只放行本机回环来的请求，判定以对端地址为准。
  * 路由写成一张表：方法、路径、请求体上限与处理器各写一次，404、405 与 413 由表本身给出，处理器
  * 只管自己那一件事。状态码按原因分开：没有这张卡或这块看板是 404，请求形状不对是 400，布局修订号
- * 过期是 409，组件库与数据源的拒绝是 400 并写明原因。
+ * 过期是 409，组件库与数据源的拒绝是 400 并写明原因，提供方超时是 504、执行槽占满 429（D31）。
  *
  * 动作的对象是一块看板时，看板 id 写在路径里；对象是一张卡片或一组卡片时按它们自己的 id 找，卡片
  * 与组的 id 全工作区唯一（D21）。
@@ -14,7 +14,6 @@ import type {
   Board,
   BoardCreateRequest,
   BoardEvent,
-  BoardInstance,
   BoardLayoutRequest,
   BoardRenameRequest,
   CardLayout,
@@ -29,7 +28,6 @@ import type {
   InstanceAddRequest,
   InstanceActionRequest,
   InstanceDataRequest,
-  InstanceFace,
   InstanceStateRequest,
   WidgetLibraryEntry,
   WidgetRoot,
@@ -41,13 +39,13 @@ import { groupRoutes } from './groups'
 import { capabilityRoutes } from './capabilities'
 import type { GrantStore } from './grants'
 import { isRecord } from './guards'
-import { requireGrant } from './permissions'
-import { faceOf, grantFacts, locate } from './lookup'
+import { readInto, runAction, saveData } from './instance-operations'
+import { locate } from './lookup'
 import type { RequestLog } from './request-log'
 import type { Live } from './live'
 import type { LibraryLoad, WidgetRecord } from './library'
 import { json } from './response'
-import { dataError, propsError } from './schema'
+import { propsError } from './schema'
 import { settingsRoutes } from './settings'
 import { workspaceSnapshot } from './snapshot'
 import type { Registries } from './sources'
@@ -57,7 +55,7 @@ import { Refusal } from './refusal'
 import { shareRoutes } from './share'
 import type { SelfChecks } from './selfcheck'
 import { selfCheckRoutes } from './selfcheck'
-import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
+import { StaleRevisionError, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceRemoved, withInstanceStateChecked } from './state'
 import type { RateLimiter } from './limits'
 import type { MarketRegistry } from './market'
 import { visibilityRoutes } from './visibility'
@@ -153,6 +151,18 @@ function rejectionOf(request: HostRequest, connection: HostConnection | undefine
 }
 
 /**
+ * 一条请求被取消时让提供方也停下（D6、D31）：连接断开之后不该继续读下去。
+ *
+ * @param request - 宿主的请求；测试替身可以没有 `on`。
+ * @returns 中止信号。
+ */
+function abortSignalOf(request: HostRequest): AbortSignal {
+  const controller = new AbortController()
+  request.on?.('aborted', () => { controller.abort() })
+  return controller.signal
+}
+
+/**
  * 从写好的看板里取回这次提交的卡片盒子：宿主抬过下限之后，推给其他页面的是真正存下的那一份。
  *
  * @param board - 写入后的看板。
@@ -192,23 +202,6 @@ function isBoardLayoutRequest(value: unknown): value is BoardLayoutRequest {
 function boardById(context: RouteContext, id: string): Board {
   if (!context.workspace.has(id)) throw new Refusal(404, `没有这块看板：${id}`)
   return context.workspace.board(id)
-}
-
-/**
- * 把一份数据写进卡片：先按组件的 data schema 核对，再交给唯一的写入者（D6、D17）。
- *
- * @param context - 路由上下文。
- * @param id - 卡片实例的 id。
- * @param data - 数据源读出来或推给卡片的数据。
- * @throws {Refusal} 看板上没有这张卡，或数据与 schema 不符。
- */
-async function saveData(context: RouteContext, id: string, data: unknown): Promise<void> {
-  const { board, instance } = locate(context, id)
-  const problem = dataError(context.records.get(instance.widget)?.manifest.data, data)
-  if (problem !== undefined) throw new Refusal(400, problem)
-  await context.workspace.save(board.id, (current) => withInstanceData(current, id, data), {
-    event: () => ({ type: 'instance', id, data }),
-  })
 }
 
 /** 一条路由：方法、路径、请求体上限与处理器。 */
@@ -348,17 +341,11 @@ const ROUTES: Route[] = [
         event: () => ({ type: 'board' }),
       })
       // 组件默认的数据源不在时卡片照样留着，数据留空：提供方可能只是还没装好（D17）。
-      const resolved = source === undefined ? undefined : context.sources.resolveDataSource(source)
-      if (source !== undefined && resolved !== undefined) {
-        // 写入之后重新取那一块看板：新卡片是这次写入加进去的，先前读到的那一份里没有它。
-        const board = context.workspace.board(boardId)
-        const instance = faceOf(board, id)
+      if (source !== undefined && context.sources.resolveDataSource(source) !== undefined) {
         try {
-          // 第一次读也要过授权，和 /read 走同一条规则：没人在卡片上给出「允许」之前不能跑（D6）。
-          // 缺授权也算读失败的一种：卡片照加、数据留空，用户在卡片上给出「允许」之后再读就有数据了。
-          requireGrant(grantFacts(context, board), id, 'source', source, resolved.registration.permission, resolved.provider)
-          const data = await context.sources.readSource(source, instance)
-          await saveData(context, id, data)
+          // 写入之后第一次读走和 /read 同一条路径：授权、超时与并发都只有一处（D6）。
+          // 缺授权、超时与提供方失败都算读不出来：卡片照加、数据留空，用户在卡片上给出「允许」之后再读就有数据了。
+          await readInto(context, id, source)
         } catch (error) {
           console.error(`widget-board: 新卡片 ${id} 第一次读 ${source} 失败：${error instanceof Error ? error.message : String(error)}`)
         }
@@ -464,18 +451,10 @@ const ROUTES: Route[] = [
     limit: DATA_LIMIT,
     async handle(context, request, response, match) {
       const id = decodeURIComponent(match[1] as string)
-      const found = locate(context, id)
-      const face = faceOf(found.board, id)
       const body = await readJson(request, DATA_LIMIT)
       if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '动作要写明 id')
       const wanted = body as unknown as InstanceActionRequest
-      const declared = context.records.get(face.widget)?.manifest.actions?.some((action) => action.id === wanted.id) === true
-      if (!declared) throw new Refusal(400, `组件没有声明动作 ${wanted.id}`)
-      const resolved = context.sources.resolveAction(wanted.id)
-      if (resolved === undefined) throw new Refusal(400, `没有动作 ${wanted.id}，提供它的插件可能没有安装`)
-      requireGrant(grantFacts(context, found.board), id, 'action', wanted.id, resolved.registration.permission, resolved.provider)
-      // 动作的失败原因原样回给卡片：组件把它显示出来，用户不必去翻日志（D11）。
-      const result = await context.sources.runAction(wanted.id, face, wanted.payload)
+      const result = await runAction(context, id, wanted.id, wanted.payload, abortSignalOf(request))
       json(response, 200, { ok: true, result: result ?? null })
     },
   },
@@ -487,7 +466,7 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const body = await readJson(request, EMPTY_LIMIT)
       const asked = isRecord(body) && typeof body.source === 'string' ? body.source : undefined
-      const data = await readInto(context, id, asked)
+      const data = await readInto(context, id, asked, abortSignalOf(request))
       json(response, 200, { ok: true, data: data ?? null })
     },
   },
@@ -597,45 +576,6 @@ function recordOfCard(context: RouteContext, id: string): WidgetRecord {
   const record = context.records.get(locate(context, id).instance.widget)
   if (record === undefined) throw new Refusal(400, '这张卡的组件不在组件库里，先把它装回来')
   return record
-}
-
-/**
- * 读一张卡的数据，不写进看板：读、校验与写入分开，批量读取才能把同一块看板的几次写合成一次（D6）。
- *
- * @param context - 路由上下文。
- * @param id - 卡片实例的 id。
- * @param source - 数据源的名字；省略时用卡片绑定的那个。
- * @returns 那张卡、它所在的看板与读出来的数据。
- * @throws {Refusal} 看板上没有这张卡、这张卡没有数据源、数据源不在、或没有授权。
- */
-export async function loadData(context: RouteContext, id: string, source?: string): Promise<{ board: Board, instance: BoardInstance, data: unknown }> {
-  const { board, instance } = locate(context, id)
-  const face = faceOf(board, id)
-  const asked = source ?? instance.source
-  if (asked === undefined || asked === '') throw new Refusal(400, `这张卡没有数据源：${id}`)
-  const resolved = context.sources.resolveDataSource(asked)
-  if (resolved === undefined) throw new Refusal(400, `没有数据源 ${asked}，提供它的插件可能没有安装`)
-  requireGrant(grantFacts(context, board), id, 'source', asked, resolved.registration.permission, resolved.provider)
-  const data = await context.sources.readSource(asked, face)
-  return { board, instance, data }
-}
-
-/**
- * 让一张卡按绑定的数据源读一次，把数据写进卡片（D6、D17）。
- *
- * 手动读与工具读走这一条；定时刷新共用同一段读取与校验，再把同一块看板的结果合成一次写入
- * （`batch-reads.ts`）。
- *
- * @param context - 路由上下文。
- * @param id - 卡片实例的 id。
- * @param source - 数据源的名字；省略时用卡片绑定的那个。
- * @returns 读回来的数据。
- * @throws {Refusal} 看板上没有这张卡、这张卡没有数据源、数据源不在、或没有授权。
- */
-export async function readInto(context: RouteContext, id: string, source?: string): Promise<unknown> {
-  const { data } = await loadData(context, id, source)
-  await saveData(context, id, data)
-  return data
 }
 
 /**

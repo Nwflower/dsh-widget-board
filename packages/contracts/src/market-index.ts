@@ -5,6 +5,7 @@
  * schema。包本身的地址与哈希写在每个版本里；`declares` 只是安装前给人看的摘要，安装时以包内
  * manifest 的实际声明为准。
  */
+import type { WidgetRequires } from './widget'
 
 /** 索引的格式版本；字段只增不减，删除字段要按组件格式的迁移规则走（D7）。 */
 export const MARKET_INDEX_FORMAT = 1
@@ -29,12 +30,17 @@ export interface MarketIndexEntry {
   versions: MarketIndexVersion[]
 }
 
-/** 索引里的一个版本：分发说明与依赖声明。 */
+/**
+ * 索引里的一个版本：分发说明与依赖声明。
+ *
+ * `requires` 与包内 manifest 的同名字段是同一份形状（D30）：安装时两边要对得上，索引里写着的版本
+ * 要求不能比包里声明的更少。
+ */
 export interface MarketIndexVersion {
   version: string
   package: { url: string, sha256: string, bytes: number }
   sizes: string[]
-  requires?: { serviceApiVersion?: number, dsh?: string }
+  requires?: WidgetRequires
   declares?: { capabilities?: string[], credentials?: string[], hosts?: string[] }
   changelog?: string
   publishedAt?: string

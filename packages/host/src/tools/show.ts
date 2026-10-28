@@ -139,7 +139,11 @@ export function showTool(context: ToolContext): WidgetToolSpec {
         const face = { id: 'inline', widget: record.manifest.id, props: (wanted.props ?? {}) as Record<string, unknown> }
         data = await context.readSource(source, face)
         const problem = context.dataError(record.manifest.data, data)
-        if (problem !== undefined) throw new ToolRefusal(`数据源 ${source} 返回的数据与 ${record.manifest.id} 的 data schema 不符：${problem}`)
+        if (problem !== undefined) {
+          // 提供方跑完了但交出来的东西不合 schema：这是它的一次失败，只在这一处记（D31）。
+          context.route.sources.health.failed(resolved.provider, 'provider-output', `数据源 ${source} 的数据与组件的 data schema 不符：${problem}`)
+          throw new ToolRefusal(`数据源 ${source} 返回的数据与 ${record.manifest.id} 的 data schema 不符：${problem}`)
+        }
       }
       const instance = snapshotOf(record, (wanted.props ?? {}) as Record<string, unknown>, data, source)
       return {

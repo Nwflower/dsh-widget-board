@@ -16,7 +16,6 @@
 | [D9](D9-session-tools.md) | 面向会话的工具与自检 | — |
 | [D10](D10-tokens-and-motion.md) | 令牌与动效 | — |
 | [D11](D11-fail-fast.md) | 快速失败与可见故障 | — |
-| [D12](D12-extension-contract.md) | 对其他插件的扩展契约 | — |
 | [D13](D13-testing.md) | 测试分层与共用检查器 | — |
 | [D14](D14-documentation.md) | 文档分层 | — |
 | [D16](D16-card-grid.md) | 卡片盒子的自由布局 | D15、D4 |
@@ -33,7 +32,8 @@
 | [D28](D28-widget-requests.md) | 组件对外的请求由宿主代发 | — |
 | [D29](D29-browser-capabilities.md) | 落在浏览器里的能力与整页转场 | — |
 | [D30](D30-market.md) | 组件市场：索引、分发、信任与接入点 | — |
+| [D31](D31-provider-contract-v3.md) | 提供方契约：两侧把手、作者域与执行上限 | D12 |
 
 ## 作废的编号
 
-D4（由 D16 取代）、D15（由 D16 取代）、D22（由 D27 取代）。
+D4（由 D16 取代）、D12（由 D31 取代）、D15（由 D16 取代）、D22（由 D27 取代）。

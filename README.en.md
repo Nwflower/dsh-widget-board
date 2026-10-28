@@ -32,7 +32,7 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 | Plus menu | Add, tidy, refresh; Add opens the library as a full-height panel that rises from the bottom |
 | Card gear | Change the widget's props, fill in credentials, review and grant data sources and permissions |
 | Session tools | The agent lists, writes, places widgets and pushes data; `widget_show` draws one in the answer. Only `widget_catalog` starts out visible; the rest appear after being named in its `expose` field |
-| `widgetBoard` service | Other plugins register widgets, data sources, actions and host capabilities |
+| `widgetBoard` service | Other plugins register widgets, data sources, actions, host capabilities and markets |
 
 <hr>
 
@@ -96,16 +96,28 @@ A widget cannot navigate or open popups itself. To send a link out, call `widget
 
 ## For plugin providers
 
-The host half publishes the cordis service `widgetBoard` (`WIDGET_BOARD_API_VERSION = 3`):
+The host half and the browser half each publish the cordis service `widgetBoard`. Both report a version and a feature list: `service.apiVersion` is the major version, `service.supportedApiVersions` is what the older entry points accept (2 and 3), and `service.features` with `service.supports(name)` says whether this side has a given feature.
 
-| Method | What it does |
+A new provider calls `registerProvider({ apiVersion: 3, provider, features })` and gets a handle; widget directories, data sources, actions, capabilities and the market all hang off it:
+
+| Host-side handle | What it does |
 |---|---|
-| `registerWidgetType` | Registers a widget directory; returns a handle with `provider`, `widgets`, `register` and `dispose` |
-| `registerDataSource` | Registers a data source a card binds to |
-| `registerAction` | Registers an action |
-| `registerCapability` | Registers a host capability a widget calls with `widget.call` |
+| `registerWidgets({ directory })` | Mounts a widget directory and reads it once |
+| `registerDataSource()` | Mounts a data source a card binds to |
+| `registerAction()` | Mounts an action |
+| `registerCapability()` | Mounts a host capability a widget calls with `widget.call` |
+| `registerMarketProvider()` | Mounts a market and its listing and package functions |
+| `dispose()` | Withdraws every registration this provider left behind, in one call |
 
-The browser half publishes the same service; `registerWidgetType({ apiVersion, provider, id, component })` registers a React component that renders a library widget of the same id. Read the version from `service.apiVersion`.
+The browser-side handle carries `registerNativeWidget({ id, component })`, which registers a React component that renders a library widget of the same id. Child registrations omit the version and the provider name: the handle supplies both.
+
+Existing providers keep using `registerWidgetType`, `registerDataSource`, `registerAction`, `registerCapability` and `registerMarketProvider`, passing version 2 or 3. One provider name has one active handle per side, the two kinds of entry point cannot be mixed, and a provider can register again after `dispose`.
+
+`features` declares intended use and does not change what the side provides: `capabilityMetadata`, `eventData`, `marketProvider` and `pushData` are answered per side, and a missing one degrades that feature alone.
+
+Widget directories mounted by the new handle, market widgets and native components use ids of the form `<author>.<name>`; local widgets and the older entry points keep flat ids, and widgets already installed are not renamed.
+
+A read, an action or a capability call waits at most 15 seconds (a capability may declare 1 to 25 seconds), each provider runs 8 calls at a time, and a full set of slots fails at once instead of queueing. The host records registrations, failures, timeouts and current availability per provider, the board section of the settings page lists that table, and a card shows the reason for its own failure.
 
 Across packages, take the type:
 
@@ -113,7 +125,9 @@ Across packages, take the type:
 import type { WidgetBoardClientService } from 'dsh-widget-board/service'
 ```
 
-Runtime goes through the service: no value import of this plugin, no `dsh.client.external`. When a provider is disabled or unloaded, its widgets, data sources, actions, capabilities and grants are withdrawn; its cards stay and show unavailable.
+`dsh-widget-board/provider` is a value-only SDK that builds and validates registration arguments. Runtime goes through the service: no value import of this plugin, no `dsh.client.external`. When a provider is disabled or unloaded, its widgets, data sources, actions, capabilities, market and grants are withdrawn; its cards stay and show unavailable, and come back with the provider.
+
+The full rules are in [docs/provider.md](docs/provider.md).
 
 <hr>
 

@@ -1,5 +1,6 @@
 export * from './board'
 export * from './bridge'
+export * from './compatibility'
 export * from './events'
 export * from './host'
 export * from './inspect'

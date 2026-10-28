@@ -64,16 +64,20 @@ describe('.dshw', () => {
   })
 })
 
-describe('.dshboard', () => {
-  /** 一个看板包用的组件版本。 */
-  function widget(): { hash: string, manifest: WidgetManifest, files: Record<string, string> } {
-    return {
-      hash: 'a'.repeat(64),
-      manifest: { id: 'demo', title: { zh: '演示', en: 'Demo' }, version: '0.1.0', sizes: ['s'] },
-      files: { 'widget.json': 'e30=', 'index.html': 'PGgxPkhlbGxvPC9oMT4=' },
-    }
+/** 一个看板包用的组件版本；`id` 省略时是扁平 id 的样例。 */
+function widget(id = 'demo'): { hash: string, manifest: WidgetManifest, files: Record<string, string> } {
+  const manifest: WidgetManifest = { id, title: { zh: '演示', en: 'Demo' }, version: '0.1.0', sizes: ['s'] }
+  return {
+    hash: 'a'.repeat(64),
+    manifest,
+    files: {
+      'widget.json': Buffer.from(JSON.stringify(manifest)).toString('base64'),
+      'index.html': 'PGgxPkhlbGxvPC9oMT4=',
+    },
   }
+}
 
+describe('.dshboard', () => {
   it('打出来再解开，卡片与组件版本都还在', () => {
     const bytes = packBoard('我的看板', [{ widget: 'demo', props: { n: 1 }, layout: { x: 0, y: 0, w: 2, h: 14 } }], [widget()])
     const back = unpackBoard(bytes)
@@ -103,5 +107,26 @@ describe('.dshboard', () => {
 
   it('不是 JSON 时拒绝并说明', () => {
     expect(() => unpackBoard(strToU8('不是一个包'))).toThrow(/不是有效的看板包/)
+  })
+})
+
+/**
+ * 作者域 id（D8、D30）：市场来源的组件 id 带作者域，本地组件是扁平 id。看板包按原样带走这两个字符串，
+ * 导入时卡片才找得到对应的组件版本。
+ */
+describe('.dshboard 里的组件 id', () => {
+  it('卡片与内嵌的 manifest 都保留原 id：带作者域的不拆开，旧的扁平 id 不改名', () => {
+    const bytes = packBoard('看板', [
+      { widget: 'nwflower.clock', props: {}, layout: { x: 0, y: 0, w: 1, h: 22 } },
+      { widget: 'demo', props: {}, layout: { x: 1, y: 0, w: 1, h: 22 } },
+    ], [widget('nwflower.clock'), widget()])
+    const back = unpackBoard(bytes)
+    expect(back.cards.map((card) => card.widget)).toEqual(['nwflower.clock', 'demo'])
+    expect(back.widgets.map((entry) => entry.manifest.id)).toEqual(['nwflower.clock', 'demo'])
+    // 内嵌的 widget.json 写的也是同一个字符串：导入之后生效的是它。
+    for (const entry of back.widgets) {
+      const manifest = JSON.parse(Buffer.from(entry.files['widget.json'] ?? '', 'base64').toString('utf8')) as WidgetManifest
+      expect(manifest.id).toBe(entry.manifest.id)
+    }
   })
 })

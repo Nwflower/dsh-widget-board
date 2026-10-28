@@ -10,8 +10,9 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import Ajv from 'ajv'
-import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRoot } from '@dsh-widget-board/contracts'
-import { WIDGET_MANIFEST_SCHEMA, WIDGET_SOURCES } from '@dsh-widget-board/contracts'
+import { validRange } from 'semver'
+import type { WidgetLibraryEntry, WidgetLibraryError, WidgetManifest, WidgetRequires, WidgetRoot } from '@dsh-widget-board/contracts'
+import { WIDGET_MANIFEST_SCHEMA, WIDGET_SOURCES, isAuthorNamespacedWidgetId, serviceVersionProblem } from '@dsh-widget-board/contracts'
 import { isRecord } from './guards'
 
 /** 一个可用的组件版本：manifest、来源、目录、内容哈希与目录里的全部文件。 */
@@ -78,9 +79,9 @@ export function contentHash(files: Map<string, Buffer>): string {
 }
 
 /**
- * 一份 manifest 的问题（D7、D27）：schema 校验与凭据引用的唯一性。
+ * 一份 manifest 的问题（D7、D27、D30）：schema 校验、凭据引用的唯一性与版本要求。
  *
- * 读组件库与 `widget_define` 共用这一条，免得两处对同一份 manifest 给出不同的判定。
+ * 读组件库、`widget_define` 与市场安装共用这一条，免得几处对同一份 manifest 给出不同的判定。
  *
  * @param value - 解出来的 widget.json。
  * @returns 不合格时的原因，合格时为 `undefined`。
@@ -95,7 +96,58 @@ export function manifestProblem(value: unknown): string | undefined {
   const refs = manifest.credentials?.map((credential) => credential.ref) ?? []
   const duplicate = refs.find((ref, index) => refs.indexOf(ref) !== index)
   if (duplicate !== undefined) return `manifest 不合格：凭据 ${duplicate} 重复声明`
+  const requires = requirementsProblem(manifest.requires)
+  if (requires !== undefined) return `manifest 不合格：${requires}`
   return undefined
+}
+
+/**
+ * 一份 `requires` 的问题（D7、D30）：服务版本这一侧不接受，或 DSH 范围不是一条合法的 semver 范围。
+ *
+ * DSH 这一项只判范围写得对不对，不拿它和某个「当前版本」比较：宿主的版本由宿主自己报，这里不替它编
+ * 一个数出来。
+ *
+ * @param requires - 要判定的版本要求；省略表示不要求。
+ * @param label - 报错时指哪一份字段。
+ * @returns 有问题时的原因；通过时为 `undefined`。
+ */
+export function requirementsProblem(requires: WidgetRequires | undefined, label = 'requires'): string | undefined {
+  if (requires === undefined) return undefined
+  const service = serviceVersionProblem(requires.serviceApiVersion)
+  if (service !== undefined) return `${label}：${service}`
+  if (requires.dsh !== undefined && validRange(requires.dsh) === null) {
+    return `${label}.dsh 不是一条合法的 semver 范围：${requires.dsh}`
+  }
+  return undefined
+}
+
+/**
+ * 一份 `requires` 的读法，报错时用。
+ *
+ * @param requires - 版本要求。
+ * @returns 一段话，如 `服务版本 3、DSH >=0.2.1-rc.1`。
+ */
+function describeRequires(requires: WidgetRequires | undefined): string {
+  if (requires === undefined) return '未声明'
+  const parts: string[] = []
+  if (requires.serviceApiVersion !== undefined) parts.push(`服务版本 ${String(requires.serviceApiVersion)}`)
+  if (requires.dsh !== undefined) parts.push(`DSH ${requires.dsh}`)
+  return parts.length === 0 ? '声明为空' : parts.join('、')
+}
+
+/**
+ * 索引声明的 `requires` 与包内 manifest 的对不对得上（D30）。
+ *
+ * 两边都省略时算一致；一边写了、一边没写算不一致——安装之后生效的是包里那一份，索引里写的必须与它
+ * 相同，否则索引能把一个装不上的版本说得像装得上。
+ *
+ * @param declared - 索引里的声明。
+ * @param actual - 包内 manifest 的声明。
+ * @returns 不一致时的原因；一致时为 `undefined`。
+ */
+export function requiresMismatch(declared: WidgetRequires | undefined, actual: WidgetRequires | undefined): string | undefined {
+  if (declared?.serviceApiVersion === actual?.serviceApiVersion && declared?.dsh === actual?.dsh) return undefined
+  return `索引声明的 requires（${describeRequires(declared)}）与包内 manifest 的（${describeRequires(actual)}）不一致`
 }
 
 /**
@@ -106,17 +158,22 @@ export function manifestProblem(value: unknown): string | undefined {
  * @returns 校验通过的组件记录。
  * @throws {Error} manifest 缺失或不合法，或缺少必需的标记文件。
  */
-export async function readWidget(dir: string, root: Pick<WidgetRoot, 'source' | 'provider'>): Promise<WidgetRecord> {
+export async function readWidget(dir: string, root: Pick<WidgetRoot, 'source' | 'provider' | 'authorDomain'>): Promise<WidgetRecord> {
   const files = await readTree(dir)
   const manifestFile = files.get('widget.json')
   if (manifestFile === undefined) throw new Error(`${dir} 里没有 widget.json（D7）`)
   const manifest = JSON.parse(manifestFile.toString('utf8')) as WidgetManifest
   const problem = manifestProblem(manifest)
   if (problem !== undefined) throw new Error(`${dir}/widget.json：${problem}`)
-  // 带作者域的 id 只属于市场来源（D8）：本地的用户、插件与内置目录用一个带点的 id 会抢在市场
-  // 前面占用同一个名字，安装与升级都会绕不开它。
-  if (root.source !== 'market' && manifest.id.includes('.')) {
-    throw new Error(`${dir}/widget.json：带作者域的 id ${manifest.id} 只用于市场来源，${root.source} 来源请用扁平 id（D8）`)
+  // 市场来源与插件新把手注册的目录都要求每个 id 是 <作者域>.<名字>，由来源上的 authorDomain 声明
+  // （D8、D17）。其余来源只认扁平 id——一个带点的 id 会抢在市场前面占住同一个名字，安装与升级都
+  // 绕不开它。
+  if (root.authorDomain === true) {
+    if (!isAuthorNamespacedWidgetId(manifest.id)) {
+      throw new Error(`${dir}/widget.json：带作者域的来源要求 id 形如 <作者域>.<名字>，${manifest.id} 不符合（D8）`)
+    }
+  } else if (manifest.id.includes('.')) {
+    throw new Error(`${dir}/widget.json：带作者域的 id ${manifest.id} 只用于带作者域的来源，${root.source} 来源请用扁平 id（D8）`)
   }
   for (const required of ['index.html', 'style.css']) {
     if (!files.has(required)) throw new Error(`${dir} 缺少 ${required}（D7）`)

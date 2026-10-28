@@ -5,7 +5,7 @@
  * 它不在 `./service` 的类型入口上——那里只有类型；提供方不需要它，市场实现按 `MarketListing`
  * 的类型自己产出条目。
  */
-import { LOCALIZED_TEXT_SCHEMA } from './widget'
+import { LOCALIZED_TEXT_SCHEMA, WIDGET_NAMESPACED_ID_PATTERN, WIDGET_REQUIRES_SCHEMA } from './widget'
 
 /** 校验市场条目用的 JSON Schema；与 `service-types.ts` 的 `MarketListing` 一一对应。 */
 export const MARKET_LISTING_SCHEMA = {
@@ -14,7 +14,8 @@ export const MARKET_LISTING_SCHEMA = {
   additionalProperties: false,
   required: ['id', 'title', 'author', 'versions'],
   properties: {
-    id: { type: 'string', pattern: '^[a-z][a-z0-9-]{0,39}\\.[a-z][a-z0-9-]{1,39}$' },
+    // 与市场来源的 manifest 与浏览器侧新把手同一条作者域规则（D8、D30），不再各写一份。
+    id: { type: 'string', pattern: WIDGET_NAMESPACED_ID_PATTERN },
     title: { $ref: '#/$defs/text' },
     description: { $ref: '#/$defs/text' },
     author: {
@@ -38,14 +39,8 @@ export const MARKET_LISTING_SCHEMA = {
         properties: {
           version: { type: 'string', pattern: '^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$' },
           sizes: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string', minLength: 1 } },
-          requires: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              serviceApiVersion: { type: 'integer', minimum: 1 },
-              dsh: { type: 'string', maxLength: 80 },
-            },
-          },
+          // 与 manifest 的 requires 同一个 schema（D30）：版本要求只有一种写法。
+          requires: WIDGET_REQUIRES_SCHEMA,
           declares: {
             type: 'object',
             additionalProperties: false,

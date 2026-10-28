@@ -9,7 +9,7 @@
       "zh": "看板的组件市场原型：索引、包与浏览页都放在 GitHub Pages 的 market/ 子路径下。",
       "en": "Prototype widget market: the index, packages and browse page live under market/ on GitHub Pages."
     },
-    "updatedAt": "2026-10-27T13:50:12.329Z"
+    "updatedAt": "2026-10-28T06:35:10.785Z"
   },
   "widgets": [
     {
@@ -37,8 +37,8 @@
           "version": "1.0.0",
           "package": {
             "url": "packages/nwflower.example-basic-1.0.0.dshw",
-            "sha256": "e5b1a29cb2ca1fc0769942cec5d14cfb583ad0b6e1aa2141ebb7037322736029",
-            "bytes": 1075
+            "sha256": "e8ad91bb394242686a0213869cac106740d2caa7bb4e7c64a56e9cff7623cd53",
+            "bytes": 1116
           },
           "sizes": [
             "s",
@@ -76,8 +76,8 @@
           "version": "1.0.0",
           "package": {
             "url": "packages/nwflower.clock-1.0.0.dshw",
-            "sha256": "7dfa8da1041dc6b643551852d71737632c8bce53ea9f6918e7c13dc58cca2a42",
-            "bytes": 5603
+            "sha256": "2253734f09f1f2749b9a367c889f2b05d92ad6ed53d22bd59c788667496ab3f7",
+            "bytes": 5644
           },
           "sizes": [
             "s",

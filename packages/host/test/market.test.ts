@@ -147,7 +147,7 @@ describe('市场安装的包核对', () => {
     const unpacked = unpackWidget(bytes)
     expect(unpacked.manifest.id).toBe('nwflower.example-basic')
     await writeWidgetDirectory(join(dir, 'nwflower.example-basic'), unpacked.files)
-    const record = await readWidget(join(dir, 'nwflower.example-basic'), { source: 'market' })
+    const record = await readWidget(join(dir, 'nwflower.example-basic'), { source: 'market', authorDomain: true })
     expect(record.manifest.id).toBe('nwflower.example-basic')
     expect(record.source).toBe('market')
     expect(record.manifest.sizes.length).toBeGreaterThan(0)

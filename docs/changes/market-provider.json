@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 4,
+  "external": true,
+  "at": "2026-10-27",
+  "zh": "组件市场：宿主服务新增 `registerMarketProvider`，插件实现 `list()` 与 `fetch()` 交出远端条目与包；安装走 `POST /library/market/install`，依次核对大小与 sha256、解包校验、包内 id 与条目一致、索引声明与包内声明一致，再检查来源冲突后写进市场来源目录并记录来源。市场条目的 id 必须带作者域（`<作者域>.<名字>`），本地组件继续用扁平 id；已有本地组件同名时拒绝安装并说明来源。提供方读取有 15 秒超时、最多 256 条，失败只影响市场区。",
+  "en": "Widget market: the host service gains registerMarketProvider, where a plugin supplies remote listings and packages through list() and fetch(). Installation goes through POST /library/market/install, which checks size and sha256, unpacks and validates, matches the package id against the listing, verifies the index declarations against the package, then checks source conflicts before writing into the market source directory and recording provenance. Market listing ids carry an author domain (<author>.<name>) while local widgets keep flat ids; a local widget with the same id blocks installation with a visible reason. Provider reads time out after 15 seconds and cap at 256 entries, and failures are confined to the market section."
+}

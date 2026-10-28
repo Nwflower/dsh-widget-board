@@ -14,6 +14,7 @@
     "host": "node packages/testing/dsh-web.cjs",
     "demo": "node scripts/demo.mjs",
     "demo:check": "node packages/testing/demo.cjs",
+    "market": "node scripts/market.mjs --build",
     "lint": "node scripts/lint.mjs",
     "test": "vitest run",
     "smoke": "node packages/testing/smoke.cjs",

@@ -110,7 +110,7 @@ async function composerPass(page, check) {
   await openComposerFromMenu(page)
   check('菜单里的创建卡片打开创建器', await page.locator('[data-dsh-widget-board-composer]').count() === 1)
   const templates = await page.locator('[data-dsh-widget-board-template]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-dsh-widget-board-template')))
-  check('创建器列出可用模板', templates.join(',') === 'text,todo,links,countdown,image,advanced', templates.join(','))
+  check('创建器列出可用模板', templates.join(',') === 'text,todo,links,countdown,image,campus,advanced', templates.join(','))
 
   // C02：文本笔记 —— 标题与正文，提交之后卡片带着这两项内容出现。
   const before = (await cardsOf(page, 'markdown')).length
@@ -211,6 +211,22 @@ async function libraryEntryPass(page, check) {
  * @param check - 记一条判据。
  */
 async function contentPass(page, check) {
+  const original = (await workspace(page)).active
+  const isolated = await page.evaluate(async () => {
+    const response = await fetch('api/widget-board/boards', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: '内容编辑验收' }) })
+    if (!response.ok) throw new Error(await response.text())
+    return (await response.json()).id
+  })
+  try { await contentOnBoard(page, check, isolated) } finally {
+    await page.evaluate(async ({ original, isolated }) => {
+      await fetch(`api/widget-board/boards/${original}/activate`, { method: 'POST' })
+      await fetch(`api/widget-board/boards/${isolated}/remove`, { method: 'POST' })
+    }, { original, isolated })
+  }
+}
+
+/** 内容修订号属于看板；隔离会更新状态的数据源，并保留一张真实对照卡核对未修改内容。 */
+async function contentOnBoard(page, check, boardId) {
   // 这里要一张已经建好的卡：自己建一张，跑完再收掉，不借上一段的产物。
   const createdIds = []
   await openComposerFromMenu(page)
@@ -225,6 +241,10 @@ async function contentPass(page, check) {
     return
   }
   createdIds.push(created.id)
+  await page.evaluate(async board => {
+    const response = await fetch(`api/widget-board/boards/${board}/compose`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ widget: 'markdown', props: { title: '内容编辑对照卡' }, data: { markdown: '这张卡必须保持原样。' } }) })
+    if (!response.ok) throw new Error(await response.text())
+  }, boardId)
   const selector = `[data-instance="${created.id}"] [data-dsh-widget-board-handle="settings"]`
   await page.locator(selector).click()
   await page.waitForSelector('[data-dsh-widget-board-editor]', { timeout: 10000 })
@@ -235,15 +255,15 @@ async function contentPass(page, check) {
   await page.waitForSelector('[data-dsh-widget-board-content-editor]', { timeout: 10000 })
 
   // C02：改正文，保存之后宿主上的这一张卡跟着换，别的卡不动。
-  const others = (await workspace(page)).boards.flatMap((board) => board.instances).filter((card) => card.id !== created.id)
+  const others = (await workspace(page)).boards.find(board => board.id === boardId).instances.filter(card => card.id !== created.id)
   await fillField(page, 'markdown', '改成第二版正文。')
   await page.locator('[data-dsh-widget-board-content-save]').click()
   const saved = await waitFor(async () => (await cardOf(page, created.id))?.data?.markdown === '改成第二版正文。', 10000)
   check('内容编辑保存成功', saved)
 
   // C05：只改这一张卡。
-  const after = (await workspace(page)).boards.flatMap((board) => board.instances).filter((card) => card.id !== created.id)
-  const untouched = JSON.stringify(others.map((card) => [card.id, card.props, card.data, card.state]))
+  const after = (await workspace(page)).boards.find(board => board.id === boardId).instances.filter(card => card.id !== created.id)
+  const untouched = others.length === 1 && JSON.stringify(others.map((card) => [card.id, card.props, card.data, card.state]))
     === JSON.stringify(after.map((card) => [card.id, card.props, card.data, card.state]))
   check('编辑一张卡不改其它卡片', untouched)
 

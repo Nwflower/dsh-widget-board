@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 7,
+  "at": "2026-10-26",
+  "external": true,
+  "zh": "校园卡增加看板内提醒：支持0、1、24、72小时提前量及到期节点，全天事项在事项时区09:00提醒。每分钟检查，离屏暂停、恢复补查；先确认去重记录保存，再合并通知，保存失败可见且停止该轮通知。已完成、取消或关闭提醒的事项不通知，多窗口可能各自提醒。",
+  "en": "Campus cards add in-board reminders with 0, 1, 24 or 72-hour advance notice and a due-time node; all-day items notify at 09:00 in their time zone. Checks run every minute, pause offscreen and catch up on resume. Deduplication records must be confirmed saved before a combined notification; persistence failures remain visible and stop the notification round. Completed, cancelled and disabled items do not notify. Separate windows may each notify."
+}

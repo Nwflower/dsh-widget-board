@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 5,
+  "at": "2026-10-25",
+  "external": true,
+  "zh": "新增校园事务卡：三种学习阶段、四校公开入口与原创图案、通用和自定义学校；手动管理事项、里程碑、常用链接以及本地背景和图标。全天日期与精确时刻保留 IANA 时区，夏令时重复时刻需选择偏移。管理界面复用内容编辑器与修订冲突保护；每张卡最多一百条事项、十二个入口及64KiB状态。",
+  "en": "Add a campus planner with three degree presets, four schools' public links and original patterns, generic and custom schools, personal deadlines, milestones, quick links and local photos/icons. All-day dates and exact times preserve IANA zones; ambiguous DST times require an explicit offset. Management uses the content editor and revision conflict protection, with up to 100 items, 12 links and 64KiB of state per card."
+}

@@ -15,6 +15,9 @@
 - 新增内置组件「日期倒计时」：名称、日期、时刻、全天、时区与一行备注，读成距目标还有几天几时几分，到点之后改成已经过去的说法。Luxon校验IANA时区和夏令时边界；非法时区及不存在的时刻显示原因并停止计时，重复时刻须填写明确的UTC偏移分钟。分钟精度，每15秒重算一次，暂停时停掉计时器。
 - 新增按需加载的源码编辑器、独立草稿和真实沙箱预览。源码默认另存为独立用户组件，可保留当前卡片的内容与布局；明确选择更新全部实例后按 expectedHash 检查并发。组件写入、工具和导入共用来源保护与目录交换，二进制资源保持原字节。预览只更新局部状态，拒绝正式动作、能力调用和通知，并在关闭或过期时释放。
 - 创建器支持本地图片：受限解码、静态 WebP、按实例归属的分块读取与完整看板媒体备份；旧看板包继续可读。组件导入失败的恢复与源码保存共用目录队列，避免回滚覆盖并发保存的新版本。
+- 新增校园事务卡：三种学习阶段、四校公开入口与原创图案、通用和自定义学校；手动管理事项、里程碑、常用链接以及本地背景和图标。全天日期与精确时刻保留 IANA 时区，夏令时重复时刻需选择偏移。管理界面复用内容编辑器与修订冲突保护；每张卡最多一百条事项、十二个入口及64KiB状态。
+- 校园卡支持 CSV/ICS 文件交换：明确确认字段映射与时区、逐行修正或跳过、重复项更新或保留，以及带修订校验的原子导入。导出可选事项类型和完成状态，保留日期语义及受支持的日历扩展字段。
+- 校园卡增加看板内提醒：支持0、1、24、72小时提前量及到期节点，全天事项在事项时区09:00提醒。每分钟检查，离屏暂停、恢复补查；先确认去重记录保存，再合并通知，保存失败可见且停止该轮通知。已完成、取消或关闭提醒的事项不通知，多窗口可能各自提醒。
 
 ### 体验优化
 
@@ -34,6 +37,9 @@
 - New built-in Countdown widget with a name, date, time, all-day option, time zone and note. Luxon validates IANA zones and daylight-saving boundaries. Invalid zones and nonexistent local times show an error instead of counting; ambiguous times require an explicit UTC offset in minutes. Readings use minute precision, refresh every 15 seconds and stop while paused.
 - Add an on-demand source editor, independent drafts and a real sandbox preview. Save source as a separate user type while retaining the current card's content and layout; explicitly updating all instances checks expectedHash. Definition, tool and import paths share source protection and directory replacement, preserving binary resource bytes. Preview updates local state only, rejects formal actions, capability calls and notifications, and releases sessions on close or expiry.
 - Create local image cards with bounded decoding, static WebP, instance-owned chunked reads and board media backups; older board packages remain readable. Failed widget imports restore through the same directory queue as source saves, preserving concurrently saved versions.
+- Add a campus planner with three degree presets, four schools' public links and original patterns, generic and custom schools, personal deadlines, milestones, quick links and local photos/icons. All-day dates and exact times preserve IANA zones; ambiguous DST times require an explicit offset. Management uses the content editor and revision conflict protection, with up to 100 items, 12 links and 64KiB of state per card.
+- Campus cards support CSV/ICS exchange with confirmed field mapping and time zones, editable row previews, duplicate decisions and atomic revision-checked imports. Exports filter by item type and status while preserving date semantics and supported calendar extensions.
+- Campus cards add in-board reminders with 0, 1, 24 or 72-hour advance notice and a due-time node; all-day items notify at 09:00 in their time zone. Checks run every minute, pause offscreen and catch up on resume. Deduplication records must be confirmed saved before a combined notification; persistence failures remain visible and stop the notification round. Completed, cancelled and disabled items do not notify. Separate windows may each notify.
 
 ### Improvements
 

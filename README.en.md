@@ -126,6 +126,10 @@ Runtime goes through the service: no value import of this plugin, no `dsh.client
 
 ## Status
 
+Campus cards support in-board reminders. New cards default to 24-hour advance and due-time reminders; alternatives are due-time only, 1 or 72 hours, or disabled. All-day items notify at 09:00 in their time zone. Checks run every minute while the board and card are active, pause offscreen and catch up on resume; closing DSH stops them. Deduplication records are saved before combined notifications. Persistence failures remain visible and stop that round. Separate windows may notify separately.
+
+Campus management supports CSV/ICS import and export. Expand “CSV / ICS 文件交换”, select a UTF-8 file, confirm the column mapping, target time zone and duplicate decisions, then commit the import. Rows can be corrected or skipped. Files are limited to 2MiB and 10,000 candidates, with 100 items and 64KiB of state per card. Export filters include item type and completion status. The CSV template contains demonstration data; use board packages for complete backups.
+
 In development; 0.1.5 is on npm. The right sidebar, the widget library page, widget version history and sharing/import are still to come.
 
 ## License

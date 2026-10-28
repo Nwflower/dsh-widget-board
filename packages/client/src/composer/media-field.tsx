@@ -21,7 +21,7 @@ export function imageFormSchema(schema: Record<string, unknown> | undefined, sec
   return { ...schema, properties: Object.fromEntries(Object.entries(schema.properties).filter(([key]) => key !== hidden)) }
 }
 
-export function ImageField({ target, value, onChange, disabled, onBusy, onPreview }: { target: string, value: MediaBinding, onChange: (value: MediaBinding) => void, disabled: boolean, onBusy: (busy: boolean) => void, onPreview: (url: string | null) => void }): ReactNode {
+export function ImageField({ target, value, onChange, disabled, onBusy, onPreview, role = 'background' }: { target: string, value: MediaBinding, onChange: (value: MediaBinding) => void, disabled: boolean, onBusy: (busy: boolean) => void, onPreview: (url: string | null) => void, role?: 'background' | 'icon' }): ReactNode {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
@@ -31,13 +31,13 @@ export function ImageField({ target, value, onChange, disabled, onBusy, onPrevie
   useEffect(() => () => { if (url !== null) URL.revokeObjectURL(url) }, [url])
   useEffect(() => { onPreview(url); return () => { onPreview(null) } }, [url, onPreview])
   useEffect(() => {
-    if (target.startsWith('board:') || !value.media?.background || value.mediaTickets?.background) return
+    if (target.startsWith('board:') || !value.media?.[role] || value.mediaTickets?.[role]) return
     const current = new AbortController()
-    readMedia(async (capability, args) => (await resultOf(await fetch(instanceCallPath(target), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ capability, args }), signal: current.signal }))).result, 'background', current.signal).then(blob => {
+    readMedia(async (capability, args) => (await resultOf(await fetch(instanceCallPath(target), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ capability, args }), signal: current.signal }))).result, role, current.signal).then(blob => {
       if (!current.signal.aborted) setUrl(URL.createObjectURL(blob))
     }, caught => { if (!current.signal.aborted) setError((caught as Error).message) })
     return () => { current.abort() }
-  }, [target, value.media?.background, value.mediaTickets?.background])
+  }, [target, role, value.media?.[role], value.mediaTickets?.[role]])
   const upload = async (file: File): Promise<void> => {
     controller.current?.abort()
     const current = new AbortController()
@@ -47,27 +47,27 @@ export function ImageField({ target, value, onChange, disabled, onBusy, onPrevie
     setError(null)
     try {
       if (file.size > MEDIA_INPUT_BYTES || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error(zh ? '请选择 10MiB 以内的 PNG、JPEG 或 WebP' : 'Choose PNG, JPEG or WebP up to 10MiB')
-      const session = (await resultOf(await fetch(`${CLIENT_ROUTE}/media/sessions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target }), signal: current.signal }))).session as string
-      const uploaded = await resultOf(await fetch(`${CLIENT_ROUTE}/media?session=${encodeURIComponent(session)}&role=background`, { method: 'POST', headers: { 'content-type': file.type }, body: file, signal: current.signal })) as unknown as MediaUploaded
+      const session = value.mediaSession ?? (await resultOf(await fetch(`${CLIENT_ROUTE}/media/sessions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target }), signal: current.signal }))).session as string
+      const uploaded = await resultOf(await fetch(`${CLIENT_ROUTE}/media?session=${encodeURIComponent(session)}&role=${role}`, { method: 'POST', headers: { 'content-type': file.type }, body: file, signal: current.signal })) as unknown as MediaUploaded
       current.signal.throwIfAborted()
       const preview = await fetch(`${CLIENT_ROUTE}/media/preview`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ session, ticket: uploaded.uploadTicket }), signal: current.signal })
       if (!preview.ok) throw new Error(String((await resultOf(preview)).error))
       const blob = await preview.blob()
       current.signal.throwIfAborted()
-      onChange({ mediaSession: session, media: { background: uploaded.ref }, mediaTickets: { background: uploaded.uploadTicket } })
+      onChange({ ...value, mediaSession: session, media: { ...value.media, [role]: uploaded.ref }, mediaTickets: { ...value.mediaTickets, [role]: uploaded.uploadTicket } })
       setUrl(URL.createObjectURL(blob))
     } catch (caught) {
       if (!current.signal.aborted) setError((caught as Error).message)
     } finally { if (controller.current === current) { setBusy(false); onBusy(false) } }
   }
   return <section className="dsh-widget-board__composer-section" data-dsh-widget-board-media-field="">
-    <h3 className="dsh-widget-board__composer-heading">{zh ? '本地图片' : 'Local image'}</h3>
+    <h3 className="dsh-widget-board__composer-heading">{role === 'icon' ? (zh ? '学校图标' : 'School icon') : (zh ? '本地图片' : 'Local image')}</h3>
     <label className="dsh-widget-board__editor-label">{zh ? '选择图片' : 'Choose image'}
-      <input className="dsh-widget-board__field-input" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || busy} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void upload(file); event.currentTarget.value = '' }} />
+      <input className="dsh-widget-board__input" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || busy} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void upload(file); event.currentTarget.value = '' }} />
     </label>
-    <p className="dsh-widget-board__editor-note">{busy ? (zh ? '正在处理图片…' : 'Processing image…') : value.media?.background ? (zh ? '图片已选择，保存后生效' : 'Image selected; save to apply') : (zh ? 'PNG / JPEG / WebP，最大 10MiB；不支持动画' : 'PNG / JPEG / WebP, up to 10MiB; static images only')}</p>
+    <p className="dsh-widget-board__editor-note">{busy ? (zh ? '正在处理图片…' : 'Processing image…') : value.media?.[role] ? (zh ? '图片已选择，保存后生效' : 'Image selected; save to apply') : (zh ? 'PNG / JPEG / WebP，最大 10MiB；不支持动画' : 'PNG / JPEG / WebP, up to 10MiB; static images only')}</p>
     {url === null ? null : <img src={url} alt={zh ? '所选图片预览' : 'Selected image preview'} style={{ display: 'block', maxWidth: '100%', maxHeight: '16rem', objectFit: 'contain' }} />}
-    {value.media?.background ? <button type="button" className="dsh-widget-board__editor-ghost" disabled={disabled || busy} onClick={() => { setUrl(null); onChange({ ...value, media: {} as InstanceMedia, mediaTickets: {} }) }}>{zh ? '移除图片' : 'Remove image'}</button> : null}
+    {value.media?.[role] ? <button type="button" className="dsh-widget-board__editor-ghost" disabled={disabled || busy} onClick={() => { const refs = { ...value.media }; const tickets = { ...value.mediaTickets }; delete refs[role]; delete tickets[role]; setUrl(null); onChange({ ...value, media: refs as InstanceMedia, mediaTickets: tickets }) }}>{zh ? '移除图片' : 'Remove image'}</button> : null}
     {error === null ? null : <p role="alert" className="dsh-widget-board__editor-error">{error}</p>}
   </section>
 }

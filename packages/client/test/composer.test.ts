@@ -143,14 +143,15 @@ describe('错误路径与表单值的转换', () => {
 })
 
 describe('模板', () => {
-  it('五个内容模板各指向一种已存在的组件，高级模板留给用户挑', () => {
+  it('六个内容模板各指向一种已存在的组件，高级模板留给用户挑', () => {
     const keys = TEMPLATES.map((template) => template.key)
-    expect(keys).toEqual(['text', 'todo', 'links', 'countdown', 'image', 'advanced'])
+    expect(keys).toEqual(['text', 'todo', 'links', 'countdown', 'image', 'campus', 'advanced'])
     expect(TEMPLATES.find((template) => template.key === 'text')?.widget).toBe('markdown')
     expect(TEMPLATES.find((template) => template.key === 'todo')?.widget).toBe('todo')
     expect(TEMPLATES.find((template) => template.key === 'links')?.widget).toBe('links')
     expect(TEMPLATES.find((template) => template.key === 'countdown')?.widget).toBe('countdown')
     expect(TEMPLATES.find((template) => template.key === 'image')?.widget).toBe('image')
+    expect(TEMPLATES.find((template) => template.key === 'campus')?.widget).toBe('campus')
     expect(TEMPLATES.find((template) => template.key === 'advanced')?.widget).toBe('')
   })
 

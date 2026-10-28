@@ -1,0 +1,2 @@
+kind,title,category,due,dateOnly,timeZone,status,url,note,uid
+deadline,示例数据：请填写自己的事项,示例,2030-01-01,true,Asia/Shanghai,todo,,仅供演示不是学校真实日程,demo-1

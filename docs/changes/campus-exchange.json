@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 6,
+  "at": "2026-10-26",
+  "external": true,
+  "zh": "校园卡支持 CSV/ICS 文件交换：明确确认字段映射与时区、逐行修正或跳过、重复项更新或保留，以及带修订校验的原子导入。导出可选事项类型和完成状态，保留日期语义及受支持的日历扩展字段。",
+  "en": "Campus cards support CSV/ICS exchange with confirmed field mapping and time zones, editable row previews, duplicate decisions and atomic revision-checked imports. Exports filter by item type and status while preserving date semantics and supported calendar extensions."
+}

@@ -71,6 +71,7 @@ import type { SelfChecks } from './selfcheck'
 import { selfCheckRoutes } from './selfcheck'
 import { StaleRevisionError, arrangementUnitOf, defaultBoxOf, groupUnitOf, withArrangementUnits, withBoardLayouts, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceStateChecked } from './state'
 import type { RateLimiter } from './limits'
+import type { MarketRegistry } from './market'
 import { visibilityRoutes } from './visibility'
 import type { SaveOptions, Workspace } from './workspace'
 
@@ -146,6 +147,10 @@ export interface RouteContext {
   drafts: DraftStore
   /** 预览会话的管理处（技术契约 5）：与正式的 widgets、versions、boards 与 grants 分开。 */
   previews: PreviewStore
+  /** 市场提供方注册表（D8 之后的市场契约）。 */
+  market: MarketRegistry
+  /** 市场组件的来源目录（D17）。 */
+  marketDir: string
 }
 
 /** 回环地址：127/8 与 ::1，含 IPv4 映射。 */
@@ -320,7 +325,7 @@ const ROUTES: Route[] = [
           id,
           (current) => {
             // 自由坐标只属于自由模式：看板已经换成整齐行列时，过时的自由提交整体退回，
-            // 让页面按当前快照重画，避免两种客户端互相覆盖（D30、技术契约2）。
+            // 让页面按当前快照重画，避免两种客户端互相覆盖（D31、技术契约2）。
             if (current.arrangement?.mode === 'aligned') throw new StaleRevisionError(body.layoutRevision, current.layoutRevision)
             return withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox)
           },
@@ -373,7 +378,7 @@ const ROUTES: Route[] = [
         ...(wanted.props === undefined ? {} : { props: wanted.props }),
         ...(wanted.layout === undefined ? {} : { layout: wanted.layout }),
       }
-      // 排列单元的初始盒子来自组件的 defaultBox；整齐模式的新卡接在顺序末尾（D30）。
+      // 排列单元的初始盒子来自组件的 defaultBox；整齐模式的新卡接在顺序末尾（D31）。
       const box = defaultBoxOf(record)
       await context.workspace.save(boardId, (current) => withArrangementUnits(withInstanceAdded(current, record, options, id).board, [], [{ id, box }]), {
         layoutChanged: true,
@@ -416,7 +421,7 @@ const ROUTES: Route[] = [
       await context.workspace.save(boardId, (current) => {
         const added = withGroupAdded(current, front, back, wanted.layout === undefined ? {} : { layout: wanted.layout })
         id = added.id
-        // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D30）；盒子取落点或组默认。
+        // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D31）；盒子取落点或组默认。
         return withArrangementUnits(added.board, [], groupUnitOf(added.board, id))
       }, { layoutChanged: true, event: () => ({ type: 'board' }) })
       json(response, 201, { id, snapshot: workspaceSnapshot(context) })
@@ -432,7 +437,7 @@ const ROUTES: Route[] = [
       const wanted = body as unknown as GroupRemoveRequest
       const board = context.workspace.findGroup(wanted.group)
       if (board === undefined) throw new Refusal(404, `看板上没有这一组：${wanted.group}`)
-      // 整组离开时它的排列单元一起离开（D30）。
+      // 整组离开时它的排列单元一起离开（D31）。
       await context.workspace.save(board.id, (current) => withArrangementUnits(withGroupRemoved(current, wanted.group), [arrangementUnitOf(current, current.instances.find((instance) => instance.group?.id === wanted.group) as BoardInstance)], []), { layoutChanged: true, event: () => ({ type: 'board' }) })
       // 组里的卡一起走了，它们的请求日志跟着收掉（D28）。
       for (const instance of board.instances.filter((instance) => instance.group?.id === wanted.group)) {
@@ -572,7 +577,7 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const { board } = locate(context, id)
       await readJson(request, EMPTY_LIMIT)
-      // 这张卡代表的排列单元（组卡是整组）一起离开（D30）。
+      // 这张卡代表的排列单元（组卡是整组）一起离开（D31）。
       await context.workspace.save(board.id, (current) => {
         const unit = arrangementUnitOf(current, current.instances.find((instance) => instance.id === id) as BoardInstance)
         return withArrangementUnits(withInstanceRemoved(current, id), [unit], [])

@@ -5,7 +5,7 @@
  */
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
-import type { ActionPermission } from './service'
+import type { ActionPermission, MarketListing } from './service'
 import type { InstanceMedia } from './media'
 
 /**
@@ -44,20 +44,20 @@ export interface InstanceGroup {
   template: GroupTemplate
 }
 
-/** 看板的两种排列偏好：自由位置与整齐行列（D30）。 */
+/** 看板的两种排列偏好：自由位置与整齐行列（D31）。 */
 export const ARRANGEMENT_MODES = ['free', 'aligned'] as const
 
 /** 一种排列偏好。 */
 export type ArrangementMode = (typeof ARRANGEMENT_MODES)[number]
 
-/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D30）。 */
+/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D31）。 */
 export interface AlignedBox {
   w: number
   h: number
 }
 
 /**
- * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D30）。
+ * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D31）。
  *
  * 只留顺序与期望宽高，像素坐标每次画的时候现算：窗口宽度与根字号变了，存下的东西不用重写。
  * `order` 用的是排列单元 id——普通实例 id，或组卡取正面那张实例的 id。
@@ -68,7 +68,7 @@ export interface AlignedArrangement {
 }
 
 /**
- * 一块看板的排列偏好（D30）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
+ * 一块看板的排列偏好（D31）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
  *
  * 自由模式的坐标继续存在每张卡的 `layout` 里；两种模式共用卡片、内容与状态，不复制卡片。
  */
@@ -78,7 +78,7 @@ export interface Arrangement {
 }
 
 /**
- * 新看板与第一次创建的那块看板用的排列偏好（D30）：整齐行列，空顺序。
+ * 新看板与第一次创建的那块看板用的排列偏好（D31）：整齐行列，空顺序。
  *
  * 旧看板读到的是 `free`，不给它们补这一份——已经存在的画廊不该在升级时自己换一种排法。
  */
@@ -163,7 +163,7 @@ export interface Board {
    */
   layoutRevision: number
   /**
-   * 排列偏好（D30）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
+   * 排列偏好（D31）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
    *
    * 缺席表示自由模式：读盘时在内存里补一份，下一次保存才写进文件。
    */
@@ -182,6 +182,12 @@ export interface WidgetSummary {
   provider?: string
   /** manifest 声明过的宿主能力（D24）；浏览器半边据此核对一次调用的声明。 */
   capabilities?: string[]
+  /**
+   * 上面这些能力里当前解析得到的（D24）：提供方不在的那些不在其中。
+   *
+   * 握手里把这张卡可用的能力告诉组件，组件就不必先发一次注定失败的调用再回退。
+   */
+  availableCapabilities?: string[]
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
   /** 这个类型有没有可配置的 props 或凭据（D27）：设置按钮据此决定出不出现。 */
@@ -205,8 +211,25 @@ export interface WorkspaceSnapshot {
   widgets: Record<string, WidgetSummary>
   /** 组件库的全部类型，含读不出来的那些（D17）。 */
   library: WidgetLibraryEntry[]
+  /**
+   * 市场区（D8 之后的市场契约）：每个提供方一节，含校验合格的条目、逐条失败原因与整次读取的失败。
+   * 没有市场提供方时是空数组，界面画固定的空状态。
+   */
+  market?: MarketSectionSnapshot[]
   /** 看板上的卡片拿到过的授权（D6）；界面据此决定要不要问人。 */
   grants: Grant[]
+}
+
+/** 快照里一个市场提供方的样子；与宿主 `MarketSection` 同形，避免界面引宿主包。 */
+export interface MarketSectionSnapshot {
+  provider: string
+  id: string
+  title: LocalizedText
+  description?: LocalizedText
+  /** 校验合格的条目；不合格的在 `errors` 里。 */
+  listings: MarketListing[]
+  errors: string[]
+  error?: string
 }
 
 /** 一次布局提交成功后的答复：只带这次落定的盒子与修订号（D16）。 */
@@ -454,7 +477,7 @@ export interface BoardLayoutRequest {
 }
 
 /**
- * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D30）。
+ * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D31）。
  *
  * 模式切换、整齐顺序与期望宽高一起提交；宿主核对布局修订号，过期时回 409 与当前快照。
  */

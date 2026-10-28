@@ -32,7 +32,8 @@
 | [D27](D27-card-editor.md) | 卡片设置弹窗：配置、日志与关于 | D22 |
 | [D28](D28-widget-requests.md) | 组件对外的请求由宿主代发 | — |
 | [D29](D29-browser-capabilities.md) | 落在浏览器里的能力与整页转场 | — |
-| [D30](D30-board-arrangement.md) | 看板的两种排列偏好：自由位置与整齐行列 | — |
+| [D30](D30-market.md) | 组件市场：索引、分发、信任与接入点 | — |
+| [D31](D31-board-arrangement.md) | 看板的两种排列偏好：自由位置与整齐行列 | — |
 
 ## 作废的编号
 

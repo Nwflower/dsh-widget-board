@@ -15,6 +15,15 @@
    * 两条能力读的是同一批会话日志，先答出来的那份就是读数。
    */
   var CAPABILITIES = ['dsh-claude-style:usage', 'widget-board:usage']
+  /**
+   * 这张卡当前调得动的那些：握手里给的是 manifest 声明过、宿主解析得到的交集。
+   * 按它筛一遍，没装 dsh-claude-style 时就不必先发一次注定失败的调用。
+   */
+  var usable = function () {
+    var answered = widget.capabilities
+    if (!answered) return CAPABILITIES
+    return CAPABILITIES.filter(function (name) { return answered.indexOf(name) !== -1 })
+  }
   /** 已读到数字之后，隔多久再看一次；换页回来不会每次都等它现算。 */
   var REFRESH_MS = 120000
   /** 还没读到数字时，隔多久再问一次。 */
@@ -181,16 +190,17 @@
     loading = true
     var at = Date.now()
     /** 挨个问：第一个答得出来的就是这份读数，全都答不出来时留下最后一条原因。 */
+    var candidates = usable()
     var index = 0
     var ask = function () {
-      if (index >= CAPABILITIES.length) return Promise.reject(new Error(label('unavailable', isZh() ? '读不到用量：没有提供用量的插件' : 'No usage provider answered')))
-      var name = CAPABILITIES[index]
+      if (index >= candidates.length) return Promise.reject(new Error(label('unavailable', isZh() ? '读不到用量：没有提供用量的插件' : 'No usage provider answered')))
+      var name = candidates[index]
       index += 1
       return widget.call(name, {}).then(function (answer) {
-        if (summaryOf(answer).problem !== undefined && index < CAPABILITIES.length) return ask()
+        if (summaryOf(answer).problem !== undefined && index < candidates.length) return ask()
         return answer
       }, function (error) {
-        if (index < CAPABILITIES.length) return ask()
+        if (index < candidates.length) return ask()
         throw error
       })
     }

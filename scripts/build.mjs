@@ -27,6 +27,7 @@ const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const TOKENS = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'contracts', 'tokens.json'), 'utf8'))
 const RUNTIME = path.join(ROOT, 'packages', 'runtime', 'src')
 const WIDGETS = path.join(ROOT, 'packages', 'widgets')
+const WIDGETS_EXAMPLES = path.join(ROOT, 'packages', 'widgets-examples')
 const TSC = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 
 // 校验器在构建时生成；组件运行时不执行动态编译，适用于原有严格 CSP。
@@ -281,6 +282,12 @@ async function writeAssets() {
   // 源码复用纯模型，发布的标准组件仍是完整独立脚本，不依赖外部模块。
   await esbuild.build({ entryPoints: [path.join(WIDGETS, 'campus', 'main.js')], outfile: path.join(staging, 'campus', 'main.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2022', minify: true, banner: { js: `/*! Luxon 3.7.2\n${luxonLicense}\n*/` } })
   fs.renameSync(staging, path.join(LIB, 'widgets'))
+  // 示例组件（D17）：目录可能还不存在，那时 lib/widgets-examples 就缺席，宿主按空来源算。
+  if (fs.existsSync(WIDGETS_EXAMPLES)) {
+    const examplesStaging = path.join(LIB, '.widgets-examples-staging')
+    fs.cpSync(WIDGETS_EXAMPLES, examplesStaging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
+    fs.renameSync(examplesStaging, path.join(LIB, 'widgets-examples'))
+  }
 }
 
 /**

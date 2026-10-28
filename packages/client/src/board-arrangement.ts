@@ -18,7 +18,7 @@ interface ArrangementControls {
 
 /** 两道忙碌闸门与看板保持同一份引用。 */
 export function useBoardArrangement({ activeBoard, metrics, busyRef, setBusy, apply, onArrangement, setFailure, refetch }: ArrangementControls): () => void {
-  /** 在两种排列模式之间切换：第一次切到整齐时把屏幕上的阅读顺序存成顺序（B2、D30）。 */
+  /** 在两种排列模式之间切换：第一次切到整齐时把屏幕上的阅读顺序存成顺序（B2、D31）。 */
   return useCallback(() => {
     if (busyRef.current || activeBoard === null || metrics === null) return
     const arrangement = nextArrangementOf(activeBoard, metrics)

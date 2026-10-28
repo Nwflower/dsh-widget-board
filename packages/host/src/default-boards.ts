@@ -130,7 +130,7 @@ function cardOf(record: WidgetRecord, layout: CardLayout, content: CardContent):
 }
 
 /**
- * 一串实例的整齐偏好（D30）：清单的次序就是第一屏的阅读顺序，期望盒子取实例写下的大小。
+ * 一串实例的整齐偏好（D31）：清单的次序就是第一屏的阅读顺序，期望盒子取实例写下的大小。
  *
  * 组卡占一格，单元 id 是正面那张实例的 id；与运行时 `arrangementUnitsOf` 的同一条规则在这里按
  * 构造顺序直接算出来，种子不需要先落盘再读一遍。

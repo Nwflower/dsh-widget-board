@@ -9,13 +9,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import Ajv from 'ajv'
-import type { Board, BoardEvent, BoardValue, DefineValue, ShowValue, ToolCall, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, BoardValue, DefineValue, ShowValue, ToolCall, WidgetRoot, WidgetSkillRegistration, WidgetToolRegistration } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createRequestLog } from '../src/request-log'
+import { createMarketRegistry } from '../src/market'
 import { createSelfChecks } from '../src/selfcheck'
 import type { WidgetRecord } from '../src/library'
 import { createToolContext, OPTIONAL_TOOLS, registerTools, toolRegistrations } from '../src/tools'
+import { WIDGET_AUTHORING_GUIDE } from '../src/tools/guide'
 import { dataError } from '../src/schema'
 
 const roots: string[] = []
@@ -124,9 +126,12 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[], boar
       resolveAction: () => undefined,
       readSource: async () => ({ n: 7 }),
       runAction: async () => null,
-      namesOf: () => ({ dataSources: [], actions: [] }),
+      namesOf: () => ({ dataSources: [], actions: [], capabilities: [] }),
+      listCapabilities: () => ['demo:count'],
     },
     requests: createRequestLog(),
+    market: createMarketRegistry(),
+    marketDir: '/home/market-widgets',
     grants: {
       all: () => [],
       has: () => false,
@@ -166,6 +171,12 @@ describe('工具的定义', () => {
       expect(tool.description.length).toBeGreaterThan(20)
       expect(tool.parameters.type).toBe('object')
     }
+  })
+
+  it('编写指南列出全部七个工具，名字与工具表一致', () => {
+    const names = Object.values(WIDGET_TOOL_NAMES)
+    expect(names).toHaveLength(7)
+    for (const name of names) expect(WIDGET_AUTHORING_GUIDE).toContain(`\`${name}\``)
   })
 
   it('每个工具的 parameters 都是合法的 JSON Schema，且与描述一起能被编译', () => {
@@ -229,6 +240,28 @@ describe('widget_catalog', () => {
     const harnessed = harness()
     const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({ source: 'plugin' })
     expect((value as { widgets: unknown[] }).widgets).toEqual([])
+  })
+
+  it('示例来源的条目带目录路径，其余来源不带', async () => {
+    const example = { ...record('example-basic'), source: 'example' as const }
+    const value = await toolOf(harness({ records: [record('stat'), example] }), WIDGET_TOOL_NAMES.catalog).execute({ source: 'example' })
+    const catalog = value as { widgets: { id: string, dir?: string }[] }
+    expect(catalog.widgets).toHaveLength(1)
+    expect(catalog.widgets[0]).toMatchObject({ id: 'example-basic', dir: '/widgets/example-basic' })
+    const all = await toolOf(harness({ records: [record('stat'), example] }), WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { id: string, dir?: string }[] }
+    expect(all.widgets.find((widget) => widget.id === 'stat')?.dir).toBeUndefined()
+  })
+
+  it('条目带 samples.json 里的样例数据，写坏时给原因', async () => {
+    const samples = JSON.stringify({ s: { lang: 'zh-CN', motion: 'reduced' }, m: { lang: 'zh-CN', motion: 'reduced' } })
+    const good = { ...record('example-basic'), source: 'example' as const, files: new Map([['samples.json', Buffer.from(samples)]]) }
+    const value = await toolOf(harness({ records: [good] }), WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { samples?: Record<string, unknown>, samplesError?: string }[] }
+    expect(value.widgets[0]?.samples).toMatchObject({ s: { lang: 'zh-CN' } })
+    expect(value.widgets[0]?.samplesError).toBeUndefined()
+
+    const broken = { ...record('example-basic'), source: 'example' as const, files: new Map([['samples.json', Buffer.from('{')]]) }
+    const brokenValue = await toolOf(harness({ records: [broken] }), WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { samplesError?: string }[] }
+    expect(brokenValue.widgets[0]?.samplesError).toMatch(/不是合法 JSON/)
   })
 })
 
@@ -337,9 +370,10 @@ describe('widget_place', () => {
 })
 
 describe('按需出现的工具（D9）', () => {
-  /** 一套宿主替身：只记注册了哪些工具，提示段与 skill 都是空实现。 */
+  /** 一套宿主替身：只记注册了哪些工具与哪条 skill，注册动作都是空实现。 */
   function hostContext() {
     const registered: string[] = []
+    const skills: WidgetSkillRegistration[] = []
     const scoped = {
       tools: {
         register: (tool: { name: string }) => {
@@ -349,15 +383,14 @@ describe('按需出现的工具（D9）', () => {
       },
       inject: (_deps: string[], callback: (inner: unknown) => void) => {
         callback({
-          systemPrompt: { section: () => () => undefined },
-          skills: { register: () => () => undefined },
+          skills: { register: (skill: WidgetSkillRegistration) => { skills.push(skill); return () => undefined } },
         })
       },
     }
     const ctx = {
       inject: (_deps: string[], callback: (value: unknown) => void) => { callback(scoped) },
     }
-    return { ctx, registered }
+    return { ctx, registered, skills }
   }
 
   it('启动时一次注册全部工具，之后点名不再改变工具表', async () => {
@@ -373,6 +406,18 @@ describe('按需出现的工具（D9）', () => {
     // 点名只是记账：注册表一个字节都不动。
     expect([...host.registered].sort()).toEqual([WIDGET_TOOL_NAMES.catalog, ...OPTIONAL_TOOLS].sort())
     expect(() => registration?.dispose()).not.toThrow()
+  })
+
+  it('看板的边界写进 skill 描述，不另注册系统提示段', () => {
+    const host = hostContext()
+    // 宿主替身里没有 systemPrompt 服务：真去注入它，这一步就会抛。
+    expect(() => registerTools(host.ctx as never, harness().toolContext)).not.toThrow()
+    expect(host.skills).toHaveLength(1)
+    const description = host.skills[0]?.description ?? ''
+    // 触发条件与所有权边界都写在描述里，模型在技能目录里就看得到。
+    expect(description).toContain('看板上')
+    expect(description).toContain('看板归用户所有')
+    expect(description).toContain('未经请求不新增')
   })
 
   it('入口工具的渲染不再承诺"点名之后才出现"', async () => {

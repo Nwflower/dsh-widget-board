@@ -109,7 +109,7 @@ async function mainPass(page, problems) {
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
   await keepOnlyGallery(page)
   await resetCards(page)
-  // 默认看板是整齐行列（D30）：自由坐标的几何检查先把看板切回自由布局。
+  // 默认看板是整齐行列（D31）：自由坐标的几何检查先把看板切回自由布局。
   await ensureFree(page)
   await openBoard(page)
   await ensureTemplates(page)

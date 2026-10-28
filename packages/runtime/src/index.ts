@@ -29,6 +29,12 @@ export interface WidgetApi extends WidgetHandles {
   readonly state: unknown
   /** 宿主是否暂停了这张卡：离开视口（D16、D21）。 */
   readonly paused: boolean
+  /**
+   * 这张卡的 manifest 声明过、宿主当前解析得到的能力（D24）。
+   *
+   * 提供方不在的能力不在这里；组件先看它再决定要不要调，省掉一次注定失败的请求。
+   */
+  readonly capabilities: readonly string[]
   onSize(handler: (size: WidgetSize) => void): () => void
   onProps(handler: (props: Record<string, unknown>) => void): () => void
   onData(handler: (data: unknown) => void): () => void
@@ -70,6 +76,8 @@ function cancelMedia(): void {
   mediaLifetime.abort()
   mediaLifetime = new AbortController()
 }
+/** 这张卡的 manifest 声明过、宿主当前解析得到的能力（D24）；组件据此跳过提供方不在的调用。 */
+let capabilities: string[] = []
 let text: Record<string, { zh: string, en: string }> = {}
 
 /** 在途能力调用的等待者，按 requestId 索引。 */
@@ -158,6 +166,7 @@ function receive(message: ParentMessage): void {
       lang = message.lang
       root.lang = message.lang
       text = message.text ?? {}
+      capabilities = message.capabilities ?? []
       root.dataset.motion = motionLevel(message.motion)
       applyTokens(message.tokens)
       props = (message.props ?? {}) as Record<string, unknown>
@@ -248,6 +257,7 @@ function install(): void {
     get data() { return data },
     get state() { return state },
     get paused() { return paused },
+    get capabilities() { return capabilities },
     onSize: (handler) => subscribe(listeners.size, handler),
     onProps: (handler) => subscribe(listeners.props, handler),
     onData: (handler) => subscribe(listeners.data, handler),

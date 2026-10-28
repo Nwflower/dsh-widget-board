@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 5,
+  "external": true,
+  "at": "2026-10-27",
+  "zh": "组件市场原型：索引格式 1 的 JSON Schema、原生 HTML 的浏览页与两个示例包挂在 GitHub Pages 的 `market/` 子路径下。`npm run market` 从仓库里的组件目录重新打包并改写索引；`node scripts/market.mjs --check` 核对索引与包（sha256、字节数、包内 id 与版本、尺寸族、声明），在 `npm run verify` 与 Pages 部署前各跑一次。",
+  "en": "A widget market prototype: a format-1 index schema, a plain-HTML browse page and two sample packages under the market/ subpath of GitHub Pages. npm run market repacks from the repository's widget directories and rewrites the index; node scripts/market.mjs --check verifies the index against the packages (sha256, byte count, package id and version, size families, declarations) and runs before both npm run verify and the Pages deployment."
+}

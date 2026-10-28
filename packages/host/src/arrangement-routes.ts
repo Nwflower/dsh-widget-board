@@ -9,7 +9,7 @@ import { json } from './response'
 import { workspaceSnapshot } from './snapshot'
 
 /**
- * 一份排列偏好提交的外形：期望的布局修订号是非负整数，排列偏好由状态层逐项校验（D30）。
+ * 一份排列偏好提交的外形：期望的布局修订号是非负整数，排列偏好由状态层逐项校验（D31）。
  *
  * @param value - 解出来的请求体。
  * @returns 可以当 `BoardArrangementRequest` 用时为真。

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件市场</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    color-scheme: light dark;
+    --fg: #1b1f24;
+    --muted: #5b6570;
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e6;
+    --accent: #2f6feb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #e6e9ee;
+      --muted: #9aa4b2;
+      --bg: #14171b;
+      --card: #1b1f24;
+      --line: #2b3138;
+      --accent: #6f9dff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 20px 64px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  header h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0 0 28px; color: var(--muted); }
+  .entry {
+    margin-bottom: 16px;
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+  }
+  .entry h2 { margin: 0 0 2px; font-size: 17px; }
+  .entry .id { color: var(--muted); font: 12px/1.4 ui-monospace, "Cascadia Code", monospace; }
+  .entry p { margin: 8px 0 0; color: var(--muted); }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+  .version { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .version strong { font-variant-numeric: tabular-nums; }
+  .version a {
+    margin-left: 10px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .version a:hover { text-decoration: underline; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tags span {
+    padding: 1px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .hash { margin-top: 6px; color: var(--muted); font: 11px/1.4 ui-monospace, "Cascadia Code", monospace; word-break: break-all; }
+  .error { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">组件市场</h1>
+    <p id="description">正在读索引…</p>
+  </header>
+  <section id="entries" aria-live="polite"></section>
+  <noscript><p class="error">这个页面要用 JavaScript 读索引。</p></noscript>
+</main>
+<script type="module">
+  const entries = document.querySelector('#entries')
+  const zh = (document.documentElement.lang || navigator.language || 'zh').toLowerCase().startsWith('zh')
+  const text = (value) => (value === undefined ? '' : zh ? value.zh : value.en)
+
+  /** 一段文字放进 DOM，不拼 HTML。 */
+  function element(tag, className, content) {
+    const node = document.createElement(tag)
+    if (className !== undefined) node.className = className
+    if (content !== undefined) node.textContent = content
+    return node
+  }
+
+  function renderEntry(entry) {
+    const card = element('article', 'entry')
+    card.append(element('h2', undefined, text(entry.title)))
+    card.append(element('div', 'id', entry.id))
+    if (entry.description !== undefined) card.append(element('p', undefined, text(entry.description)))
+
+    const meta = element('div', 'meta')
+    if (entry.author !== undefined) meta.append(element('span', undefined, `${zh ? '作者' : 'Author'}：${entry.author.name}`))
+    if (entry.license !== undefined) meta.append(element('span', undefined, `${zh ? '许可证' : 'License'}：${entry.license}`))
+    if (entry.repo !== undefined) {
+      const link = element('a', undefined, zh ? '仓库' : 'Repository')
+      link.href = entry.repo
+      link.rel = 'noreferrer'
+      meta.append(link)
+    }
+    card.append(meta)
+    if (Array.isArray(entry.tags) && entry.tags.length > 0) {
+      const tags = element('div', 'tags')
+      for (const tag of entry.tags) tags.append(element('span', undefined, tag))
+      card.append(tags)
+    }
+
+    for (const version of entry.versions) {
+      const row = element('div', 'version')
+      row.append(element('strong', undefined, version.version))
+      row.append(element('span', undefined, ` · ${version.sizes.join(' / ')}`))
+      const download = element('a', undefined, zh ? '下载 .dshw' : 'Download .dshw')
+      download.href = version.package.url
+      download.setAttribute('download', '')
+      row.append(download)
+      const declares = version.declares ?? {}
+      const parts = [
+        ...(declares.capabilities ?? []),
+        ...(declares.credentials ?? []).map((ref) => `${zh ? '凭据' : 'Credential'} ${ref}`),
+        ...(declares.hosts ?? []).map((host) => `${zh ? '主机' : 'Host'} ${host}`),
+      ]
+      if (parts.length > 0) row.append(element('div', 'meta', parts.join('、')))
+      const size = `${version.package.bytes} ${zh ? '字节' : 'bytes'}`
+      row.append(element('div', 'hash', `sha256 ${version.package.sha256} · ${size}`))
+      card.append(row)
+    }
+    return card
+  }
+
+  try {
+    const response = await fetch('index.json', { cache: 'no-cache' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const index = await response.json()
+    document.title = text(index.market.title) || '组件市场'
+    document.querySelector('#title').textContent = document.title
+    document.querySelector('#description').textContent = text(index.market.description)
+    for (const entry of index.widgets) entries.append(renderEntry(entry))
+    if (index.widgets.length === 0) {
+      entries.append(element('p', 'error', zh ? '索引里还没有组件。' : 'The index has no widgets yet.'))
+    }
+  } catch (error) {
+    document.querySelector('#description').textContent = ''
+    entries.append(element('p', 'error', `${zh ? '索引读不出来：' : 'Could not read the index: '}${error.message}`))
+  }
+</script>
+</body>
+</html>

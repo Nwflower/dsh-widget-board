@@ -6,9 +6,9 @@
 
 ## 决定
 
-- 组件库有三个来源，按传入顺序优先：`builtin`（包内 `lib/widgets`）、`user`（`$DSH_HOME/widget-board/widgets/`，启动时建出来）、`plugin`（插件经服务注册的目录）。
-- 同一个 id 只认先到的来源，后到的记成一条错误；单个组件读不出来、manifest 不合格或 id 冲突，都只让这一个类型不可用，其余照常进库。用户与插件来源的目录不存在按空目录算；包内来源读不出来或一个组件都没有，直接抛出（构建没有写完）。
-- 组件库的记录带上来源与提供方包名；界面按来源分组，读不出来的类型也列出来并写明原因。
+- 组件库有五个来源，按优先级排列：`builtin`（包内 `lib/widgets`）、`user`（`$DSH_HOME/widget-board/widgets/`，启动时建出来）、`market`（市场装进来的 `$DSH_HOME/widget-board/market-widgets/`，D30）、`plugin`（插件经服务注册的目录）、`example`（包内 `lib/widgets-examples/`，给 agent 的写法样例）。来源表按这个次序插入：插件在运行时注册，也不追加到末尾。
+- 同一个 id 只认先到的来源，后到的记成一条错误；单个组件读不出来、manifest 不合格或 id 冲突，都只让这一个类型不可用，其余照常进库。用户、市场与插件来源的目录不存在按空目录算；包内来源（内置与示例）读不出来或一个组件都没有，直接抛出（构建没有写完）。带作者域的 id 只用于市场来源（D30）。
+- 组件库记录带上来源与提供方包名；界面按角色分成示例、内置、市场三个区，内置区里再按 `builtin`、`user`、`plugin` 标来源，读不出来的类型也列出来并写明原因。
 - 出现过的每个版本存成 `$DSH_HOME/widget-board/blobs/<hash>.json`（来源、提供方与 base64 文件表），跨重启保留；内存只留最近用到的 32 份，其余从磁盘读，读回来先核对内容哈希。
 - 宿主发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 1`）：`registerWidgetType`（目录，注册时读一次，目录不合格这一次注册抛出）、`registerDataSource`、`registerAction`。浏览器侧发布同名服务，`registerWidgetType` 收一个原生 React 组件，与宿主组件库里同 id 的组件对上（D3 的原生级）。每个注册返回释放函数，提供方卸载时随之撤下；提供方带来的版本与服务不一致时可见地拒绝（D12）。
 - 原生组件收到的参数与 `window.widget` 同形（尺寸与位置、props、data、state、暂停状态、`setState`、`action`、`t`），一个组件从沙箱级换成原生级写法不必改；每个原生组件包一层错误边界，它抛错只废掉那一张卡。

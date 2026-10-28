@@ -9,6 +9,7 @@
  */
 import { join } from 'node:path'
 import type { DataSourceRegistration, ActionRegistration, CapabilityRegistration, WidgetRoot, WidgetTypeHandle } from '@dsh-widget-board/contracts'
+import { insertRoot } from './library'
 
 /** 一次提供方注册要动的那几样东西。 */
 export interface ProviderDeps {
@@ -102,7 +103,8 @@ export function createProviderRegistry(deps: ProviderDeps): ProviderRegistry {
       }
       const handle: Handle = { provider: registration.provider, root, entries: new Set(), widgets: new Set(), stopWatch: () => {}, disposed: false }
       handles.add(handle)
-      deps.roots.push(root)
+      // 插件目录排在示例之前（D17）：注册是运行时的事，来源表按 WIDGET_SOURCES 的次序插。
+      insertRoot(deps.roots, root)
       handle.stopWatch = deps.watch(root.dir)
       try {
         await serialize(deps.reload)

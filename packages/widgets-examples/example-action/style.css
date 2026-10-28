@@ -1,0 +1,32 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.example-action {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--w-space-md);
+  font-family: var(--w-font-family);
+}
+
+.example-action__button {
+  margin: 0;
+  padding: 0 var(--w-space-md);
+  border: 0;
+  border-radius: var(--w-radius-card);
+  background: var(--w-color-accent);
+  color: var(--w-color-on-accent);
+  font: inherit;
+  font-size: var(--w-type-caption);
+  cursor: pointer;
+}
+
+.example-action__result {
+  margin: 0;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+}

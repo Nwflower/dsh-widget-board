@@ -100,6 +100,7 @@
 | `npm run host` | 一个装了本仓库的临时 dsh web 实例，以及它上面的一个浏览器页面 |
 | `npm run demo` | 构建演示页：插件真实的看板加一个只读的浏览器端宿主，产物是一个可以直接放上静态托管的目录 |
 | `npm run demo:check` | 演示页的验收：把 `npm run demo` 的产物放在静态服务器的子路径下，在浏览器里走一遍 |
+| `npm run market` | 组件市场原型：索引校验、打包与 Pages 产物 |
 | `npm run lint` | 不需要构建就能查的规则 |
 | `npm test` | 单元层单独跑一遍，也就是云端任务跑它的方式：Vitest，node 环境 |
 | `npm run smoke` | 在真实的临时宿主上走一遍插件自己的表面 |

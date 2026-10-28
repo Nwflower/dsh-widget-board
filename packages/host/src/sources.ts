@@ -59,6 +59,8 @@ export interface Registries {
   callCapability(id: string, instance: InstanceFace, args: unknown, signal: AbortSignal): Promise<unknown>
   /** 某个提供方名下的全部名字，按注册顺序。 */
   namesOf(provider: string): { dataSources: string[], actions: string[], capabilities: string[] }
+  /** 当前解析得到的全部能力名字，按注册顺序（D24）：握手里给组件看它有哪些可用。 */
+  listCapabilities(): string[]
 }
 
 /**
@@ -143,6 +145,9 @@ export function createRegistries(): Registries {
       const names = <T extends { id: string }>(table: Map<string, Owned<T>>): string[] =>
         [...table.values()].filter((owned) => owned.provider === provider).map((owned) => owned.entry.id)
       return { dataSources: names(sources), actions: names(actions), capabilities: names(capabilities) }
+    },
+    listCapabilities() {
+      return [...capabilities.keys()]
     },
   }
 }

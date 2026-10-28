@@ -247,7 +247,7 @@ describe('翻面组', () => {
   })
 })
 
-describe('排列偏好（D30）', () => {
+describe('排列偏好（D31）', () => {
   it('一次提交换掉整份偏好，不合法的形状整体拒绝', () => {
     const current = { ...board(), arrangement: { mode: 'aligned' as const, aligned: { order: ['first', 'second'], boxes: { first: { w: 1, h: 22 }, second: { w: 1, h: 22 } } } } }
     const next = withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['second', 'first'], boxes: { second: { w: 2, h: 18 }, first: { w: 1, h: 14 } } } })

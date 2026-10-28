@@ -32,7 +32,7 @@ DeepSeek Harness 的组件看板：一页可以拖动、缩放的卡片，每张
 | 加号菜单 | 添加、整理、刷新；添加打开从底部上拉的组件库面板 |
 | 卡片齿轮 | 改组件的 props，填凭据，查看并授权数据源与权限 |
 | 会话工具 | agent 列出组件、写组件、放卡、推数据；`widget_show` 在回答里当场画一张。默认只露出 `widget_catalog`，其余工具经它的 `expose` 点名后出现 |
-| `widgetBoard` 服务 | 其他插件注册组件、数据源、动作与宿主能力 |
+| `widgetBoard` 服务 | 其他插件注册组件、数据源、动作、宿主能力与市场 |
 
 <hr>
 
@@ -96,16 +96,28 @@ vendor/         可选，随组件发布的第三方库（各自的许可照原�
 
 ## 给插件提供方
 
-宿主半边发布 cordis 服务 `widgetBoard`（`WIDGET_BOARD_API_VERSION = 3`）：
+宿主半边与浏览器半边各发布一个 cordis 服务 `widgetBoard`。两侧都报版本与功能清单：`service.apiVersion` 是主版本，`service.supportedApiVersions` 是旧入口接受的版本（2 与 3），`service.features` 与 `service.supports(name)` 说明这一侧现在有没有某一项。
 
-| 方法 | 做什么 |
+新写的提供方走 `registerProvider({ apiVersion: 3, provider, features })`，拿回一个把手，组件目录、数据源、动作、能力与市场都经它挂上：
+
+| 宿主侧把手 | 做什么 |
 |---|---|
-| `registerWidgetType` | 注册组件目录，返回带 `provider`、`widgets`、`register`、`dispose` 的把手 |
-| `registerDataSource` | 注册数据源，卡片绑定后取数据 |
-| `registerAction` | 注册动作 |
-| `registerCapability` | 注册宿主能力，组件经 `widget.call` 调用 |
+| `registerWidgets({ directory })` | 挂一个组件目录，读一次 |
+| `registerDataSource()` | 挂数据源，卡片绑定后取数据 |
+| `registerAction()` | 挂动作 |
+| `registerCapability()` | 挂宿主能力，组件经 `widget.call` 调用 |
+| `registerMarketProvider()` | 挂一个市场，交出条目与取包函数 |
+| `dispose()` | 把这个提供方留下的全部注册一次撤下 |
 
-浏览器半边发布同名服务，`registerWidgetType({ apiVersion, provider, id, component })` 登记一个 React 组件，与组件库里同 id 的组件对上之后由它渲染。版本从 `service.apiVersion` 读。
+浏览器侧的把手上是 `registerNativeWidget({ id, component })`，登记一个与组件库同 id 的 React 组件，对上之后由它渲染。子注册不写版本与提供方名，由把手注入。
+
+既有提供方继续用 `registerWidgetType`、`registerDataSource`、`registerAction`、`registerCapability`、`registerMarketProvider`，注册时带版本 2 或 3 都行。同一侧同一个提供方包名只有一个活动把手，新旧入口不能混用；`dispose` 之后可以重新注册。
+
+`features` 是用途声明，不改变这一侧提供什么：`capabilityMetadata`、`eventData`、`marketProvider`、`pushData` 四项按侧给出，缺的项按项降级。
+
+新把手挂的组件目录、市场组件与原生组件的 id 必须写成 `<作者域>.<名字>`；本地组件与旧入口继续用扁平 id，已经装好的组件不改名。
+
+一次读取、一次动作与一次能力调用最多等 15 秒（能力可以声明 1 到 25 秒），每个提供方同时 8 个调用，占满时立即返回错误而不排队。宿主按提供方记录注册数、失败、超时与现在是否可用，设置页的看板那一节列出这张表；卡片照自己的故障显示原因。
 
 提供方跨包时取类型：
 
@@ -113,7 +125,9 @@ vendor/         可选，随组件发布的第三方库（各自的许可照原�
 import type { WidgetBoardClientService } from 'dsh-widget-board/service'
 ```
 
-运行时不值导入本插件、不加 `dsh.client.external`。插件停用或卸载时，它注册的组件、数据源、动作、能力与授权一起撤下，已放着的卡片保留并显示不可用。
+`dsh-widget-board/provider` 是纯值 SDK，构造并校验注册要用的入参对象。运行时不值导入本插件、不加 `dsh.client.external`。插件停用或卸载时，它注册的组件、数据源、动作、能力、市场与授权一起撤下，已放着的卡片保留并显示不可用；装回来就恢复。
+
+完整规则见 [docs/provider.md](docs/provider.md)。
 
 <hr>
 

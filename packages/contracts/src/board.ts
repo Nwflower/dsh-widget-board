@@ -5,7 +5,7 @@
  */
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
-import type { ActionPermission } from './service'
+import type { ActionPermission, MarketListing } from './service'
 
 /**
  * 一张卡片在看板上的位置与尺寸。
@@ -98,6 +98,12 @@ export interface WidgetSummary {
   provider?: string
   /** manifest 声明过的宿主能力（D24）；浏览器半边据此核对一次调用的声明。 */
   capabilities?: string[]
+  /**
+   * 上面这些能力里当前解析得到的（D24）：提供方不在的那些不在其中。
+   *
+   * 握手里把这张卡可用的能力告诉组件，组件就不必先发一次注定失败的调用再回退。
+   */
+  availableCapabilities?: string[]
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
   /** 这个类型有没有可配置的 props 或凭据（D27）：设置按钮据此决定出不出现。 */
@@ -121,8 +127,25 @@ export interface WorkspaceSnapshot {
   widgets: Record<string, WidgetSummary>
   /** 组件库的全部类型，含读不出来的那些（D17）。 */
   library: WidgetLibraryEntry[]
+  /**
+   * 市场区（D8 之后的市场契约）：每个提供方一节，含校验合格的条目、逐条失败原因与整次读取的失败。
+   * 没有市场提供方时是空数组，界面画固定的空状态。
+   */
+  market?: MarketSectionSnapshot[]
   /** 看板上的卡片拿到过的授权（D6）；界面据此决定要不要问人。 */
   grants: Grant[]
+}
+
+/** 快照里一个市场提供方的样子；与宿主 `MarketSection` 同形，避免界面引宿主包。 */
+export interface MarketSectionSnapshot {
+  provider: string
+  id: string
+  title: LocalizedText
+  description?: LocalizedText
+  /** 校验合格的条目；不合格的在 `errors` 里。 */
+  listings: MarketListing[]
+  errors: string[]
+  error?: string
 }
 
 /** 一次布局提交成功后的答复：只带这次落定的盒子与修订号（D16）。 */

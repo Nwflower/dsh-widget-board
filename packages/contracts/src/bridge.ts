@@ -109,6 +109,12 @@ export type ParentMessage =
     state: unknown
     /** manifest 里的文案，按语言取（D7）。 */
     text: Record<string, { zh: string, en: string }>
+    /**
+     * 这张卡的 manifest 声明过、而宿主当前解析得到的能力（D24）。
+     *
+     * 组件据此避开提供方不在的那些调用，不必先发一次注定失败的请求再回退。
+     */
+    capabilities?: string[]
   } & WidgetTheme)
   | { type: 'size', size: WidgetSize }
   | { type: 'data', data: unknown }

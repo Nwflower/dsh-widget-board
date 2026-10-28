@@ -155,6 +155,12 @@ export interface WidgetBoardHostService {
   registerAction(registration: ActionRegistration): () => void
   /** 注册一个宿主能力；返回释放函数。 */
   registerCapability(registration: CapabilityRegistration): () => void
+  /**
+   * 注册一个市场提供方；返回释放函数。
+   *
+   * 撤下后市场区回到空状态，已安装的组件保留在 `market` 来源里，提供方名标成来源不可用。
+   */
+  registerMarketProvider(registration: WidgetMarketProviderRegistration): () => void
 }
 
 /**
@@ -189,4 +195,63 @@ export interface WidgetBoardClientService {
   readonly apiVersion: number
   /** 注册一个原生组件；返回释放函数，提供方卸载时随之撤下。 */
   registerWidgetType(registration: NativeWidgetRegistration): () => void
+}
+
+/**
+ * 市场索引里的一个组件条目：提供方把它读成可序列化的形状交给看板，看板画市场区。
+ *
+ * 条目按 `MARKET_LISTING_SCHEMA` 校验；字段不合格的条目在市场区列成不可用并写明原因，其余照常
+ * 显示。安装时以包内 `widget.json` 的实际声明为准，`declares` 只是安装前给人看的摘要。
+ */
+export interface MarketListing {
+  /** 组件 id；市场条目必须带作者域，形如 `<作者域>.<名字>`。 */
+  id: string
+  title: LocalizedText
+  description?: LocalizedText
+  author: { name: string, url?: string }
+  license?: string
+  versions: MarketVersionSummary[]
+}
+
+/** 一个版本的分发说明：包地址、哈希、尺寸族与依赖声明。 */
+export interface MarketVersionSummary {
+  version: string
+  sizes: string[]
+  requires?: { serviceApiVersion?: number, dsh?: string }
+  declares?: { capabilities?: string[], credentials?: string[], hosts?: string[] }
+  /** `.dshw` 包的地址、内容哈希与大小；安装时核对哈希与大小之后才解包。 */
+  package: { url: string, sha256: string, bytes: number }
+  changelog?: string
+}
+
+/**
+ * 一个市场提供方（D8 之后的市场契约）：把「有哪些远端组件、怎么取包」交给看板。
+ *
+ * 提供方不接触文件系统与看板存储：安装、来源记录、冲突处理都由看板完成。`registerMarketProvider`
+ * 返回释放函数；撤下后市场区回到空状态，已安装的组件保留。
+ */
+export interface WidgetMarketProviderRegistration extends ProviderRegistration {
+  /** 这个市场的名字；同一时刻一个提供方只注册一次。 */
+  id: string
+  title: LocalizedText
+  description?: LocalizedText
+  /** 列出远端条目；看板设超时与条数上限，失败只影响市场区。 */
+  list(): Promise<MarketListing[]>
+  /**
+   * 取一个版本的 `.dshw` 包字节。
+   *
+   * @param listing - 条目（`list` 返回的那个对象）。
+   * @param version - 要取的版本。
+   * @returns 包的字节；宿主核对 `sha256` 与大小。
+   */
+  fetch(listing: MarketListing, version: string): Promise<Uint8Array>
+}
+
+/** 来源记录：一个市场组件是从哪个提供方、哪个条目、哪个版本装来的。 */
+export interface MarketInstallRecord {
+  provider: string
+  listingId: string
+  version: string
+  sha256: string
+  installedAt: string
 }

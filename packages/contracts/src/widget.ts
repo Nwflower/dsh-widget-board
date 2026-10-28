@@ -57,8 +57,13 @@ export function boxClassesOf(width: number, height: number): WidgetBoxClasses {
   }
 }
 
-/** 组件库的一个来源：包内、用户目录、插件注册（D17）。 */
-export const WIDGET_SOURCES = ['builtin', 'user', 'plugin'] as const
+/**
+ * 组件库的一个来源：包内的内置组件与示例、用户目录、市场安装、插件注册（D17）。
+ *
+ * 按优先级排列：同一个 id 只认排在前面的来源。`market` 是市场插件装进来的组件，排在 `plugin` 之前；
+ * `example` 是给 agent 的写法样例，排在最后，不覆盖任何可用的来源。
+ */
+export const WIDGET_SOURCES = ['builtin', 'user', 'market', 'plugin', 'example'] as const
 
 /** 一个来源。 */
 export type WidgetSource = (typeof WIDGET_SOURCES)[number]
@@ -68,6 +73,14 @@ export interface LocalizedText {
   zh: string
   en: string
 }
+
+/**
+ * 组件 id 的形状（D7、D8）：扁平名字，或市场条目的 `<作者域>.<名字>`。
+ *
+ * 扁平的 id 是本地组件的写法，继续有效；市场条目的 id 必须带作者域，安装时不覆盖本地同名组件。
+ * 正则也用于 manifest 校验与 `widget_define` 的工具参数。
+ */
+export const WIDGET_ID_PATTERN = '^[a-z][a-z0-9-]{1,39}(?:\\.[a-z][a-z0-9-]{1,39})?$'
 
 /**
  * manifest 里声明的动作：组件按下时发出的名字（D6）。
@@ -282,6 +295,17 @@ export interface WidgetLibraryError {
   message: string
 }
 
+/** 一段双语文案的 JSON Schema：manifest 与市场条目的 `$defs.text` 共用这一份。 */
+export const LOCALIZED_TEXT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['zh', 'en'],
+  properties: {
+    zh: { type: 'string', minLength: 1 },
+    en: { type: 'string', minLength: 1 },
+  },
+} as const
+
 /** 校验 manifest 用的 JSON Schema；与 `WidgetManifest` 一一对应。 */
 export const WIDGET_MANIFEST_SCHEMA = {
   $id: 'https://dsh-widget-board/widget.json',
@@ -289,7 +313,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
   additionalProperties: false,
   required: ['id', 'title', 'version', 'sizes'],
   properties: {
-    id: { type: 'string', pattern: '^[a-z][a-z0-9-]{1,39}$' },
+    id: { type: 'string', pattern: WIDGET_ID_PATTERN },
     title: { $ref: '#/$defs/text' },
     description: { $ref: '#/$defs/text' },
     author: { type: 'string', minLength: 1, maxLength: 80 },
@@ -388,15 +412,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
     },
   ],
   $defs: {
-    text: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['zh', 'en'],
-      properties: {
-        zh: { type: 'string', minLength: 1 },
-        en: { type: 'string', minLength: 1 },
-      },
-    },
+    text: LOCALIZED_TEXT_SCHEMA,
     box: {
       type: 'object',
       additionalProperties: false,

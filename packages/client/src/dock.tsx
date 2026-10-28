@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
-import type { WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { MarketSectionSnapshot, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
 import tokens from '@dsh-widget-board/contracts/tokens.json'
-import { isChinese, t } from './copy'
+import { isChinese, sourceLabel, t } from './copy'
 import type { FrameHost } from './frame-host'
 import { LibraryPanel } from './library'
 import type { ShellTheme } from './theme'
@@ -51,6 +51,8 @@ export interface BoardDockProps {
   entries: readonly WidgetLibraryEntry[]
   /** 组件元信息：组件库里的缩略画面按它找组件。 */
   widgets: Readonly<Record<string, WidgetSummary>>
+  /** 市场区：快照里的提供方节；省略时按没有提供方算。 */
+  market?: readonly MarketSectionSnapshot[]
   /** 当前主题，缩略画面与卡片用同一份（D10）。 */
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
@@ -302,6 +304,7 @@ export function BoardDock({
   anchor,
   entries,
   widgets,
+  market,
   theme,
   frames,
   libraryOpen,
@@ -531,6 +534,7 @@ export function BoardDock({
             <LibraryPanel
               entries={entries}
               widgets={widgets}
+              market={market}
               theme={theme}
               frames={frames}
               busy={busy}
@@ -559,7 +563,7 @@ export function BoardDock({
         ? null
         : (
           <div className="dsh-widget-board__drag-proxy" ref={proxyRef} data-dsh-widget-board-drag-proxy="">
-            <span className="dsh-widget-board__drag-proxy-kicker">{proxy.source === 'builtin' ? t('builtin') : proxy.source === 'user' ? t('user') : t('plugin')}</span>
+            <span className="dsh-widget-board__drag-proxy-kicker">{sourceLabel(proxy.source)}</span>
             <span className="dsh-widget-board__drag-proxy-title">{isChinese() ? proxy.title.zh : proxy.title.en}</span>
             <span className="dsh-widget-board__drag-proxy-hint">
               <span className="dsh-widget-board__dot" aria-hidden="true" />

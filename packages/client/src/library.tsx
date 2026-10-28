@@ -6,8 +6,8 @@
  */
 import { useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
-import { libraryImportPath } from '@dsh-widget-board/contracts'
+import type { MarketListing, MarketSectionSnapshot, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
+import { libraryImportPath, libraryMarketInstallPath } from '@dsh-widget-board/contracts'
 import { t } from './copy'
 import { BoardError, failureOf } from './snapshot'
 import type { FrameHost } from './frame-host'
@@ -20,6 +20,8 @@ export interface LibraryPanelProps {
   entries: readonly WidgetLibraryEntry[]
   /** 卡片要用的组件元信息：缩略画面按它找组件的哈希与文案。 */
   widgets: Readonly<Record<string, WidgetSummary>>
+  /** 市场区：快照里的提供方节；省略时按没有提供方算。 */
+  market?: readonly MarketSectionSnapshot[]
   /** 当前主题，缩略画面与看板上的卡片用同一份（D10）。 */
   theme: ShellTheme
   /** 整页唯一的握手中心（D3）。 */
@@ -34,7 +36,7 @@ export interface LibraryPanelProps {
   onBeginDrag: (entry: WidgetLibraryEntry, event: ReactPointerEvent<HTMLElement>) => void
   /** 关掉面板。 */
   onClose: () => void
-  /** 导入一个组件包之后重读组件库（D8）。 */
+  /** 导入一个组件包或装一个市场条目之后重读组件库（D8）。 */
   onImported?: () => void
 }
 
@@ -59,6 +61,26 @@ async function importWidgetFile(file: File, replace = false): Promise<string> {
 }
 
 /**
+ * 装一个市场条目（D8 之后的市场契约）：把提供方、条目与版本交给宿主，宿主取包、核对、写进市场来源。
+ *
+ * @param provider - 提供方名。
+ * @param listing - 条目。
+ * @param version - 要装的版本。
+ * @returns 装好的组件 id。
+ * @throws {BoardError} 宿主拒绝时带上它给的原因。
+ */
+async function installMarketListing(provider: string, listing: MarketListing, version: string): Promise<string> {
+  const response = await fetch(libraryMarketInstallPath(), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider, id: listing.id, version }),
+  })
+  if (!response.ok) throw await failureOf(response, '安装失败')
+  const body = await response.json() as { entry?: { id: string } }
+  return body.entry?.id ?? listing.id
+}
+
+/**
  * 添加组件的整窗：按来源分组，把每个组件画成一格实时缩略画面，按住一格可以拖到看板上。
  *
  * @param props - 组件库、主题、打开状态、操作回调与关闭。
@@ -67,6 +89,7 @@ async function importWidgetFile(file: File, replace = false): Promise<string> {
 export function LibraryPanel({
   entries,
   widgets,
+  market,
   theme,
   frames,
   busy,
@@ -80,6 +103,8 @@ export function LibraryPanel({
   const [importError, setImportError] = useState<string | null>(null)
   /** 同名不同内容的导入：等用户决定要不要覆盖（D8 的冲突协议下半段）。 */
   const [conflict, setConflict] = useState<File | null>(null)
+  /** 正在安装的市场条目；安装中时整张网格暂时不可操作由 busy 决定，这里只记失败原因。 */
+  const [marketError, setMarketError] = useState<string | null>(null)
 
   /** 装一个包；冲突时把决定权交给用户，其余失败画在头部。 */
   const install = (file: File, replace: boolean): void => {
@@ -94,6 +119,16 @@ export function LibraryPanel({
       }
       setConflict(null)
       setImportError(error.message)
+    })
+  }
+
+  /** 装一个市场条目；失败原因画在市场区上方。 */
+  const installMarket = (provider: string, listing: MarketListing, version: string): void => {
+    setMarketError(null)
+    installMarketListing(provider, listing, version).then(() => {
+      onImported?.()
+    }, (error: Error) => {
+      setMarketError(error.message)
     })
   }
 
@@ -147,6 +182,7 @@ export function LibraryPanel({
         </div>
       </header>
       <div className="dsh-widget-board__library-body">
+        {marketError === null ? null : <p className="dsh-widget-board__library-error" role="status">{marketError}</p>}
         <WidgetGrid
           entries={entries}
           widgets={widgets}
@@ -156,6 +192,8 @@ export function LibraryPanel({
           busy={busy}
           onActivate={onAdd}
           onBeginDrag={onBeginDrag}
+          {...(market === undefined ? {} : { market })}
+          onMarketInstall={installMarket}
         />
       </div>
     </div>

@@ -53,3 +53,55 @@ export function watchTree(target: string, onChange: () => void): () => void {
     tree?.close()
   }
 }
+
+/** 按目录共享的监视：同一个目录只有一个底层监视，最后一个把手释放时才停掉。 */
+export interface WatchRegistry {
+  /**
+   * 取一份这个目录的监视。
+   *
+   * @param dir - 目录。
+   * @returns 释放这一份的函数；重复调用只算一次。
+   */
+  acquire(dir: string): () => void
+  /** 现在挂着监视的目录数。 */
+  readonly size: number
+  /** 停掉全部监视；拆除时用。 */
+  stopAll(): void
+}
+
+/**
+ * 建一份按目录共享的监视。
+ *
+ * 多个提供方可以注册同一个目录（D17）：谁先注册谁挂上监视，后到的共用它。先释放的一方只交还自己那
+ * 一份，最后一份交还时才停掉监视并删掉记录——否则先卸载的提供方会顺手停掉另一家的监视。
+ *
+ * @param start - 真正挂上一份监视；由它给出停止函数。
+ * @returns 共享监视。
+ */
+export function createWatchRegistry(start: (dir: string) => () => void): WatchRegistry {
+  const held = new Map<string, { count: number, stop: () => void }>()
+
+  return {
+    acquire(dir) {
+      const entry = held.get(dir) ?? { count: 0, stop: start(dir) }
+      entry.count += 1
+      held.set(dir, entry)
+      let released = false
+      return () => {
+        if (released) return
+        released = true
+        entry.count -= 1
+        if (entry.count > 0) return
+        held.delete(dir)
+        entry.stop()
+      }
+    },
+    get size() {
+      return held.size
+    },
+    stopAll() {
+      for (const entry of held.values()) entry.stop()
+      held.clear()
+    },
+  }
+}

@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path'
 import { mkdir, readFile } from 'node:fs/promises'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { WidgetMinBox, WidgetRoot, WidgetTypeHandle } from '@dsh-widget-board/contracts'
+import type { WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
 import {
   PACKAGE_NAME,
   PLUGIN_ROUTE,
@@ -17,7 +17,6 @@ import {
   WIDGET_BOARD_SERVICE_NAME,
   connectionOf,
   credentialsOf,
-  versionMismatch,
   webServerOf,
 } from '@dsh-widget-board/contracts'
 import { createVersionStore } from './blobs'
@@ -30,11 +29,12 @@ import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
-import { createHandler, readInto } from './routes'
+import { createHandler } from './routes'
+import { readInto } from './instance-operations'
 import { readManyInto } from './batch-reads'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
-import { createProviderRegistry, widgetIdsIn } from './providers'
+import { createProviderRegistry, createWidgetBoardService, widgetIdsIn } from './providers'
 import { createMarketRegistry } from './market'
 import { registerDshAccount } from './dsh-account'
 import { createSystemMetricsAction, createSystemMetricsSource } from './system-metrics'
@@ -43,10 +43,11 @@ import { registerTheme } from './theme'
 import { registerUsage } from './usage'
 import { createScheduler, intervalOf } from './refresh'
 import { createToolContext, registerTools } from './tools'
+import { createProviderHealth } from './provider-health'
 import { createSelfChecks } from './selfcheck'
 import type { ToolRegistration } from './tools'
 import { openWorkspace } from './workspace'
-import { watchTree } from './watch'
+import { createWatchRegistry, watchTree } from './watch'
 import { dshHome } from './home'
 
 /** 插件名：宿主的加载器按它登记这一行。 */
@@ -108,7 +109,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     { dir: builtin, source: 'builtin' },
     { dir: join(home, 'widgets'), source: 'user' },
     // 市场来源排在插件之前、示例之前：同 id 先到者胜，索引见 contracts 的 WIDGET_SOURCES。
-    { dir: marketDir, source: 'market' },
+    { dir: marketDir, source: 'market', authorDomain: true },
     // 给 agent 的写法样例（D17）：包内目录，构建写进 lib/widgets-examples；缺失按空算。
     { dir: join(lib, 'widgets-examples'), source: 'example' },
   ]
@@ -116,7 +117,11 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   let library: LibraryLoad = await loadLibrary(roots)
   for (const record of library.records.values()) await versions.remember(record)
   const live = createLive(await loadAssets(runtime))
-  const sources = createRegistries()
+  // 提供方调用的执行器与健康记录（D31）：读取、动作与能力的超时与并发只在这一份里。失败、超时与
+  // 可用性一变就推一条快照通知，设置页因此看得到当前计数。
+  const health = createProviderHealth()
+  const stopHealth = health.onChange(() => { live.notify({ type: 'board' }) })
+  const sources = createRegistries(health)
   // 内置的 DSH 账户能力（D24）：余额这类宿主服务由一个小提供方按能力注册，看板核心不认它。
   const disposeDshAccount = registerDshAccount(sources, ctx)
   // 外观主题（D29）：通用能力，任何组件都能读写；浏览器半边用同名能力接住调用，补上整页转场。
@@ -257,71 +262,40 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
 
   // 构建写出的内置组件与运行时（开发时的热重载），以及用户组件目录（D7、D17）。
   // 读不出来时保留上一份并报出原因，不把一块空看板发给用户（D11）。
-  const watch = (target: string): (() => void) => watchTree(target, () => {
+  const watchers = createWatchRegistry((target) => watchTree(target, () => {
     reload().catch((error: unknown) => {
       console.error(`widget-board: 重读组件库失败，继续用上一份：${(error as Error).message}`)
     })
-  })
-  const stopBuiltin = watch(lib)
-  const stopUser = watch(join(home, 'widgets'))
-  // 已经挂上监视的目录：插件注册的目录也监视，开发时改一个组件文件就能看到（D17）。
-  const watched = new Set<string>([lib, join(home, 'widgets')])
-  const watchOnce = (dir: string): (() => void) => {
-    if (watched.has(dir)) return () => {}
-    watched.add(dir)
-    const stop = watch(dir)
-    return () => {
-      watched.delete(dir)
-      stop()
-    }
-  }
+  }))
+  // 每个目录一份监视，按目录共享：插件注册的目录也监视，开发时改一个组件文件就能看到（D17）；
+  // 两个提供方注册同一个目录时只有一个底层监视，最后一个撤下才停。
+  void watchers.acquire(lib)
+  void watchers.acquire(join(home, 'widgets'))
 
-  // 提供方的注册与生命周期：目录、它名下的数据源与动作、它留下的授权一起管（D12、D17）。
+  // 提供方的注册与生命周期：目录、它名下的数据源、动作、能力、市场与它留下的授权一起管（D31、D17）。
   const providers = createProviderRegistry({
     roots,
     reload,
     registerDataSource: (source) => sources.registerDataSource(source),
     registerAction: (action) => sources.registerAction(action),
     registerCapability: (capability) => sources.registerCapability(capability),
+    registerMarketProvider: (registration) => market.register(registration),
     forgetGrants: async (provider) => { await grants.forget({ provider }) },
     idsIn: async (root) => await widgetIdsIn(root, async (file) => await readFile(file, 'utf8')),
-    watch: watchOnce,
+    watch: (dir) => watchers.acquire(dir),
+    health,
+    syncMarket: (provider) => {
+      if (provider === undefined) {
+        live.notify({ type: 'board' })
+        return
+      }
+      // 注册后立刻读一次条目：市场区打开时已经有东西可看；失败只进那一节的错误（D11）。
+      void market.refresh(provider).then(() => live.notify({ type: 'board' }))
+    },
   })
 
-  /** 插件提供的组件目录：注册时加入来源表并读一次，撤下时移出并重读（D17）。 */
-  const service = {
-    apiVersion: WIDGET_BOARD_API_VERSION,
-    async registerWidgetType(registration: { apiVersion: number, provider: string, directory: string }): Promise<WidgetTypeHandle> {
-      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
-      if (registration.provider.trim() === '' || registration.directory.trim() === '') {
-        throw new Error('registerWidgetType 需要 provider 与 directory')
-      }
-      return await providers.register(registration)
-    },
-    registerDataSource(registration: { apiVersion: number } & Parameters<typeof sources.registerDataSource>[0]) {
-      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
-      return sources.registerDataSource(registration)
-    },
-    registerAction(registration: { apiVersion: number } & Parameters<typeof sources.registerAction>[0]) {
-      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
-      return sources.registerAction(registration)
-    },
-    registerCapability(registration: { apiVersion: number } & Parameters<typeof sources.registerCapability>[0]) {
-      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
-      return sources.registerCapability(registration)
-    },
-    registerMarketProvider(registration: { apiVersion: number } & Parameters<typeof market.register>[0]) {
-      if (registration.apiVersion !== WIDGET_BOARD_API_VERSION) throw versionMismatch(WIDGET_BOARD_API_VERSION, registration.apiVersion)
-      const release = market.register(registration)
-      // 注册后立刻读一次条目：市场区打开时已经有东西可看；失败只进那一节的错误（D11）。
-      // 市场条目随快照走：读完了发 `board`，页面重取一份。
-      void market.refresh(registration.provider).then(() => live.notify({ type: 'board' }))
-      return () => {
-        release()
-        live.notify({ type: 'board' })
-      }
-    },
-  }
+  /** 宿主侧的 widgetBoard 服务（D31）：新旧两个入口，版本协商与入口归属由它把关。 */
+  const service = createWidgetBoardService(providers)
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide
   if (typeof provide === 'function') provide.call(ctx, WIDGET_BOARD_SERVICE_NAME, service)
 
@@ -367,10 +341,10 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeHttpSource()
     stopWatchingViewers()
     stopWatchingVisibility()
+    stopHealth()
     scheduler.stop()
-    stopBuiltin()
-    stopUser()
     providers.disposeAll()
+    watchers.stopAll()
     disposeRoute()
     live.close()
   }, 'widget-board: routes and library watch')

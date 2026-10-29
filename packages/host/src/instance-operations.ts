@@ -39,7 +39,7 @@ export function refusalOf(error: unknown): never {
  * @param id - 卡片实例的 id。
  * @param data - 已经核对过的数据。
  */
-async function storeData(context: RouteContext, id: string, data: unknown): Promise<void> {
+export async function storeData(context: RouteContext, id: string, data: unknown): Promise<void> {
   const { board } = locate(context, id)
   await context.workspace.save(board.id, (current) => withInstanceData(current, id, data), {
     event: () => ({ type: 'instance', id, data }),
@@ -97,8 +97,10 @@ export async function loadData(
   // 提供方交出来的数据先按组件的 data schema 核对（D6）：不合格算它的一次失败，只在这一处记。
   const problem = dataError(context.records.get(instance.widget)?.manifest.data, data)
   if (problem !== undefined) {
-    context.sources.health.failed(resolved.provider, 'provider-output', `数据源 ${asked} 的数据与组件的 data schema 不符：${problem}`)
-    throw new Refusal(400, `数据与组件的 data schema 不符：${problem}`)
+    // dataError 交出来的已经是一整句「数据与组件的 data schema 不符：…」：两处都直接用这一句，卡片与
+    // 设置页各自读到一遍，同一句话不在文案里出现两次。
+    context.sources.health.failed(resolved.provider, 'provider-output', `数据源 ${asked} 交出来的数据不合格：${problem}`)
+    throw new Refusal(400, problem)
   }
   return { board, instance, data }
 }

@@ -18,6 +18,11 @@
     "m"
   ],
   "source": "testv3.count",
+  "sources": [
+    "testv3.extra",
+    "testv3.gated",
+    "testv3.bad"
+  ],
   "data": {
     "type": "object",
     "required": [
@@ -36,9 +41,18 @@
         "zh": "跑一次",
         "en": "Run"
       }
+    },
+    {
+      "id": "testv3.probe",
+      "label": {
+        "zh": "读订阅账本",
+        "en": "Read the subscription ledger"
+      }
     }
   ],
   "capabilities": [
-    "testv3.echo"
+    "testv3.echo",
+    "widget-board:data.read",
+    "testv3.gone"
   ]
 }

@@ -113,6 +113,12 @@ export interface RouteContext {
   sources: Registries
   /** 人给出过的授权，绑在组件版本上（D6）。 */
   grants: GrantStore
+  /**
+   * 重算一次按观众启停的东西（D6、D32）：定时刷新与数据订阅共用这一个入口。
+   *
+   * 授权给出或收回之后要调一次——订阅能不能开着取决于授权在不在。工具那一侧的替身没有它。
+   */
+  sync?: () => void
   /** 状态写入的预算：按卡与按看板各一份（D23）。 */
   limits: { stateCard: RateLimiter, stateBoard: RateLimiter }
   /** 宿主的凭据服务（D27）；没装时是 `undefined`，设置弹窗给出可见的说法。 */
@@ -495,6 +501,8 @@ const ROUTES: Route[] = [
         ...(provider === undefined ? {} : { provider }),
         ...(permission === undefined ? {} : { permission }),
       })
+      // 刚给出一条授权：原来因为没有授权而没开的数据订阅现在可以开了（D32）。
+      context.sync?.()
       json(response, 200, { ok: true, grant })
     },
   },
@@ -506,6 +514,8 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const wanted = await grantRequestOf(context, request, id)
       const removed = await context.grants.revoke(wanted.kind, recordOfCard(context, id).hash, wanted.id)
+      // 收回了授权：靠它开着的数据订阅要跟着退掉（D32）。
+      context.sync?.()
       json(response, 200, { ok: true, removed })
     },
   },

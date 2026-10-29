@@ -4,8 +4,8 @@
  * 两端用的是同一份判定，所以它自己要先站稳：一条形状不对的消息不该走到组件的状态里。
  */
 import { describe, expect, it } from 'vitest'
-import type { ParentMessage, WidgetMessage, WidgetSize } from '../src/index'
-import { isParentMessage, isWidgetMessage, isWidgetSize, withinLimit } from '../src/index'
+import type { CapabilityMetadata, ParentMessage, WidgetMessage, WidgetSize, WidgetSummary } from '../src/index'
+import { isCapabilityMetadata, isParentMessage, isWidgetMessage, isWidgetSize, withinLimit } from '../src/index'
 import { OPEN_URL_LIMIT } from '../src/bridge'
 
 /** 一份完整的尺寸。 */
@@ -68,6 +68,112 @@ describe('父页面的消息', () => {
     expect(isParentMessage({ type: 'tokens' })).toBe(false)
     expect(isParentMessage(null)).toBe(false)
     expect(isParentMessage('init')).toBe(false)
+  })
+})
+
+/** 一条已经站得住的 init。 */
+const INIT: ParentMessage = {
+  type: 'init',
+  size: SIZE,
+  props: {},
+  data: null,
+  state: null,
+  text: {},
+  tokens: {},
+  lang: 'zh-CN',
+  motion: 'full',
+}
+
+/** 可用的一项：从注册项取到的完整信息（D32）。 */
+const AVAILABLE: CapabilityMetadata = {
+  id: 'dsh-account:balance',
+  provider: 'dsh-account',
+  title: { zh: '余额', en: 'Balance' },
+  description: { zh: '账户余额', en: 'Account balance' },
+  input: { type: 'object' },
+  output: { type: 'object' },
+  permission: { hosts: ['api.deepseek.com'] },
+  available: true,
+}
+
+/** 不可用的一项：只留声明过的 id。 */
+const UNAVAILABLE: CapabilityMetadata = { id: 'demo:absent', available: false }
+
+describe('握手的能力元数据', () => {
+  it('不带元数据的旧 init 照旧认', () => {
+    expect(isParentMessage(INIT)).toBe(true)
+    expect(isParentMessage({ ...INIT, capabilities: ['demo:echo'] })).toBe(true)
+  })
+
+  it('旧的 capabilities 只收非空字符串组成的数组', () => {
+    expect(isParentMessage({ ...INIT, capabilities: ['demo:echo', 'dsh-account:balance'] })).toBe(true)
+    expect(isParentMessage({ ...INIT, capabilities: [] })).toBe(true)
+    expect(isParentMessage({ ...INIT, capabilities: ['demo:echo', ''] })).toBe(false)
+    expect(isParentMessage({ ...INIT, capabilities: ['demo:echo', 1] })).toBe(false)
+    expect(isParentMessage({ ...INIT, capabilities: ['demo:echo', null] })).toBe(false)
+    expect(isParentMessage({ ...INIT, capabilities: 'demo:echo' })).toBe(false)
+  })
+
+  it('两个能力字段各判各的：名单坏掉时元数据再好也不认', () => {
+    expect(isParentMessage({ ...INIT, capabilities: [''], capabilityMetadata: [AVAILABLE] })).toBe(false)
+    expect(isParentMessage({ ...INIT, capabilities: ['demo:echo'], capabilityMetadata: [AVAILABLE] })).toBe(true)
+  })
+
+  it('可用项带完整信息，不可用项只有 id 与 available', () => {
+    expect(isCapabilityMetadata(AVAILABLE)).toBe(true)
+    expect(isCapabilityMetadata(UNAVAILABLE)).toBe(true)
+    expect(isParentMessage({ ...INIT, capabilityMetadata: [AVAILABLE, UNAVAILABLE] })).toBe(true)
+  })
+
+  it('一项里有一个字段不对就不认', () => {
+    const broken = [
+      { ...AVAILABLE, available: 'yes' },
+      { ...AVAILABLE, available: undefined },
+      { ...AVAILABLE, id: '' },
+      { ...AVAILABLE, provider: '' },
+      { ...AVAILABLE, provider: 3 },
+      { ...AVAILABLE, title: { zh: '余额' } },
+      { ...AVAILABLE, description: '一段说明' },
+      { ...AVAILABLE, input: 'object' },
+      { ...AVAILABLE, permission: { hosts: [1] } },
+      { ...AVAILABLE, permission: 'hosts' },
+      { id: 'demo:absent' },
+      null,
+      'demo:absent',
+    ]
+    for (const item of broken) expect(isParentMessage({ ...INIT, capabilityMetadata: [item] })).toBe(false)
+  })
+
+  it('数组里坏掉一项，整条 init 都不认', () => {
+    expect(isParentMessage({ ...INIT, capabilityMetadata: [AVAILABLE, { id: '', available: false }] })).toBe(false)
+  })
+
+  it('不是数组的元数据不认', () => {
+    expect(isParentMessage({ ...INIT, capabilityMetadata: AVAILABLE })).toBe(false)
+  })
+})
+
+/** 快照里的一张组件摘要：三份能力字段同时在场（D32）。 */
+const SUMMARY: WidgetSummary = {
+  hash: 'sha256-balance',
+  title: { zh: '余额', en: 'Balance' },
+  sizes: ['s'],
+  source: 'builtin',
+  capabilities: ['dsh-account:balance', 'demo:absent'],
+  availableCapabilities: ['dsh-account:balance'],
+  capabilityMetadata: [AVAILABLE, UNAVAILABLE],
+}
+
+describe('快照里的组件摘要', () => {
+  it('按 manifest 的声明次序带着全部能力，含现在不可用的那些', () => {
+    expect(SUMMARY.capabilityMetadata?.map((item) => item.id)).toEqual(['dsh-account:balance', 'demo:absent'])
+    expect(SUMMARY.capabilityMetadata?.map((item) => item.available)).toEqual([true, false])
+    expect(SUMMARY.availableCapabilities).toEqual(['dsh-account:balance'])
+  })
+
+  it('摘要里的每一项都过同一份元数据判定', () => {
+    for (const item of SUMMARY.capabilityMetadata ?? []) expect(isCapabilityMetadata(item)).toBe(true)
+    expect(SUMMARY.capabilities).toContain(UNAVAILABLE.id)
   })
 })
 

@@ -5,15 +5,24 @@
     "en": "v3 widget beta"
   },
   "description": {
-    "zh": "新把手第二个目录里的原生组件：与组件甲同在一个把手下，用来核对一个把手挂得住多个目录。",
-    "en": "The native widget in the new handle's second directory: registered under the same handle as alpha."
+    "zh": "新把手第二个目录里的沙箱组件：与组件甲声明同一份能力面、同一份数据源白名单，用来核对两种写法的语义是否一致。",
+    "en": "The sandbox widget in the new handle's second directory: the same capability surface and source whitelist as alpha, so both ways of writing a widget can be compared."
   },
   "author": "dsh-widget-board-test-provider-v3",
   "version": "0.3.0",
+  "requires": {
+    "serviceApiVersion": 3
+  },
   "sizes": [
-    "s"
+    "s",
+    "m"
   ],
   "source": "testv3.count",
+  "sources": [
+    "testv3.extra",
+    "testv3.gated",
+    "testv3.bad"
+  ],
   "data": {
     "type": "object",
     "required": [
@@ -24,5 +33,26 @@
         "type": "number"
       }
     }
-  }
+  },
+  "actions": [
+    {
+      "id": "testv3.run",
+      "label": {
+        "zh": "跑一次",
+        "en": "Run"
+      }
+    },
+    {
+      "id": "testv3.probe",
+      "label": {
+        "zh": "读订阅账本",
+        "en": "Read the subscription ledger"
+      }
+    }
+  ],
+  "capabilities": [
+    "testv3.echo",
+    "widget-board:data.read",
+    "testv3.gone"
+  ]
 }

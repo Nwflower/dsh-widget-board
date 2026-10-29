@@ -9,16 +9,12 @@
     "en": "Token usage for the selected window: the total, the trend across the last 30 calls, the four parts such as input and output, and the latest call; today and all merge the history dsh-usage keeps."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": [
     "m",
     "l"
   ],
   "source": "widget-board:session.usage",
-  "refresh": {
-    "mode": "interval",
-    "everyMs": 10000
-  },
   "defaultBox": {
     "w": 2,
     "h": 16

@@ -3,6 +3,7 @@
  *
  * 两个半边共用这一份，形状只在这里写一次。
  */
+import type { CapabilityMetadata } from './bridge'
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
 import type { ActionPermission, MarketListing, WidgetBoardFeature } from './service'
@@ -104,6 +105,13 @@ export interface WidgetSummary {
    * 握手里把这张卡可用的能力告诉组件，组件就不必先发一次注定失败的调用再回退。
    */
   availableCapabilities?: string[]
+  /**
+   * 声明过的每一项能力的元数据（D32），按 manifest 的声明次序，现在不可用的那些也在里面。
+   *
+   * `capabilities` 是其中的 id 白名单，`availableCapabilities` 是其中 `available` 为真的那些 id：
+   * 客户端只从这里取标题、说明与 schema，不必先发一次调用。
+   */
+  capabilityMetadata?: CapabilityMetadata[]
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
   /** 这个类型有没有可配置的 props 或凭据（D27）：设置按钮据此决定出不出现。 */

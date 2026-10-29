@@ -20,7 +20,7 @@ import { issuesOf } from './schema'
 export const CALL_LIMIT = 64 * 1024
 
 /**
- * 调一次能力：执行器的拒绝翻成状态码，提供方自己的异常回 502。
+ * 调一次能力：执行器的拒绝翻成状态码，宿主自己的拒绝原样透出，提供方自己的异常回 502。
  *
  * @param context - 路由上下文。
  * @param capability - 能力的名字。
@@ -28,6 +28,7 @@ export const CALL_LIMIT = 64 * 1024
  * @param args - 已经按 input schema 校验过的参数。
  * @param signal - 连接断开时中止提供方。
  * @returns 能力的返回值。
+ * @throws {Refusal} 执行器的拒绝（504、429）、宿主自己的拒绝（400、403 等），或提供方的异常（502）。
  */
 async function capabilityResult(
   context: RouteContext,
@@ -39,6 +40,9 @@ async function capabilityResult(
   try {
     return await context.sources.callCapability(capability, face, args, signal)
   } catch (error) {
+    // 宿主自己的拒绝（源不在白名单、缺授权、组件不在库里、数据不合 schema）是调用方或请求的问题：
+    // 它带着自己的状态码与原因码原样回去，只有提供方真正抛出来的异常才翻成 502（D31）。
+    if (error instanceof Refusal) throw error
     if (error instanceof ProviderCallError) refusalOf(error)
     throw new Refusal(502, `能力 ${capability} 调用失败：${error instanceof Error ? error.message : String(error)}`)
   }
@@ -69,14 +73,18 @@ async function callOf(context: RouteContext, id: string, request: Parameters<Rou
   const resolved = context.sources.resolveCapability(wanted.capability)
   if (resolved === undefined) throw new Refusal(400, `没有能力 ${wanted.capability}，提供它的插件可能没有安装`)
   requireGrant(grantFacts(context, found.board), id, 'capability', wanted.capability, resolved.registration.permission, resolved.provider)
-  const inputIssues = issuesOf(resolved.registration.input, wanted.args)
+  // 桥上的 args 是可选的（contracts 的 call 签名）：声明了 input schema 时，没给按一个空对象校验与
+  // 执行，于是不声明参数的能力可以整个省略，声明了必填项的按缺项拒绝；没声明 schema 的能力保持收到
+  // undefined，既有提供方按「没有参数」写的那种行为不变。
+  const args = wanted.args ?? (resolved.registration.input === undefined ? undefined : {})
+  const inputIssues = issuesOf(resolved.registration.input, args)
   if (inputIssues !== undefined) {
     // 参数是调用方写错的，提供方根本没有被调用：这一条不计提供方的失败（D31）。
     throw new Refusal(400, `调用 ${wanted.capability} 的参数与 input schema 不符`, { issues: inputIssues })
   }
   const controller = new AbortController()
   request.on?.('aborted', () => { controller.abort() })
-  const result = await capabilityResult(context, wanted.capability, face, wanted.args, controller.signal)
+  const result = await capabilityResult(context, wanted.capability, face, args, controller.signal)
   const outputIssues = issuesOf(resolved.registration.output, result)
   if (outputIssues !== undefined) {
     // 提供方跑完了但交出来的东西不合 schema：这是它的一次失败，记一次，不再叠加（D31）。

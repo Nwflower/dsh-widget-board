@@ -15,6 +15,7 @@ import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
 import { MY_BOARD_TITLE } from '../src/default-boards'
 import { readManyInto } from '../src/batch-reads'
+import { registerDataRead } from '../src/data-read'
 import type { GrantStore } from '../src/grants'
 import type { WidgetRecord } from '../src/library'
 import { loadLibrary } from '../src/library'
@@ -50,6 +51,17 @@ const RECORD: WidgetRecord = {
 const ENTRIES: WidgetLibraryEntry[] = [
   { id: 'weather', source: 'builtin', title: { zh: '天气', en: 'Weather' }, sizes: ['s'], hash: HASH },
 ]
+
+/**
+ * 一段文案里出现几次某句话：一句前缀只该说一遍，界面才看不到重复的两遍。
+ *
+ * @param text - 文案。
+ * @param phrase - 要找的那一句。
+ * @returns 出现次数。
+ */
+function timesIn(text: string, phrase: string): number {
+  return text.split(phrase).length - 1
+}
 
 /** 一块两张卡的看板。 */
 function board(id = 'board', title = '看板'): Board {
@@ -835,6 +847,37 @@ describe('提供方调用的超时、并发与健康', () => {
     })
   })
 
+  it('能力参数可以整个省略：按空对象校验与执行', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, capabilities: ['test.none'] } })
+    const seen: unknown[] = []
+    test.context.sources.registerCapability({
+      apiVersion: 3,
+      provider: 'test-provider',
+      id: 'test.none',
+      input: { type: 'object', additionalProperties: false, properties: {} },
+      call: (_instance, args) => { seen.push(args); return { ok: true } },
+    })
+    // 组件调一个不声明参数的能力时可以不传 args；传了不合 schema 的值仍按同一处校验拒绝。
+    const omitted = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'test.none' }))
+    expect(omitted.status).toBe(200)
+    expect(seen).toEqual([{}])
+    const wrong = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'test.none', args: { extra: 1 } }))
+    expect(wrong.status).toBe(400)
+    // 没有声明 input schema 的能力保持收到 undefined：既有提供方按「没有参数」写的那种行为不变。
+    const raw: unknown[] = []
+    test.context.sources.registerCapability({
+      apiVersion: 3,
+      provider: 'test-provider',
+      id: 'test.raw',
+      call: (_instance, args) => { raw.push(args); return { ok: true } },
+    })
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, capabilities: ['test.none', 'test.raw'] } })
+    const undeclared = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'test.raw' }))
+    expect(undeclared.status).toBe(200)
+    expect(raw).toEqual([undefined])
+  })
+
   it('快照带每个提供方一份健康记录，撤下之后不可用', async () => {
     const test = await harness()
     const release = test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 1 }) })
@@ -855,12 +898,16 @@ describe('提供方调用的超时、并发与健康', () => {
     }), { event: () => ({ type: 'board' }) })
     const response = await test.send('POST', '/instance/board-first/read')
     expect(response.status).toBe(400)
-    expect((JSON.parse(response.body) as { error: string }).error).toMatch(/data schema/)
+    const error = (JSON.parse(response.body) as { error: string }).error
+    expect(error).toMatch(/data schema/)
+    // dataError 自带的那一句就是全部：前缀在文案里只出现一次。
+    expect(timesIn(error, 'data schema 不符')).toBe(1)
     // 校验只在 loadData 一处：读取失败两次也不会多记一次（D31）。
     const health = test.context.sources.health.snapshot()
     expect(health).toHaveLength(1)
     expect(health[0]).toMatchObject({ provider: 'test-provider', failures: 1, timeouts: 0 })
-    expect(health[0]?.lastError).toMatch(/^provider-output：数据源 weather.now 的数据与组件的 data schema 不符/)
+    expect(health[0]?.lastError).toMatch(/^provider-output：数据源 weather.now 交出来的数据不合格：/)
+    expect(timesIn(health[0]?.lastError ?? '', 'data schema 不符')).toBe(1)
     expect(test.context.workspace.board('board').instances[0]?.data).toBeNull()
   })
 
@@ -899,6 +946,107 @@ describe('提供方调用的超时、并发与健康', () => {
     }), { event: () => ({ type: 'board' }) })
     const snapshot = JSON.parse((await test.send('GET', '/boards')).body) as { providers?: { registrations: number, failures: number, timeouts: number }[] }
     expect(snapshot.providers?.[0]).toMatchObject({ registrations: 1, failures: 0, timeouts: 0 })
+  })
+})
+
+describe('按需读的错误语义', () => {
+  /** 一张声明了按需读的卡：默认源与额外源都写在 manifest 里。 */
+  const READER: WidgetRecord = {
+    ...RECORD,
+    manifest: {
+      ...RECORD.manifest,
+      source: 'test-provider:weather.now',
+      sources: ['test-provider:weather.now', 'test-provider:extra'],
+      capabilities: ['widget-board:data.read'],
+    },
+  }
+
+  /**
+   * 起一套注册了按需读能力的替身。
+   *
+   * @param timeoutMs - 提供方调用的默认超时；省略时用生产上的 15 秒。
+   * @returns 上下文与发请求的函数。
+   */
+  async function readerHarness(timeoutMs?: number): Promise<Harness> {
+    const test = await harness(READER, false, undefined, timeoutMs)
+    registerDataRead(test.context.sources, test.context)
+    return test
+  }
+
+  /**
+   * 一个提供方的健康记录。
+   *
+   * @param test - 这一轮的替身。
+   * @param provider - 提供方的包名。
+   * @returns 那一条记录。
+   */
+  function healthOf(test: Harness, provider: string) {
+    return test.context.sources.health.snapshot().find((entry) => entry.provider === provider)
+  }
+
+  it('白名单之外的源回 400 与 source-unavailable，不记到 data.read 名下', async () => {
+    const test = await readerHarness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 1 }) })
+    const response = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'widget-board:data.read', args: { source: 'other:nowhere' } }))
+    expect(response.status).toBe(400)
+    expect(JSON.parse(response.body)).toMatchObject({ code: 'source-unavailable', source: 'other:nowhere' })
+    expect(healthOf(test, 'widget-board')).toMatchObject({ provider: 'widget-board', registrations: 1, failures: 0, timeouts: 0 })
+    expect(healthOf(test, 'widget-board')?.lastError).toBeUndefined()
+  })
+
+  it('数据源要授权时回 403 与 grant-required，提供方没有被调用', async () => {
+    const test = await readerHarness()
+    test.context.sources.registerDataSource({
+      apiVersion: 3,
+      provider: 'test-provider',
+      id: 'weather.now',
+      permission: { hosts: ['example.com'] },
+      read: () => ({ n: 1 }),
+    })
+    const response = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'widget-board:data.read' }))
+    expect(response.status).toBe(403)
+    expect(JSON.parse(response.body)).toMatchObject({ code: 'grant-required', kind: 'source', id: 'test-provider:weather.now' })
+    expect(healthOf(test, 'test-provider')).toMatchObject({ registrations: 1, failures: 0, timeouts: 0 })
+    expect(healthOf(test, 'widget-board')).toMatchObject({ failures: 0, timeouts: 0 })
+  })
+
+  it('数据不合 data schema 时按 loadData 的语义回 400，只记数据源提供方一次', async () => {
+    const test = await readerHarness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 'x' }) })
+    const response = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'widget-board:data.read' }))
+    expect(response.status).toBe(400)
+    const error = (JSON.parse(response.body) as { error: string }).error
+    expect(error).toMatch(/data schema/)
+    // 同一句话只说一遍：HTTP 文案与提供方的 lastError 各自只出现一次。
+    expect(timesIn(error, 'data schema 不符')).toBe(1)
+    expect(timesIn(healthOf(test, 'test-provider')?.lastError ?? '', 'data schema 不符')).toBe(1)
+    expect(healthOf(test, 'test-provider')).toMatchObject({ failures: 1, timeouts: 0 })
+    expect(healthOf(test, 'widget-board')).toMatchObject({ failures: 0, timeouts: 0 })
+    // 按需读不改写卡片：这次拒绝只回给组件。
+    expect(test.context.workspace.board('board').instances[0]?.data).toBeNull()
+  })
+
+  it('数据源超时仍回 504 与 provider-timeout，不记到 data.read 名下', async () => {
+    const test = await readerHarness(20)
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => new Promise<unknown>(() => {}) })
+    const response = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'widget-board:data.read' }))
+    expect(response.status).toBe(504)
+    expect(JSON.parse(response.body)).toMatchObject({ code: 'provider-timeout', provider: 'test-provider' })
+    expect(healthOf(test, 'test-provider')).toMatchObject({ timeouts: 1, failures: 0 })
+    expect(healthOf(test, 'widget-board')).toMatchObject({ timeouts: 0, failures: 0 })
+  }, 5_000)
+
+  it('提供方真的抛出异常时回 502，失败只记在它自己名下', async () => {
+    const test = await readerHarness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => { throw new Error('网络断了') } })
+    const response = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'widget-board:data.read' }))
+    expect(response.status).toBe(502)
+    expect((JSON.parse(response.body) as { error: string }).error).toContain('网络断了')
+    expect(healthOf(test, 'test-provider')).toMatchObject({ failures: 1, timeouts: 0 })
+    expect(healthOf(test, 'test-provider')?.lastError).toBe('provider-failure：数据源 weather.now 失败：网络断了')
+    // 读异常在 data.read 的读取边界已经翻成宿主拒绝：看板这一层不再记一次失败。
+    expect(healthOf(test, 'widget-board')).toMatchObject({ registrations: 1, failures: 0, timeouts: 0 })
+    expect(healthOf(test, 'widget-board')?.lastError).toBeUndefined()
   })
 })
 

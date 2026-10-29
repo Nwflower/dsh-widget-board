@@ -4,7 +4,7 @@
  * 这个文件只有类型：它经根包的 `exports["./service"]` 发布给其他插件，`import type` 在编译时被抹掉，
  * 不产生模块请求。运行时值留在 `service.ts`；提供方读 `service.apiVersion` 协商版本。
  */
-import type { WidgetHandles, WidgetSize } from './bridge'
+import type { CapabilityMetadata, WidgetHandles, WidgetSize } from './bridge'
 import type { LocalizedText, WidgetCredential, WidgetRequires } from './widget'
 
 /** 读数据或跑动作时能看到的这张卡片。 */
@@ -84,6 +84,18 @@ export interface DataSourceRegistration extends ProviderRegistration {
    * @returns 卡片的数据，按 `data` 校验。
    */
   read(instance: InstanceFace, signal?: AbortSignal): unknown | Promise<unknown>
+  /**
+   * 在有人看着、且这张卡的盒子可见时，把新数据推给宿主（D32）。
+   *
+   * 省略时这张卡只能按需读。宿主按组件的 data schema 校验推上来的数据之后再写进卡片，写入走与读
+   * 回来同一条路径；同一张卡上订阅与定时刷新不会同时跑。返回的退订函数必须同步做完清理——停掉
+   * 自己的计时器与在途请求，不再回调——宿主在卡片离开视口、或提供方撤下时直接调用它。
+   *
+   * @param instance - 订阅这张卡片。
+   * @param emit - 推一次数据；时机由实现决定。
+   * @returns 退订函数，同步清理。
+   */
+  subscribe?(instance: InstanceFace, emit: (data: unknown) => void): () => void
 }
 
 /** 一个动作：组件的按钮由它执行（D6）。 */
@@ -301,6 +313,17 @@ export interface WidgetNativeProps extends WidgetHandles {
   state: unknown
   /** 这张卡不在视口里：动画与计时可以停下。 */
   paused: boolean
+  /** 宿主的界面语言，如 `zh-CN`；沙箱组件从握手里拿到同一个值。 */
+  lang?: string
+  /**
+   * manifest 声明过、宿主当前解析得到的能力名（D24），与沙箱组件的 `widget.capabilities` 同一份
+   * （D32）。
+   *
+   * 省略表示这一侧没有投影能力面，组件按空能力面处理。
+   */
+  capabilities?: readonly string[]
+  /** 上面这些能力的元数据（D32），与沙箱组件在 init 里拿到的 `capabilityMetadata` 同一份。 */
+  capabilityMetadata?: readonly CapabilityMetadata[]
 }
 
 /** 注册一个原生组件：画在父页面里的 React 组件，画的是宿主组件库里同 id 的那个组件。 */

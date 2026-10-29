@@ -1,10 +1,13 @@
 /**
- * 冒烟用的 v3 提供方（宿主半边，D31、D17、D24、D30）：一个 registerProvider 把手管完两个组件目录、
+ * 冒烟用的 v3 提供方（宿主半边，D31、D17、D24、D30、D32）：一个 registerProvider 把手管完两个组件目录、
  * 数据源、动作、能力与市场提供方。
  *
  * 新入口只报身份与用途，目录这些经把手逐个挂上，子注册里不再写提供方名与版本。`inject` 让 cordis
  * 等到看板发布服务之后才调用 `apply`；`ctx.effect` 让把手在插件卸载（或设置页里被停用）时一次撤下
  * 这一侧的全部资源。
+ *
+ * 数据一侧按 D32 给两样东西：一张按名字读、白名单与授权各走一道的源表，一份把订阅计数记在卡片上的
+ * 账本。账本让场景按确定性事件判生命周期（订阅、退订、推送各加一），不靠等时间。
  */
 import { join } from 'node:path'
 
@@ -20,6 +23,12 @@ const FEATURES = ['capabilityMetadata', 'eventData', 'marketProvider']
 
 /** 慢数据源多久答完：越过 15 秒的默认超时，之后把执行槽让出来（D31）。 */
 const SLOW_ANSWER_MS = 16_000
+
+/** 订阅成立时推的初值从哪个数起：场景按它认领这是订阅送来的那一条（D32）。 */
+const SUBSCRIBE_BASE = 1000
+
+/** 动作触发推送时从哪个数起：与订阅初值分开，两种来源各自可辨。 */
+const PUSH_BASE = 2000
 
 /**
  * 市场里只放一条测试条目：给冒烟看「市场提供方挂上了」，不实现具体业务市场（D30）。
@@ -40,8 +49,29 @@ const TEST_LISTING = {
   ],
 }
 
+/** 每个卡片 id 一份订阅账本；卡片被移除后留在表里，便于场景读到它退订过。 */
+const books = new Map()
+
 /**
- * 注册提供方，并把它名下的五样东西挂上去。
+ * 一张卡的订阅账本。
+ *
+ * @param id - 卡片实例的 id。
+ * @returns 账本，没有时先建出来。
+ */
+function bookOf(id) {
+  let book = books.get(id)
+  if (book === undefined) {
+    book = { active: 0, subscribes: 0, unsubscribes: 0, pushes: 0 }
+    books.set(id, book)
+  }
+  return book
+}
+
+/** 每张卡当前那次订阅的推送函数；同一张卡重订时换掉。 */
+const emitters = new Map()
+
+/**
+ * 注册提供方，并把它名下的东西挂上去。
  *
  * @param ctx - 宿主上下文。
  */
@@ -93,13 +123,53 @@ export async function apply(ctx) {
   // 每读一次加一：冒烟据此核对数据源真的被读到（D6）。
   let count = 3
   // 子注册省掉版本与提供方名，两者由把手注入（D31）。
-  provider.registerDataSource({ id: 'testv3.count', read: () => ({ count: count++ }) })
+  provider.registerDataSource({
+    id: 'testv3.count',
+    read: () => ({ count: count++, from: 'default' }),
+    // 订阅成立时推一条初值：D32 的约定是组件不主动读、实现自己在订阅里推一次。
+    subscribe: (instance, emit) => {
+      const book = bookOf(instance.id)
+      book.active += 1
+      book.subscribes += 1
+      emitters.set(instance.id, emit)
+      emit({ count: SUBSCRIBE_BASE + book.subscribes, from: 'subscribe' })
+      return () => {
+        book.active -= 1
+        book.unsubscribes += 1
+        emitters.delete(instance.id)
+      }
+    },
+  })
+  // 白名单里多出来的几个源：正常的一个、要授权的一个、数据与组件 schema 不符的一个。
+  provider.registerDataSource({ id: 'testv3.extra', read: () => ({ count: 7001, from: 'extra' }) })
+  provider.registerDataSource({
+    id: 'testv3.gated',
+    permission: { hosts: ['testv3.invalid'] },
+    read: () => ({ count: 7002, from: 'gated' }),
+  })
+  provider.registerDataSource({ id: 'testv3.bad', read: () => ({ count: '不是数字', from: 'bad' }) })
+  // 注册了却没有写进任何 manifest 的 sources：按需读白名单据此核对「未声明源被拒绝」。
+  provider.registerDataSource({ id: 'testv3.hidden', read: () => ({ count: 7003, from: 'hidden' }) })
   // 慢数据源：忽略中止信号，16 秒才答完——执行槽跟提供方的 promise 走，不跟超时走（D31）。
   provider.registerDataSource({
     id: 'testv3.slow',
     read: () => new Promise((resolve) => { setTimeout(() => { resolve({ count: -1 }) }, SLOW_ANSWER_MS) }),
   })
-  provider.registerAction({ id: 'testv3.run', run: (_instance, payload) => ({ ran: true, payload }) })
+  provider.registerAction({
+    id: 'testv3.run',
+    // 动作触发一次推送：动作仍然单向、没有返回值到组件（D6、D32），新数据走数据这一条路。
+    run: (instance, payload) => {
+      const book = bookOf(instance.id)
+      const emit = emitters.get(instance.id)
+      if (emit !== undefined) {
+        book.pushes += 1
+        emit({ count: PUSH_BASE + book.pushes, from: 'action' })
+      }
+      return { ran: true, payload, pushed: emit !== undefined }
+    },
+  })
+  // 账本只经动作交出去：动作不写卡片，场景读它时不推动卡片的数据。
+  provider.registerAction({ id: 'testv3.probe', run: (instance) => ({ ...bookOf(instance.id) }) })
   provider.registerCapability({
     id: 'testv3.echo',
     title: { zh: '回声', en: 'Echo' },

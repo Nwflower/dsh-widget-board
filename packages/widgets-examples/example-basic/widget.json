@@ -1,0 +1,7 @@
+{
+  "id": "example-basic",
+  "title": { "zh": "示例：最小组件", "en": "Example: minimal widget" },
+  "description": { "zh": "演示组件目录与 manifest 的最小形态：只有 id、title、version、sizes。", "en": "The smallest possible widget: id, title, version and sizes only." },
+  "version": "1.0.0",
+  "sizes": ["s", "m"]
+}

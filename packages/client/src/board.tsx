@@ -620,6 +620,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
         anchor={shellRef}
         entries={snapshot === null ? [] : [FLIP_GROUP_ENTRY, ...snapshot.library]}
         widgets={snapshot === null ? {} : snapshot.widgets}
+        market={snapshot?.market}
         theme={theme}
         frames={frames}
         libraryOpen={libraryOpen}

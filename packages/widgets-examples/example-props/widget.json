@@ -1,0 +1,35 @@
+{
+  "id": "example-props",
+  "title": { "zh": "示例：props 与设置", "en": "Example: props & settings" },
+  "description": {
+    "zh": "演示 props schema、设置弹窗的字段标签与说明，以及 defaultBox 与 minBox 的写法。",
+    "en": "Demonstrates the props schema, field labels and hints in the settings dialog, and defaultBox/minBox."
+  },
+  "version": "1.0.0",
+  "sizes": ["s", "m"],
+  "defaultBox": { "w": 1, "h": 14 },
+  "minBox": { "w": 1, "h": 10 },
+  "props": {
+    "type": "object",
+    "properties": {
+      "label": { "type": "string", "default": "样例标题" },
+      "count": { "type": "integer", "default": 3, "minimum": 1, "maximum": 9 },
+      "tone": { "type": "string", "enum": ["ok", "warn", "danger"], "default": "ok" }
+    }
+  },
+  "text": {
+    "hint": {
+      "zh": "打开设置弹窗修改标题、圆点数量与状态色。",
+      "en": "Open the settings dialog to change the title, dot count and tone."
+    },
+    "props.label.label": { "zh": "标题", "en": "Label" },
+    "props.label.hint": { "zh": "显示在卡片顶部的标题", "en": "Title shown at the top of the card" },
+    "props.count.label": { "zh": "圆点数量", "en": "Dot count" },
+    "props.count.hint": { "zh": "1 到 9 之间", "en": "Between 1 and 9" },
+    "props.tone.label": { "zh": "状态色", "en": "Tone" },
+    "props.tone.hint": { "zh": "圆点用哪一种状态色", "en": "Which status tone the dots use" },
+    "props.tone.ok": { "zh": "正常", "en": "OK" },
+    "props.tone.warn": { "zh": "提醒", "en": "Warning" },
+    "props.tone.danger": { "zh": "危险", "en": "Danger" }
+  }
+}

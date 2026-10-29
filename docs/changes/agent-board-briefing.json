@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 1,
+  "external": true,
+  "at": "2026-10-26",
+  "zh": "会话里的 agent 不再收到插件注入的系统提示段：看板的存在与使用边界只写在 widget-authoring 的技能描述里，其余任务不被告知看板。描述写明什么时候该碰看板（用户点名看板、卡片、组件，或要改的卡片已经在板上）、看板归用户所有（未经请求不新增、删除、重排卡片，也不改既有卡片的 props 或数据源、不向它推数据；改前读回、改后确认），以及请求缺宾语时先查状态证据再澄清。工具清单只留在 skill 里，七个工具与「放卡与改卡是同一个工具」的说法一致，翻面组整组移除、换数据源只读一次与刷新策略也写进了指南。",
+  "en": "A session agent no longer receives a system prompt section injected by the plugin: the board's existence and its usage boundaries live in the widget-authoring skill description, and other tasks are told nothing about a board. The description states when the board is in scope (the user names the board, a card, or a widget, or the card being changed is already on the board), that the board belongs to the user (no cards added, removed, or reordered, no props or data source changes and no data pushes without a request, and every change is read back before and after), and that a request with a missing object gets the cheapest state evidence first. The tool list lives only in the skill, which states the seven tools and that widget_place covers both placing and editing; it also notes that removing one side of a flip group removes both, that a rebound data source is read once, and how to declare a refresh policy."
+}

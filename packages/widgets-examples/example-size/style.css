@@ -1,0 +1,49 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.example-size {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--w-space-md, 12px);
+}
+
+.example-size__title {
+  margin: 0;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-title, 16px);
+}
+
+.example-size__desc {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 1.5;
+}
+
+.example-size__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--w-color-fg, #0b1016);
+  font-size: var(--w-type-caption, 12px);
+}
+
+.example-size__debug {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 窄盒子：收掉说明段。 */
+:root[data-box-width="narrow"] .example-size__desc { display: none; }
+
+/* 矮盒子：收掉事实行的后两条。 */
+:root[data-box-height="short"] .example-size__fact:nth-child(n + 2) { display: none; }

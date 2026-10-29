@@ -5,11 +5,14 @@
  */
 import type { BoardValue, CatalogEntry, CatalogValue, WidgetToolSpec } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
+import type { WidgetRecord } from '../library'
 import type { ToolContext } from './index'
 import { OPTIONAL_TOOLS } from './index'
 
 /**
- * 把点名要启用的工具加进集合，并回读启用后的全部名单（D9）。
+ * 把点名记进集合，并回读启用后的全部名单（D9）。
+ *
+ * 七个工具在启动时已经全部注册，点名只记账，不改变工具表。
  *
  * @param value - 模型给的 `expose`。
  * @returns 启用之后的工具名，按 `OPTIONAL_TOOLS` 的次序。
@@ -23,10 +26,28 @@ function exposeOf(value: unknown, context: ToolContext): string[] {
       throw new ToolRefusal(`不能点名这些工具：${unknown.map((name) => String(name)).join('、')}；可以点名 ${OPTIONAL_TOOLS.join('、')}`)
     }
     for (const name of value) context.enabled.add(name as string)
-    // 点名之后立刻注册：下一次请求的工具表里就多出这几个（D9）。
+    // 点名只记账：七个工具在启动时已经全部注册（D9）。
     context.reveal?.(OPTIONAL_TOOLS.filter((name) => context.enabled.has(name)))
   }
   return OPTIONAL_TOOLS.filter((name) => context.enabled.has(name))
+}
+
+/**
+ * 组件目录里 `samples.json` 的内容。
+ *
+ * @param record - 组件记录。
+ * @returns 样例数据；没有这个文件时为空对象，写坏了给 `samplesError`（不让一个可选文件挡住整个条目）。
+ */
+function samplesOf(record: WidgetRecord): { samples?: Record<string, unknown>, samplesError?: string } {
+  const file = record.files.get('samples.json')
+  if (file === undefined) return {}
+  try {
+    const parsed = JSON.parse(file.toString('utf8')) as unknown
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { samplesError: 'samples.json 不是一个对象' }
+    return { samples: parsed as Record<string, unknown> }
+  } catch (error) {
+    return { samplesError: `samples.json 不是合法 JSON：${(error as Error).message}` }
+  }
 }
 
 /** 把一组组件拼成目录说明。 */
@@ -79,6 +100,9 @@ function catalogOf(context: ToolContext): CatalogValue {
       ...(manifest.data === undefined ? {} : { data: manifest.data }),
       ...(manifest.minBox === undefined ? {} : { minBox: manifest.minBox }),
       ...(manifest.defaultBox === undefined ? {} : { defaultBox: manifest.defaultBox }),
+      // 只给示例来源目录路径（D7）：agent 按它读写法样例的源码；用户与插件目录不进工具结果。
+      ...(record.source === 'example' ? { dir: record.dir } : {}),
+      ...samplesOf(record),
     })
   }
   return {
@@ -110,7 +134,7 @@ export function catalogTool(context: ToolContext): WidgetToolSpec {
       additionalProperties: false,
       properties: {
         id: { type: 'string', description: 'Only this widget id.' },
-        source: { type: 'string', enum: ['builtin', 'user', 'plugin'], description: 'Only widgets from this source.' },
+        source: { type: 'string', enum: ['builtin', 'user', 'plugin', 'example'], description: 'Only widgets from this source.' },
         expose: {
           type: 'array',
           items: { type: 'string', enum: [...OPTIONAL_TOOLS] },

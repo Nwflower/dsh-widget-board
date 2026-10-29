@@ -4,18 +4,22 @@
  * 这一层不碰真实宿主：路由上下文用替身，写入链是内存里的一次替换。判的是工具自己的行为——名字与
  * 描述齐全、参数是合法的 JSON Schema、坏输入被拒绝并说明原因、放卡与推数据真的改了看板。
  */
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, rmdir, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import Ajv from 'ajv'
-import type { Board, BoardEvent, BoardValue, DefineValue, ShowValue, ToolCall, WidgetRoot, WidgetToolRegistration } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, BoardValue, DefineValue, ShowValue, ToolCall, WidgetRoot, WidgetSkillRegistration, WidgetToolRegistration } from '@dsh-widget-board/contracts'
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createRequestLog } from '../src/request-log'
+import { createMarketRegistry } from '../src/market'
+import { createProviderHealth } from '../src/provider-health'
 import { createSelfChecks } from '../src/selfcheck'
+import { loadLibrary } from '../src/library'
 import type { WidgetRecord } from '../src/library'
 import { createToolContext, OPTIONAL_TOOLS, registerTools, toolRegistrations } from '../src/tools'
+import { WIDGET_AUTHORING_GUIDE } from '../src/tools/guide'
 import { dataError } from '../src/schema'
 
 const roots: string[] = []
@@ -124,9 +128,14 @@ function harness(options: { records?: WidgetRecord[], roots?: WidgetRoot[], boar
       resolveAction: () => undefined,
       readSource: async () => ({ n: 7 }),
       runAction: async () => null,
-      namesOf: () => ({ dataSources: [], actions: [] }),
+      namesOf: () => ({ dataSources: [], actions: [], capabilities: [] }),
+      listCapabilities: () => ['demo:count'],
+      // 提供方数据不合组件 schema 时按提供方记一次失败（D31）：这一层也要有一份真的健康记录。
+      health: createProviderHealth(),
     },
     requests: createRequestLog(),
+    market: createMarketRegistry(),
+    marketDir: '/home/market-widgets',
     grants: {
       all: () => [],
       has: () => false,
@@ -158,6 +167,53 @@ function toolOf(harnessed: ReturnType<typeof harness>, name: string): Omit<Widge
   return { ...tool, execute: async (args, exec = CALL) => await tool.execute(args, exec) }
 }
 
+/**
+ * 作者域 id 用例自己写的夹具：这一份不进 `roots`（那条清理走递归删除），下面按写过的文件逐个删除。
+ */
+const authorDomainRoots: string[] = []
+
+/** 一个夹具根目录：`.debug/` 下自己的子目录，不碰系统临时目录。 */
+function authorDomainRoot(): string {
+  const dir = join(process.cwd(), '.debug', 'tests', `tools-author-domain-${String(process.pid)}-${String(Date.now())}`)
+  authorDomainRoots.push(dir)
+  return dir
+}
+
+/** 路径本来就不在时跳过：测试在写出文件之前失败也会走到清理。 */
+async function removeIfPresent(remove: () => Promise<unknown>): Promise<void> {
+  try {
+    await remove()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+}
+
+afterEach(async () => {
+  // 先删两份组件目录里的文件，再从最深的一层往上 rmdir：不做递归删除（根 AGENTS）。
+  for (const root of authorDomainRoots.splice(0)) {
+    const dirs = [join(root, 'user', 'weather'), join(root, 'market', 'nwflower.clock')]
+    for (const dir of dirs) {
+      for (const name of ['widget.json', 'index.html', 'style.css']) await removeIfPresent(async () => await unlink(join(dir, name)))
+    }
+    for (const dir of [...dirs, join(root, 'user'), join(root, 'market'), root]) await removeIfPresent(async () => await rmdir(dir))
+  }
+})
+
+/**
+ * 在 `root` 下写一个真的组件目录；组件库的读取要经过文件系统。
+ *
+ * @param root - 来源目录。
+ * @param name - 目录名。
+ * @param id - manifest 里的组件 id。
+ */
+async function widgetDir(root: string, name: string, id: string): Promise<void> {
+  const dir = join(root, name)
+  await mkdir(dir, { recursive: true })
+  await writeFile(join(dir, 'widget.json'), JSON.stringify({ id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'] }), 'utf8')
+  await writeFile(join(dir, 'index.html'), '<p></p>', 'utf8')
+  await writeFile(join(dir, 'style.css'), 'p{}', 'utf8')
+}
+
 describe('工具的定义', () => {
   it('七个工具的名字与描述齐全', () => {
     const harnessed = harness()
@@ -166,6 +222,12 @@ describe('工具的定义', () => {
       expect(tool.description.length).toBeGreaterThan(20)
       expect(tool.parameters.type).toBe('object')
     }
+  })
+
+  it('编写指南列出全部七个工具，名字与工具表一致', () => {
+    const names = Object.values(WIDGET_TOOL_NAMES)
+    expect(names).toHaveLength(7)
+    for (const name of names) expect(WIDGET_AUTHORING_GUIDE).toContain(`\`${name}\``)
   })
 
   it('每个工具的 parameters 都是合法的 JSON Schema，且与描述一起能被编译', () => {
@@ -229,6 +291,28 @@ describe('widget_catalog', () => {
     const harnessed = harness()
     const value = await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({ source: 'plugin' })
     expect((value as { widgets: unknown[] }).widgets).toEqual([])
+  })
+
+  it('示例来源的条目带目录路径，其余来源不带', async () => {
+    const example = { ...record('example-basic'), source: 'example' as const }
+    const value = await toolOf(harness({ records: [record('stat'), example] }), WIDGET_TOOL_NAMES.catalog).execute({ source: 'example' })
+    const catalog = value as { widgets: { id: string, dir?: string }[] }
+    expect(catalog.widgets).toHaveLength(1)
+    expect(catalog.widgets[0]).toMatchObject({ id: 'example-basic', dir: '/widgets/example-basic' })
+    const all = await toolOf(harness({ records: [record('stat'), example] }), WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { id: string, dir?: string }[] }
+    expect(all.widgets.find((widget) => widget.id === 'stat')?.dir).toBeUndefined()
+  })
+
+  it('条目带 samples.json 里的样例数据，写坏时给原因', async () => {
+    const samples = JSON.stringify({ s: { lang: 'zh-CN', motion: 'reduced' }, m: { lang: 'zh-CN', motion: 'reduced' } })
+    const good = { ...record('example-basic'), source: 'example' as const, files: new Map([['samples.json', Buffer.from(samples)]]) }
+    const value = await toolOf(harness({ records: [good] }), WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { samples?: Record<string, unknown>, samplesError?: string }[] }
+    expect(value.widgets[0]?.samples).toMatchObject({ s: { lang: 'zh-CN' } })
+    expect(value.widgets[0]?.samplesError).toBeUndefined()
+
+    const broken = { ...record('example-basic'), source: 'example' as const, files: new Map([['samples.json', Buffer.from('{')]]) }
+    const brokenValue = await toolOf(harness({ records: [broken] }), WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { samplesError?: string }[] }
+    expect(brokenValue.widgets[0]?.samplesError).toMatch(/不是合法 JSON/)
   })
 })
 
@@ -337,9 +421,10 @@ describe('widget_place', () => {
 })
 
 describe('按需出现的工具（D9）', () => {
-  /** 一套宿主替身：只记注册了哪些工具，提示段与 skill 都是空实现。 */
+  /** 一套宿主替身：只记注册了哪些工具与哪条 skill，注册动作都是空实现。 */
   function hostContext() {
     const registered: string[] = []
+    const skills: WidgetSkillRegistration[] = []
     const scoped = {
       tools: {
         register: (tool: { name: string }) => {
@@ -349,15 +434,14 @@ describe('按需出现的工具（D9）', () => {
       },
       inject: (_deps: string[], callback: (inner: unknown) => void) => {
         callback({
-          systemPrompt: { section: () => () => undefined },
-          skills: { register: () => () => undefined },
+          skills: { register: (skill: WidgetSkillRegistration) => { skills.push(skill); return () => undefined } },
         })
       },
     }
     const ctx = {
       inject: (_deps: string[], callback: (value: unknown) => void) => { callback(scoped) },
     }
-    return { ctx, registered }
+    return { ctx, registered, skills }
   }
 
   it('启动时一次注册全部工具，之后点名不再改变工具表', async () => {
@@ -373,6 +457,18 @@ describe('按需出现的工具（D9）', () => {
     // 点名只是记账：注册表一个字节都不动。
     expect([...host.registered].sort()).toEqual([WIDGET_TOOL_NAMES.catalog, ...OPTIONAL_TOOLS].sort())
     expect(() => registration?.dispose()).not.toThrow()
+  })
+
+  it('看板的边界写进 skill 描述，不另注册系统提示段', () => {
+    const host = hostContext()
+    // 宿主替身里没有 systemPrompt 服务：真去注入它，这一步就会抛。
+    expect(() => registerTools(host.ctx as never, harness().toolContext)).not.toThrow()
+    expect(host.skills).toHaveLength(1)
+    const description = host.skills[0]?.description ?? ''
+    // 触发条件与所有权边界都写在描述里，模型在技能目录里就看得到。
+    expect(description).toContain('看板上')
+    expect(description).toContain('看板归用户所有')
+    expect(description).toContain('未经请求不新增')
   })
 
   it('入口工具的渲染不再承诺"点名之后才出现"', async () => {
@@ -474,6 +570,21 @@ describe('widget_show', () => {
     harnessed.context.sources.readSource = async () => ({ n: 'seven' })
     await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat' }))
       .rejects.toThrow(/data schema/)
+  })
+
+  it('数据源交出来的数据不合 schema 时按提供方记一次失败，直接给的数据不计', async () => {
+    const harnessed = harness({ records: [record('stat', { source: 'demo:count' })] })
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.show)
+    const health = harnessed.context.sources.health
+    // 直接给的数据是调用方写错的，提供方根本没有被调用：这一条不计提供方的失败（D31）。
+    await expect(tool.execute({ widget: 'stat', data: { n: 'x' } })).rejects.toThrow(/data schema/)
+    expect(health.snapshot()).toEqual([])
+    harnessed.context.sources.readSource = async () => ({ n: 'seven' })
+    await expect(tool.execute({ widget: 'stat' })).rejects.toThrow(/data schema/)
+    const records = health.snapshot()
+    expect(records).toHaveLength(1)
+    expect(records[0]).toMatchObject({ provider: 'demo', failures: 1, timeouts: 0 })
+    expect(records[0]?.lastError).toMatch(/^provider-output：数据源 demo:count 的数据与组件的 data schema 不符：/)
   })
 
   it('props、size 与参数组合不合规时拒绝', async () => {
@@ -627,5 +738,54 @@ describe('widget_define', () => {
 describe('数据校验的接缝', () => {
   it('没有 schema 时任何数据都放行', () => {
     expect(dataError(undefined, { anything: true })).toBeUndefined()
+  })
+})
+
+/**
+ * 作者域 id（D8、D30）：市场来源的组件 id 形如 `<作者域>.<名字>`，本地组件是扁平 id。
+ *
+ * 组件库自己怎么读、什么时候拒绝这类 id 由 `library.test.ts` 盯着；这里接在它后面判会话工具面：带点的
+ * id 不拆开成名字、也不加来源前缀，一次性内联快照另有宿主起的实例 id。
+ */
+describe('作者域 id 进会话工具面', () => {
+  it('组件库读出来的 id 原样列出：带作者域的不拆开，旧的扁平 id 不改名', async () => {
+    const root = authorDomainRoot()
+    await widgetDir(join(root, 'user'), 'weather', 'weather')
+    await widgetDir(join(root, 'market'), 'nwflower.clock', 'nwflower.clock')
+    const load = await loadLibrary([
+      { dir: join(root, 'user'), source: 'user' },
+      { dir: join(root, 'market'), source: 'market', authorDomain: true },
+    ])
+    expect([...load.records.keys()].sort()).toEqual(['nwflower.clock', 'weather'])
+
+    const harnessed = harness({ records: [...load.records.values()] })
+    const catalog = await toolOf(harnessed, WIDGET_TOOL_NAMES.catalog).execute({}) as { widgets: { id: string, source: string }[] }
+    expect(catalog.widgets.map((entry) => entry.id).sort()).toEqual(['nwflower.clock', 'weather'])
+    expect(catalog.widgets.find((entry) => entry.id === 'nwflower.clock')?.source).toBe('market')
+    // 放卡时按同一个字符串取组件，卡片记住的也是它。
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'nwflower.clock' }) as { widget: string }
+    expect(placed.widget).toBe('nwflower.clock')
+    expect(harnessed.context.board.instances[0]?.widget).toBe('nwflower.clock')
+  })
+
+  it('一次性快照的实例 id 与组件 id 分开写：前者是 inline-<uuid>，后者是作者域原值', async () => {
+    const harnessed = harness({ records: [{ ...record('nwflower.clock', { sizes: ['s', 'l'] }), source: 'market' }, record('stat', { sizes: ['s', 'l'] })] })
+    const tool = toolOf(harnessed, WIDGET_TOOL_NAMES.show)
+    const clock = await tool.execute({ widget: 'nwflower.clock' }) as ShowValue
+    expect(clock.widget).toBe('nwflower.clock')
+    expect(clock.id).toMatch(/^inline-[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/)
+    expect(clock.id).not.toContain('nwflower')
+    expect(tool.output.render(undefined, clock)[0]?.text).toContain('nwflower.clock')
+
+    // 旧的扁平 id 走同一条路径，实例 id 与组件 id 同样分开。
+    const flat = await tool.execute({ widget: 'stat' }) as ShowValue
+    expect(flat.widget).toBe('stat')
+    expect(flat.id).toMatch(/^inline-/)
+
+    // 看板上的卡：显示时用的还是卡片自己的实例 id，组件 id 照旧是作者域原值。
+    const placed = await toolOf(harnessed, WIDGET_TOOL_NAMES.place).execute({ widget: 'nwflower.clock' }) as { id: string }
+    const shown = await tool.execute({ id: placed.id }) as ShowValue
+    expect(shown.id).toBe(placed.id)
+    expect(shown.widget).toBe('nwflower.clock')
   })
 })

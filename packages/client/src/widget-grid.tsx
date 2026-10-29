@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import type { BoardInstance, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
+import type { BoardInstance, MarketListing, MarketSectionSnapshot, WidgetLibraryEntry, WidgetSummary } from '@dsh-widget-board/contracts'
 import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, FLIP_GROUP_ID, libraryWidgetExportPath } from '@dsh-widget-board/contracts'
 import type { GridPlacement } from '@dsh-widget-board/model'
 import { CardSurface } from './card-surface'
@@ -252,6 +252,8 @@ function WidgetTile({
 export interface WidgetGridProps {
   entries: readonly WidgetLibraryEntry[]
   widgets: Readonly<Record<string, WidgetSummary>>
+  /** 市场区：快照里的提供方节；省略时按没有提供方算。 */
+  market?: readonly MarketSectionSnapshot[]
   theme: ShellTheme
   frames: FrameHost
   /** 添加到看板，或给组卡的一个槽挑组件。 */
@@ -264,58 +266,205 @@ export interface WidgetGridProps {
   onActivate: (id: string) => void
   /** 添加模式里按住一格：交给看板的拖放逻辑。 */
   onBeginDrag?: (entry: WidgetLibraryEntry, event: ReactPointerEvent<HTMLElement>) => void
+  /** 安装一个市场条目；省略时市场区只读。 */
+  onMarketInstall?: (provider: string, listing: MarketListing, version: string) => void
 }
 
 /**
- * 按来源分组的组件网格。
+ * 市场区里的一条远端条目：标题、作者、最新版本与它声明的能力；安装由看板完成。
  *
- * @param props - 组件、主题、模式与操作回调。
- * @returns 网格。
+ * @param props - 提供方名、条目、已安装状态与安装回调。
+ * @returns 一条市场条目。
  */
-export function WidgetGrid({
-  entries,
+function MarketTile({
+  provider,
+  listing,
+  installed,
+  busy,
+  onInstall,
+}: {
+  provider: string
+  listing: MarketListing
+  /** 这个条目已经在组件库的市场来源里。 */
+  installed: boolean
+  busy: boolean
+  onInstall?: (provider: string, listing: MarketListing, version: string) => void
+}): ReactNode {
+  const latest = listing.versions[0]
+  const declares: string[] = []
+  for (const capability of latest?.declares?.capabilities ?? []) declares.push(capability)
+  for (const credential of latest?.declares?.credentials ?? []) declares.push(credential)
+  for (const host of latest?.declares?.hosts ?? []) declares.push(host)
+
+  return (
+    <li className="dsh-widget-board__market-item" data-dsh-widget-market={listing.id}>
+      <div className="dsh-widget-board__market-copy">
+        <span className="dsh-widget-board__library-name">
+          <span className="dsh-widget-board__library-label">{textOf(listing.title)}</span>
+          <span className="dsh-widget-board__library-provider">{listing.author.name}</span>
+          {listing.license === undefined ? null : <span className="dsh-widget-board__library-provider">{listing.license}</span>}
+        </span>
+        {listing.description === undefined ? null : <span className="dsh-widget-board__library-desc">{textOf(listing.description)}</span>}
+        {declares.length === 0 ? null : (
+          <span className="dsh-widget-board__market-declares">{t('marketDeclares')}：{declares.join('、')}</span>
+        )}
+        {latest === undefined ? null : (
+          <span className="dsh-widget-board__market-version">
+            {latest.version}
+            {installed ? ` · ${t('marketInstalled')}` : ''}
+          </span>
+        )}
+      </div>
+      {onInstall === undefined || latest === undefined || installed
+        ? null
+        : (
+          <button
+            type="button"
+            className="dsh-widget-board__market-install"
+            disabled={busy}
+            onClick={() => { onInstall(provider, listing, latest.version) }}
+          >
+            {t('marketInstall')}
+          </button>
+        )}
+    </li>
+  )
+}
+
+/** 市场区：没有提供方时的空状态；有提供方时按提供方分节。 */
+function MarketSection({ sections, entries, busy, onInstall }: {
+  sections: readonly MarketSectionSnapshot[]
+  entries: readonly WidgetLibraryEntry[]
+  busy: boolean
+  onInstall?: (provider: string, listing: MarketListing, version: string) => void
+}): ReactNode {
+  if (sections.length === 0) return <p className="dsh-widget-board__library-market-empty">{t('libraryMarketEmpty')}</p>
+  return (
+    <>
+      {sections.map((section) => (
+        <div key={section.provider} className="dsh-widget-board__market-provider">
+          <h4 className="dsh-widget-board__library-subsource">{textOf(section.title)}</h4>
+          {section.error === undefined ? null : <p className="dsh-widget-board__library-error" role="status">{section.error}</p>}
+          {section.errors.map((error) => <p key={error} className="dsh-widget-board__library-error" role="status">{error}</p>)}
+          <ul className="dsh-widget-board__market-list">
+            {section.listings.map((listing) => {
+              const installed = entries.some((entry) => entry.id === listing.id && entry.source === 'market')
+              return (
+                <MarketTile
+                  key={listing.id}
+                  provider={section.provider}
+                  listing={listing}
+                  installed={installed}
+                  busy={busy}
+                  onInstall={onInstall}
+                />
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </>
+  )
+}
+
+/**
+ * 一个来源内条目的无序列表。
+ *
+ * @param props - 条目、组件元信息、模式与操作回调。
+ * @returns 条目列表。
+ */
+function WidgetList({
+  items,
   widgets,
   theme,
   frames,
   mode,
   current,
-  busy = false,
+  busy,
   onActivate,
   onBeginDrag,
-}: WidgetGridProps): ReactNode {
-  const groups = ['builtin', 'user', 'plugin'].map((source) => ({
-    source: source as WidgetLibraryEntry['source'],
-    items: entries.filter((entry) => entry.source === source),
-  })).filter((group) => group.items.length > 0)
+}: WidgetGridProps & { items: readonly WidgetLibraryEntry[] }): ReactNode {
+  const resolvedBusy = busy ?? false
+  return (
+    <ul className="dsh-widget-board__library-list">
+      {items.map((entry) => {
+        const preview = previewOf(entry, widgets)
+        return (
+          <WidgetTile
+            key={entry.id}
+            entry={entry}
+            widgetId={preview.widgetId}
+            widget={preview.widget}
+            theme={theme}
+            frames={frames}
+            mode={mode}
+            current={current}
+            busy={resolvedBusy}
+            onActivate={onActivate}
+            {...(onBeginDrag === undefined ? {} : { onBeginDrag })}
+          />
+        )
+      })}
+    </ul>
+  )
+}
 
-  if (groups.length === 0) return <p className="dsh-widget-board__notice">{t('libraryEmpty')}</p>
+/**
+ * 按角色分区的组件网格：示例、内置（内置/我的/插件三个来源）、市场。
+ *
+ * 市场区的远端条目由市场插件提供（D8 之后的市场契约）；没有提供方时画固定的空状态。
+ *
+ * @param props - 组件、主题、模式与操作回调。
+ * @returns 网格。
+ */
+export function WidgetGrid(props: WidgetGridProps): ReactNode {
+  const { entries } = props
+  const examples = entries.filter((entry) => entry.source === 'example')
+  const installed = (['builtin', 'user', 'plugin'] as const)
+    .map((source) => ({ source, items: entries.filter((entry) => entry.source === source) }))
+    .filter((group) => group.items.length > 0)
+
+  if (examples.length === 0 && installed.length === 0) {
+    return <p className="dsh-widget-board__notice">{t('libraryEmpty')}</p>
+  }
   return (
     <>
-      {groups.map((group) => (
-        <section key={group.source} className="dsh-widget-board__library-group">
-          <h3 className="dsh-widget-board__library-source">{sourceLabel(group.source)}</h3>
-          <ul className="dsh-widget-board__library-list">
-            {group.items.map((entry) => {
-              const preview = previewOf(entry, widgets)
-              return (
-                <WidgetTile
-                  key={entry.id}
-                  entry={entry}
-                  widgetId={preview.widgetId}
-                  widget={preview.widget}
-                  theme={theme}
-                  frames={frames}
-                  mode={mode}
-                  current={current}
-                  busy={busy}
-                  onActivate={onActivate}
-                  {...(onBeginDrag === undefined ? {} : { onBeginDrag })}
-                />
-              )
-            })}
-          </ul>
+      {examples.length === 0 ? null : (
+        <section className="dsh-widget-board__library-section" data-dsh-widget-section="example">
+          <h3 className="dsh-widget-board__library-source">
+            {t('libraryExamples')}
+            <span className="dsh-widget-board__library-count">{examples.length}</span>
+          </h3>
+          <p className="dsh-widget-board__library-section-hint">{t('libraryExamplesHint')}</p>
+          <WidgetList {...props} items={examples} />
         </section>
-      ))}
+      )}
+      {installed.length === 0 ? null : (
+        <section className="dsh-widget-board__library-section" data-dsh-widget-section="installed">
+          <h3 className="dsh-widget-board__library-source">
+            {t('libraryBuiltin')}
+            <span className="dsh-widget-board__library-count">{installed.reduce((total, group) => total + group.items.length, 0)}</span>
+          </h3>
+          <p className="dsh-widget-board__library-section-hint">{t('libraryBuiltinHint')}</p>
+          {installed.map((group) => (
+            <div key={group.source} className="dsh-widget-board__library-subgroup">
+              <h4 className="dsh-widget-board__library-subsource">
+                {sourceLabel(group.source)}
+                <span className="dsh-widget-board__library-count">{group.items.length}</span>
+              </h4>
+              <WidgetList {...props} items={group.items} />
+            </div>
+          ))}
+        </section>
+      )}
+      <section className="dsh-widget-board__library-section" data-dsh-widget-section="market">
+        <h3 className="dsh-widget-board__library-source">
+          {t('libraryMarket')}
+          <span className="dsh-widget-board__library-count">{(props.market ?? []).reduce((total, section) => total + section.listings.length, 0)}</span>
+        </h3>
+        <p className="dsh-widget-board__library-section-hint">{t('libraryMarketHint')}</p>
+        <MarketSection sections={props.market ?? []} entries={entries} busy={props.busy ?? false} {...(props.onMarketInstall === undefined ? {} : { onInstall: props.onMarketInstall })} />
+      </section>
     </>
   )
 }

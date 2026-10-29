@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 3,
+  "external": true,
+  "at": "2026-10-27",
+  "zh": "握手把这张卡可用的能力告诉组件：`init` 消息带上 `capabilities`（manifest 声明过、宿主当前解析得到的那些），运行时暴露为 `widget.capabilities`。热力图卡按它筛掉没装插件提供的能力，不再先发一次注定失败的调用再回退。",
+  "en": "The handshake now tells a widget which of its declared capabilities are actually available: the init message carries capabilities (declared in the manifest and resolvable in the host), exposed as widget.capabilities in the runtime. The activity card filters by it and no longer sends a call bound to fail before falling back."
+}

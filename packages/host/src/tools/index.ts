@@ -2,7 +2,8 @@
  * 面向会话的工具（D9）：注册、按点名再注册，以及它们的共同上下文。
  *
  * 工具只在宿主有 `tools` 服务时注册——会话里没有工具注册表就没有「暴露给会话」这回事，看板本身照常
- * 工作（D11）。注册与撤销都归这一行的 `ctx.effect`，插件卸载时一并收掉。
+ * 工作（D11）。注册与撤销都归这一行的 `ctx.effect`，插件卸载时一并收掉。看板的存在与使用边界写在
+ * 虚拟 skill 的描述里，不另注入系统提示段。
  *
  * 七个工具在启动时一次注册完，不按点名增删。工具表在会话中途变化会让宿主那条线路的前缀缓存
  * 整段失效——一次就是几十万 token 的重算——所以"点名之后才出现"这个机制被去掉：代价是每轮多带
@@ -13,11 +14,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Board, BoardEvent, InstanceFace, WidgetToolRegistration, WidgetToolSpec } from '@dsh-widget-board/contracts'
 import {
-  WIDGET_PROMPT_SECTION,
   WIDGET_SKILL_NAME,
   WIDGET_TOOL_NAMES,
   skillsOf,
-  systemPromptOf,
   toolsOf,
 } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../routes'
@@ -33,15 +32,15 @@ export interface ToolContext {
   /** 路由上下文：组件库、看板、写入链与数据源注册表都在它上面（D5）。 */
   route: RouteContext
   /**
-   * 已经启用的工具（D9）。
+   * `widget_catalog` 点名过的工具（D9）。
    *
-   * 入口工具一上来就在里面；其余六个由 `expose` 加进来。
+   * 只用于记账：七个工具在启动时已经全部注册，点名不改变工具表。
    */
   enabled: Set<string>
   /**
-   * 把点名的工具注册进宿主的注册表；注册一次之后再点名不会重复注册（D9）。
+   * `expose` 点名时的记账入口（D9）。
    *
-   * 注册时由这一层填入；单元测试只测点名本身，不填这个函数。
+   * 七个工具在启动时已经全部注册，这里不会改变工具表；单元测试只测点名本身，不填这个函数。
    */
   reveal?: (names: readonly string[]) => void
   /**
@@ -76,13 +75,13 @@ interface HostContextAccess {
 }
 
 /**
- * 注册工具、系统提示段与 skill（D9）。
+ * 注册工具与 skill（D9）。
  *
- * 先只注册入口工具；`widget_catalog` 点名之后经 `context.reveal` 把其余工具补进注册表，从下一步起
- * 它们就出现在工具表里。
+ * 七个工具在启动时一次注册；`widget_catalog` 点名的 `expose` 只记账，不再改变工具表。
  *
- * 三项服务都按可选依赖挂上去：cordis 只允许读声明过的服务，直接读未声明的属性会抛，所以这里用
+ * 两项服务都按可选依赖挂上去：cordis 只允许读声明过的服务，直接读未声明的属性会抛，所以这里用
  * `ctx.inject` 等它们出现；它们不出现时看板照常工作，只是会话里看不到这几个工具（D1、D11）。
+ * 看板的存在与使用边界只写在 skill 的描述与正文里，不注入额外的系统提示段。
  *
  * @param ctx - 宿主的上下文。
  * @param context - 工具要动的那些东西。
@@ -103,7 +102,6 @@ export function registerTools(ctx: Context, context: ToolContext, onRegistered?:
   inject.call(ctx, ['tools'], (scoped: Context) => {
     const tools = toolsOf(scoped)
     if (tools === undefined) return
-    /** 注册一个工具；已经注册过的不再注册。 */
     const register = (spec: WidgetToolSpec): void => {
       if (names.includes(spec.name)) return
       names.push(spec.name)
@@ -119,11 +117,6 @@ export function registerTools(ctx: Context, context: ToolContext, onRegistered?:
     }
     const injectOne = (scoped as unknown as HostContextAccess).inject
     if (typeof injectOne !== 'function') return
-    // 系统提示段与 skill 各自等自己的服务：没有它们时工具照常可用（D9）。
-    injectOne.call(scoped, ['systemPrompt'], (inner: Context) => {
-      const prompt = systemPromptOf(inner)
-      if (prompt !== undefined) hold(prompt.section({ name: WIDGET_PROMPT_SECTION, order: 60, text: PROMPT_SECTION }))
-    })
     injectOne.call(scoped, ['skills'], (inner: Context) => {
       const skills = skillsOf(inner)
       if (skills !== undefined) hold(skills.register(SKILL))
@@ -186,21 +179,14 @@ export function createToolContext(
 }
 
 /**
- * 注册给模型看的那一段系统提示。
+ * 注册给模型看的那一条 skill。
  *
- * 讲清先加载编写指南，并说明工具都已直接可用（D9 修订：一次挂载，不再点名）。
+ * 看板的存在、什么时候该碰它、以及看板归用户所有这几件事都写在 `description` 里：技能目录在每个会话
+ * 都可见，模型按它决定要不要加载；正文在加载之后才读。
  */
-const PROMPT_SECTION = [
-  '这个部署装着一个组件看板：一页可以拖动、缩放的卡片，每张卡片是一个沙箱里的小组件。',
-  `要写一个新组件、或把看板上的卡片改一改时，先加载 \`${WIDGET_SKILL_NAME}\` 这条 skill，再用 ${WIDGET_TOOL_NAMES.catalog} 看现有的组件。`,
-  '写组件、放卡、改卡、推数据、内联显示各有一个工具，都已经在工具表里，直接调用即可。',
-  '组件的代码在沙箱里跑，拿不到网络与 cookie；要数据就声明一个数据源，要动手就声明一个动作，两者都由宿主上的插件提供。',
-].join('\n')
-
-/** 这一行注册的虚拟 skill。 */
 const SKILL = {
   name: WIDGET_SKILL_NAME,
-  description: '写一个看板组件、或把看板上的卡片改一改：组件的目录格式、可以声明什么、怎么放上看板。',
+  description: '用户点名看板、卡片、组件，或要改的卡片已经在看板上时，写一个看板组件或改看板上的卡片：组件的目录格式、可以声明什么、怎么放上看板。看板归用户所有；未经请求不新增、删除、重排卡片，不改既有卡片的 props 或数据源、不向它推数据；改既有卡片前先 widget_board 读回，改完再读回确认。请求缺宾语时先查最便宜的状态证据（工作目录是否落后或脏、板上是否真有那张卡），要澄清时至少给一个不涉及看板的选项。',
   content: WIDGET_AUTHORING_GUIDE,
   invocation: { modelInvocable: true, userInvocable: true },
   source: 'runtime',

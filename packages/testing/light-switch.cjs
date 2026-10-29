@@ -57,7 +57,37 @@ async function lightSwitchPass(page, check) {
     }).observe(document.documentElement, { attributes: true, attributeFilter: [attribute] })
   }, VT)
 
+  // 找一张别的卡片做见证：它离开灯足够远，转场前半段不该收到新主题。
+  let witness
+  let witnessBefore = ''
+  for (const candidate of page.frames()) {
+    if (candidate === page.mainFrame() || candidate === frame) continue
+    const background = await candidate.evaluate(() => getComputedStyle(document.body).backgroundColor)
+    if (background === 'rgba(0, 0, 0, 0)' || background === 'transparent') continue
+    const element = await candidate.frameElement()
+    const box = await element.boundingBox()
+    if (box === null) continue
+    witness = candidate
+    witnessBefore = background
+    break
+  }
+
   await frame.locator('.lamp__bulb').click()
+  await new Promise((resolve) => setTimeout(resolve, 450))
+  if (witness !== undefined) {
+    const witnessDuring = await witness.evaluate(() => getComputedStyle(document.body).backgroundColor)
+    check('圆外的卡片还停在旧配色', witnessDuring === witnessBefore, JSON.stringify({ witnessBefore, witnessDuring }))
+  }
+  const ringRun = await frame.evaluate(() => {
+    const card = document.querySelector('.lamp')
+    const ring = document.querySelector('.lamp__ring')
+    return {
+      switching: card.hasAttribute('data-switching'),
+      animation: getComputedStyle(ring).animationName,
+      opacity: getComputedStyle(ring).opacity,
+    }
+  })
+  check('圆环在转场里开始动', ringRun.switching && ringRun.animation.includes('lamp-ring'), JSON.stringify(ringRun))
   await page.waitForFunction((dark) => document.body.hasAttribute('data-ds-dark-theme') !== dark, before, { timeout: 10000 })
   await page.waitForFunction((attribute) => !document.documentElement.hasAttribute(attribute), VT, { timeout: 10000 })
   const after = await page.evaluate(() => document.body.hasAttribute('data-ds-dark-theme'))

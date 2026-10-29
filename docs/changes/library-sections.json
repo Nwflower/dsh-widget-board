@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 2,
+  "external": true,
+  "at": "2026-10-27",
+  "zh": "组件库浮窗按角色分成三个区：示例、内置与市场。新增两个组件来源：`example`（包内 `packages/widgets-examples/`，给 agent 的写法样例）与 `market`（市场插件装进来的组件，落在 `$DSH_HOME/widget-board/market-widgets/`）。加载顺序是内置 → 我的 → 市场 → 插件 → 示例，同 id 先到者胜。`widget_catalog` 可以按这两种来源过滤。「市场」区显示已接入的市场提供方给的条目；没有提供方时显示固定的空状态。",
+  "en": "The widget library panel is now split into three sections by role: examples, installed, and market. Two sources are new: example (authoring samples shipped in packages/widgets-examples for agents) and market (widgets installed by a market plugin, stored under $DSH_HOME/widget-board/market-widgets/). Load order is built-in, mine, market, plugin, examples; with duplicate ids the earlier source wins. widget_catalog can filter by either source. The market section lists the entries of connected market providers and shows a fixed empty state when none is connected."
+}

@@ -3,6 +3,7 @@
     "lang": "zh-CN",
     "motion": "reduced",
     "props": {
+      "city": "北京",
       "place": { "zh": "北京", "en": "Beijing" },
       "latitude": 39.9042,
       "longitude": 116.4074
@@ -25,6 +26,7 @@
     "lang": "zh-CN",
     "motion": "full",
     "props": {
+      "city": "北京",
       "place": { "zh": "北京", "en": "Beijing" },
       "latitude": 39.9042,
       "longitude": 116.4074

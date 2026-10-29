@@ -1,0 +1,30 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.example-asset {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--w-space-md, 12px);
+}
+
+.example-asset__dot {
+  width: 32px;
+  height: 32px;
+}
+
+.example-asset__line {
+  margin: 0;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 1.5;
+}
+
+/* 矮盒子：说明是次要信息，整段收掉，只留圆点。档位属性写在根节点上（D16、D20）。 */
+:root[data-box-height="short"] .example-asset__line {
+  display: none;
+}

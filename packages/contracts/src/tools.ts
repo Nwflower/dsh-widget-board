@@ -36,9 +36,6 @@ export type WidgetToolName = (typeof WIDGET_TOOL_NAMES)[keyof typeof WIDGET_TOOL
 /** 虚拟 skill 的名字（D9）：kebab-case，模型按它加载编写指南。 */
 export const WIDGET_SKILL_NAME = 'widget-authoring'
 
-/** 系统提示段的名字：与 skill 一同出现，只在本插件的工具可见时注册。 */
-export const WIDGET_PROMPT_SECTION = 'dsh-widget-board'
-
 /** 模型可见的一段内容。 */
 export interface ToolContentBlock {
   type: 'text'
@@ -117,20 +114,14 @@ export interface HostToolsService {
   register(tool: WidgetToolRegistration): () => void
 }
 
-/** 系统提示服务：只用到注册一段。 */
-export interface HostSystemPromptService {
-  /**
-   * 注册一段系统提示。
-   *
-   * @param section - 名字、排序与文本。
-   * @returns 注销它的函数。
-   */
-  section(section: { name: string, order: number, text: string }): () => void
-}
-
 /** 一条 skill 的注册项：按 `SkillRegistration` 里本插件会写的那几项。 */
 export interface WidgetSkillRegistration {
   name: string
+  /**
+   * 一句话说明：技能目录在每个会话都可见，模型按它决定要不要加载。
+   *
+   * 本插件的行为了边界（什么时候碰看板、看板归谁）写在这里，不另注入系统提示段。
+   */
   description: string
   /** 正文（Markdown）。 */
   content: string
@@ -156,7 +147,6 @@ export interface HostSkillsService {
 /** 宿主上下文里本插件会用到的那几项可选服务。 */
 export interface HostToolServices {
   tools?: HostToolsService
-  systemPrompt?: HostSystemPromptService
   skills?: HostSkillsService
 }
 
@@ -170,16 +160,6 @@ export interface HostToolServices {
  */
 export function toolsOf(context: unknown): HostToolsService | undefined {
   return serviceOf<HostToolsService>(context, 'tools')
-}
-
-/**
- * 从宿主上下文里取系统提示服务。
- *
- * @param context - 宿主的上下文。
- * @returns 系统提示服务，或 `undefined`。
- */
-export function systemPromptOf(context: unknown): HostSystemPromptService | undefined {
-  return serviceOf<HostSystemPromptService>(context, 'systemPrompt')
 }
 
 /**
@@ -231,6 +211,11 @@ export interface CatalogEntry {
   /** 看板上的最小盒子与默认盒子。 */
   minBox?: { w: number, h: number }
   defaultBox?: { w: number, h: number }
+  /** 示例来源的组件目录绝对路径：agent 按它读源码；只有 `example` 来源有（D7）。 */
+  dir?: string
+  /** `samples.json` 的内容：每个尺寸族一份样例 props 与 data；文件不合格时在 `samplesError` 里说原因。 */
+  samples?: Record<string, unknown>
+  samplesError?: string
 }
 
 /** 一个宿主能力在组件目录里的说明（D24）。 */

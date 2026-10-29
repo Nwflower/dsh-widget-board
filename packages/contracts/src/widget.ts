@@ -57,8 +57,13 @@ export function boxClassesOf(width: number, height: number): WidgetBoxClasses {
   }
 }
 
-/** 组件库的一个来源：包内、用户目录、插件注册（D17）。 */
-export const WIDGET_SOURCES = ['builtin', 'user', 'plugin'] as const
+/**
+ * 组件库的一个来源：包内的内置组件与示例、用户目录、市场安装、插件注册（D17）。
+ *
+ * 按优先级排列：同一个 id 只认排在前面的来源。`market` 是市场插件装进来的组件，排在 `plugin` 之前；
+ * `example` 是给 agent 的写法样例，排在最后，不覆盖任何可用的来源。
+ */
+export const WIDGET_SOURCES = ['builtin', 'user', 'market', 'plugin', 'example'] as const
 
 /** 一个来源。 */
 export type WidgetSource = (typeof WIDGET_SOURCES)[number]
@@ -67,6 +72,38 @@ export type WidgetSource = (typeof WIDGET_SOURCES)[number]
 export interface LocalizedText {
   zh: string
   en: string
+}
+
+/** id 的一段：小写字母开头，两个字以上，只含小写字母、数字与连字符（D7）。 */
+const ID_SEGMENT = '[a-z][a-z0-9-]{1,39}'
+
+/**
+ * 带作者域的组件 id 的形状（D8、D30）：`<作者域>.<名字>`，两段各自是一段 id。
+ *
+ * 市场条目的 id 只有这一种；市场来源的 manifest 与浏览器侧新把手登记的原生组件也用它，三处不再各写
+ * 一条正则。`isAuthorNamespacedWidgetId` 由这同一个串长出来。
+ */
+export const WIDGET_NAMESPACED_ID_PATTERN = `^${ID_SEGMENT}\\.${ID_SEGMENT}$`
+
+/**
+ * 组件 id 的形状（D7、D8）：扁平名字，或市场条目的 `<作者域>.<名字>`。
+ *
+ * 扁平的 id 是本地组件的写法，继续有效；市场条目的 id 必须带作者域，安装时不覆盖本地同名组件。
+ * 正则也用于 manifest 校验与 `widget_define` 的工具参数。
+ */
+export const WIDGET_ID_PATTERN = `^${ID_SEGMENT}(?:\\.${ID_SEGMENT})?$`
+
+/** 判作者域的正则，由 `WIDGET_NAMESPACED_ID_PATTERN` 长出来：两份判据不会对不上。 */
+const AUTHOR_NAMESPACED_ID = new RegExp(WIDGET_NAMESPACED_ID_PATTERN)
+
+/**
+ * 这个组件 id 是不是带作者域的那一种（D8、D30）。
+ *
+ * @param id - 组件 id。
+ * @returns 形如 `<作者域>.<名字>` 时为 `true`。
+ */
+export function isAuthorNamespacedWidgetId(id: string): boolean {
+  return AUTHOR_NAMESPACED_ID.test(id)
 }
 
 /**
@@ -192,6 +229,19 @@ export interface WidgetMinBox {
   h: number
 }
 
+/**
+ * 组件对宿主的版本要求（D7、D30）：与市场版本的 `requires` 同形，省略一项就是不要求。
+ *
+ * `serviceApiVersion` 不在这一侧的服务版本集合里、或 `dsh` 不是一条合法的 semver 范围时，组件在
+ * 组件库与安装路径上都按不可用处理，并说明原因（D11）。
+ */
+export interface WidgetRequires {
+  /** 服务面版本；对着 `BOARD_COMPATIBILITY.serviceApiVersions` 判。 */
+  serviceApiVersion?: number
+  /** DSH 版本范围，如 `>=0.2.1-rc.1`。 */
+  dsh?: string
+}
+
 /** 一个组件的 `widget.json`。 */
 export interface WidgetManifest {
   id: string
@@ -199,6 +249,8 @@ export interface WidgetManifest {
   description?: LocalizedText
   author?: string
   version: string
+  /** 读到与安装时对着兼容表判定的版本要求（D30）；省略表示不要求。 */
+  requires?: WidgetRequires
   sizes: WidgetFamily[]
   /** props 与 data 的 JSON Schema；数据源按它校验推给组件的数据（D6）。 */
   props?: Record<string, unknown>
@@ -249,6 +301,14 @@ export interface WidgetRoot {
   dir: string
   source: WidgetSource
   provider?: string
+  /**
+   * 这个来源下的组件 id 必须带作者域（D8、D30）。
+   *
+   * 市场来源声明它：读 manifest 时按 `isAuthorNamespacedWidgetId` 判，不带作者域的目录在这一条上就
+   * 不合格。本地来源省略它、用扁平 id——一个带点的 id 会抢在市场前面占住同一个名字，安装与升级都
+   * 绕不开（D17）。
+   */
+  authorDomain?: boolean
 }
 
 /**
@@ -282,6 +342,31 @@ export interface WidgetLibraryError {
   message: string
 }
 
+/** 一段双语文案的 JSON Schema：manifest 与市场条目的 `$defs.text` 共用这一份。 */
+export const LOCALIZED_TEXT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['zh', 'en'],
+  properties: {
+    zh: { type: 'string', minLength: 1 },
+    en: { type: 'string', minLength: 1 },
+  },
+} as const
+
+/**
+ * `requires` 的 JSON Schema：manifest、市场条目与市场索引里都是这一份形状（D30）。
+ *
+ * 形状只增不减：旧 manifest 不写 `requires` 时照旧通过，读进来之后当作没有版本要求。
+ */
+export const WIDGET_REQUIRES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    serviceApiVersion: { type: 'integer', minimum: 1 },
+    dsh: { type: 'string', minLength: 1, maxLength: 80 },
+  },
+} as const
+
 /** 校验 manifest 用的 JSON Schema；与 `WidgetManifest` 一一对应。 */
 export const WIDGET_MANIFEST_SCHEMA = {
   $id: 'https://dsh-widget-board/widget.json',
@@ -289,11 +374,12 @@ export const WIDGET_MANIFEST_SCHEMA = {
   additionalProperties: false,
   required: ['id', 'title', 'version', 'sizes'],
   properties: {
-    id: { type: 'string', pattern: '^[a-z][a-z0-9-]{1,39}$' },
+    id: { type: 'string', pattern: WIDGET_ID_PATTERN },
     title: { $ref: '#/$defs/text' },
     description: { $ref: '#/$defs/text' },
     author: { type: 'string', minLength: 1, maxLength: 80 },
     version: { type: 'string', pattern: '^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$' },
+    requires: WIDGET_REQUIRES_SCHEMA,
     sizes: { type: 'array', minItems: 1, uniqueItems: true, items: { enum: WIDGET_FAMILIES } },
     props: { type: 'object' },
     data: { type: 'object' },
@@ -388,15 +474,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
     },
   ],
   $defs: {
-    text: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['zh', 'en'],
-      properties: {
-        zh: { type: 'string', minLength: 1 },
-        en: { type: 'string', minLength: 1 },
-      },
-    },
+    text: LOCALIZED_TEXT_SCHEMA,
     box: {
       type: 'object',
       additionalProperties: false,

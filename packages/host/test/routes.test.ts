@@ -20,7 +20,9 @@ import type { WidgetRecord } from '../src/library'
 import { loadLibrary } from '../src/library'
 import type { Live } from '../src/live'
 import { createLive } from '../src/live'
+import { createProviderHealth } from '../src/provider-health'
 import { createRegistries } from '../src/sources'
+import { createMarketRegistry } from '../src/market'
 import { createRequestLog } from '../src/request-log'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
@@ -175,9 +177,15 @@ function memoryGrants(): GrantStore {
  * @param record - 组件库里的那一个组件，默认是天气卡。
  * @param extra - 是否再多放一块看板（`second`）。
  * @param records - 打开工作区用的组件库；省略时只有 `record` 一个。
+ * @param timeoutMs - 提供方调用的默认超时；省略时用生产上的 15 秒。
  * @returns 上下文、推出去的事件与发请求的函数。
  */
-async function harness(record: WidgetRecord = RECORD, extra = false, records?: Map<string, WidgetRecord>): Promise<Harness> {
+async function harness(
+  record: WidgetRecord = RECORD,
+  extra = false,
+  records?: Map<string, WidgetRecord>,
+  timeoutMs?: number,
+): Promise<Harness> {
   const events: BoardEvent[] = []
   await mkdir(join(ROOT, '.debug'), { recursive: true })
   const home = await mkdtemp(join(ROOT, '.debug', 'routes-test-'))
@@ -191,7 +199,7 @@ async function harness(record: WidgetRecord = RECORD, extra = false, records?: M
     ids.push('second')
   }
   await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'board', boards: ids })}\n`, 'utf8')
-  const sources = createRegistries()
+  const sources = createRegistries(timeoutMs === undefined ? undefined : createProviderHealth({ timeoutMs }))
   const workspace = await openWorkspace(home, records ?? new Map([[record.manifest.id, record]]), (event) => { events.push(event) })
   // 真的通知器：/events 与可见性上报都落在它身上，测试因此判定的是真行为。
   const live = createLive({ tokensCss: '', suiteCss: '', runtimeJs: '', libs: {} })
@@ -212,6 +220,8 @@ async function harness(record: WidgetRecord = RECORD, extra = false, records?: M
     sources,
     grants: memoryGrants(),
     requests: createRequestLog(),
+    market: createMarketRegistry(),
+    marketDir: join(home, 'market-widgets'),
     limits: {
       stateCard: createRateLimiter(STATE_WRITES_PER_SECOND),
       stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
@@ -241,6 +251,19 @@ describe('工作区快照', () => {
     expect(body.boards[0]?.instances).toHaveLength(2)
     expect(body.widgets.weather?.source).toBe('builtin')
     expect(body.library).toHaveLength(1)
+  })
+
+  it('快照带上这张卡可用的能力：提供方不在的能力不在其中', async () => {
+    const declared = {
+      ...RECORD,
+      manifest: { ...RECORD.manifest, capabilities: ['demo:present', 'demo:absent'] },
+    }
+    const test = await harness(declared)
+    // 这个替身的注册表里没有注册任何能力：两项都不可用。
+    const response = await test.send('GET', '/boards')
+    const body = JSON.parse(response.body) as { widgets: Record<string, { capabilities?: string[], availableCapabilities?: string[] }> }
+    expect(body.widgets.weather?.capabilities).toEqual(['demo:present', 'demo:absent'])
+    expect(body.widgets.weather?.availableCapabilities).toEqual([])
   })
 
   it('方法不对时回 405 并给出允许的方法', async () => {
@@ -451,6 +474,25 @@ describe('卡片状态与数据', () => {
     expect(outcomes.every((outcome) => outcome.error === undefined)).toBe(true)
     expect(saves).toBe(1)
     expect(test.context.workspace.board('board').instances.map((instance) => instance.data)).toEqual([{ n: 3 }, { n: 3 }])
+  })
+
+  it('定时刷新里一个提供方超时只影响它自己那张卡', async () => {
+    const test = await harness(RECORD, false, undefined, 20)
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'slow-provider', id: 'slow.now', read: () => new Promise<unknown>(() => {}) })
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'fast-provider', id: 'fast.now', read: () => ({ n: 5 }) })
+    await test.context.workspace.save('board', (current) => ({
+      ...current,
+      instances: current.instances.map((instance, index) => ({ ...instance, source: index === 0 ? 'slow.now' : 'fast.now' })),
+    }), { event: () => ({ type: 'board' }) })
+    const outcomes = await readManyInto(test.context, ['board-first', 'board-second'])
+    expect(outcomes.find((outcome) => outcome.id === 'board-first')?.error).toBeDefined()
+    expect(outcomes.find((outcome) => outcome.id === 'board-second')?.error).toBeUndefined()
+    const [first, second] = test.context.workspace.board('board').instances
+    expect(first?.data).toBeNull()
+    expect(second?.data).toEqual({ n: 5 })
+    const health = test.context.sources.health.snapshot()
+    expect(health.find((record) => record.provider === 'slow-provider')).toMatchObject({ timeouts: 1, failures: 0 })
+    expect(health.find((record) => record.provider === 'fast-provider')).toMatchObject({ timeouts: 0, failures: 0 })
   })
 
   it('卡片在哪块看板上就写哪一块：另一块看板上的卡也找得到', async () => {
@@ -737,7 +779,7 @@ describe('动作', () => {
     test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'test-provider:run' }] } })
     const first = test.context.sources.registerAction({ apiVersion: 2, provider: 'test-provider', id: 'run', permission: { hosts: ['a'] }, run: () => null })
     await test.send('POST', '/instance/board-first/grant', JSON.stringify({ kind: 'action', id: 'test-provider:run' }))
-    // 提供方换了实现：先撤下旧的，再按新的权限注册（D12）。
+    // 提供方换了实现：先撤下旧的，再按新的权限注册（D31）。
     first()
     test.context.sources.registerAction({ apiVersion: 2, provider: 'test-provider', id: 'run', permission: { hosts: ['a', 'b'] }, run: () => null })
     const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'test-provider:run' }))
@@ -753,6 +795,141 @@ describe('动作', () => {
   it('没有声明 id 的请求被拒绝', async () => {
     const response = await (await harness()).send('POST', '/instance/board-first/action', JSON.stringify({ payload: null }))
     expect(response.status).toBe(400)
+  })
+})
+
+describe('提供方调用的超时、并发与健康', () => {
+  it('读取超时回 504，槽占满时下一个调用回 429', async () => {
+    const test = await harness(RECORD, false, undefined, 20)
+    // 两张卡都绑同一个读不完的数据源：8 个槽被那 8 次超时的调用占着，因为提供方忽略中止信号。
+    await test.context.workspace.save('board', (current) => ({
+      ...current,
+      instances: current.instances.map((instance) => ({ ...instance, source: 'weather.now' })),
+    }), { event: () => ({ type: 'board' }) })
+    test.context.sources.registerDataSource({
+      apiVersion: 3,
+      provider: 'test-provider',
+      id: 'weather.now',
+      read: () => new Promise<unknown>(() => {}),
+    })
+    const first = await test.send('POST', '/instance/board-first/read')
+    expect(first.status).toBe(504)
+    expect(JSON.parse(first.body)).toMatchObject({ code: 'provider-timeout', provider: 'test-provider' })
+    for (let index = 1; index < 8; index += 1) await test.send('POST', '/instance/board-first/read')
+    const busy = await test.send('POST', '/instance/board-second/read')
+    expect(busy.status).toBe(429)
+    expect(JSON.parse(busy.body)).toMatchObject({ code: 'provider-busy', provider: 'test-provider' })
+    const snapshot = JSON.parse((await test.send('GET', '/boards')).body) as { providers?: { provider: string, registrations: number, failures: number, timeouts: number, available: boolean }[] }
+    expect(snapshot.providers).toHaveLength(1)
+    expect(snapshot.providers?.[0]).toMatchObject({ provider: 'test-provider', registrations: 1, failures: 0, timeouts: 8, available: true })
+  })
+
+  it('动作超时回 504 并带原因码', async () => {
+    const test = await harness(RECORD, false, undefined, 20)
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'hang' }] } })
+    test.context.sources.registerAction({ apiVersion: 3, provider: 'test-provider', id: 'hang', run: () => new Promise<unknown>(() => {}) })
+    const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'hang' }))
+    expect(response.status).toBe(504)
+    expect(JSON.parse(response.body).code).toBe('provider-timeout')
+  })
+
+  it('提供方抛错时计一次失败，原因原样回给卡片', async () => {
+    const test = await harness()
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'boom' }] } })
+    test.context.sources.registerAction({ apiVersion: 3, provider: 'test-provider', id: 'boom', run: () => { throw new Error('命令退出码 1') } })
+    const response = await test.send('POST', '/instance/board-first/action', JSON.stringify({ id: 'boom' }))
+    expect(response.status).toBe(500)
+    expect((JSON.parse(response.body) as { error: string }).error).toBe('命令退出码 1')
+    expect(test.context.sources.health.snapshot()[0]).toMatchObject({ failures: 1, timeouts: 0 })
+  })
+
+  it('能力输入不合格不计失败，输出不合格记一次', async () => {
+    const test = await harness(RECORD, false, undefined, 20)
+    test.context.records.set('weather', { ...RECORD, manifest: { ...RECORD.manifest, capabilities: ['test.echo'] } })
+    test.context.sources.registerCapability({
+      apiVersion: 3,
+      provider: 'test-provider',
+      id: 'test.echo',
+      input: { type: 'object', required: ['n'], properties: { n: { type: 'number' } } },
+      output: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } } },
+      call: () => ({ ok: 'nope' }),
+    })
+    const badInput = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'test.echo', args: {} }))
+    expect(badInput.status).toBe(400)
+    // 提供方根本没有被调用：失败计数还是 0。
+    expect(test.context.sources.health.snapshot()[0]).toEqual({ provider: 'test-provider', features: [], registrations: 1, failures: 0, timeouts: 0, available: true })
+    const badOutput = await test.send('POST', '/instance/board-first/call', JSON.stringify({ capability: 'test.echo', args: { n: 1 } }))
+    expect(badOutput.status).toBe(502)
+    expect(test.context.sources.health.snapshot()[0]).toMatchObject({
+      failures: 1,
+      lastError: 'provider-output：能力 test.echo 的结果与 output schema 不符',
+    })
+  })
+
+  it('快照带每个提供方一份健康记录，撤下之后不可用', async () => {
+    const test = await harness()
+    const release = test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 1 }) })
+    const now = JSON.parse((await test.send('GET', '/boards')).body) as { providers?: unknown }
+    expect(now.providers).toEqual([{ provider: 'test-provider', features: [], registrations: 1, failures: 0, timeouts: 0, available: true }])
+    release()
+    const after = JSON.parse((await test.send('GET', '/boards')).body) as { providers?: unknown }
+    // 计数留着，可用性随最后一项注册撤下变成假（D31）。
+    expect(after.providers).toEqual([{ provider: 'test-provider', features: [], registrations: 1, failures: 0, timeouts: 0, available: false }])
+  })
+
+  it('数据源读出来的数据不合组件 schema：手动读回 400，按提供方记一次失败', async () => {
+    const test = await harness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 'x' }) })
+    await test.context.workspace.save('board', (current) => ({
+      ...current,
+      instances: current.instances.map((instance) => ({ ...instance, source: 'weather.now' })),
+    }), { event: () => ({ type: 'board' }) })
+    const response = await test.send('POST', '/instance/board-first/read')
+    expect(response.status).toBe(400)
+    expect((JSON.parse(response.body) as { error: string }).error).toMatch(/data schema/)
+    // 校验只在 loadData 一处：读取失败两次也不会多记一次（D31）。
+    const health = test.context.sources.health.snapshot()
+    expect(health).toHaveLength(1)
+    expect(health[0]).toMatchObject({ provider: 'test-provider', failures: 1, timeouts: 0 })
+    expect(health[0]?.lastError).toMatch(/^provider-output：数据源 weather.now 的数据与组件的 data schema 不符/)
+    expect(test.context.workspace.board('board').instances[0]?.data).toBeNull()
+  })
+
+  it('定时刷新批量读到不合 schema 的数据时也只记一次失败', async () => {
+    const test = await harness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 'x' }) })
+    await test.context.workspace.save('board', (current) => ({
+      ...current,
+      instances: current.instances.map((instance) => ({ ...instance, source: 'weather.now' })),
+    }), { event: () => ({ type: 'board' }) })
+    const outcomes = await readManyInto(test.context, ['board-first'])
+    expect(outcomes[0]?.error).toBeDefined()
+    expect((outcomes[0]?.error as Error).message).toMatch(/data schema/)
+    expect(test.context.sources.health.snapshot()[0]).toMatchObject({ provider: 'test-provider', failures: 1, timeouts: 0 })
+    expect(test.context.workspace.board('board').instances[0]?.data).toBeNull()
+  })
+
+  it('push 推来的数据不合 schema 时不记到提供方名下', async () => {
+    const test = await harness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 1 }) })
+    const bad = await test.send('POST', '/instance/board-first/data', JSON.stringify({ data: { n: 'x' } }))
+    expect(bad.status).toBe(400)
+    const health = test.context.sources.health.snapshot()
+    expect(health).toHaveLength(1)
+    expect(health[0]).toMatchObject({ provider: 'test-provider', registrations: 1, failures: 0, timeouts: 0 })
+    expect(health[0]?.lastError).toBeUndefined()
+  })
+
+  it('卡片上存着的静态数据不合 schema 也不算提供方的失败', async () => {
+    const test = await harness()
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'test-provider', id: 'weather.now', read: () => ({ n: 1 }) })
+    // 直接写进看板的旧数据（例如组件换了 schema 之后留下的）：没有读取发生，不该出现在任何提供方名下。
+    await test.context.workspace.save('board', (current) => ({
+      ...current,
+      instances: current.instances.map((instance) => ({ ...instance, data: { n: 'stale' } })),
+    }), { event: () => ({ type: 'board' }) })
+    const snapshot = JSON.parse((await test.send('GET', '/boards')).body) as { providers?: { registrations: number, failures: number, timeouts: number }[] }
+    expect(snapshot.providers?.[0]).toMatchObject({ registrations: 1, failures: 0, timeouts: 0 })
   })
 })
 
@@ -842,6 +1019,165 @@ describe('变更通知与单卡可见性', () => {
     // 200 个 120 字符的 id 已经超过 16KB：上限按每次请求算，不累计。
     const big = await test.send('POST', '/visibility', JSON.stringify({ viewer: 'v1', visible: Array.from({ length: 200 }, () => 'c'.repeat(120)) }))
     expect(big.status).toBe(413)
+  })
+})
+
+describe('市场安装', () => {
+  /** 一个装了给定 id 的市场提供方；包装成真包（manifest 的 id 与条目一致），哈希按内容算。 */
+  async function marketHarness(widgetId = 'acme.weather') {
+    const { packWidget, bytesOf } = await import('../src/package')
+    const { createHash } = await import('node:crypto')
+    const manifest = JSON.stringify({
+      id: widgetId,
+      title: { zh: '市场天气', en: 'Market weather' },
+      version: '1.0.0',
+      sizes: ['s'],
+    })
+    const bytes = packWidget([
+      { path: 'widget.json', content: bytesOf(manifest) },
+      { path: 'index.html', content: bytesOf('<p>market</p>') },
+      { path: 'style.css', content: bytesOf('p{}') },
+    ])
+    const sha256 = createHash('sha256').update(bytes).digest('hex')
+    const test = await harness()
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(test.context.marketDir, { recursive: true })
+    test.context.market.register({
+      apiVersion: 3,
+      provider: 'acme-market',
+      id: 'acme',
+      title: { zh: 'acme 市场', en: 'Acme market' },
+      list: async () => [{
+        id: widgetId,
+        title: { zh: '市场天气', en: 'Market weather' },
+        author: { name: 'acme' },
+        versions: [{ version: '1.0.0', sizes: ['s'], package: { url: 'https://example.invalid/x.dshw', sha256, bytes: bytes.byteLength } }],
+      }],
+      fetch: async () => bytes,
+    })
+    await test.context.market.refresh('acme-market')
+    return test
+  }
+
+  it('装一个条目：写进市场目录并记录来源', async () => {
+    const test = await marketHarness()
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(201)
+    const { readFile } = await import('node:fs/promises')
+    const records = JSON.parse(await readFile(join(test.context.marketDir, 'sources.json'), 'utf8')) as Record<string, { provider: string, version: string }>
+    expect(records['acme.weather']).toMatchObject({ provider: 'acme-market', version: '1.0.0' })
+    const written = await readFile(join(test.context.marketDir, 'acme.weather', 'widget.json'), 'utf8')
+    expect(JSON.parse(written).id).toBe('acme.weather')
+  })
+
+  it('哈希不符拒绝安装', async () => {
+    const test = await marketHarness()
+    const section = test.context.market.sections()[0]
+    // 把索引里的哈希换掉：包没变，对不上就拒绝。
+    section?.listings.forEach((entry) => { entry.versions[0]!.package.sha256 = 'f'.repeat(64) })
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/sha256/)
+  })
+
+  it('扁平 id 在市场 schema 里就被拒，到不了安装', async () => {
+    // 市场条目必须带作者域（D8 之后的市场契约）：`weather` 这种扁平 id 在 refresh 时进 errors。
+    const test = await marketHarness('weather')
+    const section = test.context.market.sections()[0]
+    expect(section?.listings).toEqual([])
+    expect(section?.errors[0]).toMatch(/weather/)
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'weather', version: '1.0.0' }))
+    expect(response.status).toBe(404)
+  })
+
+  it('索引声明的能力不在包内 manifest 里时拒绝安装', async () => {
+    const test = await marketHarness()
+    const section = test.context.market.sections()[0]
+    section?.listings.forEach((entry) => { entry.versions[0]!.declares = { capabilities: ['acme:not-in-package'] } })
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/对不上/)
+  })
+
+  it('请求体不是合法 JSON 时回 400', async () => {
+    const test = await marketHarness()
+    const response = await test.send('POST', '/library/market/install', '{不是 JSON')
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/合法的 JSON/)
+  })
+
+  it('提供方的 fetch 没有返回字节时回 400', async () => {
+    const test = await marketHarness()
+    test.context.market.register({
+      apiVersion: 3,
+      provider: 'acme-broken',
+      id: 'broken',
+      title: { zh: '坏市场', en: 'Broken market' },
+      list: async () => [{
+        id: 'acme.broken',
+        title: { zh: '坏包', en: 'Broken package' },
+        author: { name: 'acme' },
+        versions: [{ version: '1.0.0', sizes: ['s'], package: { url: 'https://example.invalid/z.dshw', sha256: 'e'.repeat(64), bytes: 4 } }],
+      }],
+      fetch: async () => 'nope' as unknown as Uint8Array,
+    })
+    await test.context.market.refresh('acme-broken')
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-broken', id: 'acme.broken', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body).toMatch(/没有返回字节/)
+  })
+
+  it('市场来源里同 id 不同内容要明确的 replace', async () => {
+    // 提供方手里有两个版本，fetch 按版本回包；装过 1.0.0 之后再装 1.0.1，不带 replace 是 409。
+    const { packWidget, bytesOf } = await import('../src/package')
+    const { createHash } = await import('node:crypto')
+    const pack = (version: string, marker: string): { bytes: Uint8Array, sha256: string } => {
+      const bytes = packWidget([
+        { path: 'widget.json', content: bytesOf(JSON.stringify({ id: 'acme.weather', title: { zh: '市场天气', en: 'Market weather' }, version, sizes: ['s'] })) },
+        { path: 'index.html', content: bytesOf(`<p>${marker}</p>`) },
+        { path: 'style.css', content: bytesOf('p{}') },
+      ])
+      return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') }
+    }
+    const one = pack('1.0.0', 'market')
+    const two = pack('1.0.1', 'changed')
+    const test = await harness()
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(test.context.marketDir, { recursive: true })
+    test.context.market.register({
+      apiVersion: 3,
+      provider: 'acme-market',
+      id: 'acme',
+      title: { zh: 'acme 市场', en: 'Acme market' },
+      list: async () => [{
+        id: 'acme.weather',
+        title: { zh: '市场天气', en: 'Market weather' },
+        author: { name: 'acme' },
+        versions: [
+          { version: '1.0.0', sizes: ['s'], package: { url: 'https://example.invalid/x.dshw', sha256: one.sha256, bytes: one.bytes.byteLength } },
+          { version: '1.0.1', sizes: ['s'], package: { url: 'https://example.invalid/y.dshw', sha256: two.sha256, bytes: two.bytes.byteLength } },
+        ],
+      }],
+      fetch: async (_listing, version) => version === '1.0.1' ? two.bytes : one.bytes,
+    })
+    await test.context.market.refresh('acme-market')
+    const first = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(first.status).toBe(201)
+    // 把市场来源读进 records：路由的 records 表是安装之后才认识这个组件的。
+    const { readWidget } = await import('../src/library')
+    test.context.records.set('acme.weather', await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market', authorDomain: true }))
+    const conflict = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.1' }))
+    expect(conflict.status).toBe(409)
+    expect(conflict.body).toMatch(/widget-conflict/)
+    // 带上 replace=true 就换掉。
+    const replaced = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.1', replace: true }))
+    expect(replaced.status).toBe(201)
+  })
+
+  it('提供方不在时回 404', async () => {
+    const test = await harness()
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'ghost', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(404)
   })
 })
 

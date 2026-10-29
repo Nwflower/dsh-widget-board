@@ -37,6 +37,19 @@ const COPY = {
   builtin: { zh: '内置', en: 'Built-in' },
   user: { zh: '我的', en: 'Mine' },
   plugin: { zh: '插件', en: 'Plugins' },
+  market: { zh: '市场', en: 'Market' },
+  example: { zh: '示例', en: 'Examples' },
+  libraryExamples: { zh: '示例', en: 'Examples' },
+  libraryExamplesHint: { zh: '给 agent 的写法样例，数据是示例数据', en: 'Authoring samples for agents; the data is sample data' },
+  libraryBuiltin: { zh: '内置', en: 'Installed' },
+  libraryBuiltinHint: { zh: '已安装，可直接使用', en: 'Installed and ready to use' },
+  libraryMarket: { zh: '市场', en: 'Market' },
+  libraryMarketHint: { zh: '从市场插件浏览与安装', en: 'Browse and install from a market plugin' },
+  libraryMarketEmpty: { zh: '还没有接入市场插件', en: 'No market plugin connected yet' },
+  marketInstall: { zh: '安装', en: 'Install' },
+  marketInstalled: { zh: '已安装', en: 'Installed' },
+  marketDeclares: { zh: '声明', en: 'Declares' },
+  marketInstalling: { zh: '正在安装…', en: 'Installing…' },
   unavailable: { zh: '这个组件不可用', en: 'This widget is unavailable' },
   noAnswer: { zh: '组件没有应答，切回看板重新加载这一张', en: 'The widget did not answer; reopen the board to reload it' },
   saveFailed: { zh: '存不下这张卡的状态', en: 'Could not save this card' },
@@ -126,6 +139,20 @@ const COPY = {
   },
   source: { zh: '数据源', en: 'Data source' },
   provider: { zh: '提供方', en: 'Provider' },
+  providerHealth: { zh: '提供方健康', en: 'Provider health' },
+  providerHealthEmpty: {
+    zh: '还没有提供方接入；接入之后这里列出每个提供方能不能用、声明了哪些用途、累计注册与失败。',
+    en: 'No provider is registered yet; once one is, each provider’s availability, features, registrations and failures appear here.',
+  },
+  providerState: { zh: '状态', en: 'State' },
+  providerAvailable: { zh: '可用', en: 'Available' },
+  providerUnavailable: { zh: '不可用', en: 'Unavailable' },
+  providerFeatures: { zh: '用途', en: 'Features' },
+  providerNoFeatures: { zh: '没有声明用途', en: 'No features declared' },
+  providerRegistrations: { zh: '累计注册', en: 'Registrations' },
+  providerFailures: { zh: '失败', en: 'Failures' },
+  providerTimeouts: { zh: '超时', en: 'Timeouts' },
+  providerLastError: { zh: '最后错误', en: 'Last error' },
   permissionHosts: { zh: '主机', en: 'Hosts' },
   permissionCommands: { zh: '命令', en: 'Commands' },
   permissionNone: { zh: '不需要额外授权', en: 'No extra grant needed' },
@@ -235,5 +262,7 @@ export function textOf(text: LocalizedText): string {
 export function sourceLabel(source: WidgetSource): string {
   if (source === 'builtin') return t('builtin')
   if (source === 'user') return t('user')
+  if (source === 'market') return t('market')
+  if (source === 'example') return t('example')
   return t('plugin')
 }

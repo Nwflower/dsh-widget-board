@@ -12,6 +12,8 @@
  *   lib/runtime/tokens.css  由 `contracts/tokens.json` 生成的令牌（D10）。
  *   lib/runtime/suite.css   组件套件的动效原语与基础件。
  *   lib/widgets/<id>/       内置组件，格式与用户组件相同（D7）。
+ *   lib/provider.js         提供方 SDK：`./provider` 的值入口，两侧的提供方都打包它（D31）。
+ *   lib/types/              `./service` 与 `./provider` 的声明，由 `tsconfig.types.json` 写出。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -24,6 +26,7 @@ const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const TOKENS = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'contracts', 'tokens.json'), 'utf8'))
 const RUNTIME = path.join(ROOT, 'packages', 'runtime', 'src')
 const WIDGETS = path.join(ROOT, 'packages', 'widgets')
+const WIDGETS_EXAMPLES = path.join(ROOT, 'packages', 'widgets-examples')
 const TSC = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 
 /** 宿主的模块表交给浏览器半边的包：留在产物里，由加载器的 `require` 解析。 */
@@ -84,6 +87,36 @@ function emitServiceTypes() {
   } catch (error) {
     throw new Error(`build: 写出服务类型入口失败：\n${error.stdout ?? ''}${error.stderr ?? ''}`)
   }
+}
+
+
+/**
+ * `./provider` 的值入口：提供方的纯构造函数。产物里不能出现宿主实现、模块系统或全局状态——它是
+ * 同一份代码被打进两种运行位置（D2、D31）。
+ *
+ * @param code - `lib/provider.js` 的文本。
+ */
+function checkProviderSdk(code) {
+  const forbidden = ['node:', '@dsh-widget-board/host', '@dsh-widget-board/client', '@dsh-widget-board/runtime', 'process.', 'globalThis', 'window.', 'document.']
+  for (const needle of forbidden) {
+    if (code.includes(needle)) throw new Error(`build: lib/provider.js 里出现了 ${needle}；提供方 SDK 只构造形状（D31）`)
+  }
+}
+
+/** 提供方 SDK：一份 ESM，宿主进程与浏览器半边打包的是同一个入口。 */
+async function buildProviderSdk() {
+  const code = await output({
+    entryPoints: [path.join(ROOT, 'packages', 'contracts', 'src', 'provider.ts')],
+    outfile: path.join(LIB, 'provider.js'),
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+    target: 'esnext',
+    legalComments: 'none',
+  }, '.js')
+  checkProviderSdk(code)
+  writeAtomic(path.join(LIB, 'provider.js'), code)
+  return Buffer.byteLength(code)
 }
 
 /**
@@ -214,6 +247,12 @@ function writeAssets() {
   const staging = path.join(LIB, '.widgets-staging')
   fs.cpSync(WIDGETS, staging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
   fs.renameSync(staging, path.join(LIB, 'widgets'))
+  // 示例组件（D17）：目录可能还不存在，那时 lib/widgets-examples 就缺席，宿主按空来源算。
+  if (fs.existsSync(WIDGETS_EXAMPLES)) {
+    const examplesStaging = path.join(LIB, '.widgets-examples-staging')
+    fs.cpSync(WIDGETS_EXAMPLES, examplesStaging, { recursive: true, filter: (source) => !source.includes(`${path.sep}node_modules`) })
+    fs.renameSync(examplesStaging, path.join(LIB, 'widgets-examples'))
+  }
 }
 
 /**
@@ -256,9 +295,10 @@ typecheck('tsconfig.host.json')
 fs.rmSync(LIB, { recursive: true, force: true })
 fs.mkdirSync(LIB, { recursive: true })
 emitServiceTypes()
+const provider = await buildProviderSdk()
 const client = await buildClientHalf()
 const host = await buildHostHalf()
 const runtime = await buildRuntime()
 writeAssets()
 const libs = await buildLibs()
-console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位，服务类型入口已写出`)
+console.log(`build: lib/client.js ${client} 字节，lib/host/index.js ${host} 字节，lib/runtime/runtime.js ${runtime} 字节，lib/provider.js ${provider} 字节，精选库 ${Object.entries(libs).map(([id, size]) => `${id} ${size}`).join('，')} 字节，内置组件已就位，服务与提供方的类型入口已写出`)

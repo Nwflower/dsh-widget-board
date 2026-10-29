@@ -1,0 +1,95 @@
+{
+  "format": 1,
+  "market": {
+    "title": {
+      "zh": "组件市场",
+      "en": "Widget market"
+    },
+    "description": {
+      "zh": "看板的组件市场原型：索引、包与浏览页都放在 GitHub Pages 的 market/ 子路径下。",
+      "en": "Prototype widget market: the index, packages and browse page live under market/ on GitHub Pages."
+    },
+    "updatedAt": "2026-10-28T06:35:10.785Z"
+  },
+  "widgets": [
+    {
+      "id": "nwflower.example-basic",
+      "title": {
+        "zh": "示例：最小组件",
+        "en": "Example: minimal widget"
+      },
+      "description": {
+        "zh": "演示组件目录与 manifest 的最小形态：只有 id、title、version、sizes。",
+        "en": "The smallest possible widget: id, title, version and sizes only."
+      },
+      "author": {
+        "name": "Nwflower",
+        "url": "https://github.com/Nwflower"
+      },
+      "repo": "https://github.com/Nwflower/dsh-widget-board",
+      "license": "MIT",
+      "tags": [
+        "示例",
+        "编写格式"
+      ],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "package": {
+            "url": "packages/nwflower.example-basic-1.0.0.dshw",
+            "sha256": "e8ad91bb394242686a0213869cac106740d2caa7bb4e7c64a56e9cff7623cd53",
+            "bytes": 1116
+          },
+          "sizes": [
+            "s",
+            "m"
+          ],
+          "requires": {
+            "serviceApiVersion": 3,
+            "dsh": ">=0.2.1-rc.1"
+          },
+          "declares": {}
+        }
+      ]
+    },
+    {
+      "id": "nwflower.clock",
+      "title": {
+        "zh": "翻页时钟",
+        "en": "Flip clock"
+      },
+      "description": {
+        "zh": "时与分翻页的时钟，秒在右边走，日期与星期按当前语言显示。",
+        "en": "A clock with flipping hours and minutes, running seconds alongside, and the date in the current language."
+      },
+      "author": {
+        "name": "Nwflower",
+        "url": "https://github.com/Nwflower"
+      },
+      "repo": "https://github.com/Nwflower/dsh-widget-board",
+      "license": "MIT",
+      "tags": [
+        "时间"
+      ],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "package": {
+            "url": "packages/nwflower.clock-1.0.0.dshw",
+            "sha256": "2253734f09f1f2749b9a367c889f2b05d92ad6ed53d22bd59c788667496ab3f7",
+            "bytes": 5644
+          },
+          "sizes": [
+            "s",
+            "l"
+          ],
+          "requires": {
+            "serviceApiVersion": 3,
+            "dsh": ">=0.2.1-rc.1"
+          },
+          "declares": {}
+        }
+      ]
+    }
+  ]
+}

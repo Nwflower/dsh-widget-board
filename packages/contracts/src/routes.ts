@@ -262,6 +262,12 @@ export const LIBRARY_WIDGET_ROUTE = '/library/widget'
 /** 把一个 `.dshw` 交给组件库的地址，文档相对（D8）。 */
 export const libraryImportPath = (): string => `${CLIENT_ROUTE}${LIBRARY_IMPORT_PATH}`
 
+/** 市场安装一个条目的地址，文档相对（D8 之后的市场契约）。 */
+export const libraryMarketInstallPath = (): string => `${CLIENT_ROUTE}/library/market/install`
+
+/** 重读全部市场提供方条目的地址，文档相对。 */
+export const libraryMarketRefreshPath = (): string => `${CLIENT_ROUTE}/library/market/refresh`
+
 /**
  * 组件库里一个组件的导出地址，文档相对（D8）。
  *

@@ -142,33 +142,52 @@ export function installThemeCapability(context: unknown): () => void {
       root.dataset[VT_ATTRIBUTE] = 'circle'
       root.style.setProperty(VT_X, `${((point.x / window.innerWidth) * 100).toFixed(3)}%`)
       root.style.setProperty(VT_Y, `${((point.y / window.innerHeight) * 100).toFixed(3)}%`)
-      root.style.setProperty(VT_RADIUS, radiusPercent(radiusOf(point)))
+      const radius = radiusOf(point)
+      root.style.setProperty(VT_RADIUS, radiusPercent(radius))
       root.style.setProperty(VT_DURATION, MOTION['theme-circle'])
       root.style.setProperty(VT_EASE, MOTION['ease-smooth'])
       running = true
       const frames = frameHostOf()
+      // 卡片的 iframe 不在整页快照里；新主题按圆点扫到卡片的时刻分批推，圆外的卡片才能停在旧模式。
+      frames.stageTheme(call.frame, {
+        origin: point,
+        radius,
+        duration: Number.parseFloat(MOTION['theme-circle']),
+        easing: MOTION['ease-smooth'],
+      })
       let resume: (() => void) | undefined
       let transition
       try {
-        transition = start(async () => {
+        transition = start(() => {
           // 旧快照已经拍完，这时才停其它卡片：按下的一刻画面不变，旧画面里不会先跳一下（D29）。
           // 发起这次切换的卡片自己不暂停，它的圆环要跟着这一次按下走。
           resume = frames.suspend(call.frame)
           theme.setTheme(wanted)
-          // 等一帧，让暂停与新令牌落到卡片上，新快照拍的是稳定后的画面；这其间浏览器显示旧快照。
-          await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
         })
       } catch (error) {
+        frames.endThemeReveal()
         clearTransition(root)
         resume?.()
         throw error
       }
-      // 动画结束、被跳过或页面切走时都要把根节点恢复原样；后两种情形不能留下半个伪元素层。
+      // 转场被跳过、页面切走或宿主卡住时，不能让根节点标记、卡片暂停与扣住的令牌留在原地。
+      const safety = window.setTimeout(() => {
+        frames.endThemeReveal()
+        clearTransition(root)
+        resume?.()
+      }, 4000)
       transition.finished.catch(() => undefined).finally(() => {
+        window.clearTimeout(safety)
+        frames.endThemeReveal()
         clearTransition(root)
         resume?.()
       })
-      await transition.ready.catch(() => { theme.setTheme(wanted) })
+      // 只等转场准备好；桌面壳里 ready 迟迟不来时，一秒后照样把结果交回组件，圆环由令牌触发。
+      await Promise.race([
+        transition.ready.catch(() => { theme.setTheme(wanted) }),
+        new Promise<void>((resolve) => { window.setTimeout(resolve, 1000) }),
+      ])
+      frames.startThemeReveal()
       return settle()
     },
   })

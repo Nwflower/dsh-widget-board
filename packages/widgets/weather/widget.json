@@ -9,7 +9,7 @@
     "en": "A window-view weather card: Open-Meteo supplies the raw reading and the widget maps it into a five-day forecast. Outside is a painted scene whose light, clouds and skyline change through golden hour, dawn, dusk and night; rain and snow run down the glass, and switching days changes the whole sky."
   },
   "author": "dsh-widget-board",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 22 },
   "minBox": { "w": 1, "h": 16 },
@@ -25,8 +25,20 @@
   "props": {
     "type": "object",
     "properties": {
+      "city": {
+        "type": "string",
+        "format": "city",
+        "maxLength": 40,
+        "default": "北京",
+        "fills": {
+          "place": "place",
+          "latitude": "latitude",
+          "longitude": "longitude"
+        }
+      },
       "place": {
         "type": "object",
+        "format": "hidden",
         "required": ["zh", "en"],
         "properties": {
           "zh": { "type": "string" },
@@ -36,12 +48,14 @@
       },
       "latitude": {
         "type": "number",
+        "format": "hidden",
         "minimum": -90,
         "maximum": 90,
         "default": 39.9042
       },
       "longitude": {
         "type": "number",
+        "format": "hidden",
         "minimum": -180,
         "maximum": 180,
         "default": 116.4074
@@ -83,6 +97,14 @@
     "everyMs": 18000000
   },
   "text": {
+    "props.city.label": {
+      "zh": "城市",
+      "en": "City"
+    },
+    "props.city.hint": {
+      "zh": "输入中文名、英文名或拼音，从候选里选一条；按「定位」用当前位置填上，浏览器给不出位置时按网络出口估算。",
+      "en": "Type a Chinese name, an English name or pinyin and pick one from the list; press Locate to fill it from where you are (when the browser cannot provide a position, the network's city is used)."
+    },
     "loading": {
       "zh": "正在获取天气",
       "en": "Fetching weather"

@@ -6,7 +6,8 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { contentHash, loadLibrary, readWidget } from '../src/library'
+import { contentHash, insertRoot, loadLibrary, readWidget } from '../src/library'
+import type { WidgetRoot } from '@dsh-widget-board/contracts'
 
 const ROOT = join(process.cwd(), '.debug', 'tests', `library-${String(process.pid)}-${String(Date.now())}`)
 
@@ -82,6 +83,37 @@ describe('组件库的来源', () => {
     expect(load.errors).toEqual([])
   })
 
+  it('示例来源排在最后，同 id 时不覆盖任何前面的来源', async () => {
+    const root = join(ROOT, 'example-source')
+    await widget(join(root, 'builtin'), 'weather')
+    await widget(join(root, 'examples'), 'weather')
+    await widget(join(root, 'examples'), 'example-basic')
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'examples'), source: 'example' },
+    ])
+    expect(load.records.get('weather')?.source).toBe('builtin')
+    expect(load.records.get('example-basic')?.source).toBe('example')
+    expect(load.errors).toHaveLength(1)
+    expect(load.errors[0]?.message).toMatch(/已经在/)
+  })
+
+  it('示例目录缺失或为空时与内置来源一样抛出：构建没有写出组件', async () => {
+    const root = join(ROOT, 'example-missing')
+    await widget(join(root, 'builtin'), 'weather')
+    await expect(loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'no-examples'), source: 'example' },
+    ])).rejects.toThrow(/组件库目录读不出来/)
+
+    const empty = join(root, 'empty-examples')
+    await mkdir(empty, { recursive: true })
+    await expect(loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: empty, source: 'example' },
+    ])).rejects.toThrow(/示例组件库是空的/)
+  })
+
   it('内置目录不存在时抛出：构建没有写出组件', async () => {
     await expect(loadLibrary([{ dir: join(ROOT, 'nowhere'), source: 'builtin' }]))
       .rejects.toThrow(/组件库目录读不出来/)
@@ -91,6 +123,46 @@ describe('组件库的来源', () => {
     const root = join(ROOT, 'empty-builtin')
     await mkdir(root, { recursive: true })
     await expect(loadLibrary([{ dir: root, source: 'builtin' }])).rejects.toThrow(/内置组件库是空的/)
+  })
+
+  it('来源表按 WIDGET_SOURCES 的次序插：插件注册排在示例之前', () => {
+    const roots: WidgetRoot[] = [
+      { dir: 'builtin', source: 'builtin' },
+      { dir: 'examples', source: 'example' },
+    ]
+    insertRoot(roots, { dir: 'plugin', source: 'plugin', provider: 'p' })
+    insertRoot(roots, { dir: 'market', source: 'market' })
+    expect(roots.map((root) => root.source)).toEqual(['builtin', 'market', 'plugin', 'example'])
+  })
+
+  it('带作者域的 id 只属于带作者域的来源，本地目录用它读不进来', async () => {
+    const root = join(ROOT, 'namespaced')
+    await widget(join(root, 'builtin'), 'weather')
+    await widget(join(root, 'user'), 'acme.weather', { id: 'acme.weather' })
+    await widget(join(root, 'market'), 'acme.weather', { id: 'acme.weather' })
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'user'), source: 'user' },
+      { dir: join(root, 'market'), source: 'market', authorDomain: true },
+    ])
+    expect(load.records.get('acme.weather')?.source).toBe('market')
+    expect(load.errors).toHaveLength(1)
+    expect(load.errors[0]?.message).toMatch(/只用于带作者域的来源/)
+  })
+
+  it('带作者域的来源要求每个组件 id 都形如 <作者域>.<名字>', async () => {
+    const root = join(ROOT, 'author-domain')
+    await widget(join(root, 'builtin'), 'weather')
+    await widget(join(root, 'plugin'), 'acme.weather', { id: 'acme.weather' })
+    await widget(join(root, 'plugin'), 'flat', { id: 'flat' })
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'plugin'), source: 'plugin', provider: 'acme', authorDomain: true },
+    ])
+    expect(load.records.has('acme.weather')).toBe(true)
+    expect(load.records.has('flat')).toBe(false)
+    expect(load.errors).toHaveLength(1)
+    expect(load.errors[0]?.message).toMatch(/要求 id 形如/)
   })
 })
 
@@ -204,6 +276,67 @@ describe('不合格的组件', () => {
     expect(load.records.has('duplicate')).toBe(false)
     expect(load.errors).toHaveLength(2)
     expect(load.errors.map((error) => error.message).join('\n')).toMatch(/重复声明/)
+  })
+})
+
+describe('manifest 的版本要求', () => {
+  it('不写 requires 的旧 manifest 照常读进来', async () => {
+    const root = join(ROOT, 'no-requires')
+    await widget(join(root, 'builtin'), 'weather')
+    const load = await loadLibrary([{ dir: join(root, 'builtin'), source: 'builtin' }])
+    expect(load.errors).toEqual([])
+    expect(load.records.get('weather')?.manifest.requires).toBeUndefined()
+  })
+
+  it('服务版本这一侧接受的组件照常可用', async () => {
+    const root = join(ROOT, 'supported-requires')
+    const manifest = JSON.stringify({
+      id: 'weather',
+      title: { zh: '天气', en: 'Weather' },
+      version: '0.1.0',
+      sizes: ['s'],
+      requires: { serviceApiVersion: 3, dsh: '>=0.2.1-rc.1' },
+    })
+    await widget(join(root, 'user'), 'weather', { manifest })
+    const load = await loadLibrary([{ dir: join(root, 'user'), source: 'user' }])
+    expect(load.records.has('weather')).toBe(true)
+    expect(load.records.get('weather')?.manifest.requires).toEqual({ serviceApiVersion: 3, dsh: '>=0.2.1-rc.1' })
+  })
+
+  it('服务版本不在这一侧的集合里时这一个组件不可用，原因里说出接受哪些版本', async () => {
+    const root = join(ROOT, 'unsupported-service')
+    await widget(join(root, 'builtin'), 'weather')
+    const manifest = JSON.stringify({
+      id: 'future',
+      title: { zh: '未来的组件', en: 'Future widget' },
+      version: '0.1.0',
+      sizes: ['s'],
+      requires: { serviceApiVersion: 4 },
+    })
+    await widget(join(root, 'user'), 'future', { manifest })
+    const load = await loadLibrary([
+      { dir: join(root, 'builtin'), source: 'builtin' },
+      { dir: join(root, 'user'), source: 'user' },
+    ])
+    expect(load.records.has('future')).toBe(false)
+    expect(load.errors).toHaveLength(1)
+    expect(load.errors[0]?.message).toMatch(/只接受 2、3/)
+    expect(load.entries.find((entry) => entry.id === 'user/future')?.error).toMatch(/只接受 2、3/)
+  })
+
+  it('DSH 范围不是一条合法的 semver 范围时不可用', async () => {
+    const root = join(ROOT, 'bad-dsh-range')
+    const manifest = JSON.stringify({
+      id: 'weather',
+      title: { zh: '天气', en: 'Weather' },
+      version: '0.1.0',
+      sizes: ['s'],
+      requires: { dsh: '最新' },
+    })
+    await widget(join(root, 'user'), 'weather', { manifest })
+    const load = await loadLibrary([{ dir: join(root, 'user'), source: 'user' }])
+    expect(load.records.has('weather')).toBe(false)
+    expect(load.errors[0]?.message).toMatch(/semver 范围/)
   })
 })
 

@@ -3,10 +3,31 @@
  *
  * 状态存在宿主上，卡片重挂之后靠它把会话接回来；合并规则只有一条，所以由单元测试盯着。
  */
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
+import { rmdir, unlink } from 'node:fs/promises'
+import { join } from 'node:path'
 import type { Board, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
-import { withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts } from '../src/state'
+import { readBoard, withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts, writeBoard } from '../src/state'
+
+/** 看板文件写在 `.debug/` 下，跑完删掉：这一条要经过真的文件读写，不碰系统临时目录。 */
+const ROOT = join(process.cwd(), '.debug', 'tests', `state-${String(process.pid)}-${String(Date.now())}`)
+
+/** 路径本来就不在时跳过：测试在写出看板文件之前失败也会走到清理。 */
+async function removeIfPresent(remove: () => Promise<unknown>): Promise<void> {
+  try {
+    await remove()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+}
+
+afterAll(async () => {
+  // 只删自己写的那一份文件，再去掉自己的目录：不做递归删除（根 AGENTS）。`.debug/tests` 与 `.debug` 留给这个
+  // 进程里别的夹具，它们各有各的清理。
+  await removeIfPresent(async () => await unlink(join(ROOT, 'board.json')))
+  await removeIfPresent(async () => await rmdir(ROOT))
+})
 
 /** 一块带两张卡的看板。 */
 function board(): Board {
@@ -32,6 +53,11 @@ function record(id: string, minBox?: WidgetMinBox): WidgetRecord {
     manifest: { id, title: { zh: id, en: id }, version: '0.1.0', sizes: ['s'], ...(minBox === undefined ? {} : { minBox }) },
     files: new Map(),
   }
+}
+
+/** 一个市场来源的组件记录：id 带作者域（D30）。 */
+function marketRecord(id: string): WidgetRecord {
+  return { ...record(id), source: 'market', hash: id.padEnd(64, '0').slice(0, 64) }
 }
 
 describe('卡片状态', () => {
@@ -244,5 +270,37 @@ describe('翻面组', () => {
 
   it('移除看板上没有的组时报错', () => {
     expect(() => withGroupRemoved(board(), 'missing')).toThrow(/看板上没有这一组/)
+  })
+})
+
+/**
+ * 作者域 id（D8、D30）：组件库把市场来源的 id 读成 `<作者域>.<名字>`，卡片记住的是这个字符串。
+ *
+ * 卡片的 `widget` 照抄 manifest 的 id；带点的 id 与旧的扁平 id 在这里都不改写，写进看板文件、读回来
+ * 也还是原值，否则旧版本或旧包里的卡片会对不上组件。
+ */
+describe('看板文件里的组件 id', () => {
+  it('新卡片照抄组件 id：带作者域的不拆开，旧的扁平 id 不改名', () => {
+    const clock = withInstanceAdded(board(), marketRecord('nwflower.clock'))
+    expect(clock.board.instances[2]?.widget).toBe('nwflower.clock')
+    const todo = withInstanceAdded(board(), record('todo'))
+    expect(todo.board.instances[2]?.widget).toBe('todo')
+  })
+
+  it('写进看板文件再读回来，两种 id 都还是原值', async () => {
+    const current: Board = {
+      ...board(),
+      version: 2,
+      instances: [
+        ...board().instances,
+        { id: 'clock', widget: 'nwflower.clock', hash: marketRecord('nwflower.clock').hash, props: {}, data: null, state: null, layout: { x: 0, y: 22, w: 1, h: 22 } },
+      ],
+    }
+    const file = join(ROOT, 'board.json')
+    await writeBoard(file, current)
+    const records = new Map([['nwflower.clock', marketRecord('nwflower.clock')], ['weather', record('weather')]])
+    const back = await readBoard(file, records)
+    expect(back).toEqual(current)
+    expect(back.instances.map((instance) => instance.widget)).toEqual(['pomodoro', 'weather', 'nwflower.clock'])
   })
 })

@@ -4,7 +4,7 @@
  *
  * 一道关一道关地跑，每道关自己说出结果，第一道没过就停下并报出是哪一道：
  *
- *   检查   lint、ADR 索引、CHANGELOG 的 [Unreleased] 段、AGENTS.md 的命令表
+ *   检查   lint、ADR 索引、CHANGELOG 的 [Unreleased] 段、AGENTS.md 的命令表、市场索引与包
  *   构建   类型检查与两个半边的产物；单元层与冒烟都读它写出的东西
  *   单元   vitest 跑一遍
  *   冒烟   在真实的临时宿主里打开看板（慢，`--no-smoke` 跳过）
@@ -34,6 +34,7 @@ const gates = [
   { title: 'ADR 索引', command: () => node('scripts/decisions-index.mjs', ['--check']) },
   { title: 'CHANGELOG 的 [Unreleased] 段', command: () => node('scripts/changelog.mjs', ['--check']) },
   { title: 'AGENTS.md 的命令表', command: () => node('scripts/agents-commands.mjs', ['--check']) },
+  { title: '市场索引与包', command: () => node('scripts/market.mjs', ['--check']) },
   { title: '构建', command: () => node('scripts/build.mjs') },
   { title: '提供方类型入口', command: () => node('scripts/check-provider-types.mjs') },
   { title: '单元层', command: () => vitest },

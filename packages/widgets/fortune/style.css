@@ -284,6 +284,19 @@
   display: none;
 }
 
+/* 预览格子低于组件下限：标题交给格子标签，分数条让位给判词。 */
+:root[data-placement="preview"][data-box-height="short"] .fortune-card__head,
+:root[data-placement="preview"][data-box-height="short"] .fortune-card__meter {
+  display: none;
+}
+
+:root[data-placement="preview"] .fortune-card__line {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 :root[data-motion="reduced"] .fortune-card__fill {
   transition: none;
 }

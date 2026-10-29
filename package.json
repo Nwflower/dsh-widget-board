@@ -14,6 +14,7 @@
     "host": "node packages/testing/dsh-web.cjs",
     "demo": "node scripts/demo.mjs",
     "demo:check": "node packages/testing/demo.cjs",
+    "market": "node scripts/market.mjs --build",
     "lint": "node scripts/lint.mjs",
     "test": "vitest run",
     "smoke": "node packages/testing/smoke.cjs",
@@ -29,6 +30,11 @@
   "exports": {
     ".": "./lib/host/index.js",
     "./client": "./lib/client.js",
+    "./provider": {
+      "types": "./lib/types/provider.d.ts",
+      "import": "./lib/provider.js",
+      "default": "./lib/provider.js"
+    },
     "./service": {
       "types": "./lib/types/service-types.d.ts"
     },
@@ -74,13 +80,15 @@
     "react": "^18.2.0"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.5"
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "semver": "^7.8.5"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
     "@types/node": "^24.10.1",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
+    "@types/semver": "^7.8.0",
     "@types/three": "^0.186.0",
     "ajv": "^8.20.0",
     "esbuild": "0.28.2",

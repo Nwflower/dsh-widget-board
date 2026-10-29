@@ -8,7 +8,7 @@ import type { BoardInstance, CardLayout, PlaceValue, WidgetToolSpec } from '@dsh
 import { WIDGET_TOOL_NAMES, ToolRefusal } from '@dsh-widget-board/contracts'
 import { nextCardLayout } from '@dsh-widget-board/model'
 import { isRecord } from '../guards'
-import { loadData } from '../routes'
+import { loadData } from '../instance-operations'
 import { defaultBoxOf, withInstanceAdded, withInstancePatched, withInstanceRemoved } from '../state'
 import type { WidgetRecord } from '../library'
 import type { ToolContext } from './index'
@@ -189,11 +189,7 @@ async function readInto(context: ToolContext, boardId: string, instance: BoardIn
     notes.push(`数据源 ${source} 没读到：${message}`)
     return
   }
-  const problem = context.dataError(context.route.records.get(instance.widget)?.manifest.data, data)
-  if (problem !== undefined) {
-    notes.push(`数据源 ${source} 的数据与组件的 data schema 不符：${problem}`)
-    return
-  }
+  // 数据在 loadData 里已经按组件的 data schema 核对过，这里只负责写进去（D31 的失败计数也只在那一处）。
   await context.route.workspace.save(boardId, (current) => withInstancePatched(current, instance.id, { data }), { event: () => ({ type: 'instance', id: instance.id, data }) })
   notes.push(`已经按 ${source} 读了一次数据。`)
 }

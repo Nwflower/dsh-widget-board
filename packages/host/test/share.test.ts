@@ -4,21 +4,23 @@
  * 判的是「别人的文件进来会发生什么」在路由这一层的表现：导出得到的东西能再导入、同 id 不同内容
  * 回 409 并带上两边的哈希、内置组件不许被覆盖、看板包里引用了没装进来的组件时整包拒绝。
  */
+import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { strToU8 } from 'fflate'
-import type { Board, BoardEvent, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, HostRequest, HostResponse, MarketListing, MarketVersionSummary, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
 import { PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
+import { createMarketRegistry } from '../src/market'
 import { contentHash, type WidgetRecord } from '../src/library'
 import { createRegistries } from '../src/sources'
 import { readWidget, writeWidgetDirectory } from '../src/library'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
-import { unpackWidget } from '../src/package'
+import { packWidget, unpackWidget } from '../src/package'
 
 const roots: string[] = []
 
@@ -35,6 +37,54 @@ function record(id: string, files: Record<string, string> = {}): WidgetRecord {
     ...Object.entries(files).map(([path, content]) => [path, Buffer.from(content)] as [string, Buffer]),
   ])
   return { manifest: JSON.parse(map.get('widget.json')?.toString('utf8') ?? '{}'), source: 'user', dir: `/w/${id}`, hash: contentHash(map), files: map }
+}
+
+/** 一个真的 `.dshw`：包内 manifest 带版本要求。 */
+function marketPackage(id: string, requires?: MarketVersionSummary['requires']): { bytes: Uint8Array, sha256: string } {
+  const manifest = JSON.stringify({
+    id,
+    title: { zh: id, en: id },
+    version: '1.0.0',
+    sizes: ['s'],
+    ...(requires === undefined ? {} : { requires }),
+  })
+  const bytes = packWidget([
+    { path: 'widget.json', content: strToU8(manifest) },
+    { path: 'index.html', content: strToU8('<p></p>') },
+    { path: 'style.css', content: strToU8('p{}') },
+  ])
+  return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') }
+}
+
+/**
+ * 在 harness 上挂一个市场提供方：条目声明 requires，fetch 给出这一份包。
+ *
+ * @param context - 路由上下文。
+ * @param id - 条目 id。
+ * @param requires - 索引里声明的版本要求。
+ * @param pkg - 包的字节与哈希。
+ */
+async function publish(context: RouteContext, id: string, requires: MarketVersionSummary['requires'], pkg: { bytes: Uint8Array, sha256: string }): Promise<void> {
+  const listing: MarketListing = {
+    id,
+    title: { zh: id, en: id },
+    author: { name: 'acme' },
+    versions: [{
+      version: '1.0.0',
+      sizes: ['s'],
+      ...(requires === undefined ? {} : { requires }),
+      package: { url: `https://example.invalid/${id}-1.0.0.dshw`, sha256: pkg.sha256, bytes: pkg.bytes.byteLength },
+    }],
+  }
+  context.market.register({
+    apiVersion: 3,
+    provider: 'acme-market',
+    id: 'acme',
+    title: { zh: 'acme 市场', en: 'Acme market' },
+    list: async () => [listing],
+    fetch: async () => pkg.bytes,
+  })
+  await context.market.refresh('acme-market')
 }
 
 /** 一张空看板。 */
@@ -93,8 +143,12 @@ async function harness(records: WidgetRecord[] = [record('demo')]) {
   await writeBoard(join(home, 'boards', 'board.json'), emptyBoard())
   await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'board', boards: ['board'] })}\n`, 'utf8')
   const workspace = await openWorkspace(home, map, (event) => { events.push(event) })
+  const market = createMarketRegistry()
+  const marketDir = join(dir, 'market-widgets')
   const context = {
     records: map,
+    market,
+    marketDir,
     entries: [...map.values()].map((entry): WidgetLibraryEntry => ({ id: entry.manifest.id, source: 'user', title: entry.manifest.title, sizes: entry.manifest.sizes, hash: entry.hash })),
     library: { records: map, entries: [], errors: [] },
     roots: [{ dir, source: 'user' as const }],
@@ -216,5 +270,41 @@ describe('看板包的导出与导入', () => {
     const response = await target.send('POST', '/boards/import', strToU8(broken))
     expect(response.status).toBe(400)
     expect(response.body.toString('utf8')).toMatch(/没有装进来/)
+  })
+})
+
+describe('市场安装的版本要求', () => {
+  it('索引与包内的 requires 一致时装得进来', async () => {
+    const test = await harness()
+    const requires = { serviceApiVersion: 3, dsh: '>=0.2.1-rc.1' }
+    await publish(test.context, 'acme.weather', requires, marketPackage('acme.weather', requires))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(201)
+    expect(JSON.parse(response.body.toString('utf8')).entry.id).toBe('acme.weather')
+  })
+
+  it('包里的服务版本这一侧不支持时拒绝安装，原因里说出接受哪些版本', async () => {
+    const test = await harness()
+    const requires = { serviceApiVersion: 4 }
+    await publish(test.context, 'acme.weather', requires, marketPackage('acme.weather', requires))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body.toString('utf8')).toMatch(/只接受 2、3/)
+  })
+
+  it('索引的 requires 与包内 manifest 不一致时拒绝安装', async () => {
+    const test = await harness()
+    await publish(test.context, 'acme.weather', { serviceApiVersion: 3 }, marketPackage('acme.weather', { serviceApiVersion: 2 }))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body.toString('utf8')).toMatch(/不一致/)
+  })
+
+  it('索引声明了 requires 而包里没写时也拒绝', async () => {
+    const test = await harness()
+    await publish(test.context, 'acme.weather', { serviceApiVersion: 3 }, marketPackage('acme.weather'))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body.toString('utf8')).toMatch(/不一致/)
   })
 })

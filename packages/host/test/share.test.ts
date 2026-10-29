@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { strToU8 } from 'fflate'
-import type { Board, BoardEvent, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
+import type { Board, BoardEvent, HostRequest, HostResponse, MarketListing, MarketVersionSummary, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
 import { PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
@@ -41,6 +41,54 @@ function record(id: string, files: Record<string, string> = {}): WidgetRecord {
     ...Object.entries(files).map(([path, content]) => [path, Buffer.from(content)] as [string, Buffer]),
   ])
   return { manifest: JSON.parse(map.get('widget.json')?.toString('utf8') ?? '{}'), source: 'user', dir: `/w/${id}`, hash: contentHash(map), files: map }
+}
+
+/** 一个真的 `.dshw`：包内 manifest 带版本要求。 */
+function marketPackage(id: string, requires?: MarketVersionSummary['requires']): { bytes: Uint8Array, sha256: string } {
+  const manifest = JSON.stringify({
+    id,
+    title: { zh: id, en: id },
+    version: '1.0.0',
+    sizes: ['s'],
+    ...(requires === undefined ? {} : { requires }),
+  })
+  const bytes = packWidget([
+    { path: 'widget.json', content: strToU8(manifest) },
+    { path: 'index.html', content: strToU8('<p></p>') },
+    { path: 'style.css', content: strToU8('p{}') },
+  ])
+  return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') }
+}
+
+/**
+ * 在 harness 上挂一个市场提供方：条目声明 requires，fetch 给出这一份包。
+ *
+ * @param context - 路由上下文。
+ * @param id - 条目 id。
+ * @param requires - 索引里声明的版本要求。
+ * @param pkg - 包的字节与哈希。
+ */
+async function publish(context: RouteContext, id: string, requires: MarketVersionSummary['requires'], pkg: { bytes: Uint8Array, sha256: string }): Promise<void> {
+  const listing: MarketListing = {
+    id,
+    title: { zh: id, en: id },
+    author: { name: 'acme' },
+    versions: [{
+      version: '1.0.0',
+      sizes: ['s'],
+      ...(requires === undefined ? {} : { requires }),
+      package: { url: `https://example.invalid/${id}-1.0.0.dshw`, sha256: pkg.sha256, bytes: pkg.bytes.byteLength },
+    }],
+  }
+  context.market.register({
+    apiVersion: 3,
+    provider: 'acme-market',
+    id: 'acme',
+    title: { zh: 'acme 市场', en: 'Acme market' },
+    list: async () => [listing],
+    fetch: async () => pkg.bytes,
+  })
+  await context.market.refresh('acme-market')
 }
 
 /** 一张空看板。 */
@@ -101,10 +149,11 @@ async function harness(records: WidgetRecord[] = [record('demo')]) {
   await writeBoard(join(home, 'boards', 'board.json'), emptyBoard())
   await writeFile(join(home, 'boards.json'), `${JSON.stringify({ version: 1, active: 'board', boards: ['board'] })}\n`, 'utf8')
   const workspace = await openWorkspace(home, map, (event) => { events.push(event) })
+  const market = createMarketRegistry()
   const context = {
-    marketDir,
-    market: createMarketRegistry(),
     records: map,
+    market,
+    marketDir,
     entries: [...map.values()].map((entry): WidgetLibraryEntry => ({ id: entry.manifest.id, source: 'user', title: entry.manifest.title, sizes: entry.manifest.sizes, hash: entry.hash })),
     library: { records: map, entries: [], errors: [] },
     roots: [{ dir, source: 'user' as const }],
@@ -136,7 +185,7 @@ async function harness(records: WidgetRecord[] = [record('demo')]) {
       }
       for (const entry of await readdir(marketDir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue
-        const loaded = await readWidget(join(marketDir, entry.name), { source: 'market' })
+        const loaded = await readWidget(join(marketDir, entry.name), { source: 'market', authorDomain: true })
         map.set(loaded.manifest.id, loaded)
       }
       context.entries = [...map.values()].map(entry => ({ id: entry.manifest.id, source: entry.source, title: entry.manifest.title, sizes: entry.manifest.sizes, hash: entry.hash }))
@@ -240,7 +289,7 @@ describe('看板包的导出与导入', () => {
     const target = await harness([])
     const restored = await target.send('POST', '/boards/import', pkg)
     expect(restored.status, restored.body.toString()).toBe(201)
-    const disk = await readWidget(join(target.context.marketDir, widget.manifest.id), { source: 'market' })
+    const disk = await readWidget(join(target.context.marketDir, widget.manifest.id), { source: 'market', authorDomain: true })
     expect(disk.hash).toBe(widget.hash)
     expect(target.context.records.get(widget.manifest.id)?.source).toBe('market')
     expect(await readdir(target.dir)).toEqual([])
@@ -251,7 +300,7 @@ describe('看板包的导出与导入', () => {
     await incoming.send('POST', '/boards/board/instance', JSON.stringify({ widget: conflict.manifest.id }))
     const other = (await incoming.send('GET', '/boards/board/export')).body
     expect((await target.send('POST', '/boards/import?replace=true', other)).status).toBe(403)
-    expect((await readWidget(join(target.context.marketDir, widget.manifest.id), { source: 'market' })).hash).toBe(widget.hash)
+    expect((await readWidget(join(target.context.marketDir, widget.manifest.id), { source: 'market', authorDomain: true })).hash).toBe(widget.hash)
   })
   it('组件写入后发生真实刷新读取失败时清理本次目录', async () => {
     const source = await harness()
@@ -382,7 +431,7 @@ describe('市场写入事务', () => {
     expect(responses.map(response => response.status).sort()).toEqual([201, 201, 409])
     const sources = JSON.parse(await readFile(join(test.context.marketDir, 'sources.json'), 'utf8'))
     expect(Object.keys(sources).sort()).toEqual(['acme.clock', 'acme.weather'])
-    expect((await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market' })).manifest.id).toBe('acme.weather')
+    expect((await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market', authorDomain: true })).manifest.id).toBe('acme.weather')
   })
 
   it('损坏的来源记录保持原样，失败安装不产生组件', async () => {
@@ -399,16 +448,52 @@ describe('市场写入事务', () => {
     expect((await test.install('acme.weather')).status).toBe(201)
     const file = join(test.context.marketDir, 'sources.json')
     const before = await readFile(file)
-    const recordBefore = await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market' })
+    const recordBefore = await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market', authorDomain: true })
     const refresh = test.context.refresh
     test.context.refresh = async () => { await refresh(); await readFile(join(test.dir, 'missing-refresh-input')) }
     expect((await test.install('acme.clock')).status).toBe(500)
     expect(await readFile(file)).toEqual(before)
-    expect((await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market' })).hash).toBe(recordBefore.hash)
+    expect((await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market', authorDomain: true })).hash).toBe(recordBefore.hash)
     expect(test.context.records.has('acme.clock')).toBe(false)
     expect(test.context.entries.some(entry => entry.id === 'acme.clock')).toBe(false)
     expect((await test.install('acme.weather')).status).toBe(500)
     expect(await readFile(file)).toEqual(before)
-    expect((await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market' })).hash).toBe(recordBefore.hash)
+    expect((await readWidget(join(test.context.marketDir, 'acme.weather'), { source: 'market', authorDomain: true })).hash).toBe(recordBefore.hash)
+  })
+})
+
+describe('市场安装的版本要求', () => {
+  it('索引与包内的 requires 一致时装得进来', async () => {
+    const test = await harness()
+    const requires = { serviceApiVersion: 3, dsh: '>=0.2.1-rc.1' }
+    await publish(test.context, 'acme.weather', requires, marketPackage('acme.weather', requires))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(201)
+    expect(JSON.parse(response.body.toString('utf8')).entry.id).toBe('acme.weather')
+  })
+
+  it('包里的服务版本这一侧不支持时拒绝安装，原因里说出接受哪些版本', async () => {
+    const test = await harness()
+    const requires = { serviceApiVersion: 4 }
+    await publish(test.context, 'acme.weather', requires, marketPackage('acme.weather', requires))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body.toString('utf8')).toMatch(/只接受 2、3/)
+  })
+
+  it('索引的 requires 与包内 manifest 不一致时拒绝安装', async () => {
+    const test = await harness()
+    await publish(test.context, 'acme.weather', { serviceApiVersion: 3 }, marketPackage('acme.weather', { serviceApiVersion: 2 }))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body.toString('utf8')).toMatch(/不一致/)
+  })
+
+  it('索引声明了 requires 而包里没写时也拒绝', async () => {
+    const test = await harness()
+    await publish(test.context, 'acme.weather', { serviceApiVersion: 3 }, marketPackage('acme.weather'))
+    const response = await test.send('POST', '/library/market/install', JSON.stringify({ provider: 'acme-market', id: 'acme.weather', version: '1.0.0' }))
+    expect(response.status).toBe(400)
+    expect(response.body.toString('utf8')).toMatch(/不一致/)
   })
 })

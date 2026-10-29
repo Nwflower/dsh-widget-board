@@ -128,7 +128,7 @@ export interface BoardGridProps {
   onSnapshot: (snapshot: WorkspaceSnapshot) => void
   /** 宿主存下了这次布局：只把这一块看板的盒子并回去。 */
   onLayouts: (boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>) => void
-  /** 宿主存下了这次排列偏好：把这一块看板的偏好并回去（D31）。 */
+  /** 宿主存下了这次排列偏好：把这一块看板的偏好并回去（D32）。 */
   onArrangement: (boardId: string, layoutRevision: number, arrangement: Arrangement) => void
   /** 记下或清掉一条失败提示。 */
   onFailure: (message: string | null) => void
@@ -196,7 +196,7 @@ export function BoardGrid({
 
   const cards = useMemo(() => groupCards(board.instances), [board.instances])
   const aligned = board.arrangement?.mode === 'aligned'
-  /** 整齐模式的排列顺序：草稿在手势里时按它画，否则按保存的那一份；新单元接在末尾（D31）。 */
+  /** 整齐模式的排列顺序：草稿在手势里时按它画，否则按保存的那一份；新单元接在末尾（D32）。 */
   const order = useMemo(() => {
     const saved = board.arrangement?.aligned?.order ?? []
     const known = cards.map(cardId)
@@ -287,7 +287,7 @@ export function BoardGrid({
     event.currentTarget.setPointerCapture(event.pointerId)
     // 从屏幕上正在显示的那一份开始拖：存储里的布局在窄列里可能被推开过，直接用它会跳一下。
     if (aligned) {
-      // 整齐模式：卡片从派生格子的当前位置跟手；落点是顺序草稿决定的那一格（D31）。
+      // 整齐模式：卡片从派生格子的当前位置跟手；落点是顺序草稿决定的那一格（D32）。
       const resolved = resolveAlignedLayout(alignedItems, metrics, minBoxOf)
       const placement = resolved.placements.find((entry) => entry.id === id)
       if (placement === undefined) return

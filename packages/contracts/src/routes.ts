@@ -36,7 +36,7 @@ export const GROUP_ADD_ROUTE = 'group'
 /** 卡片布局：`POST /boards/<id>/layout`，一次提交整块看板的卡片盒子（D16）。 */
 export const LAYOUT_ROUTE = 'layout'
 
-/** 排列偏好：`POST /boards/<id>/arrangement`，一次提交模式、整齐顺序与期望宽高（D31）。 */
+/** 排列偏好：`POST /boards/<id>/arrangement`，一次提交模式、整齐顺序与期望宽高（D32）。 */
 export const ARRANGEMENT_ROUTE = 'arrangement'
 
 /** 按组 id 操作整组：移除与换槽都挂在它下面（D19、D27）。 */
@@ -236,7 +236,7 @@ const boardPath = (id: string, tail: string): string =>
 /** 提交卡片布局的地址，文档相对。 */
 export const boardLayoutPath = (id: string): string => boardPath(id, LAYOUT_ROUTE)
 
-/** 提交排列偏好的地址，文档相对（D31）。 */
+/** 提交排列偏好的地址，文档相对（D32）。 */
 export const boardArrangementPath = (id: string): string => boardPath(id, ARRANGEMENT_ROUTE)
 
 /** 往看板上加一张卡的地址，文档相对。 */

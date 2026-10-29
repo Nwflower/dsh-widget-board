@@ -270,7 +270,7 @@ export function resolveLayout(items: readonly GridItem[], metrics: GridMetrics, 
   return { placements, layouts, height }
 }
 
-/** 按阅读顺序（y、x、原输入次序）排一串卡片：整齐模式的初始顺序与「整理」共用同一条规则（D31）。 */
+/** 按阅读顺序（y、x、原输入次序）排一串卡片：整齐模式的初始顺序与「整理」共用同一条规则（D32）。 */
 export function readOrderOf(items: readonly GridItem[]): GridItem[] {
   return items
     .map((item, index) => ({ item, index }))

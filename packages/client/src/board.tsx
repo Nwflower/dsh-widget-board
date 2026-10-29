@@ -282,7 +282,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [])
 
-  /** 排列偏好提交成功：把这一块看板的偏好并回去（D31）。 */
+  /** 排列偏好提交成功：把这一块看板的偏好并回去（D32）。 */
   const onArrangement = useCallback((boardId: string, layoutRevision: number, arrangement: Arrangement) => {
     setSnapshot((previous) => {
       if (previous === null) return previous

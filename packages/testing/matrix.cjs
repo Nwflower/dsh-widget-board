@@ -135,7 +135,7 @@ start({ home: scratchHome('matrix-') }).then(async (host) => {
     await page.waitForSelector('svg.dsh-widget-board__icon', { timeout: 120000 })
     // 只留画廊：精选看板上的翻面组两面共用一个盒子，单独摆其中一面量不出它自己的排版。
     await keepOnlyGallery(page)
-    // 画廊默认是整齐行列（D31）；矩阵按 free 坐标摆盒子，先切回自由布局。
+    // 画廊默认是整齐行列（D32）；矩阵按 free 坐标摆盒子，先切回自由布局。
     await ensureFree(page)
     await openBoard(page)
     const snapshot = await page.evaluate(async () => {

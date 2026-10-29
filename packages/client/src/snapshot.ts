@@ -439,14 +439,14 @@ export async function saveBoardLayouts(boardId: string, layoutRevision: number, 
 }
 
 /**
- * 一次排列偏好提交的结果：宿主存下这份偏好，或修订号过期时给出当前工作区（D31）。
+ * 一次排列偏好提交的结果：宿主存下这份偏好，或修订号过期时给出当前工作区（D32）。
  */
 export type BoardArrangementResult =
   | { kind: 'saved', saved: BoardArrangementSaved }
   | { kind: 'stale', snapshot: WorkspaceSnapshot }
 
 /**
- * 把一块看板的排列偏好交给宿主（D31）：模式切换、整齐顺序与期望宽高一次提交。
+ * 把一块看板的排列偏好交给宿主（D32）：模式切换、整齐顺序与期望宽高一次提交。
  *
  * 修订号过期时宿主返回当前工作区，这里把它交回去让页面按宿主的那一份重画（D5）。
  *

@@ -5,7 +5,7 @@
  */
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
-import type { ActionPermission, MarketListing } from './service'
+import type { ActionPermission, MarketListing, WidgetBoardFeature } from './service'
 import type { InstanceMedia } from './media'
 
 /**
@@ -44,20 +44,20 @@ export interface InstanceGroup {
   template: GroupTemplate
 }
 
-/** 看板的两种排列偏好：自由位置与整齐行列（D31）。 */
+/** 看板的两种排列偏好：自由位置与整齐行列（D32）。 */
 export const ARRANGEMENT_MODES = ['free', 'aligned'] as const
 
 /** 一种排列偏好。 */
 export type ArrangementMode = (typeof ARRANGEMENT_MODES)[number]
 
-/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D31）。 */
+/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D32）。 */
 export interface AlignedBox {
   w: number
   h: number
 }
 
 /**
- * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D31）。
+ * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D32）。
  *
  * 只留顺序与期望宽高，像素坐标每次画的时候现算：窗口宽度与根字号变了，存下的东西不用重写。
  * `order` 用的是排列单元 id——普通实例 id，或组卡取正面那张实例的 id。
@@ -68,7 +68,7 @@ export interface AlignedArrangement {
 }
 
 /**
- * 一块看板的排列偏好（D31）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
+ * 一块看板的排列偏好（D32）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
  *
  * 自由模式的坐标继续存在每张卡的 `layout` 里；两种模式共用卡片、内容与状态，不复制卡片。
  */
@@ -78,7 +78,7 @@ export interface Arrangement {
 }
 
 /**
- * 新看板与第一次创建的那块看板用的排列偏好（D31）：整齐行列，空顺序。
+ * 新看板与第一次创建的那块看板用的排列偏好（D32）：整齐行列，空顺序。
  *
  * 旧看板读到的是 `free`，不给它们补这一份——已经存在的画廊不该在升级时自己换一种排法。
  */
@@ -163,7 +163,7 @@ export interface Board {
    */
   layoutRevision: number
   /**
-   * 排列偏好（D31）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
+   * 排列偏好（D32）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
    *
    * 缺席表示自由模式：读盘时在内存里补一份，下一次保存才写进文件。
    */
@@ -194,6 +194,29 @@ export interface WidgetSummary {
   settings?: boolean
 }
 
+/**
+ * 一个提供方的健康记录（D31）：设置页据此看出谁在失败、谁还在。
+ *
+ * 失败与超时按提供方分开计数，一个提供方出错不影响别的提供方；看板上已经有失败显示的卡片照旧按
+ * 那张卡的故障画，不因为这里多了一条记录而改变。
+ */
+export interface WidgetProviderHealth {
+  /** 提供方的包名。 */
+  provider: string
+  /** 这次注册声明的功能（D31）；旧入口与内置提供方没有声明时是空数组。 */
+  features: readonly WidgetBoardFeature[]
+  /** 累计成功的注册数：组件目录、数据源、动作、能力与市场各算一项。 */
+  registrations: number
+  /** 累计失败的次数，含提供方抛出的异常与不合格的结果。 */
+  failures: number
+  /** 累计超时的次数。 */
+  timeouts: number
+  /** 现在有没有活着的注册：全部撤下之后为假，重新注册恢复；计数不清零。 */
+  available: boolean
+  /** 最近一次失败或超时，形如 `provider-timeout：数据源 weather.now 在 15000 毫秒内没有答完`。 */
+  lastError?: string
+}
+
 /** `GET /boards` 的响应：整个工作区。 */
 export interface WorkspaceSnapshot {
   /**
@@ -216,6 +239,11 @@ export interface WorkspaceSnapshot {
    * 没有市场提供方时是空数组，界面画固定的空状态。
    */
   market?: MarketSectionSnapshot[]
+  /**
+   * 每个提供方一份的健康记录（D31）：注册数、失败与超时。没有提供方注册表的构建步骤（演示页）
+   * 省略这一项。
+   */
+  providers?: WidgetProviderHealth[]
   /** 看板上的卡片拿到过的授权（D6）；界面据此决定要不要问人。 */
   grants: Grant[]
 }
@@ -477,7 +505,7 @@ export interface BoardLayoutRequest {
 }
 
 /**
- * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D31）。
+ * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D32）。
  *
  * 模式切换、整齐顺序与期望宽高一起提交；宿主核对布局修订号，过期时回 409 与当前快照。
  */

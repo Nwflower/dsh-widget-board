@@ -61,7 +61,7 @@ export interface BoardDockProps {
   libraryOpen: boolean
   /** 正在写宿主：按钮暂时不可按。 */
   busy: boolean
-  /** 当前看板的排列模式：整齐模式的「整理」没有意义，按钮换成模式切换（D31）。 */
+  /** 当前看板的排列模式：整齐模式的「整理」没有意义，按钮换成模式切换（D32）。 */
   arrangement: 'free' | 'aligned' | undefined
   /** 打开组件库浮窗。 */
   onOpenLibrary: () => void
@@ -73,7 +73,7 @@ export interface BoardDockProps {
   onAddAt: (id: string, clientX: number, clientY: number) => Promise<boolean>
   /** 密排全部卡片。 */
   onTidy: () => void
-  /** 在两种排列模式之间切换（D31）。 */
+  /** 在两种排列模式之间切换（D32）。 */
   onToggleArrangement: () => void
   /** 主动重读组件库与运行时。 */
   onRefresh: () => void

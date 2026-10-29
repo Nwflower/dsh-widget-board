@@ -90,7 +90,7 @@ async function open(page, url) {
 
 /** 拖动与缩放：松手写进演示宿主，刷新之后还在。 */
 async function layoutPass(page, url) {
-  // 默认看板是整齐行列（D31）：自由坐标的拖放检查先把看板切回自由布局，顺带验收排列路由。
+  // 默认看板是整齐行列（D32）：自由坐标的拖放检查先把看板切回自由布局，顺带验收排列路由。
   const switched = await page.evaluate(async () => {
     const workspace = await (await fetch('api/widget-board/boards')).json()
     const board = workspace.boards[0]

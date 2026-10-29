@@ -34,7 +34,7 @@
 
 - 创建卡片与编辑内容弹窗补齐间距令牌，恢复表单、模板和预览的留白；输入控件统一使用宿主字体与正文行距。
 - 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
-- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留原期望宽度。组件通过既有端口明确确认初始化，零高度正文不再因缺少高度消息触发超时重载。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。今日运势缩略图缩小分数并收起装饰进度条，为两行判词保留空间，避免较长每日判词被裁掉。
+- 看板管理菜单恢复操作焦点，动效使用统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留期望宽度。组件通过既有端口确认初始化，零高度正文不再超时重载。可选能力调用预检提供方，正式调用继续核对授权。运行成本和今日运势缩略图在矮盒中保留主要内容。市场组件安装串行检查冲突，目录与来源记录失败时恢复；损坏来源表保留原文件。看板备份可在全新目录恢复市场组件，保持原始哈希和只读来源。已安装市场组件在没有提供方时仍可从组件库添加。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -62,7 +62,7 @@
 
 - Restore spacing tokens in the card composer and content editor so forms, templates and previews retain their padding and gaps; use the host font and consistent body line height for inputs.
 - A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
-- Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Aligned dragging within the same cell preserves order, and vertical resizing in a narrow window retains the wanted column span. Widgets acknowledge initialization through the existing port, so zero-height documents do not reload for lack of height messages. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading. Fortune previews use a compact score without the decorative meter to keep longer daily readings visible in two lines.
+- Board management restores action focus and uses shared motion timing. Aligned dragging within the same cell preserves order, and narrow vertical resizing retains the wanted width. Widgets acknowledge initialization through the existing port so zero-height documents do not reload. Optional capability calls check provider availability while host authorization remains mandatory. Short usage and fortune previews retain their primary content. Market installs serialize conflict checks and restore directories and provenance on failure, preserving malformed provenance files. Board backups restore market widgets into fresh homes with their original hashes and read-only source. Installed market widgets remain available to add without a provider.
 
 ## [0.1.6] - 2026-10-26
 

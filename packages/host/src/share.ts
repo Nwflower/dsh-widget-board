@@ -11,12 +11,10 @@
  * 同 id 不同内容的导入不静默覆盖：先回 409 并带上两边的哈希，调用方带 `replace=true` 再来一次才会
  * 覆盖。内置与插件提供的组件不允许被覆盖——它们不落在用户目录里（D17）。
  */
-import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { readFile, rename, writeFile } from 'node:fs/promises'
-import type { MarketInstallRecord, WidgetLibraryEntry, WidgetManifest, WidgetPermissions } from '@dsh-widget-board/contracts'
+import type { WidgetLibraryEntry, WidgetManifest, WidgetPermissions } from '@dsh-widget-board/contracts'
 import { readBody } from './body'
-import { contentHash, writeWidgetDirectory } from './library'
+import { contentHash } from './library'
 import type { WidgetRecord } from './library'
 import type { BoardPackageCard, BoardPackageWidget } from './package'
 import { PACKAGE_MAX_COMPRESSED_BYTES, packBoard, packWidget, unpackBoard, unpackWidget } from './package'
@@ -27,6 +25,7 @@ import { BOARD_PACKAGE_BYTES } from './package'
 import { boardFromPackage, exportedMedia, validateBoardPackage } from './media/board-package'
 import { mediaOf } from './media/routes'
 import { importTransaction } from './media/import-transaction'
+import { writeMarketWidget } from './market'
 
 /** 导入时最多读多少字节。 */
 const IMPORT_LIMIT = PACKAGE_MAX_COMPRESSED_BYTES
@@ -164,15 +163,13 @@ async function marketInstall(context: RouteContext, body: unknown): Promise<{ id
     })
   }
 
-  await writeWidgetDirectory(join(context.marketDir, unpacked.manifest.id), unpacked.files)
-  await rememberInstall(context.marketDir, {
+  await writeMarketWidget(context, unpacked.manifest.id, unpacked.files, { ...(existing ? { expectedHash: existing.hash } : {}), provenance: {
     provider: wanted.provider,
     listingId: wanted.id,
     version: wanted.version,
     sha256: summary.package.sha256,
     installedAt: new Date().toISOString(),
-  })
-  await context.refresh()
+  } })
   return { id: unpacked.manifest.id, hash }
 }
 
@@ -196,28 +193,6 @@ function declaresMismatch(declares: { capabilities?: string[], credentials?: str
     if (missing.length > 0) return `索引声明的${kind} ${missing.join('、')} 不在包内的 manifest 里，两边对不上，拒绝安装`
   }
   return undefined
-}
-
-/**
- * 记下一个市场组件的来源。
- *
- * 与写组件目录同一条规矩：先写旁边的临时文件、落盘之后再换过来，写一半崩掉不会留下半份记录。
- *
- * @param marketDir - 市场来源目录。
- * @param record - 这次安装的来源。
- */
-async function rememberInstall(marketDir: string, record: MarketInstallRecord): Promise<void> {
-  const file = join(marketDir, 'sources.json')
-  let all: Record<string, MarketInstallRecord> = {}
-  try {
-    all = JSON.parse(await readFile(file, 'utf8')) as Record<string, MarketInstallRecord>
-  } catch {
-    // 文件还不存在时按空表算（D11 的合法缺席）。
-  }
-  all[record.listingId] = record
-  const staging = `${file}.incoming`
-  await writeFile(staging, `${JSON.stringify(all, null, 2)}\n`, 'utf8')
-  await rename(staging, file)
 }
 
 /**
@@ -374,7 +349,11 @@ export function shareRoutes(context: RouteContext): Route[] {
           }
         }
         const installAndCreate = async () => {
-          return await importTransaction(routes, unpacked.widgets, install, async installed => {
+          return await importTransaction(routes, unpacked.widgets, async (context, id, files, expectedHash, onSwapped) => {
+            if (id.includes('.')) {
+              await writeMarketWidget(context, id, files, { ...(expectedHash ? { expectedHash } : {}), ...(onSwapped ? { onInstalled: onSwapped } : {}) })
+            } else await install(context, id, files, expectedHash, onSwapped)
+          }, async installed => {
             const board = await routes.workspace.create(unpacked.title, current => boardFromPackage(current, unpacked, routes.records))
             return { installed, board }
           })

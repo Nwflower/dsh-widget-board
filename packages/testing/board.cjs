@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict'
-const { mkdirSync, writeFileSync } = require('node:fs')
+const { mkdirSync, readFileSync, writeFileSync } = require('node:fs')
+const { unzipSync } = require('fflate')
 const { join } = require('node:path')
 /**
  * board.cjs — 看板的测试辅助：读工作区快照、整块提交、复位卡片状态与盒子、改一张卡片的高度、只留画廊（D16、D17、D21）。
@@ -236,6 +237,18 @@ function createHandshakeFixture(home) {
   writeFileSync(join(directory, 'main.js'), 'window.handshakeBoot = String(Date.now())')
 }
 
+/** 已安装的市场包即使没有提供方也应能从组件库添加。 */
+function createMarketFixture(home) {
+  const directory = join(home, 'widget-board/market-widgets/nwflower.example-basic')
+  mkdirSync(directory, { recursive: true })
+  const files = unzipSync(readFileSync(join(__dirname, '../../market/packages/nwflower.example-basic-1.0.0.dshw')))
+  for (const [file, bytes] of Object.entries(files)) {
+    // 仓库内的固定夹具仅含根目录文件，避免测试辅助接受任意解包路径。
+    if (!/^[a-z][a-z0-9.-]*$/.test(file)) throw new Error('市场测试包必须只包含根目录文件')
+    writeFileSync(join(directory, file), bytes)
+  }
+}
+
 /** 初始化成功后跨过父页面原有六秒看门时限，文档不能因为没有高度消息而重载。 */
 async function handshakePass(page, check) {
   const original = (await workspace(page)).active
@@ -261,4 +274,4 @@ async function handshakePass(page, check) {
   }
 }
 
-module.exports = { activeBoard, addInstance, alignedGesturesPass, createHandshakeFixture, handshakePass, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+module.exports = { activeBoard, addInstance, alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { alignedGesturesPass, createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
+const { alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -669,6 +669,7 @@ async function reducedPass(page) {
 
 const home = scratchHome('smoke-')
 createHandshakeFixture(home)
+createMarketFixture(home)
 start({ home, extras: [join(__dirname, 'fixtures', 'provider')] }).then(async (host) => {
   // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
   // 在地址打印之后，所以等一会儿再看。

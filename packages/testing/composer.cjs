@@ -195,6 +195,34 @@ async function composerPass(page, check) {
  */
 async function libraryEntryPass(page, check) {
   await openLibrary(page)
+  const marketWidget = page.locator('[data-dsh-widget-section="installed"] [data-dsh-widget-board-add="nwflower.example-basic"]')
+  check('没有市场提供方时已安装市场组件仍有可用添加入口', await marketWidget.count() === 1 && await marketWidget.getAttribute('aria-disabled') === 'false')
+  await marketWidget.scrollIntoViewIfNeeded()
+  const marketFrame = await (await marketWidget.locator('iframe').elementHandle()).contentFrame()
+  await marketFrame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--w-color-fg').trim())
+  const marketColors = await marketFrame.evaluate(() => {
+    const probe = document.createElement('span')
+    document.body.append(probe)
+    const matches = [['.example-basic__title', '--w-color-fg'], ['.example-basic__line', '--w-color-muted']].every(([selector, token]) => {
+      probe.style.color = `var(${token})`
+      return getComputedStyle(document.querySelector(selector)).color === getComputedStyle(probe).color
+    })
+    probe.remove()
+    return matches
+  })
+  check('市场示例文字使用沙箱运行时的主题颜色', marketColors)
+  const before = new Set((await cardsOf(page, 'nwflower.example-basic')).map(card => card.id))
+  await marketWidget.click()
+  const added = await waitFor(async () => (await cardsOf(page, 'nwflower.example-basic')).some(card => !before.has(card.id)), 10000)
+  check('从组件库点击已安装市场组件可创建真实实例', added)
+  for (const card of await cardsOf(page, 'nwflower.example-basic')) {
+    if (before.has(card.id)) continue
+    await page.evaluate(async id => {
+      const response = await fetch(`api/widget-board/instance/${encodeURIComponent(id)}/remove`, { method: 'POST' })
+      if (!response.ok) throw new Error(`清理市场回归实例失败：${response.status}`)
+    }, card.id)
+  }
+  await openLibrary(page)
   await page.locator('[data-dsh-widget-board-library-create]').click()
   const opened = await waitFor(async () => await page.locator('[data-dsh-widget-board-composer]').count() === 1, 10000)
   check('组件库头部也能打开创建器', opened)

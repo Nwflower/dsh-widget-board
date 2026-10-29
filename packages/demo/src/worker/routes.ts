@@ -20,7 +20,7 @@ import type {
   InstanceStateRequest,
   WidgetMinBox,
 } from '@dsh-widget-board/contracts'
-import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE, REQUEST_LOG_LIMIT, VISIBILITY_LIMIT, VISIBILITY_PATH, isVisibilityReport } from '@dsh-widget-board/contracts'
 import { isCardLayout } from '@dsh-widget-board/model'
 import { isRecord } from '../../../host/src/guards'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from '../../../host/src/limits'
@@ -45,7 +45,6 @@ import {
   withInstanceRemoved,
   withInstanceStateChecked,
 } from '../../../host/src/state'
-import type { HostData } from '../data'
 import type { HostData } from '../data'
 import type { Boards } from './boards'
 import type { Live } from './live'
@@ -147,7 +146,8 @@ async function removeUnit(
 }
 
 /** 一块看板上的卡片布局提交：真实宿主的 `POST /boards/<id>/layout`。 */
-async function submitLayout(context: DemoContext, id: string, request: Request): Promise<Response> {  const body = await jsonBody(request, LIMITS.layout)
+async function submitLayout(context: DemoContext, id: string, request: Request): Promise<Response> {
+  const body = await jsonBody(request, LIMITS.layout)
   const valid = isRecord(body) && Number.isSafeInteger(body.layoutRevision) && (body.layoutRevision as number) >= 0 && isRecord(body.layouts)
   if (!valid) throw new Refusal(400, '布局提交的形状不对：需要 layoutRevision 与 layouts')
   const wanted = body as unknown as BoardLayoutRequest
@@ -306,6 +306,16 @@ async function saveProps(context: DemoContext, id: string, request: Request): Pr
 
 /** 路由表；路径与方法一起决定走哪一条。 */
 const ROUTES: Route[] = [
+  {
+    method: 'POST',
+    pattern: new RegExp(`^${VISIBILITY_PATH}$`),
+    async handle(_context, request) {
+      const body = await jsonBody(request, VISIBILITY_LIMIT)
+      if (!isVisibilityReport(body)) throw new Refusal(400, '可见性上报需要合法的 viewer 与 visible')
+      // 演示宿主没有数据源调度；校验上报但不登记观众集合。
+      return json(200, { ok: true, accepted: false })
+    },
+  },
   { method: 'GET', pattern: /^\/boards$/, handle: async (context) => json(200, await context.boards.snapshot()) },
   { method: 'POST', pattern: /^\/boards$/, handle: async () => { throw unavailable('多块看板（新建看板）', 'multiple boards (new board)') } },
   { method: 'POST', pattern: /^\/boards\/([^/]+)\/rename$/, handle: async () => { throw unavailable('看板改名', 'board renaming') } },
@@ -358,7 +368,7 @@ const ROUTES: Route[] = [
         board.id,
         (current) => current.instances.find((instance) => instance.group?.id === group),
         (current, picked) => arrangementUnitOf(current, picked),
-        (current, id) => withGroupRemoved(current, id),
+        (current) => withGroupRemoved(current, group),
       )
       return json(200, await context.boards.snapshot())
     },
@@ -424,6 +434,14 @@ const ROUTES: Route[] = [
     },
   },
   { method: 'GET', pattern: /^\/instance\/([^/]+)\/settings$/, handle: async (context, _request, match) => await readSettings(context, decodeURIComponent(match[1] as string)) },
+  {
+    method: 'GET',
+    pattern: /^\/instance\/([^/]+)\/log$/,
+    async handle(context, _request, match) {
+      await requireInstance(context, decodeURIComponent(match[1] as string))
+      return json(200, { entries: [], limit: REQUEST_LOG_LIMIT })
+    },
+  },
   { method: 'POST', pattern: /^\/instance\/([^/]+)\/props$/, handle: async (context, request, match) => await saveProps(context, decodeURIComponent(match[1] as string), request) },
   { method: 'POST', pattern: /^\/instance\/([^/]+)\/read$/, handle: async () => { throw unavailable('数据源', 'data sources') } },
   { method: 'POST', pattern: /^\/instance\/([^/]+)\/action$/, handle: async () => { throw unavailable('动作', 'actions') } },

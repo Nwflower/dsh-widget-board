@@ -28,7 +28,7 @@ const BOARD_TITLES = ['Widget Board', 'Gallery'] as const
  * 精选看板上演示宿主兑现不了的卡，换成哪个组件：放在同一个盒子里，第一屏的版面不缺一块。
  * 画廊里的这几张直接去掉，其余的卡片按阅读顺序收紧。
  */
-const STAND_INS: Readonly<Record<string, string>> = { weather: 'year-progress', 'dsh-balance': 'gauge' }
+const STAND_INS: Readonly<Record<string, string>> = { weather: 'year-progress', 'dsh-balance': 'gauge', heatmap: 'year-progress' }
 
 /** 画廊按三列排（D17）；收紧时按三列的栅格算。 */
 const GALLERY_METRICS = gridMetrics(1120)

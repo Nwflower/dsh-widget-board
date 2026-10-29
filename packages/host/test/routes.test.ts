@@ -5,7 +5,8 @@
  * 只被写状态、头与体。工作区用真的那一份，落在 `.debug/` 下的临时目录里：索引与看板文件的读写
  * 因此一起被测到。这一层判定的是本插件的行为，不是宿主的实现。
  */
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createServer, request as httpRequest } from 'node:http'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -799,6 +800,50 @@ describe('动作', () => {
 })
 
 describe('提供方调用的超时、并发与健康', () => {
+  it.each(['read', 'action', 'call'] as const)('完整请求体发送后断开连接会中止 %s，读取不写盘', async kind => {
+    const test = await harness({ ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'cancel-test:wait' }], capabilities: ['cancel.wait'] } })
+    const started = Promise.withResolvers<AbortSignal>()
+    const release = Promise.withResolvers<{ n: number }>()
+    const wait = (signal?: AbortSignal) => {
+      if (!signal) throw new Error('提供方没有收到取消信号')
+      started.resolve(signal)
+      return release.promise
+    }
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'cancel-test', id: 'cancel.wait', read: (_instance, signal) => wait(signal) })
+    test.context.sources.registerAction({ apiVersion: 3, provider: 'cancel-test', id: 'wait', run: (_instance, _payload, signal) => wait(signal) })
+    test.context.sources.registerCapability({ apiVersion: 3, provider: 'cancel-test', id: 'cancel.wait', input: { type: 'object' }, output: { type: 'object' }, call: (_instance, _args, signal) => wait(signal) })
+    const handler = createHandler(test.context)
+    const closed = Promise.withResolvers<void>()
+    let handled = Promise.resolve()
+    const server = createServer((request, response) => {
+      response.once('close', () => closed.resolve())
+      handled = handler(request, response)
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('测试服务没有回环端口')
+    const client = httpRequest({ host: '127.0.0.1', port: address.port, method: 'POST', path: `${PLUGIN_ROUTE}/instance/board-first/${kind}`, headers: { 'content-type': 'application/json' } })
+    // 断连本来就会产生 ECONNRESET；测试的判据是服务端收到中止且不写数据。
+    client.on('error', () => {})
+    const file = join(test.home, 'boards/board.json')
+    const before = { data: test.context.board.instances[0]?.data, revision: test.context.board.revision, events: test.events.length, disk: await readFile(file, 'utf8') }
+    try {
+      client.end(JSON.stringify(kind === 'read' ? { source: 'cancel.wait' } : kind === 'action' ? { id: 'cancel-test:wait' } : { capability: 'cancel.wait', args: {} }))
+      const signal = await started.promise
+      client.destroy()
+      await closed.promise
+      const aborted = signal.aborted
+      release.resolve({ n: 7 })
+      await handled
+      expect({ aborted, data: test.context.board.instances[0]?.data, revision: test.context.board.revision, events: test.events.length, disk: await readFile(file, 'utf8') }).toEqual({ aborted: true, ...before })
+    } finally {
+      client.destroy()
+      release.resolve({ n: 7 })
+      await handled
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+    }
+  })
+
   it('读取超时回 504，槽占满时下一个调用回 429', async () => {
     const test = await harness(RECORD, false, undefined, 20)
     // 两张卡都绑同一个读不完的数据源：8 个槽被那 8 次超时的调用占着，因为提供方忽略中止信号。

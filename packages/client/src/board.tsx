@@ -315,8 +315,8 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /**
    * 把组件库的一格拖到看板上：按落点算出列与纵向位置，随添加请求一起交给宿主。
    *
-   * 落点不在当前选中的那块看板的内容区（在面板、菜单或别的看板上）时不加卡片，返回 false 让拖放
-   * 那边收尾。
+   * 落点不在当前选中的那块看板上（在面板、菜单或别的看板上）时不加卡片，返回 false 让拖放那边
+   * 收尾；落在底部为菜单留出的留白里按最后一排算，那段留白也在板面上。
    *
    * @param widget - 组件的 id。
    * @param clientX - 松手时的屏幕横坐标。
@@ -328,10 +328,13 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     const flow = board === null ? undefined : flowRefs.current.get(board.id)
     if (board === null || flow === undefined || metrics === null || busyRef.current) return false
     const rect = flow.getBoundingClientRect()
-    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return false
+    // 看板外壳底部有一段给菜单留的留白：滚到底时内容区的下缘就在留白之上，落在这里仍然是在板面上。
+    // 按最后一排算，不丢掉这次拖放；板面之外的位置照旧不加卡。
+    const surface = shellRef.current?.getBoundingClientRect().bottom ?? rect.bottom
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > surface) return false
     const step = metrics.columnWidth + metrics.gap
     const column = Math.min(metrics.columns - 1, Math.max(0, Math.floor((clientX - rect.left) / step)))
-    const y = snapCardY((clientY - rect.top) / metrics.rootFontSize)
+    const y = snapCardY(Math.min(clientY - rect.top, rect.height) / metrics.rootFontSize)
     if (widget === FLIP_GROUP_ID) return await addGroupCard({ x: column, y, w: 1, h: DEFAULT_HEIGHT_REM }) !== null
     busyRef.current = true
     setBusy(true)

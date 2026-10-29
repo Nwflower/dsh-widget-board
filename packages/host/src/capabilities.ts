@@ -5,6 +5,7 @@
  * 超时与并发由 `provider-health.ts` 的执行器管——这一层只把连接断开的中止信号传下去，不再自己计时。
  */
 import type { InstanceCallRequest } from '@dsh-widget-board/contracts'
+import { withRequestSignal } from '@dsh-widget-board/contracts'
 import { readJson } from './body'
 import { isRecord } from './guards'
 import { refusalOf } from './instance-operations'
@@ -53,7 +54,7 @@ async function capabilityResult(
  * @returns 能力的返回值。
  * @throws {Refusal} 卡片、组件、声明、提供方、授权、参数/结果不一致，或超时与并发已满。
  */
-async function callOf(context: RouteContext, id: string, request: Parameters<Route['handle']>[1]): Promise<unknown> {
+async function callOf(context: RouteContext, id: string, request: Parameters<Route['handle']>[1], response: Parameters<Route['handle']>[2]): Promise<unknown> {
   const found = locate(context, id)
   const face = faceOf(found.board, id)
   const body = await readJson(request, CALL_LIMIT)
@@ -74,9 +75,7 @@ async function callOf(context: RouteContext, id: string, request: Parameters<Rou
     // 参数是调用方写错的，提供方根本没有被调用：这一条不计提供方的失败（D31）。
     throw new Refusal(400, `调用 ${wanted.capability} 的参数与 input schema 不符`, { issues: inputIssues })
   }
-  const controller = new AbortController()
-  request.on?.('aborted', () => { controller.abort() })
-  const result = await capabilityResult(context, wanted.capability, face, wanted.args, controller.signal)
+  const result = await withRequestSignal(request, response, async signal => await capabilityResult(context, wanted.capability, face, wanted.args, signal))
   const outputIssues = issuesOf(resolved.registration.output, result)
   if (outputIssues !== undefined) {
     // 提供方跑完了但交出来的东西不合 schema：这是它的一次失败，记一次，不再叠加（D31）。
@@ -99,7 +98,7 @@ export function capabilityRoutes(): Route[] {
       limit: CALL_LIMIT,
       async handle(context, request, response, match) {
         const id = decodeURIComponent(match[1] as string)
-        json(response, 200, { result: await callOf(context, id, request) })
+        json(response, 200, { result: await callOf(context, id, request, response) })
       },
     },
   ]

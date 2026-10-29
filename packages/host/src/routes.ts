@@ -32,7 +32,7 @@ import type {
   WidgetLibraryEntry,
   WidgetRoot,
 } from '@dsh-widget-board/contracts'
-import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE, withRequestSignal } from '@dsh-widget-board/contracts'
 import { BOARD_TITLE_LIMIT, boardTitleProblem } from '@dsh-widget-board/contracts'
 import type { BoardTitleProblem } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
@@ -157,18 +157,6 @@ function rejectionOf(request: HostRequest, connection: HostConnection | undefine
   if (connection !== undefined) return connection.requestRejection({ headers: request.headers })
   if (!isLoopback(request.socket?.remoteAddress)) return 403
   return request.headers['sec-fetch-site'] === 'cross-site' ? 403 : undefined
-}
-
-/**
- * 一条请求被取消时让提供方也停下（D6、D31）：连接断开之后不该继续读下去。
- *
- * @param request - 宿主的请求；测试替身可以没有 `on`。
- * @returns 中止信号。
- */
-function abortSignalOf(request: HostRequest): AbortSignal {
-  const controller = new AbortController()
-  request.on?.('aborted', () => { controller.abort() })
-  return controller.signal
 }
 
 /**
@@ -468,7 +456,7 @@ const ROUTES: Route[] = [
       const body = await readJson(request, DATA_LIMIT)
       if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '动作要写明 id')
       const wanted = body as unknown as InstanceActionRequest
-      const result = await runAction(context, id, wanted.id, wanted.payload, abortSignalOf(request))
+      const result = await withRequestSignal(request, response, async signal => await runAction(context, id, wanted.id, wanted.payload, signal))
       json(response, 200, { ok: true, result: result ?? null })
     },
   },
@@ -480,7 +468,7 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const body = await readJson(request, EMPTY_LIMIT)
       const asked = isRecord(body) && typeof body.source === 'string' ? body.source : undefined
-      const data = await readInto(context, id, asked, abortSignalOf(request))
+      const data = await withRequestSignal(request, response, async signal => await readInto(context, id, asked, signal))
       json(response, 200, { ok: true, data: data ?? null })
     },
   },

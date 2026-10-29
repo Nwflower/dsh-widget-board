@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
+const { createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -626,6 +626,7 @@ async function reducedPass(page) {
 }
 
 const home = scratchHome('smoke-')
+createHandshakeFixture(home)
 start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 'fixtures', 'provider-v3')] }).then(async (host) => {
   // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
   // 在地址打印之后，所以等一会儿再看。
@@ -661,6 +662,7 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
     await reloadPass(opened.page)
     // 标签条放在最后：它新建一块看板再收掉，中途失败也不会影响前面的场景。
     await tabsPass(opened.page, { check })
+    await handshakePass(opened.page, check)
     await titlebarPass(opened.page, { check })
     reduced = await openPage(host.url, { reducedMotion: 'reduce' })
     await reducedPass(reduced.page)

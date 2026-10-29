@@ -16,7 +16,8 @@
  */
 'use strict'
 const { spawn, spawnSync } = require('node:child_process')
-const { randomUUID } = require('node:crypto')
+const { randomInt, randomUUID } = require('node:crypto')
+const { createServer } = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
 const { launchBrowser, newContextOn } = require('./browser.cjs')
@@ -99,12 +100,31 @@ function run(command, env) {
   if (result.status !== 0) throw new Error(`${command} 以 ${result.status} 退出`)
 }
 
+/** 使用浏览器允许的高位端口；宿主仍负责最终绑定。 */
+async function availablePort() {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const port = randomInt(49152, 65536)
+    const available = await new Promise((resolve, reject) => {
+      const server = createServer()
+      server.once('error', error => {
+        if (error.code === 'EADDRINUSE') resolve(false)
+        else reject(error)
+      })
+      server.listen(port, '127.0.0.1', () => {
+        server.close(error => error ? reject(error) : resolve(true))
+      })
+    })
+    if (available) return port
+  }
+  throw new Error('找不到可用的回环高位测试端口')
+}
+
 /**
  * 起一个装了本仓库的临时宿主。
  *
  * @param options.home - 临时 `$DSH_HOME`，默认 `.debug/host`。
  * @param options.profile - 要起的 profile，默认 `web`。
- * @param options.port - 端口；0 让系统挑一个。
+ * @param options.port - 端口；省略或 0 时选择可用的回环高位端口。
  * @param options.extras - 一起装进这个 profile 的其他包目录，例如提供方 fixture。
  * @param options.timeoutMs - 等启动地址的上限。
  * @returns `{ url, home, stop }`；`stop` 连同它起的子进程一起收掉。
@@ -112,7 +132,7 @@ function run(command, env) {
 async function start(options = {}) {
   const home = path.resolve(options.home ?? DEFAULT_HOME)
   const profile = options.profile ?? 'web'
-  const port = options.port ?? 0
+  const port = options.port === undefined || options.port === 0 ? await availablePort() : options.port
   const timeoutMs = options.timeoutMs ?? 180000
   fs.mkdirSync(home, { recursive: true })
   provisionHome(home)
@@ -139,6 +159,9 @@ async function start(options = {}) {
     detached: process.platform !== 'win32',
   })
   const stop = () => {
+    const logs = path.join(ROOT, '.debug', 'host-logs')
+    fs.mkdirSync(logs, { recursive: true })
+    fs.writeFileSync(path.join(logs, `${path.basename(home)}.log`), log.replace(/([?&]token=)[^\s"']+/g, '$1<redacted>') + `\n[test-host] exitCode=${child.exitCode} signal=${child.signalCode}\n`)
     if (child.exitCode !== null || child.signalCode !== null) return
     if (process.platform === 'win32') {
       spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
@@ -183,19 +206,24 @@ async function start(options = {}) {
  */
 async function openPage(url, options = {}) {
   const browser = await launchBrowser({ headless: options.headless ?? true })
-  const context = await newContextOn(browser, {
-    width: options.width ?? 1440,
-    height: options.height ?? 900,
-    ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
-  })
-  const page = await context.newPage()
-  const problems = []
-  page.on('console', (message) => {
-    if (message.type() === 'error' || message.type() === 'warning') problems.push(`${message.type()}: ${message.text()}`)
-  })
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  return { page, problems, close: () => browser.close() }
+  try {
+    const context = await newContextOn(browser, {
+      width: options.width ?? 1440,
+      height: options.height ?? 900,
+      ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
+    })
+    const page = await context.newPage()
+    const problems = []
+    page.on('console', (message) => {
+      if (message.type() === 'error' || message.type() === 'warning') problems.push(`${message.type()}: ${message.text()}`)
+    })
+    page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    return { page, problems, close: () => browser.close() }
+  } catch (error) {
+    await browser.close()
+    throw error
+  }
 }
 
 /**

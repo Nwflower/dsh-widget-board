@@ -25,7 +25,7 @@
 ### 问题修复
 
 - 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
-- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前预检提供方，正式调用继续核对授权。运行成本矮预览保留示例标识和主要读数。完整发送请求后断连会中止提供方调用，取消的读取不写回看板。
+- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前预检提供方，正式调用继续核对授权。运行成本矮预览保留示例标识和主要读数。完整发送请求后断连会中止提供方调用，取消的读取不写回看板。组件初始化独立确认，零高度正文不会触发握手超时重载。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -44,7 +44,7 @@
 ### Bug Fixes
 
 - A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
-- Board management restores focus after dismissing a context menu or cancelling a failed deletion and uses shared motion timing. Optional capability calls check provider availability while host authorization remains mandatory. Short usage previews retain their sample label and primary reading. Disconnecting after a complete request aborts provider calls, and cancelled reads do not write back to the board.
+- Board management restores focus after dismissing a context menu or cancelling a failed deletion and uses shared motion timing. Optional capability calls check provider availability while host authorization remains mandatory. Short usage previews retain their sample label and primary reading. Disconnecting after a complete request aborts provider calls, and cancelled reads do not write back to the board. Initialization is acknowledged independently of content height, preventing handshake timeout reloads for zero-height content.
 
 ## [0.1.6] - 2026-10-26
 

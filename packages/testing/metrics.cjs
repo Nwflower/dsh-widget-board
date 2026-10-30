@@ -1,5 +1,5 @@
 'use strict'
-const { frameOf } = require('./frames.cjs')
+const { centerCard, frameOf } = require('./frames.cjs')
 const METRICS_FRAME = 'iframe.dsh-widget-board__frame[title="运行成本"]'
 
 /**
@@ -10,6 +10,8 @@ const METRICS_FRAME = 'iframe.dsh-widget-board__frame[title="运行成本"]'
  * @param page - 宿主页面，看板已经打开。
  */
 async function metricsPass(page, check) {
+  // 视口外的组件按暂停协议停止绘制，读取前先让卡片恢复可见。
+  await centerCard(page, '运行成本')
   const frame = await frameOf(page, METRICS_FRAME)
   await frame.waitForSelector('.metrics[data-state="ready"]', { timeout: 30000 })
   const view = await frame.evaluate(() => ({

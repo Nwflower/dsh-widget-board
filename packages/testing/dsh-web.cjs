@@ -159,15 +159,19 @@ async function start(options = {}) {
     detached: process.platform !== 'win32',
   })
   const stop = () => {
-    const logs = path.join(ROOT, '.debug', 'host-logs')
-    fs.mkdirSync(logs, { recursive: true })
-    fs.writeFileSync(path.join(logs, `${path.basename(home)}.log`), log.replace(/([?&]token=)[^\s"']+/g, '$1<redacted>') + `\n[test-host] exitCode=${child.exitCode} signal=${child.signalCode}\n`)
-    if (child.exitCode !== null || child.signalCode !== null) return
-    if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
-      return
+    try {
+      const logs = path.join(ROOT, '.debug', 'host-logs')
+      fs.mkdirSync(logs, { recursive: true })
+      fs.writeFileSync(path.join(logs, `${path.basename(home)}.log`), log.replace(/([?&]token=)[^\s"']+/g, '$1<redacted>') + `\n[test-host] exitCode=${child.exitCode} signal=${child.signalCode}\n`)
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        if (process.platform === 'win32') {
+          spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+        } else {
+          process.kill(-child.pid, 'SIGTERM')
+        }
+      }
     }
-    process.kill(-child.pid, 'SIGTERM')
   }
   /** 宿主进程到目前为止的输出：插件登记了什么、有没有报错都写在这里。 */
   let log = ''

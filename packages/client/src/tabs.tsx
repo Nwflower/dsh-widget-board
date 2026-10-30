@@ -176,6 +176,7 @@ export function BoardTabs({
   /** 关掉菜单或弹窗，把焦点还给打开它的那枚控件。 */
   const close = useCallback((): void => {
     const generation = ++focusGenerationRef.current
+    setWriting(false)
     setOverlay(null)
     setFailure(null)
     const target = returnFocusRef.current
@@ -192,6 +193,7 @@ export function BoardTabs({
   /** 打开某块看板的菜单；落点取触发控件的盒子。 */
   const openMenu = useCallback((boardId: string, element: HTMLElement): void => {
     focusGenerationRef.current += 1
+    setWriting(false)
     const box = element.getBoundingClientRect()
     returnFocusRef.current = element
     setFailure(null)
@@ -210,9 +212,15 @@ export function BoardTabs({
 
   /** 保存新名字：成功就关掉并让弹窗把焦点还回去；失败留在弹窗里。 */
   const submitRename = useCallback((id: string, title: string): void => {
+    const generation = focusGenerationRef.current
     setWriting(true)
     setFailure(null)
-    onRename(id, title).then(() => { setWriting(false); close() }, (error: Error) => {
+    onRename(id, title).then(() => {
+      if (generation !== focusGenerationRef.current) return
+      setWriting(false)
+      close()
+    }, (error: Error) => {
+      if (generation !== focusGenerationRef.current) return
       setWriting(false)
       setFailure(error.message)
     })
@@ -220,22 +228,26 @@ export function BoardTabs({
 
   /** 确认删除：成功后那块看板已经不在了，焦点交给新的活动标签。 */
   const submitDelete = useCallback((id: string): void => {
+    const generation = focusGenerationRef.current
     setWriting(true)
     setFailure(null)
     // 成功删除后触发器可能消失；失败时仍保留它供取消弹窗后归还焦点。
     const trigger = returnFocusRef.current
     onDelete(id).then(() => {
+      if (generation !== focusGenerationRef.current) return
       returnFocusRef.current = null
       setWriting(false)
       setOverlay(null)
       setFailure(null)
       window.setTimeout(() => {
+        if (generation !== focusGenerationRef.current) return
         if (trigger?.isConnected === true) { trigger.focus(); return }
         const strip = stripRef.current
         const selected = strip?.querySelector<HTMLElement>('[data-dsh-widget-board-tab][aria-selected="true"]')
         selected?.focus()
       }, 0)
     }, (error: Error) => {
+      if (generation !== focusGenerationRef.current) return
       setWriting(false)
       setFailure(error.message)
     })

@@ -1,0 +1,7 @@
+{
+  "id": "example-size",
+  "title": { "zh": "示例：盒子契约", "en": "Example: box classes" },
+  "description": { "zh": "演示按盒子档位换排版：读 data-box-width 与 data-box-height，窄盒子藏起说明、矮盒子藏起次要事实行。", "en": "Shows layout switching by box classes: reads data-box-width and data-box-height, hiding the description in narrow boxes and secondary facts in short ones." },
+  "version": "1.0.0",
+  "sizes": ["s", "m", "wide"]
+}

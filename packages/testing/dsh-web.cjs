@@ -100,7 +100,7 @@ function run(command, env) {
   if (result.status !== 0) throw new Error(`${command} 以 ${result.status} 退出`)
 }
 
-/** 宿主自身的随机端口可能落入浏览器禁用列表；先确认一个可用的回环高位端口。 */
+/** 使用浏览器允许的高位端口；宿主仍负责最终绑定。 */
 async function availablePort() {
   for (let attempt = 0; attempt < 10; attempt++) {
     const port = randomInt(49152, 65536)
@@ -124,7 +124,7 @@ async function availablePort() {
  *
  * @param options.home - 临时 `$DSH_HOME`，默认 `.debug/host`。
  * @param options.profile - 要起的 profile，默认 `web`。
- * @param options.port - 端口；0 在回环地址选择可用的高位端口。
+ * @param options.port - 端口；省略或 0 时选择可用的回环高位端口。
  * @param options.extras - 一起装进这个 profile 的其他包目录，例如提供方 fixture。
  * @param options.timeoutMs - 等启动地址的上限。
  * @returns `{ url, home, stop }`；`stop` 连同它起的子进程一起收掉。
@@ -159,12 +159,19 @@ async function start(options = {}) {
     detached: process.platform !== 'win32',
   })
   const stop = () => {
-    if (child.exitCode !== null || child.signalCode !== null) return
-    if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
-      return
+    try {
+      const logs = path.join(ROOT, '.debug', 'host-logs')
+      fs.mkdirSync(logs, { recursive: true })
+      fs.writeFileSync(path.join(logs, `${path.basename(home)}.log`), log.replace(/([?&]token=)[^\s"']+/g, '$1<redacted>') + `\n[test-host] exitCode=${child.exitCode} signal=${child.signalCode}\n`)
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        if (process.platform === 'win32') {
+          spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+        } else {
+          process.kill(-child.pid, 'SIGTERM')
+        }
+      }
     }
-    process.kill(-child.pid, 'SIGTERM')
   }
   /** 宿主进程到目前为止的输出：插件登记了什么、有没有报错都写在这里。 */
   let log = ''
@@ -203,19 +210,24 @@ async function start(options = {}) {
  */
 async function openPage(url, options = {}) {
   const browser = await launchBrowser({ headless: options.headless ?? true })
-  const context = await newContextOn(browser, {
-    width: options.width ?? 1440,
-    height: options.height ?? 900,
-    ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
-  })
-  const page = await context.newPage()
-  const problems = []
-  page.on('console', (message) => {
-    if (message.type() === 'error' || message.type() === 'warning') problems.push(`${message.type()}: ${message.text()}`)
-  })
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  return { page, problems, close: () => browser.close() }
+  try {
+    const context = await newContextOn(browser, {
+      width: options.width ?? 1440,
+      height: options.height ?? 900,
+      ...(options.reducedMotion === undefined ? {} : { reducedMotion: options.reducedMotion }),
+    })
+    const page = await context.newPage()
+    const problems = []
+    page.on('console', (message) => {
+      if (message.type() === 'error' || message.type() === 'warning') problems.push(`${message.type()}: ${message.text()}`)
+    })
+    page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    return { page, problems, close: () => browser.close() }
+  } catch (error) {
+    await browser.close()
+    throw error
+  }
 }
 
 /**

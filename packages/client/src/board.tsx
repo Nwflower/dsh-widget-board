@@ -236,7 +236,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     })
   }, [])
 
-  /** 排列偏好提交成功：把这一块看板的偏好并回去（D30）。 */
+  /** 排列偏好提交成功：把这一块看板的偏好并回去（D32）。 */
   const onArrangement = useCallback((boardId: string, layoutRevision: number, arrangement: Arrangement) => {
     setSnapshot((previous) => {
       if (previous === null) return previous
@@ -634,6 +634,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
         anchor={shellRef}
         entries={snapshot === null ? [] : [FLIP_GROUP_ENTRY, ...snapshot.library]}
         widgets={snapshot === null ? {} : snapshot.widgets}
+        market={snapshot?.market}
         theme={theme}
         frames={frames}
         libraryOpen={libraryOpen}

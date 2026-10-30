@@ -30,7 +30,7 @@ function activeBoard(snapshot) {
 }
 
 /**
- * 把当前选中的那块看板切回自由布局：自由坐标只属于自由模式，写 free 盒子的测试先走这一步（D30）。
+ * 把当前选中的那块看板切回自由布局：自由坐标只属于自由模式，写 free 盒子的测试先走这一步（D32）。
  *
  * @param page - 宿主页面。
  * @returns 切换之后的看板；排列提交被拒绝（修订号过期之类）时是 `undefined`。
@@ -226,7 +226,7 @@ async function alignedGesturesPass(page, check) {
   }
 }
 
-/** 在本轮独立home中放入一个合法的零高度用户组件，不依赖高度消息确认初始化。 */
+/** 独立测试目录里的零高度组件，不依赖高度消息确认初始化。 */
 function createHandshakeFixture(home) {
   const directory = join(home, 'widget-board/widgets/handshake-zero')
   mkdirSync(directory, { recursive: true })

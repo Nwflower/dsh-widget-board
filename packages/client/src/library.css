@@ -140,18 +140,53 @@
   opacity: 1;
 }
 
-.dsh-widget-board__library-group { margin-top: 22px; }
+.dsh-widget-board__library-section { margin-top: 22px; }
 
-.dsh-widget-board__library-group:first-child { margin-top: 0; }
+.dsh-widget-board__library-section:first-child { margin-top: 0; }
 
 .dsh-widget-board__library-source {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   color: var(--dsw-alias-label-tertiary);
   font-family: var(--dsh-widget-board-mono);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.dsh-widget-board__library-section-hint {
+  margin: 0 0 10px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+/* 区与小节标题后面的条目数：不抢标题，跟着基线走。 */
+.dsh-widget-board__library-count {
+  margin-left: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsh-widget-board-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.dsh-widget-board__library-subgroup { margin-top: 14px; }
+
+.dsh-widget-board__library-subsource {
+  margin: 0 0 8px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dsh-widget-board__library-market-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  text-align: center;
 }
 
 .dsh-widget-board__library-list {

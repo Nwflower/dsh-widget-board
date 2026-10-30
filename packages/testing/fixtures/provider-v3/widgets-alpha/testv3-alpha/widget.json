@@ -1,0 +1,44 @@
+{
+  "id": "testv3.alpha",
+  "title": {
+    "zh": "v3 组件甲",
+    "en": "v3 widget alpha"
+  },
+  "description": {
+    "zh": "新把手第一个目录里的原生组件：数据来自提供方注册的数据源，按钮发出提供方注册的动作，另有一个宿主能力可以调用。",
+    "en": "The native widget in the new handle's first directory: data from a registered data source, a button that fires a registered action, and one host capability to call."
+  },
+  "author": "dsh-widget-board-test-provider-v3",
+  "version": "0.3.0",
+  "requires": {
+    "serviceApiVersion": 3
+  },
+  "sizes": [
+    "s",
+    "m"
+  ],
+  "source": "testv3.count",
+  "data": {
+    "type": "object",
+    "required": [
+      "count"
+    ],
+    "properties": {
+      "count": {
+        "type": "number"
+      }
+    }
+  },
+  "actions": [
+    {
+      "id": "testv3.run",
+      "label": {
+        "zh": "跑一次",
+        "en": "Run"
+      }
+    }
+  ],
+  "capabilities": [
+    "testv3.echo"
+  ]
+}

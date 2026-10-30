@@ -327,6 +327,11 @@
   display: none;
 }
 
+/* 矮盒子放不下主读数与四项分项：分项整段收掉，总量与调用次数留下。 */
+:root[data-box-height="short"] .usage__parts {
+  display: none;
+}
+
 /* 高盒子：主读数与分项升一档，走势的说明也跟着放大。 */
 :root[data-box-height="tall"] .usage__number {
   font-size: clamp(34px, 9cqi, 56px);

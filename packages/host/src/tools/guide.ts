@@ -9,18 +9,23 @@
 /** 编写指南的正文。 */
 export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 
-看板上每张卡片是一个沙箱里的小组件：一个目录，三份文件。宿主按内容哈希给版本，改动之后自动重载。
+看板上每张卡片是一个沙箱里的小组件：一个目录，三份文件。宿主按内容哈希给版本，改动之后自动重载。本节与其它任务无关，只在用户点名看板、卡片、组件，或要改的卡片已经在看板上时才用得到。
+
+看板归用户所有：未经请求不新增、删除、重排卡片，也不改既有卡片的 props 或数据源、不向它推数据；改既有卡片之前先用 \`widget_board\` 读回现状，改完再读回确认，翻面组的两张卡共享一个组 id，移除任意一面会连同另一面一起移除。
 
 ## 工具都在工具表里
 
-写组件、放卡、改卡、推数据、内联显示各有一个工具，它们**已经在工具表里，直接调用即可**，不需要先点名：
+七个工具都已经在工具表里，直接调用即可，不需要先点名：
 
+- \`widget_catalog\`：列组件库里的组件类型与它们的声明；读不出来的目录也列出来并写明原因。
 - \`widget_define\`：写下或覆盖组件，写完自动重载并自检。
-- \`widget_place\`：往看板放一张卡，或改一张卡的位置、大小、props 与数据源。
-- \`widget_remove\`：移除一张卡。
+- \`widget_place\`：往看板放一张卡，或改一张卡的位置、大小、props 与数据源；放卡与改卡是同一个工具。
+- \`widget_remove\`：移除一张卡；卡片属于翻面组时整组一起移除。
 - \`widget_push\`：给一张卡推数据。
 - \`widget_show\`：在回答里内联显示一个组件。
 - \`widget_board\`：读看板上的卡片，拿到卡片 id。
+
+换数据源之后卡片只读一次，不会持续订阅；要持续刷新就在 manifest 里声明 \`refresh\`。
 
 \`widget_catalog\` 的 \`expose\` 参数仍然接受，但它只是记账：工具表不会因为点名而改变（会话中途改工具表会让前缀缓存整体作废，代价是整段提示重新计费）。
 
@@ -70,6 +75,7 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`source\` 是默认数据源的名字；要别人装的插件提供，写 \`提供方:名字\`。
 - \`credentials\` 声明组件要用的凭据：\`ref\` 是环境变量名，\`label\` 与 \`description\` 显示在设置弹窗里。**密钥只放这里，不写进 props 或 state**；值由宿主的凭据服务保存，组件读不到它。
 - \`source\` 写 \`"http"\` 时，再用 \`request\` 给出宿主代发的请求。\`url\` 与 \`body\` 里的 \`{名字}\` 在每次读取时换成卡片 props 里的同名值，没有时换成 props schema 给这个属性写的 \`default\`；\`method\` 省略时是 \`GET\`，\`headers\` 与 \`body\` 随请求一起发出去。\`auth\` 写 \`{ credential, scheme }\`，\`scheme\` 是 \`bearer\`、\`basic\` 或 \`header\`，写 \`header\` 时另用 \`header\` 指出请求头的名字；\`credential\` 必须是 \`credentials\` 里声明过的一项，值由宿主拼进请求头，组件读不到。主机必须列在 \`permissions.hosts\` 里。返回的 JSON 原样作为 \`data\` 交给组件，解析与映射由组件自己的脚本做。\`request.cacheMs\` 可选：给了就让宿主按这个毫秒数缓存同一个地址的响应。每次请求都记进卡片设置的日志，凭据不在里面。
+- \`refresh\`：刷新策略，省略时按需；\`{"mode": "interval", "everyMs": 5000}\` 让卡片在看着的时候按间隔读，\`everyMs\` 不小于 1000。
 - \`actions\` 里写插件动作的全名。**没有声明的动作一律被拒绝**；要权限的动作还要有人在卡片上给出授权之后才跑得起来。
 - \`capabilities\` 里写宿主能力的全名（例如 \`dsh.account.balance\`）。**没有声明的调用一律被拒绝**；能力的参数与返回值按提供方声明的 JSON Schema 校验，要权限的能力同样先要一份授权。读当前登录的 DSH 账号余额就用 \`dsh.account.balance\`，不需要 API key；读某个 GitHub 账号创建的 issue 用 \`github.issues\`，它按卡片上配的 \`GITHUB_TOKEN\` 认账号。
 - 设置弹窗的配置一节按 \`props\` schema 出控件：字符串、数值、布尔与字符串枚举各出对应的输入，对象与数组只说明要用 JSON 工具写。只声明这张卡用得上的字段；字段的中英文名字与说明写进 \`text\` 的 \`props.<字段>.label\` 与 \`props.<字段>.hint\`；枚举字段的每个值再写一条 \`props.<字段>.<值>\`，选项里显示它，而不是 schema 里的原值。
@@ -95,6 +101,7 @@ widget.paused           // 卡片被暂停了：离开视口
 widget.onPause(fn)      // 暂停状态变了；计时器与逐帧绘制在这里停下与恢复
 widget.action(id, payload)   // 发出 manifest 里声明过的动作
 widget.call(capability, args) // 调用 manifest 里声明过的宿主能力，返回 Promise
+widget.capabilities     // 声明过、宿主现在解析得到的能力名；先看它再决定要不要调
 widget.open(url)        // 请宿主在新标签页打开一个网页（http 或 https）
 widget.t(key)           // manifest 的 text 里的一条文案，按当前语言
 widget.fit()            // 把内容高度报给宿主（内联显示时用）
@@ -146,4 +153,18 @@ widget.reportError(err) // 把失败原因写在这张卡上
 - 沙箱里没有 \`fetch\`、没有 \`localStorage\`；状态用 \`widget.setState\`。
 - 密钥放 \`credentials\`，不放 \`props\` 或 \`state\`：后两者会进看板文件、导出包与工具结果，也不会出现在设置弹窗的密码框里。
 - 组件的**内容哈希**就是版本：改一个字符，之前给的授权与固定版本都不再匹配。
+
+## 示例组件
+
+组件库的「示例」区有一组只讲一个关键点的写法样例，源码短到一次读完。\`widget_catalog\` 按 \`source: "example"\` 列出它们，条目带目录路径，直接按目录读 \`widget.json\`、\`index.html\`、\`style.css\`、\`main.js\` 与 \`samples.json\`。
+
+| 想学什么 | 看哪个示例 |
+|---|---|
+| 最小目录与 manifest | \`example-basic\` |
+| props schema、设置弹窗、\`defaultBox\` 与 \`minBox\` | \`example-props\` |
+| data schema、样例数据与空态 | \`example-data\` |
+| \`setState\`、\`onState\`、暂停与恢复 | \`example-state\` |
+| manifest 的 \`actions\`、按钮与失败原因 | \`example-action\` |
+| 盒子契约：\`data-box-width\`、\`data-box-height\`、窄与矮的排版 | \`example-size\` |
+| \`{{asset:相对路径}}\` 与资源 | \`example-asset\` |
 `

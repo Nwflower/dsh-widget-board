@@ -1,0 +1,60 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.example-data {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+  padding: var(--w-space-md);
+  overflow: hidden;
+}
+
+.example-data__empty {
+  margin: 0;
+  color: var(--w-color-fg);
+  font-size: var(--w-type-title);
+}
+
+.example-data__hint {
+  margin: 0;
+  color: var(--w-color-muted);
+  font-size: var(--w-type-caption);
+}
+
+/* 窄盒子与矮盒子里收掉提示，只留空态短句。 */
+:host([data-box-width="narrow"]) .example-data__hint,
+:host([data-box-height="short"]) .example-data__hint {
+  display: none;
+}
+
+.example-data__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--w-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.example-data__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--w-space-sm);
+}
+
+.example-data__label {
+  color: var(--w-color-fg);
+  font-size: var(--w-type-body);
+}
+
+.example-data__value {
+  color: var(--w-color-fg);
+  font-size: var(--w-type-body);
+  font-variant-numeric: tabular-nums;
+}

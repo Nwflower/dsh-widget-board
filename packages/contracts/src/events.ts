@@ -13,7 +13,7 @@ export type BoardEvent =
   | { type: 'board' }
   /** 一次布局提交落定：页面换掉这块看板的卡片盒子（D16、D21）。 */
   | { type: 'layout', board: string, layoutRevision: number, layouts: Record<string, CardLayout> }
-  /** 一次排列偏好提交落定：页面换掉这块看板的模式与整齐顺序，不碰自由坐标（D30）。 */
+  /** 一次排列偏好提交落定：页面换掉这块看板的模式与整齐顺序，不碰自由坐标（D32）。 */
   | { type: 'arrangement', board: string, layoutRevision: number, arrangement: Arrangement }
   /** 一张卡的状态、数据或 props 变了：页面就地合并（D5、D27、D23）；卡片 id 全工作区唯一，所以不带看板。 */
   | { type: 'instance', id: string, state?: unknown, patch?: unknown, data?: unknown, props?: Record<string, unknown> }

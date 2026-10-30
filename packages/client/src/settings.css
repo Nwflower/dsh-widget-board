@@ -111,3 +111,100 @@
 }
 
 .dsh-widget-board__board-settings-notice--error { color: var(--dsw-alias-state-error-primary); }
+
+/* 提供方健康表（D31）：与看板列表并列的一节，宽度随宿主的设置面板走，宽了横向滚动。 */
+.dsh-widget-board__provider-health {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dsh-widget-board__provider-health-title {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dsh-widget-board__provider-health-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__provider-health-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dsh-widget-board__provider-health-table th,
+.dsh-widget-board__provider-health-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  text-align: left;
+  vertical-align: top;
+}
+
+.dsh-widget-board__provider-health-table thead th {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__provider-health-table tbody tr:last-child th,
+.dsh-widget-board__provider-health-table tbody tr:last-child td { border-bottom: 0; }
+
+.dsh-widget-board__provider-health-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__provider-health-row[data-available="true"] .dsh-widget-board__provider-health-state {
+  color: var(--dsw-alias-state-success-primary, #15803d);
+}
+
+.dsh-widget-board__provider-health-row[data-available="false"] .dsh-widget-board__provider-health-state {
+  color: var(--dsw-alias-state-error-primary);
+  font-weight: 600;
+}
+
+.dsh-widget-board__provider-health-number {
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dsh-widget-board__provider-health-features {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dsh-widget-board__provider-health-feature {
+  padding: 0 6px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsw-font-family);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dsh-widget-board__provider-health-none { color: var(--dsw-alias-label-tertiary); }
+
+.dsh-widget-board__provider-health-error {
+  max-width: 220px;
+  color: var(--dsw-alias-state-error-primary);
+  overflow-wrap: anywhere;
+}
+
+/* 可用的提供方也可能留过旧的失败原因：那一格退到次要颜色，不与不可用的红并列。 */
+.dsh-widget-board__provider-health-row[data-available="true"] .dsh-widget-board__provider-health-error {
+  color: var(--dsw-alias-label-tertiary);
+}

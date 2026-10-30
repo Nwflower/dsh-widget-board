@@ -1,0 +1,7 @@
+{
+  "id": "example-asset",
+  "title": { "zh": "示例：资源", "en": "Example: assets" },
+  "description": { "zh": "演示 assets 目录与 {{asset:}} 引用：沙箱的 CSP 不放行网络图片，宿主在拼文档时把相对路径换成 data: 地址。", "en": "Shows the assets directory and {{asset:}} references: the sandbox CSP blocks network images, so the host rewrites relative paths into data: URLs when building the document." },
+  "version": "1.0.0",
+  "sizes": ["s", "m"]
+}

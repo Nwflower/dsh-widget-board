@@ -568,8 +568,11 @@ describe('widget_show', () => {
     await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat', data: { n: 'x' } }))
       .rejects.toThrow(/data schema/)
     harnessed.context.sources.readSource = async () => ({ n: 'seven' })
-    await expect(toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat' }))
-      .rejects.toThrow(/data schema/)
+    const refusal = await toolOf(harnessed, WIDGET_TOOL_NAMES.show).execute({ widget: 'stat' }).catch((error: unknown) => error)
+    expect(refusal).toBeInstanceOf(ToolRefusal)
+    // 数据源与组件写在拒绝消息里，dataError 自带的那一句只出现一次。
+    expect((refusal as Error).message).toMatch(/^数据源 demo:count 给组件 stat 返回的数据不合格：数据与组件的 data schema 不符：/)
+    expect((refusal as Error).message.match(/data schema 不符/g)).toHaveLength(1)
   })
 
   it('数据源交出来的数据不合 schema 时按提供方记一次失败，直接给的数据不计', async () => {
@@ -584,7 +587,8 @@ describe('widget_show', () => {
     const records = health.snapshot()
     expect(records).toHaveLength(1)
     expect(records[0]).toMatchObject({ provider: 'demo', failures: 1, timeouts: 0 })
-    expect(records[0]?.lastError).toMatch(/^provider-output：数据源 demo:count 的数据与组件的 data schema 不符：/)
+    expect(records[0]?.lastError).toMatch(/^provider-output：数据源 demo:count 给组件 stat 的数据不合格：数据与组件的 data schema 不符：/)
+    expect(records[0]?.lastError?.match(/data schema 不符/g)).toHaveLength(1)
   })
 
   it('props、size 与参数组合不合规时拒绝', async () => {

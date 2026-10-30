@@ -35,6 +35,7 @@ const { providerV3Pass } = require('./provider-v3.cjs')
 const { githubPass } = require('./github.cjs')
 const { metricsPass } = require('./metrics.cjs')
 const { sharePass } = require('./share.cjs')
+const { dataCardsPass, prepareCardsProbe } = require('./data-cards.cjs')
 
 /** 插件自己画的东西，只用这些标记找节点。 */
 const PANEL_ICON = 'svg.dsh-widget-board__icon'
@@ -95,7 +96,6 @@ async function timeOf(frame) {
     .map((cell) => cell.querySelector(':scope > .t-flip-half[data-half="top"]')?.textContent ?? ''))
   return `${digits.slice(0, 2).join('')}:${digits.slice(2).join('')}`
 }
-
 
 /**
  * 主路径：入口、卡片栅格、天气卡切预报日、番茄钟开合。
@@ -187,6 +187,10 @@ async function mainPass(page, problems) {
     max: document.querySelector('#pomo-range')?.getAttribute('max'),
   }))
   check('刻度按 5 到 60 分钟铺满一滑动条', shape.ticks === 56 && shape.min === '5' && shape.max === '60', `${shape.min}–${shape.max} / ${shape.ticks} 格`)
+  // 说明文字由组件里的 swapText 换：非减弱动效时旧值先淡出，新文字要等 --w-motion-fast（150ms）
+  // 才写到同一个节点上，握手刚完成的那一小段时间里读到的是空串。等两个节点都写上新值再断言。
+  await pomodoro.waitForFunction(() => document.querySelector('#pomo-title')?.textContent === '专注时间'
+    && document.querySelector('#pomo-cap')?.textContent === '选一段专注时长', undefined, { timeout: 5000 })
   const labels = await pomodoro.evaluate(() => ({
     title: document.querySelector('#pomo-title')?.textContent,
     caption: document.querySelector('#pomo-cap')?.textContent,
@@ -456,12 +460,15 @@ async function layoutPass(page) {
   const metrics = { step: await columnStep(page) }
 
   const weatherCard = page.locator(`[data-instance="${weatherId}"]`)
-  const startBox = await weatherCard.boundingBox()
-  if (startBox === null) throw new Error('天气卡没有盒子')
   const grip = weatherCard.locator(GRIP)
+  // 悬停会先把卡片滚进视口（Playwright 滚动之后才落指针）：起点要在滚动与几何都停稳之后再量，
+  // 否则滚动量会被算进拖动距离，虚影与卡片的落点就全偏了。
   await grip.hover()
+  await settled(page)
   const gripBox = await grip.boundingBox()
   if (gripBox === null) throw new Error('拖动把手没有盒子')
+  const startBox = await weatherCard.boundingBox()
+  if (startBox === null) throw new Error('天气卡没有盒子')
   await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
   await page.mouse.down()
   await page.mouse.move(gripBox.x + gripBox.width / 2 - metrics.step * 0.7, gripBox.y + gripBox.height / 2 + 70, { steps: 10 })
@@ -627,7 +634,9 @@ async function reducedPass(page) {
 
 const home = scratchHome('smoke-')
 createHandshakeFixture(home)
-start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 'fixtures', 'provider-v3')] }).then(async (host) => {
+// 数据卡场景要一条真实的会话结算：临时宿主里没有模型，这份插件经宿主的会话事件总线补上（见 data-cards.cjs）。
+const cardsProbe = prepareCardsProbe()
+start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 'fixtures', 'provider-v3'), cardsProbe] }).then(async (host) => {
   // 面向会话的工具（D9）：注册发生在宿主启动时，宿主自己的输出是唯一看得见它的地方。插件加载
   // 在地址打印之后，所以等一会儿再看。
   let log = host.log()
@@ -643,6 +652,8 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
   try {
     opened = await openPage(host.url)
     await mainPass(opened.page, opened.problems)
+    // 数据卡场景故意让按需读失败一次，排在主路径的控制台检查之后：那一页的错误由这一条自己核对。
+    await dataCardsPass(opened.page, check)
     await noticePass(opened.page, { check, openBoard })
     await templatePass(opened.page)
     await addRemovePass(opened.page)

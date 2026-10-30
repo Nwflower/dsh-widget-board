@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path'
 import { mkdir, readFile } from 'node:fs/promises'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
+import type { BoardEvent, WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
 import {
   PACKAGE_NAME,
   PLUGIN_ROUTE,
@@ -30,18 +30,19 @@ import type { LibraryLoad } from './library'
 import { createLive } from './live'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
-import { readInto } from './instance-operations'
 import { readManyInto } from './batch-reads'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from './limits'
 import { createRegistries } from './sources'
 import { createProviderRegistry, createWidgetBoardService, widgetIdsIn } from './providers'
 import { createMarketRegistry } from './market'
 import { registerDshAccount } from './dsh-account'
-import { createSystemMetricsAction, createSystemMetricsSource } from './system-metrics'
+import { createSystemMetricsSource } from './system-metrics'
 import { registerGithub } from './github'
 import { registerTheme } from './theme'
 import { registerUsage } from './usage'
-import { createScheduler, intervalOf } from './refresh'
+import { createScheduler } from './refresh'
+import { createSubscriptions, intervalCardsOf } from './subscriptions'
+import { registerDataRead } from './data-read'
 import { createToolContext, registerTools } from './tools'
 import { createProviderHealth } from './provider-health'
 import { createSelfChecks } from './selfcheck'
@@ -85,6 +86,21 @@ export function readConfigField<T>(field: Volatile<T> | T | undefined, fallback:
     return (field as Volatile<T>).get() as T
   }
   return field as T
+}
+
+/**
+ * 一条变更通知要不要重算定时链与订阅表（D6、D32）。
+ *
+ * 卡片增删与组件库重读换掉整张卡片表；卡片 props 变了则是另一份订阅——订阅身份带着 props 的稳定
+ * 表示，props 一变就要退订、按最新的一面重订（D32）。状态、数据、补丁与布局只改一张卡的内容，订阅
+ * 判定不看它们，重算一次只是白跑。
+ *
+ * @param event - 刚推给在线页面的一条通知。
+ * @returns 要重算时为真。
+ */
+export function resyncsSources(event: BoardEvent): boolean {
+  if (event.type === 'board') return true
+  return event.type === 'instance' && event.props !== undefined
 }
 
 /**
@@ -132,11 +148,11 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   // 时组件先问它，两份汇总不会同时算。实时那一路先取 dsh-usage 的启动前快照再订阅，因此要等它。
   const disposeUsage = await registerUsage(sources, ctx, home)
   // 全部看板与唯一的写入者（D21）：旧版本的单份 `board.json` 在这一步搬成第一块看板。
-  // 卡片增删与组件库重读才改变定时刷新的表；状态、数据与布局写入不重算它（D6）。
-  let syncScheduler: () => void = () => {}
+  // 卡片增删、组件库重读与卡片 props 变化才改变定时链与订阅表；状态、数据与布局写入不重算它们（D6、D32）。
+  let syncLive: () => void = () => {}
   const workspace = await openWorkspace(home, library.records, (event) => {
     live.notify(event)
-    if (event.type === 'board') syncScheduler()
+    if (resyncsSources(event)) syncLive()
   })
   // 授权表：人给出过的那些，绑在组件版本上（D6）。
   const grants: GrantStore = await openGrants(grantFile)
@@ -183,7 +199,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     market,
     marketDir,
   }
-  // 运行成本的数据源（issue #5）：只读宿主自己的内存与工作区、组件库，不声明权限（D6）。
+  // 运行成本的数据源（issue #5）：只读宿主自己的内存与工作区、组件库，不声明权限（D6）。卡片可见期间
+  // 由它自己的订阅持续采样，「再测一次」走按需读能力（D32），不再另注册一个动作。
   const disposeSystemMetrics = sources.registerDataSource(createSystemMetricsSource({
     workspace,
     records: () => context.records,
@@ -191,10 +208,6 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     assets: () => live.assets,
     diskPath: join(home, 'boards'),
   }))
-  // 卡片上的「再测一次」：走同一条 readInto，读、校验、写入都不另开路径（D6）。
-  const disposeSystemMetricsAction = sources.registerAction(
-    createSystemMetricsAction(async (id) => await readInto(context, id)),
-  )
   // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责；每次请求记进这张卡的日志（D28）。
   const disposeHttpSource = sources.registerDataSource(
     createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION, {
@@ -202,6 +215,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       record: (id, entry) => { requests.add(id, entry) },
     }),
   )
+  // 按需读能力（D32）：组件给一个源名，宿主先过 manifest 的 source/sources 白名单，再走与读取同一条
+  // 路径——授权、执行器与 data schema 都在 loadData 里，这里不另开一条读。
+  const disposeDataRead = registerDataRead(sources, context)
 
   // 重读全部来源：组件库或运行时变了，或某个插件注册、撤下了一个目录（D17）。串行执行，监视与
   // 刷新按钮同时到来时后一次看得到前一次的结果。
@@ -218,8 +234,8 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       const minBoxOf = (widget: string): WidgetMinBox | undefined => next.records.get(widget)?.manifest.minBox
       await workspace.relayout(minBoxOf)
       live.publish(await loadAssets(runtime))
-      // 刷新声明可能随这一版变了：定时链按新的卡片表重算一次（D6）。
-      syncScheduler()
+      // 刷新声明与能推数据的源可能随这一版变了：定时链与订阅表各按新的卡片表重算一次（D6、D32）。
+      syncLive()
     })
     reloading = run.catch(() => undefined)
     return run
@@ -229,11 +245,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   // 刷新的调度器（D6）：只有人看着的时候才按组件声明的间隔读——没人看就全停，一张卡没落进任何
   // 一页的视口就不读它。
   const scheduler = createScheduler({
-    // 卡片 id 全工作区唯一；定时链按全部看板算，不只看选中的那一块（D6、D21）。
-    cards: () => context.workspace.list().flatMap((board) => board.instances.flatMap((instance) => {
-      const everyMs = intervalOf(context.records.get(instance.widget)?.manifest.refresh)
-      return everyMs === undefined || instance.source === undefined ? [] : [{ id: instance.id, everyMs }]
-    })),
+    // 卡片 id 全工作区唯一；定时链按全部看板算，不只看选中的那一块（D6、D21）。声明了 subscribe 的
+    // 源按订阅走，不进这张表（D32）：同一张卡不会同时开着两条链。
+    cards: () => intervalCardsOf(context),
     viewers: () => live.viewers,
     visible: () => live.visible,
     read: async (ids) => await readManyInto(context, ids),
@@ -241,10 +255,13 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       console.error(`widget-board: 定时读卡片 ${id} 失败：${(error as Error).message}`)
     },
   })
-  const stopWatchingViewers = live.onViewers(() => { scheduler.sync() })
-  // 可见集合一变就重算一次：新看得见的卡立刻读，离开视口的卡不再排期（D6）。
-  const stopWatchingVisibility = live.onVisible(() => { scheduler.sync() })
-  syncScheduler = () => { scheduler.sync() }
+  // 数据订阅的生命周期（D32）：观众、可见集合、卡片表、提供方与授权的任何一种变化之后都走同一处
+  // syncLive，与定时链同一个入口——宿主里没有第二个调度器。
+  const subscriptions = createSubscriptions(context)
+  const stopWatchingViewers = live.onViewers(() => { syncLive() })
+  // 可见集合一变就重算一次：新看得见的卡立刻读，离开视口的卡不再排期并退订（D6、D32）。
+  const stopWatchingVisibility = live.onVisible(() => { syncLive() })
+  syncLive = () => { scheduler.sync(); subscriptions.sync() }
 
   const handler = createHandler(context)
   const disposeRoute = webServerOf(ctx).register({
@@ -276,11 +293,19 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const providers = createProviderRegistry({
     roots,
     reload,
-    registerDataSource: (source) => sources.registerDataSource(source),
+    // 能推数据的源可能随提供方注册或撤下出现与消失：订阅表跟着重算一次（D32）。
+    registerDataSource: (source) => {
+      const dispose = sources.registerDataSource(source)
+      syncLive()
+      return () => { dispose(); syncLive() }
+    },
     registerAction: (action) => sources.registerAction(action),
     registerCapability: (capability) => sources.registerCapability(capability),
     registerMarketProvider: (registration) => market.register(registration),
-    forgetGrants: async (provider) => { await grants.forget({ provider }) },
+    forgetGrants: async (provider) => {
+      await grants.forget({ provider })
+      syncLive()
+    },
     idsIn: async (root) => await widgetIdsIn(root, async (file) => await readFile(file, 'utf8')),
     watch: (dir) => watchers.acquire(dir),
     health,
@@ -337,8 +362,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeUsage()
     tools?.dispose()
     disposeSystemMetrics()
-    disposeSystemMetricsAction()
     disposeHttpSource()
+    disposeDataRead()
+    subscriptions.stop()
     stopWatchingViewers()
     stopWatchingVisibility()
     stopHealth()

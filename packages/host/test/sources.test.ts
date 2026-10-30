@@ -49,11 +49,10 @@ describe('数据源、动作与能力的注册表', () => {
     expect(await registries.callCapability('ping', { id: 'card', widget: 'w', props: {} }, undefined, new AbortController().signal)).toBe('pong')
   })
 
-  it('能力列表按注册顺序，供握手用', () => {
+  it('按提供方列名字，按注册顺序', () => {
     const registries = createRegistries()
     registries.registerCapability({ apiVersion: 3, provider: 'acme', id: 'second', call: () => 0 })
     registries.registerCapability({ apiVersion: 3, provider: 'beta', id: 'first', call: () => 0 })
-    expect(registries.listCapabilities()).toEqual(['second', 'first'])
     expect(registries.namesOf('acme')).toEqual({ dataSources: [], actions: [], capabilities: ['second'] })
   })
 

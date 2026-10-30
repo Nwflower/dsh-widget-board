@@ -1,11 +1,13 @@
 /**
- * 实时用量的数据源（issue #6）：事件从注册那一刻开始累计，窗口按卡片的 props 选，快照里只出现会话 id 的前 8 位。
+ * 实时用量的数据源（issue #6）：事件从注册那一刻开始累计，窗口按卡片的 props 选，快照里只出现会话 id 的前 8 位；
+ * 卡片可见期间由订阅推快照，事件来了推新的，today 与 all 还在自己的 10 秒里补读历史（D32）。
  *
  * 事件按宿主的真实形状送进来（`session` 带 `id`，`event` 带 `type`、`seq`、`time` 与 `data.usage`），
  * 不经过宿主的会话存储与持久化。历史那一段按启动时取到的一份投影交进来，合并的口径与启动竞态下的
  * 有界重读都在这里测。
  */
-import { describe, expect, it } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import { describe, expect, it, vi } from 'vitest'
 import type { HostSessionEvent, HostSessions, InstanceFace } from '@dsh-widget-board/contracts'
 import type { UsageHistoryFetch, UsageHistoryProjection, UsageHistoryTally } from '../src/dsh-usage'
 import { USAGE_HISTORY_SOURCE, historyFailure } from '../src/dsh-usage'
@@ -14,6 +16,7 @@ import {
   SESSION_USAGE_NAME,
   SESSION_USAGE_PROVIDER,
   SESSION_USAGE_SOURCE,
+  SESSION_USAGE_SUBSCRIBE_MS,
   SESSION_USAGE_TREND_POINTS,
   createSessionUsage,
   registerSessionUsage,
@@ -562,5 +565,166 @@ describe('历史的有界重读', () => {
     })
     expect((await live.read()).history).toBeNull()
     expect(calls).toBe(0)
+  })
+})
+/** 轮询到条件成立；假的是定时器，等推送借真的 setTimeout，等不到就停在断言上。 */
+async function until(ready: () => boolean, what: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (ready()) return
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  throw new Error(`等不到${what}`)
+}
+
+/** 一条卡片订阅：把推上来的快照按顺序记下来。 */
+function cardSub(usage: SessionUsage, props: Record<string, unknown> = {}) {
+  const subscribe = usage.source.subscribe
+  if (subscribe === undefined) throw new Error('用量数据源应当声明 subscribe')
+  const pushed: SessionUsageSnapshot[] = []
+  const stop = subscribe({ ...FACE, props }, (data) => { pushed.push(data as SessionUsageSnapshot) })
+  return { pushed, stop }
+}
+
+describe('组件 manifest', () => {
+  it('不再声明定时刷新：推送由数据源自己的订阅给', async () => {
+    const manifest = JSON.parse(
+      await readFile(new URL('../../widgets/session-usage/widget.json', import.meta.url), 'utf8'),
+    ) as { source: string, refresh?: unknown }
+    expect(manifest.source).toBe(SESSION_USAGE_NAME)
+    expect(manifest.refresh).toBeUndefined()
+  })
+})
+
+describe('卡片上的订阅推送', () => {
+  it('订阅时先给当下的快照，之后每进一条带用量的事件再给一份', async () => {
+    const board = harness(5_000)
+    const sub = cardSub(board.usage)
+    await until(() => sub.pushed.length >= 1, '订阅时的第一份快照')
+    expect(sub.pushed[0]).toMatchObject({ available: true, scope: 'session', startedAt: 5_000, empty: 'no-usage', totals: null })
+    board.emit('aaa11111-1', 0, { input: 10, output: 5, total: 20 })
+    await until(() => sub.pushed.length >= 2, '事件之后的第二份快照')
+    expect(sub.pushed[1]?.totals).toEqual({ input: 10, output: 5, cacheRead: 0, cacheWrite: 0, total: 20, calls: 1, estimated: false })
+    expect(sub.pushed[1]?.session).toBe('aaa11111')
+    expect(JSON.stringify(sub.pushed)).not.toContain('aaa11111-1')
+    sub.stop()
+  })
+
+  it('连着进来的几条事件各推一份，按落定顺序单调前进，最后一份含全部事件', async () => {
+    const board = harness(5_000)
+    const sub = cardSub(board.usage)
+    board.emit('aaa11111-1', 0, { input: 1, output: 0, total: 1 })
+    board.emit('aaa11111-1', 1, { input: 2, output: 0, total: 2 })
+    await until(() => sub.pushed.length >= 3, '初值与两条事件的三份快照')
+    // 每份快照都在轮到它落定时才取数，所以只保证后落定的不比先落定的少。
+    const calls = sub.pushed.map((snapshot) => snapshot.totals?.calls ?? 0)
+    expect(calls).toHaveLength(3)
+    expect(calls[calls.length - 1]).toBe(2)
+    for (let index = 1; index < calls.length; index += 1) {
+      expect(calls[index]).toBeGreaterThanOrEqual(calls[index - 1] ?? 0)
+    }
+    expect(sub.pushed[2]?.totals?.total).toBe(3)
+    sub.stop()
+  })
+
+  it('退订只移除这张卡的监听，别的卡与全局事件订阅都照旧', async () => {
+    const board = harness(5_000)
+    const first = cardSub(board.usage)
+    const second = cardSub(board.usage)
+    await until(() => first.pushed.length >= 1 && second.pushed.length >= 1, '两条订阅的初值')
+    first.stop()
+    board.emit('aaa11111-1', 0, { input: 4, output: 0, total: 4 })
+    await until(() => second.pushed.length >= 2, '另一条订阅的推送')
+    expect(first.pushed).toHaveLength(1)
+    expect(board.unsubscribed()).toBe(0)
+    board.usage.dispose()
+    expect(board.unsubscribed()).toBe(1)
+  })
+
+  it('自己的 10 秒节奏取代看板定时刷新：今天与全部顺势补读历史，所选会话只重取快照', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      let calls = 0
+      const board = harness(5_000, undefined, historyFailure('unavailable'), {
+        loadHistory: async () => { calls += 1; return historyFailure('unavailable') },
+      })
+      const today = cardSub(board.usage, { scope: 'today' })
+      await until(() => today.pushed.length >= 1, 'today 的初值')
+      expect(calls).toBe(1)
+      const live = cardSub(board.usage, { scope: 'session' })
+      await until(() => live.pushed.length >= 1, 'session 的初值')
+      expect(calls).toBe(1)
+      vi.advanceTimersByTime(SESSION_USAGE_SUBSCRIBE_MS)
+      await until(() => today.pushed.length >= 2 && live.pushed.length >= 2, '10 秒之后的两份快照')
+      expect(calls).toBe(2)
+      expect(live.pushed[1]?.history).toBeNull()
+      today.stop()
+      live.stop()
+      vi.advanceTimersByTime(SESSION_USAGE_SUBSCRIBE_MS)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(today.pushed).toHaveLength(2)
+      expect(calls).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('等补读历史的那一轮没回来时，后面的快照不会各自再补读一次', async () => {
+    let release = (): void => {}
+    const gate = new Promise<UsageHistoryProjection>((resolve) => {
+      release = () => { resolve(projection({ today: tally(2, 0, 0, 0, 1), all: tally(2, 0, 0, 0, 1) })) }
+    })
+    let calls = 0
+    const board = harness(5_000, undefined, historyFailure('unavailable'), {
+      loadHistory: async () => { calls += 1; return await gate },
+    })
+    const sub = cardSub(board.usage, { scope: 'today' })
+    board.emit('aaa11111-1', 0, { input: 1, output: 0, total: 1 })
+    board.emit('aaa11111-1', 1, { input: 2, output: 0, total: 2 })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(calls).toBe(1)
+    expect(sub.pushed).toHaveLength(0)
+    release()
+    await until(() => sub.pushed.length >= 3, '放行之后的三份快照')
+    expect(calls).toBe(1)
+    expect(sub.pushed.every((snapshot) => snapshot.startedAt === 5_000)).toBe(true)
+    sub.stop()
+  })
+
+  it('props 变了之后按新的卡片面重订，推的是新窗口的快照，旧订阅一条都不再收', async () => {
+    const now = new Date(2026, 9, 25, 12, 0, 0).getTime()
+    const board = harness(now)
+    board.emit('aaa11111-1', 0, { input: 10, output: 5, total: 15 })
+    const first = cardSub(board.usage, { scope: 'session' })
+    await until(() => first.pushed.length >= 1, '旧 props 的初值')
+    expect(first.pushed[0]?.scope).toBe('session')
+    expect(first.pushed[0]?.totals?.calls).toBe(1)
+    // 宿主在 props 变化时先退订旧的，再用最新的卡片面重订（D32）。
+    first.stop()
+    const second = cardSub(board.usage, { scope: 'all' })
+    await until(() => second.pushed.length >= 1, '新 props 的初值')
+    expect(second.pushed[0]?.scope).toBe('all')
+    expect(second.pushed[0]?.session).toBeNull()
+    expect(second.pushed[0]?.history).not.toBeNull()
+    board.emit('aaa11111-1', 1, { input: 1, output: 1, total: 2 })
+    await until(() => second.pushed.length >= 2, '新订阅的推送')
+    expect(second.pushed[1]?.scope).toBe('all')
+    expect(second.pushed[1]?.totals?.calls).toBe(2)
+    expect(first.pushed).toHaveLength(1)
+    second.stop()
+  })
+
+  it('props 里写完整会话 id 时订阅里的快照固定到那个会话', async () => {
+    const board = harness(5_000)
+    board.emit('aaa11111-1', 0, { input: 4, output: 1, total: 5 })
+    board.emit('bbb22222-2', 0, { input: 8, output: 2, total: 10 })
+    const sub = cardSub(board.usage, { scope: 'session', session: 'aaa11111-1' })
+    await until(() => sub.pushed.length >= 1, '固定会话的初值')
+    expect(sub.pushed[0]?.session).toBe('aaa11111')
+    expect(sub.pushed[0]?.totals?.total).toBe(5)
+    board.emit('bbb22222-3', 0, { input: 1, output: 1, total: 2 })
+    await until(() => sub.pushed.length >= 2, '固定会话之后的推送')
+    expect(sub.pushed[1]?.session).toBe('aaa11111')
+    expect(sub.pushed[1]?.totals?.calls).toBe(1)
+    sub.stop()
   })
 })

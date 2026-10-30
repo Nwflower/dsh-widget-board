@@ -5,6 +5,7 @@
  * 自己的交互。消息按 `contracts` 里的形状判定，认不出的类型与超长的载荷丢弃并报告。
  */
 import type {
+  CapabilityMetadata,
   InspectionReport,
   MotionLevel,
   ParentMessage,
@@ -13,6 +14,8 @@ import type {
   WidgetSize,
 } from '@dsh-widget-board/contracts'
 import { PARENT_MESSAGE_LIMIT, boxClassesOf, isParentMessage, withinLimit } from '@dsh-widget-board/contracts'
+import type { CapabilityFace } from './capability-face'
+import { capabilityFaceOf } from './capability-face'
 import { installInspector, problemsOf } from './inspect'
 import { installMotionTemplates } from './motion'
 
@@ -33,6 +36,12 @@ export interface WidgetApi extends WidgetHandles {
    * 提供方不在的能力不在这里；组件先看它再决定要不要调，省掉一次注定失败的请求。
    */
   readonly capabilities: readonly string[]
+  /**
+   * 声明过的每一项能力的元数据（D32），按 manifest 的声明次序，现在不可用的那些也在里面。
+   *
+   * 只随握手给一次：之后提供方撤下，由一次失败的调用见出来。
+   */
+  readonly capabilityMetadata: readonly CapabilityMetadata[]
   onSize(handler: (size: WidgetSize) => void): () => void
   onProps(handler: (props: Record<string, unknown>) => void): () => void
   onData(handler: (data: unknown) => void): () => void
@@ -69,8 +78,8 @@ let props: Record<string, unknown> = {}
 let data: unknown = undefined
 let state: unknown = undefined
 let paused = false
-/** 这张卡的 manifest 声明过、宿主当前解析得到的能力（D24）；组件据此跳过提供方不在的调用。 */
-let capabilities: string[] = []
+/** 这张卡的能力面（D32）：可用的 id 与逐项的元数据，由 `capabilityFaceOf` 从握手投影出来。 */
+let face: CapabilityFace = capabilityFaceOf({})
 let text: Record<string, { zh: string, en: string }> = {}
 
 /** 在途能力调用的等待者，按 requestId 索引。 */
@@ -158,7 +167,7 @@ function receive(message: ParentMessage): void {
       lang = message.lang
       root.lang = message.lang
       text = message.text ?? {}
-      capabilities = message.capabilities ?? []
+      face = capabilityFaceOf(message)
       root.dataset.motion = motionLevel(message.motion)
       applyTokens(message.tokens)
       props = (message.props ?? {}) as Record<string, unknown>
@@ -245,7 +254,8 @@ function install(): void {
     get data() { return data },
     get state() { return state },
     get paused() { return paused },
-    get capabilities() { return capabilities },
+    get capabilities() { return face.capabilities },
+    get capabilityMetadata() { return face.capabilityMetadata },
     onSize: (handler) => subscribe(listeners.size, handler),
     onProps: (handler) => subscribe(listeners.props, handler),
     onData: (handler) => subscribe(listeners.data, handler),

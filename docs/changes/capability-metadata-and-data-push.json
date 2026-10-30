@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 7,
+  "external": true,
+  "at": "2026-10-29",
+  "zh": "组件能拿到能力元数据并按需读一次数据源：握手时带上每一项能力的标题、说明、参数与结果 schema、权限与现在可不可用，`widget.capabilities` 仍是可用名的数组；新增能力 `widget-board:data.read`，manifest 的 `source` 与 `sources` 是允许读的源，读回来的数据不改写卡片。能力调用的参数可以整个省略：声明了 input schema 的按空对象校验，没声明的提供方仍收到 `undefined`。数据源新增可选的 `subscribe`：卡片可见时由它持续推数据，离开视口退订，props 变化时先退订再按最新的一面重订；推上来的数据按组件 schema 校验后走与读取同一条写入路径。内置的运行成本卡与最近 Token 用量卡改用它：运行成本在可见期间每 5 秒一份新采样，「再测一次」经按需读拿一份，Token 卡按会话事件推、另有一条 10 秒的节奏。",
+  "en": "Widgets can now read capability metadata and fetch a data source on demand: the handshake carries each capability's title, description, argument and result schemas, permission and whether it is available right now, while `widget.capabilities` stays the array of available names; a new `widget-board:data.read` capability reads a source, with the manifest's `source` and `sources` as the whitelist, and the value it returns never rewrites the card. Capability arguments may be omitted entirely: a declared input schema is validated against an empty object, and a schema-less capability still receives `undefined`. Data sources gain an optional `subscribe`: while the card is visible the source keeps pushing, the subscription is dropped when the card leaves the viewport, and a props change unsubscribe-then-resubscribes on the latest card face; pushed data is checked against the widget schema and written through the same path as a read. The built-in running cost and recent token usage cards now use it: running cost samples every 5 seconds while visible and the measure-again button reads on demand, while the token card pushes per session event with a 10 second tick."
+}

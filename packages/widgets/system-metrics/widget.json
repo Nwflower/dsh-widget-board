@@ -9,28 +9,18 @@
     "en": "Readings from the host process and the machine: resident memory, heap, system memory, CPU, disk and OS, plus the board's card count, state size, document weight and library size."
   },
   "author": "dsh-widget-board",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "sizes": [
     "m",
     "l"
   ],
   "source": "widget-board:system.metrics",
+  "capabilities": [
+    "widget-board:data.read"
+  ],
   "scripts": [
     "view.js"
   ],
-  "actions": [
-    {
-      "id": "system-metrics.sample",
-      "label": {
-        "zh": "再测一次",
-        "en": "Measure again"
-      }
-    }
-  ],
-  "refresh": {
-    "mode": "interval",
-    "everyMs": 5000
-  },
   "defaultBox": {
     "w": 2,
     "h": 18
@@ -310,6 +300,10 @@
     "sampling": {
       "zh": "采样中…",
       "en": "Sampling…"
+    },
+    "sampleFailed": {
+      "zh": "取样失败：{reason}",
+      "en": "Sample failed: {reason}"
     },
     "trend": {
       "zh": "最近 {n} 次采样",

@@ -8,11 +8,13 @@
  * - 每个提供方 8 个执行槽。槽在提供方的 promise 真正结束之后才释放：忽略中止信号的旧提供方不能靠
  *   超时多占一个槽，并发上限因此守得住。槽占满时立即抛出，不排队。
  * - 按提供方记的注册数、失败与超时。一个提供方出错不影响别的提供方；计数同时喂给设置页读的快照
- *   （`WorkspaceSnapshot.providers`）。
+ *   （`WorkspaceSnapshot.providers`）。宿主自己的拒绝（{@link Refusal}）是调用方或请求的问题，不是
+ *   提供方的失败，不记在这里。
  *
  * 调用方的中止信号与超时合成为一个信号交给提供方：谁先到都中止它，调用方拿到的原因按先到的那个算。
  */
 import type { WidgetBoardFeature, WidgetProviderHealth } from '@dsh-widget-board/contracts'
+import { Refusal } from './refusal'
 
 /** 读取与动作的默认超时。 */
 export const PROVIDER_TIMEOUT_MS = 15_000
@@ -230,7 +232,8 @@ export function createProviderHealth(options: ProviderHealthOptions = {}): Provi
       try {
         return await Promise.race([workPromise, failedCall])
       } catch (error) {
-        // 执行器自己造的那一个拒绝只算超时；提供方抛出来的异常记一次失败，两者不叠加。
+        // 执行器自己造的那一个拒绝只算超时；宿主自己的拒绝不算提供方的失败；提供方抛出来的异常记一次
+        // 失败。三者不叠加。
         if (error instanceof ProviderCallError && error === failure) {
           if (error.code === 'provider-timeout') {
             record.timeouts += 1
@@ -239,6 +242,7 @@ export function createProviderHealth(options: ProviderHealthOptions = {}): Provi
           }
           throw error
         }
+        if (error instanceof Refusal) throw error
         record.failures += 1
         record.lastError = `provider-failure：${call.label} 失败：${error instanceof Error ? error.message : String(error)}`
         changed()

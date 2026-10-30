@@ -25,7 +25,7 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`widget_show\`：在回答里内联显示一个组件。
 - \`widget_board\`：读看板上的卡片，拿到卡片 id。
 
-换数据源之后卡片只读一次，不会持续订阅；要持续刷新就在 manifest 里声明 \`refresh\`。
+换数据源之后卡片按那个源自己的方式取数据：提供方给它声明了 \`subscribe\` 的源，在卡片可见时持续推；其余按 manifest 的 \`refresh\`，省略时只在人按刷新或工具读时读一次。卡片离开视口就不再有数据，回来时重新开始。
 
 \`widget_catalog\` 的 \`expose\` 参数仍然接受，但它只是记账：工具表不会因为点名而改变（会话中途改工具表会让前缀缓存整体作废，代价是整段提示重新计费）。
 
@@ -75,9 +75,10 @@ export const WIDGET_AUTHORING_GUIDE = `# 写一个看板组件
 - \`source\` 是默认数据源的名字；要别人装的插件提供，写 \`提供方:名字\`。
 - \`credentials\` 声明组件要用的凭据：\`ref\` 是环境变量名，\`label\` 与 \`description\` 显示在设置弹窗里。**密钥只放这里，不写进 props 或 state**；值由宿主的凭据服务保存，组件读不到它。
 - \`source\` 写 \`"http"\` 时，再用 \`request\` 给出宿主代发的请求。\`url\` 与 \`body\` 里的 \`{名字}\` 在每次读取时换成卡片 props 里的同名值，没有时换成 props schema 给这个属性写的 \`default\`；\`method\` 省略时是 \`GET\`，\`headers\` 与 \`body\` 随请求一起发出去。\`auth\` 写 \`{ credential, scheme }\`，\`scheme\` 是 \`bearer\`、\`basic\` 或 \`header\`，写 \`header\` 时另用 \`header\` 指出请求头的名字；\`credential\` 必须是 \`credentials\` 里声明过的一项，值由宿主拼进请求头，组件读不到。主机必须列在 \`permissions.hosts\` 里。返回的 JSON 原样作为 \`data\` 交给组件，解析与映射由组件自己的脚本做。\`request.cacheMs\` 可选：给了就让宿主按这个毫秒数缓存同一个地址的响应。每次请求都记进卡片设置的日志，凭据不在里面。
-- \`refresh\`：刷新策略，省略时按需；\`{"mode": "interval", "everyMs": 5000}\` 让卡片在看着的时候按间隔读，\`everyMs\` 不小于 1000。
+- \`refresh\`：刷新策略，省略时按需；\`{"mode": "interval", "everyMs": 5000}\` 让卡片在看着的时候按间隔读，\`everyMs\` 不小于 1000。数据源声明了 \`subscribe\` 时不走这一条，按订阅推。
+- \`sources\`：额外允许读的数据源名（字符串数组）。默认源 \`source\` 总可读；组件要用 \`widget-board:data.read\` 按需读别的源时把它列在这里，没列的在读取之前就被拒绝。
 - \`actions\` 里写插件动作的全名。**没有声明的动作一律被拒绝**；要权限的动作还要有人在卡片上给出授权之后才跑得起来。
-- \`capabilities\` 里写宿主能力的全名（例如 \`dsh.account.balance\`）。**没有声明的调用一律被拒绝**；能力的参数与返回值按提供方声明的 JSON Schema 校验，要权限的能力同样先要一份授权。读当前登录的 DSH 账号余额就用 \`dsh.account.balance\`，不需要 API key；读某个 GitHub 账号创建的 issue 用 \`github.issues\`，它按卡片上配的 \`GITHUB_TOKEN\` 认账号。
+- \`capabilities\` 里写宿主能力的全名（例如 \`dsh.account.balance\`）。**没有声明的调用一律被拒绝**；能力的参数与返回值按提供方声明的 JSON Schema 校验，要权限的能力同样先要一份授权。调用时参数可以整个省略：声明了 input schema 的能力按一个空对象校验，没声明 schema 时提供方收到 \`undefined\`。读这张卡的数据源用 \`widget-board:data.read\`：不带参数读卡片绑定的那个，要读别的源先把名字写进 \`sources\`；读回来的数据不改写卡片。读当前登录的 DSH 账号余额就用 \`dsh.account.balance\`，不需要 API key；读某个 GitHub 账号创建的 issue 用 \`github.issues\`，它按卡片上配的 \`GITHUB_TOKEN\` 认账号。
 - 设置弹窗的配置一节按 \`props\` schema 出控件：字符串、数值、布尔与字符串枚举各出对应的输入，对象与数组只说明要用 JSON 工具写。只声明这张卡用得上的字段；字段的中英文名字与说明写进 \`text\` 的 \`props.<字段>.label\` 与 \`props.<字段>.hint\`；枚举字段的每个值再写一条 \`props.<字段>.<值>\`，选项里显示它，而不是 schema 里的原值。
 - 两个可选的 \`format\`：\`"city"\` 把字符串字段当城市名，控件旁边多一个「定位」按钮，保存时先把名字解析成坐标，\`fills\` 再把解析出的双语地名、纬度与经度写到它指出的 props 上（\`{"place": "place", "latitude": "latitude", "longitude": "longitude"}\`）；\`"hidden"\` 的字段不出控件，留给这类派生值，人不能直接改。
 - \`libs\`：\`marked\`、\`highlight\`、\`three\` 由宿主内联进这份文档，组件里直接用全局名（\`marked\`、\`hljs\`、\`THREE\`）；只有声明了的组件付这份体积。
@@ -102,6 +103,7 @@ widget.onPause(fn)      // 暂停状态变了；计时器与逐帧绘制在这�
 widget.action(id, payload)   // 发出 manifest 里声明过的动作
 widget.call(capability, args) // 调用 manifest 里声明过的宿主能力，返回 Promise
 widget.capabilities     // 声明过、宿主现在解析得到的能力名；先看它再决定要不要调
+widget.capabilityMetadata // 每一项能力的标题、说明、参数与结果 schema、权限，以及现在可不可用
 widget.open(url)        // 请宿主在新标签页打开一个网页（http 或 https）
 widget.t(key)           // manifest 的 text 里的一条文案，按当前语言
 widget.fit()            // 把内容高度报给宿主（内联显示时用）

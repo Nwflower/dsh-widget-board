@@ -5,6 +5,7 @@ const path = require('node:path')
 const { waitFor } = require('./road.cjs')
 const { openBoard } = require('./panel.cjs')
 const { captureAppearance } = require('./appearance.cjs')
+const { ensureFree } = require('./board.cjs')
 
 async function remindersPass(page, check, home) {
   const evidence = path.resolve(__dirname, '../../.debug/evidence/T08')
@@ -19,6 +20,7 @@ async function remindersPass(page, check, home) {
   const original = (await call('boards', undefined, 'GET')).active
   await page.clock.setFixedTime(new Date('2026-10-26T00:59:00Z'))
   const board = (await call('boards', { title: 'T08提醒验收' })).id
+  await ensureFree(page)
   const make = (id, changes = {}) => ({ id, title: `提醒验收${id}`, kind: 'deadline', category: '', status: 'todo', due: { kind: 'date', date: '2026-10-26', timeZone: 'Asia/Shanghai' }, source: 'manual', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z', ...changes })
   const state = { schemaVersion: 1, items: [make('one'), make('two')], links: [], customCategories: [], reminderLedger: {} }
   const id = (await call(`boards/${board}/compose`, { widget: 'campus', props: { reminderEnabled: true, reminderLeadHours: 0 }, state, layout: { x: 0, y: 0, w: 1, h: 22 } })).id

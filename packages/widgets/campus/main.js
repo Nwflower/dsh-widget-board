@@ -14,10 +14,18 @@ let timer
 let pending
 let pendingTimer
 let mediaController
+let statusFeedback = ''
+let mediaFailure = ''
 const urls = []
 const reminders = widget ? createCampusReminders(widget, feedback) : undefined
 
-function feedback(message) { field('feedback').textContent = message; field('feedback').hidden = !message }
+function renderFeedback() {
+  const message = statusFeedback || mediaFailure
+  field('feedback').textContent = message
+  field('feedback').hidden = !message
+}
+function feedback(message) { statusFeedback = message; renderFeedback() }
+function mediaFeedback(message) { mediaFailure = message; renderFeedback() }
 function releaseMedia() {
   mediaController?.abort()
   for (const url of urls.splice(0)) URL.revokeObjectURL(url)
@@ -26,6 +34,7 @@ function releaseMedia() {
 async function loadMedia() {
   releaseMedia()
   if (!widget || widget.paused) return
+  mediaFeedback('')
   let props
   try { props = campusProps(widget.props) } catch (error) { feedback(error.message); return }
   const controller = new AbortController()
@@ -41,7 +50,7 @@ async function loadMedia() {
       image.src = url
       image.hidden = false
       if (name === 'icon') image.alt = props.customSchool.iconAlt || text('自定义学校图标', 'Custom school icon')
-    } catch (error) { if (!controller.signal.aborted) feedback(text('图片不可用，已使用默认图案', 'Image unavailable; showing the default pattern')) }
+    } catch (error) { if (!controller.signal.aborted) mediaFeedback(text('图片不可用，已使用默认图案', 'Image unavailable; showing the default pattern')) }
   }
 }
 function requestManage(section = 'items') { widget?.action('widget-board:edit-content', { section }) }

@@ -129,6 +129,10 @@ async function campusPass(page, check) {
     const customProps = { ...model.instance.props, schoolPreset: 'custom', customSchool: { name: '我的自定义学校', shortName: '我的学校', iconAlt: '我的学校图标' }, hasBackground: true, hasIcon: true }
     await save(instance.id, { props: customProps })
     check('自定义学校和不可用媒体保持可管理', await waitFor(async () => (await frame.locator('[data-field="school"]').innerText()) === '我的自定义学校' && /不可用|unavailable/.test(await frame.locator('[data-field="feedback"]').innerText()), 10000))
+    const missingMediaState = (await content(instance.id)).instance.state
+    await save(instance.id, { state: { ...missingMediaState, customCategories: ['回归分类'] } })
+    await frame.waitForFunction(() => window.widget.state.customCategories.includes('回归分类'))
+    check('普通状态更新保留缺失媒体提示', await waitFor(async () => /不可用|unavailable/.test(await frame.locator('[data-field="feedback"]').innerText()), 10000))
     const state = (await content(instance.id)).instance.state
     const items = Array.from({ length: 100 }, (_, index) => ({ ...state.items[0], id: `item-${index}`, status: 'todo', kind: index < 2 ? 'milestone' : 'deadline', title: `事项 ${index} ${'长标题'.repeat(15)}` }))
     const hundred = await save(instance.id, { state: { ...state, items } })

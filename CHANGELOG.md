@@ -36,6 +36,7 @@
 - 创建卡片与编辑内容弹窗补齐间距令牌，恢复表单、模板和预览的留白；输入控件统一使用宿主字体与正文行距。
 - 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
 - 看板管理菜单恢复操作焦点，动效使用统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留期望宽度。组件通过既有端口确认初始化，零高度正文不再超时重载。可选能力调用预检提供方，正式调用继续核对授权。运行成本和今日运势缩略图在矮盒中保留主要内容。市场组件安装串行检查冲突，目录与来源记录失败时恢复；损坏来源表保留原文件。看板备份可在全新目录恢复市场组件，保持原始哈希和只读来源。已安装市场组件在没有提供方时仍可从组件库添加。完整发送请求后断连会中止提供方调用，取消的读取不写回看板。
+- 校园卡缺失图片时保留默认图案和不可用提示；普通事项状态更新不会清空仍然有效的媒体错误。保存提示仍优先显示，保存结束后恢复媒体提示。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -65,6 +66,7 @@
 - Restore spacing tokens in the card composer and content editor so forms, templates and previews retain their padding and gaps; use the host font and consistent body line height for inputs.
 - A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
 - Board management restores action focus and uses shared motion timing. Aligned dragging within the same cell preserves order, and narrow vertical resizing retains the wanted width. Widgets acknowledge initialization through the existing port so zero-height documents do not reload. Optional capability calls check provider availability while host authorization remains mandatory. Short usage and fortune previews retain their primary content. Market installs serialize conflict checks and restore directories and provenance on failure, preserving malformed provenance files. Board backups restore market widgets into fresh homes with their original hashes and read-only source. Installed market widgets remain available to add without a provider. Disconnecting after a complete request aborts provider calls, and cancelled reads do not write back to the board.
+- Campus cards retain the default pattern and unavailable-image message when media is missing. Ordinary item state updates no longer clear an active media error. Save status takes priority and the media message returns when saving finishes.
 
 ## [0.1.6] - 2026-10-26
 

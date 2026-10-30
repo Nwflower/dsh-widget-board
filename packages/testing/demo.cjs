@@ -169,9 +169,29 @@ async function languagePass(page) {
 
 /** 演示宿主不提供的能力：拒绝里写明原因，数据不伪造。 */
 async function unsupportedPass(page, errors) {
-  // 这两个探针故意发出会被拒绝的请求，浏览器会把 501 与 409 记成控制台错误；它们不算页面的错误。
-  const expected = errors.length
   const id = await instanceOf(page, '番茄钟')
+  const supported = await page.evaluate(async cardId => {
+    const log = await fetch(`api/widget-board/instance/${cardId}/log`)
+    const visibility = await fetch('api/widget-board/visibility', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ viewer: 'demo-check', visible: [cardId] }),
+    })
+    return { log: { status: log.status, body: await log.json() }, visibility: { status: visibility.status, body: await visibility.json() } }
+  }, id)
+  check('已有卡片返回空请求日志及条数上限', supported.log.status === 200 && Array.isArray(supported.log.body.entries) && supported.log.body.entries.length === 0 && supported.log.body.limit > 0, JSON.stringify(supported.log))
+  check('演示页校验可见性上报但不启动数据调度', supported.visibility.status === 200 && supported.visibility.body.ok === true && supported.visibility.body.accepted === false, JSON.stringify(supported.visibility))
+  // 以下探针故意发出会被拒绝的请求；它们的控制台错误在断言后清除。
+  const expected = errors.length
+  const refused = await page.evaluate(async () => {
+    const log = await fetch('api/widget-board/instance/demo-missing/log')
+    const visibility = await fetch('api/widget-board/visibility', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ viewer: '', visible: [] }),
+    })
+    return { log: log.status, visibility: visibility.status }
+  })
+  check('未知卡片的请求日志仍返回 404', refused.log === 404, String(refused.log))
+  check('不合规的可见性上报返回 400', refused.visibility === 400, String(refused.visibility))
   const read = await page.evaluate(async (cardId) => {
     const response = await fetch(`api/widget-board/instance/${cardId}/read`, { method: 'POST' })
     return { status: response.status, body: await response.json() }

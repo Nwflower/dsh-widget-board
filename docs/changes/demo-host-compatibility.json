@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 5,
+  "at": "2026-10-30",
+  "external": false,
+  "zh": "静态演示将需要真实宿主数据的热力图换成年度进度卡，保留原盒子；补齐经过校验的可见性上报与已有卡片的空请求日志读取，避免演示页构建失败和缺失路由错误。",
+  "en": "The static demo replaces the host-dependent heatmap with a year-progress card in the same box, validates visibility reports, and returns empty request logs for existing cards, avoiding build failures and missing-route errors."
+}

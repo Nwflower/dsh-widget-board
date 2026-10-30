@@ -7,6 +7,8 @@
  * 这几条判定是纯的：面板画按钮、宿主写目录都按它，两处不会给出不同的答案。
  */
 
+import type { WidgetSource } from '@dsh-widget-board/contracts'
+
 /** 组件 id 的形状：与 manifest 的 schema 与写入服务一致。 */
 const ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 
@@ -20,7 +22,7 @@ const ID_LIMIT = 39
  * @param source - 原组件的来源。
  * @returns 就地改时是原 id；只读源另存时是一个新的用户组件 id。
  */
-export function suggestedIdOf(id: string, source: 'builtin' | 'user' | 'plugin'): string {
+export function suggestedIdOf(id: string, source: WidgetSource): string {
   void source
   // 目录名要与 manifest 的 id 一致（C4）；`user-` 前缀说明它是从别处复制来的。
   const slug = id

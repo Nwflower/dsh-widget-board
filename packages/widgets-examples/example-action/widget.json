@@ -1,0 +1,11 @@
+{
+  "id": "example-action",
+  "title": { "zh": "示例：动作", "en": "Example: action" },
+  "description": { "zh": "演示 manifest 里声明动作、用 widget.action 发出动作，以及失败原因由宿主写回卡片。", "en": "Demonstrates declaring actions in the manifest, emitting them with widget.action, and host-reported failure reasons." },
+  "version": "1.0.0",
+  "sizes": ["s", "m"],
+  "actions": [{ "id": "example.ping", "label": { "zh": "发一次", "en": "Ping" } }],
+  "text": {
+    "sent": { "zh": "已发出", "en": "Sent" }
+  }
+}

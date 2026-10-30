@@ -117,7 +117,7 @@ describe('合并通知', () => {
     expect(needsSnapshot({ revision: 2, event: { type: 'active', board: 'second-board' } })).toBe(false)
   })
 
-  it('排列通知只换那一块看板的修订号与偏好，卡片不动（D30）', () => {
+  it('排列通知只换那一块看板的修订号与偏好，卡片不动（D32）', () => {
     const before = workspace()
     const arrangement: Arrangement = { mode: 'aligned', aligned: { order: ['second', 'first'], boxes: { second: { w: 1, h: 22 }, first: { w: 1, h: 22 } } } }
     const next = mergeEvent(before, { revision: 2, event: { type: 'arrangement', board: 'first-board', layoutRevision: 4, arrangement } })
@@ -127,7 +127,7 @@ describe('合并通知', () => {
     expect(next.boards[1]).toBe(before.boards[1])
   })
 
-  it('排列提交的答复与排列通知走同一条合并（D30）', () => {
+  it('排列提交的答复与排列通知走同一条合并（D32）', () => {
     const before = workspace()
     const arrangement: Arrangement = { mode: 'free' }
     const next = mergeArrangement(before, 'second-board', 5, arrangement)

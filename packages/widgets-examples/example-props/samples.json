@@ -1,0 +1,12 @@
+{
+  "s": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "props": { "label": "样例", "count": 3, "tone": "ok" }
+  },
+  "m": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "props": { "label": "样例", "count": 5, "tone": "warn" }
+  }
+}

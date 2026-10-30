@@ -282,6 +282,7 @@ export function CardSurface({
         data: data ?? null,
         state: state ?? null,
         text,
+        ...(widget.availableCapabilities === undefined ? {} : { capabilities: widget.availableCapabilities }),
       })
       if (pausedRef.current) send({ type: 'pause' })
     }

@@ -34,6 +34,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/demo.mjs --out _site
+      # 组件市场原型（D30）：索引、浏览页与两个示例包放在同一站点的 market/ 子路径下。
+      - run: node scripts/market.mjs --out _site/market
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

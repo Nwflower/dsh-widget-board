@@ -1,17 +1,20 @@
 /**
- * 分享与导入的四条路由（D8）。
+ * 分享、导入与市场的路由（D8）。
  *
  * - `GET /library/widget/<id>/export`：把一个组件打成 `.dshw` 下载。
  * - `POST /library/import`：读一个 `.dshw`，校验、写进用户目录、重读组件库。
+ * - `GET /library/market/refresh`：重读全部市场提供方的条目。
+ * - `POST /library/market/install`：按市场条目装一个版本，核对哈希与大小、解包校验、写进市场来源目录。
  * - `GET /board/export[?data=true]`：把看板打成 `.dshboard` 下载，用到的组件按哈希内嵌。
  * - `POST /board/import`：读一个 `.dshboard`，把组件装进来、把卡片放上看板。
  *
  * 同 id 不同内容的导入不静默覆盖：先回 409 并带上两边的哈希，调用方带 `replace=true` 再来一次才会
  * 覆盖。内置与插件提供的组件不允许被覆盖——它们不落在用户目录里（D17）。
  */
-import type { WidgetLibraryEntry } from '@dsh-widget-board/contracts'
+import { createHash } from 'node:crypto'
+import type { WidgetLibraryEntry, WidgetManifest, WidgetPermissions } from '@dsh-widget-board/contracts'
 import { readBody } from './body'
-import { contentHash } from './library'
+import { contentHash, manifestProblem, requiresMismatch } from './library'
 import type { WidgetRecord } from './library'
 import type { BoardPackageCard, BoardPackageWidget } from './package'
 import { PACKAGE_MAX_COMPRESSED_BYTES, packBoard, packWidget, unpackBoard, unpackWidget } from './package'
@@ -22,9 +25,13 @@ import { BOARD_PACKAGE_BYTES } from './package'
 import { boardFromPackage, exportedMedia, validateBoardPackage } from './media/board-package'
 import { mediaOf } from './media/routes'
 import { importTransaction } from './media/import-transaction'
+import { writeMarketWidget } from './market'
 
 /** 导入时最多读多少字节。 */
 const IMPORT_LIMIT = PACKAGE_MAX_COMPRESSED_BYTES
+
+/** 市场安装与刷新的请求体上限：只是一个 { provider, id, version }。 */
+const MARKET_BODY_LIMIT = 4096
 
 /**
  * 一个组件版本在包里的样子。
@@ -90,6 +97,113 @@ function entryOf(context: RouteContext, id: string, hash: string): WidgetLibrary
 }
 
 /**
+ * 市场安装（D8 之后的市场契约）：按提供方解析条目与版本，取包、核对哈希与大小、解包校验，
+ * 核对包内 manifest 与索引的 declares、requires，检查 id 冲突后写进市场来源目录，并记录来源。
+ *
+ * @param context - 路由上下文。
+ * @param body - 请求体：提供方、条目 id 与版本。
+ * @returns 装好的组件 id 与哈希。
+ * @throws {Refusal} 提供方、条目或版本不存在；哈希、大小或 manifest 不合格；id 冲突。
+ */
+async function marketInstall(context: RouteContext, body: unknown): Promise<{ id: string, hash: string }> {
+  const wanted = body as { provider?: unknown, id?: unknown, version?: unknown }
+  if (typeof wanted?.provider !== 'string' || typeof wanted.id !== 'string' || typeof wanted.version !== 'string') {
+    throw new Refusal(400, '安装请求要写明 provider、id 与 version')
+  }
+  const resolved = context.market.listing(wanted.provider, wanted.id)
+  if (resolved === undefined) throw new Refusal(404, `市场里没有 ${wanted.id}；提供方 ${wanted.provider} 可能没有加载`)
+  const summary = resolved.listing.versions.find((candidate) => candidate.version === wanted.version)
+  if (summary === undefined) {
+    throw new Refusal(404, `${wanted.id} 没有版本 ${wanted.version}；现有版本：${resolved.listing.versions.map((candidate) => candidate.version).join('、')}`)
+  }
+
+  // 取包并核对：哈希与大小不一致的包不解包（D3 的市场条目是不可信输入）。
+  const fetched: unknown = await resolved.registration.fetch(resolved.listing, wanted.version)
+  if (!(fetched instanceof Uint8Array)) {
+    throw new Refusal(400, `提供方 ${wanted.provider} 的 fetch 没有返回字节`)
+  }
+  const bytes = new Uint8Array(fetched)
+  if (bytes.byteLength !== summary.package.bytes) {
+    throw new Refusal(400, `包的大小是 ${bytes.byteLength} 字节，索引声明的是 ${summary.package.bytes} 字节`)
+  }
+  const digest = createHash('sha256').update(bytes).digest('hex')
+  if (digest !== summary.package.sha256) throw new Refusal(400, '包的 sha256 与索引声明的不一致')
+  let unpacked
+  try {
+    unpacked = unpackWidget(bytes)
+  } catch (error) {
+    throw new Refusal(400, (error as Error).message)
+  }
+  if (unpacked.manifest.id !== wanted.id) {
+    throw new Refusal(400, `包里的组件 id 是 ${unpacked.manifest.id}，条目声明的是 ${wanted.id}`)
+  }
+
+  // 包内的 manifest 按组件库同一条规则校验（D3、D7）：市场条目是不可信输入，版本要求在写盘之前判，
+  // 不合格的包一个字节都不落进组件库。
+  const manifestIssue = manifestProblem(unpacked.manifest)
+  if (manifestIssue !== undefined) throw new Refusal(400, `包里的 widget.json：${manifestIssue}`)
+
+  // 安装前摘要与包内声明要一致（D6、D24、D30）：索引里写的权限、凭据与版本要求是给人看的，包里的
+  // 才是真的。
+  const declaresProblem = declaresMismatch(summary.declares, unpacked.manifest)
+  if (declaresProblem !== undefined) throw new Refusal(400, declaresProblem)
+  const requiresProblem = requiresMismatch(summary.requires, unpacked.manifest.requires)
+  if (requiresProblem !== undefined) throw new Refusal(400, `${requiresProblem}，拒绝安装`)
+
+  // id 冲突：内置、我的、插件与示例来源一律拒绝；市场来源里同 id 不同包要明确的 replace。
+  const replace = (wanted as { replace?: unknown }).replace === true
+  const hash = contentHash(new Map(unpacked.files.map((file) => [file.path, Buffer.from(file.content)])))
+  const existing = context.records.get(unpacked.manifest.id)
+  if (existing !== undefined && existing.source !== 'market') {
+    throw new Refusal(409, `${unpacked.manifest.id} 已经由${existing.source === 'builtin' ? '内置' : existing.source === 'user' ? '用户目录' : existing.source === 'example' ? '示例' : `插件 ${existing.provider ?? ''}`}提供，市场不能覆盖；换一个 id`, {
+      code: 'widget-conflict',
+      id: unpacked.manifest.id,
+      current: existing.hash,
+      incoming: hash,
+    })
+  }
+  if (existing !== undefined && existing.hash !== hash && !replace) {
+    throw new Refusal(409, `${unpacked.manifest.id} 已经装过别的内容；带上 replace=true 才会换掉`, {
+      code: 'widget-conflict',
+      id: unpacked.manifest.id,
+      current: existing.hash,
+      incoming: hash,
+    })
+  }
+
+  await writeMarketWidget(context, unpacked.manifest.id, unpacked.files, { ...(existing ? { expectedHash: existing.hash } : {}), provenance: {
+    provider: wanted.provider,
+    listingId: wanted.id,
+    version: wanted.version,
+    sha256: summary.package.sha256,
+    installedAt: new Date().toISOString(),
+  } })
+  return { id: unpacked.manifest.id, hash }
+}
+
+/**
+ * 索引声明的权限与凭据和包内 manifest 对不对得上。
+ *
+ * @param declares - 索引里的摘要。
+ * @param manifest - 包内的 manifest。
+ * @returns 不一致时的原因；一致时为 `undefined`。
+ */
+function declaresMismatch(declares: { capabilities?: string[], credentials?: string[], hosts?: string[] } | undefined, manifest: WidgetManifest): string | undefined {
+  if (declares === undefined) return undefined
+  const sets: [string, readonly string[] | undefined, readonly string[]][] = [
+    ['能力', declares.capabilities, manifest.capabilities ?? []],
+    ['凭据', declares.credentials, (manifest.credentials ?? []).map((credential) => credential.ref)],
+    ['主机', declares.hosts, (manifest.permissions as WidgetPermissions | undefined)?.hosts ?? []],
+  ]
+  for (const [kind, declared, actual] of sets) {
+    if (declared === undefined) continue
+    const missing = declared.filter((item) => !actual.includes(item))
+    if (missing.length > 0) return `索引声明的${kind} ${missing.join('、')} 不在包内的 manifest 里，两边对不上，拒绝安装`
+  }
+  return undefined
+}
+
+/**
  * 分享与导入的路由。
  *
  * @param context - 路由上下文。
@@ -97,6 +211,38 @@ function entryOf(context: RouteContext, id: string, hash: string): WidgetLibrary
  */
 export function shareRoutes(context: RouteContext): Route[] {
   return [
+    {
+      method: 'GET',
+      pattern: /^\/library\/market\/refresh$/,
+      limit: 0,
+      async handle(routes, _request, response) {
+        // 重读全部提供方的条目；一个失败只进它那一节的错误，别的不受影响（D11）。
+        for (const section of routes.market.sections()) {
+          await routes.market.refresh(section.provider)
+        }
+        routes.live.notify({ type: 'board' })
+        response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+        response.end(JSON.stringify({ ok: true, sections: routes.market.sections() }))
+      },
+    },
+    {
+      method: 'POST',
+      pattern: /^\/library\/market\/install$/,
+      limit: MARKET_BODY_LIMIT,
+      async handle(routes, request, response) {
+        const text = (await readBody(request, MARKET_BODY_LIMIT)).toString('utf8')
+        let body: unknown
+        try {
+          body = JSON.parse(text === '' ? '{}' : text)
+        } catch {
+          throw new Refusal(400, '安装请求不是合法的 JSON')
+        }
+        const installed = await marketInstall(routes, body)
+        routes.live.notify({ type: 'board' })
+        response.writeHead(201, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+        response.end(JSON.stringify({ ok: true, entry: entryOf(routes, installed.id, installed.hash) }))
+      },
+    },
     {
       method: 'GET',
       pattern: /^\/library\/widget\/([^/]+)\/export$/,
@@ -211,7 +357,11 @@ export function shareRoutes(context: RouteContext): Route[] {
           }
         }
         const installAndCreate = async () => {
-          return await importTransaction(routes, unpacked.widgets, install, async installed => {
+          return await importTransaction(routes, unpacked.widgets, async (context, id, files, expectedHash, onSwapped) => {
+            if (id.includes('.')) {
+              await writeMarketWidget(context, id, files, { ...(expectedHash ? { expectedHash } : {}), ...(onSwapped ? { onInstalled: onSwapped } : {}) })
+            } else await install(context, id, files, expectedHash, onSwapped)
+          }, async installed => {
             const board = await routes.workspace.create(unpacked.title, current => boardFromPackage(current, unpacked, routes.records))
             return { installed, board }
           })

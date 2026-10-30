@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 3,
+  "external": true,
+  "at": "2026-10-27",
+  "zh": "新增一组给 agent 的示例组件：`example-basic`（最小目录）、`example-props`（props 与设置弹窗）、`example-data`（data schema 与空态）、`example-state`（setState 与暂停恢复）、`example-action`（动作与失败原因）、`example-size`（盒子契约）、`example-asset`（资源引用）。它们在组件库的「示例」区，`widget_catalog` 按 `source: \"example\"` 列出并给出目录路径；widget-authoring 技能里有「想学什么 → 看哪个示例」的对照表。",
+  "en": "A set of authoring examples for agents: example-basic (minimal directory), example-props (props and the settings dialog), example-data (data schema and empty state), example-state (setState and pause/resume), example-action (actions and failure reasons), example-size (the box contract), and example-asset (asset references). They live in the library's Examples section; widget_catalog lists them under source \"example\" with their directory paths, and the widget-authoring skill maps each authoring question to the example that answers it."
+}

@@ -1,0 +1,23 @@
+{
+  "s": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "label": "甲", "value": 12 },
+        { "label": "乙", "value": 34 }
+      ]
+    }
+  },
+  "m": {
+    "lang": "zh-CN",
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "label": "甲", "value": 12 },
+        { "label": "乙", "value": 34 },
+        { "label": "丙", "value": 56 }
+      ]
+    }
+  }
+}

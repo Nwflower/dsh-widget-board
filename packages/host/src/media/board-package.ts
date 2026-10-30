@@ -29,7 +29,8 @@ export function packageRecord(widget: BoardPackageWidget): WidgetRecord {
   const manifest = files.get('widget.json')
   if (!manifest || JSON.stringify(JSON.parse(manifest.toString('utf8'))) !== JSON.stringify(widget.manifest)) throw new Refusal(400, '包内 manifest 与文件不一致')
   for (const file of ['index.html', 'style.css']) if (!files.has(file)) throw new Refusal(400, `组件缺少 ${file}`)
-  return { manifest: widget.manifest, files, hash: widget.hash, dir: '', source: 'user' }
+  // 旧格式没有来源字段；作者域只属于市场，备份不能自行声明可写权限（D30）。
+  return { manifest: widget.manifest, files, hash: widget.hash, dir: '', source: widget.manifest.id.includes('.') ? 'market' : 'user' }
 }
 
 export async function validateBoardPackage(context: RouteContext, pkg: BoardPackage): Promise<{ records: Map<string, WidgetRecord>, resources: Map<string, Buffer> }> {

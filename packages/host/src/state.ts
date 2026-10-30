@@ -19,7 +19,7 @@ import { isRecord } from './guards'
 import type { WidgetRecord } from './library'
 
 /**
- * 存储格式的版本：2 把固定的题头换成了 `board-hero` 卡片；3 增加排列偏好与整齐顺序（D30）。
+ * 存储格式的版本：2 把固定的题头换成了 `board-hero` 卡片；3 增加排列偏好与整齐顺序（D32）。
  */
 export const BOARD_FORMAT = 3
 
@@ -99,7 +99,7 @@ export function instanceOf(
  * 一块空看板。
  *
  * @param title - 标题。
- * @returns 没有卡片、用整齐行列排法的新看板（D30）。
+ * @returns 没有卡片、用整齐行列排法的新看板（D32）。
  */
 export function emptyBoard(title: string): Board {
   return {
@@ -202,7 +202,7 @@ function isUnitId(value: unknown): value is string {
 }
 
 /**
- * 一份排列偏好合不合法：模式认得，整齐模式带一份形状正确的顺序与盒子表（D30）。
+ * 一份排列偏好合不合法：模式认得，整齐模式带一份形状正确的顺序与盒子表（D32）。
  *
  * 顺序里不重复、不留空项，盒子表与顺序的键集合一致，每份盒子是 1—4 列的整数与合法高度档。
  *
@@ -232,7 +232,7 @@ export function isArrangement(value: unknown): value is Arrangement {
 }
 
 /**
- * 一块看板上的排列单元：普通实例按自己的 id，翻面组按正面那张实例的 id（D30）。
+ * 一块看板上的排列单元：普通实例按自己的 id，翻面组按正面那张实例的 id（D32）。
  *
  * @param board - 看板。
  * @returns 排列单元 id，按实例顺序、每组只算一格。
@@ -255,7 +255,7 @@ export function arrangementUnitsOf(board: Board): string[] {
 }
 
 /**
- * 把一块看板的排列偏好收进当前看板：清掉指向已不存在的单元的悬空引用（D30）。
+ * 把一块看板的排列偏好收进当前看板：清掉指向已不存在的单元的悬空引用（D32）。
  *
  * 形状本身不对的那一份不在这里修补——版本 3 的看板读到不合法的排列偏好属于损坏数据，由
  * `readBoard` 报错并保留原文件；这里只处理「形状对、但引用已经过时」的常态。
@@ -301,7 +301,7 @@ function isAlignedBox(value: unknown): value is AlignedBox {
  * 读一块看板；旧格式在这一步补齐。
  *
  * 版本 1 的看板升级时把原来的固定题头补成一张 `board-hero` 卡；版本 2 的看板补一份 `free` 排列
- * 偏好，原实例 `layout` 不动（D30）；盒子缺失或形状不对的卡片按最矮的一列补上默认位置，并把盒子
+ * 偏好，原实例 `layout` 不动（D32）；盒子缺失或形状不对的卡片按最矮的一列补上默认位置，并把盒子
  * 抬到组件的最小盒子。补过的那一份写回磁盘。
  *
  * @param file - 这一块看板的文件。
@@ -315,7 +315,7 @@ export async function readBoard(file: string, records: Map<string, WidgetRecord>
     throw new Error(`${file} 的格式版本是 ${String(parsed.version)}，这个宿主只认 1、2 或 ${BOARD_FORMAT}；原文件保留`)
   }
   const upgraded = parsed.version === 1 ? upgradeV1(parsed, records) : { ...parsed, version: BOARD_FORMAT }
-  // 版本 3 才自带排列偏好：更早的看板读成 free，原实例 layout 不动（D30）。版本 3 缺少合法的一份
+  // 版本 3 才自带排列偏好：更早的看板读成 free，原实例 layout 不动（D32）。版本 3 缺少合法的一份
   // 属于损坏数据，报错并保留原文件，不替它重建一份新的顺序。
   let board = upgraded
   if (parsed.version !== BOARD_FORMAT) {
@@ -327,7 +327,7 @@ export async function readBoard(file: string, records: Map<string, WidgetRecord>
   const sourced = withDefaultSources(filled.board, records)
   const arranged = withArrangement(sourced.board)
   const changed = parsed.version !== BOARD_FORMAT || filled.changed || sourced.changed || arranged.changed
-  if (changed) await writeBoard(file, arranged.board)
+  if (changed && parsed.version !== 2) await writeBoard(file, arranged.board)
   return arranged.board
 }
 
@@ -607,7 +607,7 @@ export function withGroupSlotReplaced(
 }
 
 /**
- * 一块看板的排列偏好里接上或去掉一个排列单元（D30）。
+ * 一块看板的排列偏好里接上或去掉一个排列单元（D32）。
  *
  * 加卡片、加组、移除卡片与移除整组都走这一条：整齐模式的顺序与盒子表跟着实例一起变，不留指向
  * 已经不在看板上的单元的悬空引用。自由模式只把卡片留在原坐标上，不动偏好。
@@ -650,7 +650,7 @@ export function arrangementUnitOf(board: Board, instance: BoardInstance): string
 }
 
 /**
- * 组的排列单元：加完一组之后接进整齐偏好的那一份（D30）。
+ * 组的排列单元：加完一组之后接进整齐偏好的那一份（D32）。
  *
  * 组在偏好里占一格，单元 id 是正面实例的 id，盒子取组的落点盒子。真实宿主与演示宿主的加组路由
  * 都走这一条，两边不会算出不同的单元。
@@ -665,7 +665,7 @@ export function groupUnitOf(added: Board, groupId: string): { id: string, box: A
 }
 
 /**
- * 把一次排列偏好的提交写进看板（D30）：模式、整齐顺序与期望宽高一起换。
+ * 把一次排列偏好的提交写进看板（D32）：模式、整齐顺序与期望宽高一起换。
  *
  * 不合法的提交整体拒绝，不留下半份新偏好。盒子先收进合法列数与高度档。
  *

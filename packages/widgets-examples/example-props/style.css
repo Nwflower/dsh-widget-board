@@ -1,0 +1,52 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.example-props {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: var(--w-space-md);
+  padding: var(--w-space-md);
+  overflow: hidden;
+}
+
+.example-props .t-data__title {
+  margin: 0;
+}
+
+.example-props .t-data__meta {
+  margin: 0;
+}
+
+/* 窄盒子里收掉提示，只留标题与圆点。 */
+:host([data-box-width="narrow"]) .example-props .t-data__meta,
+:host([data-box-height="short"]) .example-props .t-data__meta {
+  display: none;
+}
+
+.example-props__dots {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--w-space-sm);
+}
+
+.example-props__dot {
+  width: var(--w-space-md);
+  height: var(--w-space-md);
+  border-radius: 50%;
+}
+
+.example-props__dots[data-tone="ok"] .example-props__dot {
+  background: var(--w-tone-ok);
+}
+
+.example-props__dots[data-tone="warn"] .example-props__dot {
+  background: var(--w-tone-warn);
+}
+
+.example-props__dots[data-tone="danger"] .example-props__dot {
+  background: var(--w-tone-danger);
+}

@@ -6,6 +6,7 @@ import type { BoardPackageWidget, PackageFile } from '../package'
 import type { RouteContext } from '../routes'
 import { contentHash, readWidget, writeTree, type WidgetRecord } from '../library'
 import { userRootOf, withUserWidgetWrite } from '../widget-write/write'
+import { removeRestoredMarketWidget } from '../market'
 
 type Install = (context: RouteContext, id: string, files: readonly PackageFile[], expectedHash?: string, onSwapped?: () => void) => Promise<void>
 
@@ -17,7 +18,7 @@ export async function importTransaction<T>(context: RouteContext, widgets: reado
       if (before?.hash === widget.hash) continue
       const files = Object.entries(widget.files).map(([path, value]) => ({ path, content: Buffer.from(value, 'base64') }))
       const canonical = new Map(files.map(file => [file.path, file.content]))
-      canonical.set('widget.json', Buffer.from(`${JSON.stringify(widget.manifest, null, 2)}\n`))
+      if (!widget.manifest.id.includes('.')) canonical.set('widget.json', Buffer.from(`${JSON.stringify(widget.manifest, null, 2)}\n`))
       let registered = false
       await install(context, widget.manifest.id, files, before?.hash, () => {
         if (!registered) changed.push({ id: widget.manifest.id, before, hash: contentHash(canonical) })
@@ -29,6 +30,10 @@ export async function importTransaction<T>(context: RouteContext, widgets: reado
     return await commit(changed.length)
   } catch (error) {
     for (const entry of changed.reverse()) {
+      if (entry.id.includes('.')) {
+        await removeRestoredMarketWidget(context, entry.id, entry.hash)
+        continue
+      }
       await withUserWidgetWrite(context.roots, async () => {
         const sourceRoot = await realpath(userRootOf(context.roots).dir)
         const directory = resolve(sourceRoot, entry.id)

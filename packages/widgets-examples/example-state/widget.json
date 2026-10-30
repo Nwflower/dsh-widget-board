@@ -1,0 +1,7 @@
+{
+  "id": "example-state",
+  "title": { "zh": "示例：状态", "en": "Example: state" },
+  "description": { "zh": "演示 widget.setState 与 widget.onState，以及暂停与恢复的处理。", "en": "Demonstrates widget.setState and widget.onState, plus pause and resume handling." },
+  "version": "1.0.0",
+  "sizes": ["s", "m"]
+}

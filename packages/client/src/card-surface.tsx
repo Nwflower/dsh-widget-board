@@ -12,6 +12,8 @@ import { NativeBoundary } from './native-boundary'
 import { CARD_CLIP } from './card-shell'
 import { createStateQueue } from './state-queue'
 import { clientCapabilityOf } from './capabilities'
+import type { CapabilityFace } from './capability-face'
+import { capabilityFaceOf } from './capability-face'
 import { openInNewTab } from './open-url'
 
 /** 卡片这么久没有收到组件的任何一条消息，就重新连一次（D11）。 */
@@ -54,6 +56,8 @@ interface InitFace {
   data: unknown
   state: unknown
   text: Record<string, { zh: string, en: string }>
+  /** 这张卡的能力面；原生组件的参数用的是同一份（D32）。 */
+  face: CapabilityFace
 }
 
 /**
@@ -112,8 +116,10 @@ export function CardSurface({
   detachedRef.current = inline?.detached === true
   const onHeightRef = useRef(onHeight)
   onHeightRef.current = onHeight
-  const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} })
-  initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {} }
+  // 沙箱 init 与原生组件的参数发的是同一份能力面（D32）；握手时取的是当下的那一份。
+  const face = capabilityFaceOf(widget)
+  const initRef = useRef<InitFace>({ props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {}, face })
+  initRef.current = { props: instance.props, data: instance.data, state: instance.state, text: widget.text ?? {}, face }
   const src = widgetDocumentPath(widget.hash, theme.lang)
   // 组件连续 setState 时由队列合并；暂停、页面隐藏与卸载时立即发送（D23）。
   const [queue] = useState(() => createStateQueue({
@@ -270,7 +276,7 @@ export function CardSurface({
       readyRef.current = true
       frame.contentWindow?.postMessage({ type: 'connect' }, '*', [channel.port2])
       held = frames.hold(port, { frame, paused: () => pausedRef.current })
-      const { props, data, state, text } = initRef.current
+      const { props, data, state, text, face: capabilityFace } = initRef.current
       const { tokens: themeTokens, lang, motion } = themeRef.current
       send({
         type: 'init',
@@ -282,7 +288,10 @@ export function CardSurface({
         data: data ?? null,
         state: state ?? null,
         text,
-        ...(widget.availableCapabilities === undefined ? {} : { capabilities: widget.availableCapabilities }),
+        ...(capabilityFace.capabilities === undefined ? {} : { capabilities: [...capabilityFace.capabilities] }),
+        ...(capabilityFace.capabilityMetadata === undefined
+          ? {}
+          : { capabilityMetadata: [...capabilityFace.capabilityMetadata] }),
       })
       if (pausedRef.current) send({ type: 'pause' })
     }
@@ -372,6 +381,9 @@ export function CardSurface({
                 data: instance.data ?? null,
                 state: instance.state ?? null,
                 paused,
+                lang: theme.lang,
+                ...(face.capabilities === undefined ? {} : { capabilities: face.capabilities }),
+                ...(face.capabilityMetadata === undefined ? {} : { capabilityMetadata: face.capabilityMetadata }),
                 setState: (patch: unknown) => { queue.push(patch) },
                 action: (id: string, payload?: unknown) => {
                   sendInstanceAction(instance.id, id, payload).then(() => { settleAction() }, settleAction)

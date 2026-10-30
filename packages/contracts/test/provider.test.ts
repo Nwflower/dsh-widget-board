@@ -13,7 +13,11 @@ import {
   sourceRegistration,
 } from '../src/provider'
 import type { ProviderIdentity } from '../src/provider'
+import type { DataSourceRegistration, InstanceFace } from '../src/service-types'
 import { WIDGET_BOARD_FEATURES, WIDGET_BOARD_PROVIDER_API_VERSION, WIDGET_BOARD_SUPPORTED_API_VERSIONS, requireFeatures, supportsFeature } from '../src/service'
+
+/** 一张用来读数据或订阅的卡片。 */
+const FACE: InstanceFace = { id: 'card', widget: 'demo:clock', props: { n: 0 } }
 
 describe('版本集合与功能清单', () => {
   it('旧入口接受 2 与 3', () => {
@@ -103,6 +107,43 @@ describe('提供方 SDK', () => {
   it('子注册少了行为就抛出', () => {
     expect(() => sourceRegistration({ id: 'broken' } as never)).toThrow(/必须是一个函数/)
     expect(() => actionRegistration({ id: '', run: () => 0 })).toThrow(/不能为空/)
+  })
+
+  it('数据源可以带订阅，退订同步做完清理', () => {
+    let pushes = 0
+    let stopped = false
+    const registration: DataSourceRegistration = {
+      apiVersion: 3,
+      provider: 'demo',
+      id: 'ticks',
+      read: () => 0,
+      subscribe(instance, emit) {
+        emit({ id: instance.id, n: (pushes += 1) })
+        // 退订必须同步做完：宿主不等一个 Promise 就换掉这张卡。
+        return () => { stopped = true }
+      },
+    }
+    const emitted: unknown[] = []
+    const stop = registration.subscribe!(FACE, (data) => { emitted.push(data) })
+    expect(emitted).toEqual([{ id: 'card', n: 1 }])
+    stop()
+    expect(stopped).toBe(true)
+  })
+
+  it('没有订阅函数的注册照旧通过，订阅原样带上', () => {
+    const subscribe = (instance: InstanceFace, emit: (data: unknown) => void): (() => void) => {
+      emit(instance.props)
+      return () => undefined
+    }
+    const plain = sourceRegistration({ id: 'clock', read: () => 1 })
+    const ticking = sourceRegistration({ id: 'ticks', read: () => 0, subscribe })
+    expect('subscribe' in plain).toBe(false)
+    expect(ticking.subscribe).toBe(subscribe)
+    expect(Object.isFrozen(ticking)).toBe(true)
+  })
+
+  it('订阅不是函数时抛出', () => {
+    expect(() => sourceRegistration({ id: 'ticks', read: () => 0, subscribe: 'no' } as never)).toThrow(/必须是一个函数/)
   })
 
   it('能力的参数与结果的 schema 原样带上', () => {

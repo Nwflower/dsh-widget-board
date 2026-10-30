@@ -6,7 +6,7 @@
  */
 import type { InspectionResult } from './inspect'
 import { isInspectionReport } from './inspect'
-import type { WidgetFamily } from './widget'
+import type { LocalizedText, WidgetFamily, WidgetPermissions } from './widget'
 
 /** 组件出现在哪儿：看板上的卡片、会话正文、右侧栏、展开浮层与组件库里的缩略画面（D16）。 */
 export const WIDGET_PLACEMENTS = ['board', 'inline', 'rail', 'expanded', 'preview'] as const
@@ -99,6 +99,31 @@ export interface WidgetTheme {
   motion: MotionLevel
 }
 
+/**
+ * 一项宿主能力的元数据（D32）：握手时随 init 给一次，组件在调用之前就知道哪些能力现在能调。
+ *
+ * 可用项从能力注册项取完整信息；不可用项只留 manifest 声明的 id 与 `available: false`，其余字段
+ * 没有。来自注册项的每一项都按注册项可省略的样子写成可选，不填占位值。
+ */
+export interface CapabilityMetadata {
+  /** manifest 里声明的那个名字：`名字`，或点名提供方的 `提供方:名字`。 */
+  id: string
+  /** 提供方的包名。声明的名字没带提供方、宿主又解不出唯一的一个时省略这一项，不填占位字符串。 */
+  provider?: string
+  /** 给人看的名字；注册项没给时省略。 */
+  title?: LocalizedText
+  /** 一句说明；注册项没给时省略。 */
+  description?: LocalizedText
+  /** 参数的 JSON Schema；注册项不校验参数时省略。 */
+  input?: Record<string, unknown>
+  /** 返回值的 JSON Schema；注册项不校验结果时省略。 */
+  output?: Record<string, unknown>
+  /** 这个能力要的权限，与 manifest 的 `permissions` 同形（D6）；注册项没声明时省略。 */
+  permission?: WidgetPermissions
+  /** 宿主现在解析得到它：提供方在，名字也解得开。 */
+  available: boolean
+}
+
 /** 一条父页面发给组件的消息。 */
 export type ParentMessage =
   | ({
@@ -110,11 +135,17 @@ export type ParentMessage =
     /** manifest 里的文案，按语言取（D7）。 */
     text: Record<string, { zh: string, en: string }>
     /**
-     * 这张卡的 manifest 声明过、而宿主当前解析得到的能力（D24）。
+     * 这张卡的 manifest 声明过、而宿主当前解析得到的能力（D24），给照旧读字符串数组的旧运行时用。
      *
-     * 组件据此避开提供方不在的那些调用，不必先发一次注定失败的请求再回退。
+     * 带 `capabilityMetadata` 时它就是其中 `available` 为真的那些 id，两份不会说两套话（D32）。
      */
     capabilities?: string[]
+    /**
+     * 声明过的每一项能力的元数据（D32），按 manifest 的声明次序，现在不可用的那些也在里面。
+     *
+     * 只随 init 给一次：之后提供方撤下由一次 `call-error` 可见地反馈。省略表示这一侧没有投影能力面。
+     */
+    capabilityMetadata?: CapabilityMetadata[]
   } & WidgetTheme)
   | { type: 'size', size: WidgetSize }
   | { type: 'data', data: unknown }
@@ -195,10 +226,57 @@ export function isWidgetSize(value: unknown): value is WidgetSize {
     && (WIDGET_PLACEMENTS as readonly string[]).includes(placement as string)
 }
 
+/** 判断一段双语文案：两段都是非空字符串。 */
+function isLocalizedTextValue(value: unknown): value is LocalizedText {
+  return isRecord(value) && typeof value.zh === 'string' && value.zh !== ''
+    && typeof value.en === 'string' && value.en !== ''
+}
+
+/** 判断一段可选的双语文案。 */
+function isOptionalLocalizedText(value: unknown): boolean {
+  return value === undefined || isLocalizedTextValue(value)
+}
+
+/** 判断一个可选的 JSON Schema：只要求是对象。 */
+function isOptionalSchema(value: unknown): boolean {
+  return value === undefined || isRecord(value)
+}
+
+/** 判断一个可选的字符串数组：每一项都是非空字符串。 */
+function isOptionalTextList(value: unknown): boolean {
+  return value === undefined || (Array.isArray(value) && value.every((item) => typeof item === 'string' && item !== ''))
+}
+
+/** 判断一段可选的权限声明：只有 `hosts` 与 `commands` 两个字符串数组（D6）。 */
+function isOptionalPermission(value: unknown): boolean {
+  if (value === undefined) return true
+  return isRecord(value) && isOptionalTextList(value.hosts) && isOptionalTextList(value.commands)
+}
+
+/**
+ * 判断一项能力元数据（D32）。
+ *
+ * 每一项都按完整形状判：可用项带着注册项的标题、schema 与权限，不可用项只有 id 与
+ * `available: false`，所以缺 `available`、把 schema 写成字符串、`provider` 是空串都不认。
+ *
+ * @param value - 外来值。
+ * @returns 形状对时为真。
+ */
+export function isCapabilityMetadata(value: unknown): value is CapabilityMetadata {
+  if (!isRecord(value)) return false
+  const { id, provider, title, description, input, output, permission, available } = value
+  if (typeof id !== 'string' || id === '') return false
+  if (typeof available !== 'boolean') return false
+  if (provider !== undefined && (typeof provider !== 'string' || provider === '')) return false
+  return isOptionalLocalizedText(title) && isOptionalLocalizedText(description)
+    && isOptionalSchema(input) && isOptionalSchema(output) && isOptionalPermission(permission)
+}
+
 /**
  * 判断一条父页面的消息。
  *
- * 只认形状完整的消息：缺 tokens 的 `theme`、位移不是数字的 `size`，都当作没有发过。
+ * 只认形状完整的消息：缺 tokens 的 `theme`、位移不是数字的 `size`、能力名单或元数据坏掉的
+ * `init`，都当作没有发过。
  *
  * @param value - 外来值。
  * @returns 可以当 `ParentMessage` 用时为真。
@@ -212,6 +290,9 @@ export function isParentMessage(value: unknown): value is ParentMessage {
         && typeof value.lang === 'string'
         && (value.motion === 'full' || value.motion === 'reduced')
         && isRecord(value.text)
+        && isOptionalTextList(value.capabilities)
+        && (value.capabilityMetadata === undefined
+          || (Array.isArray(value.capabilityMetadata) && value.capabilityMetadata.every(isCapabilityMetadata)))
     case 'theme':
       return isRecord(value.tokens) && typeof value.lang === 'string'
         && (value.motion === 'full' || value.motion === 'reduced')

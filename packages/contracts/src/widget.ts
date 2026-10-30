@@ -107,6 +107,13 @@ export function isAuthorNamespacedWidgetId(id: string): boolean {
 }
 
 /**
+ * 数据源、动作与能力的名字形状（D6、D24、D32）：一段小写名字，或点明提供方的 `提供方:名字`。
+ *
+ * manifest 的 `source`、`sources`、`actions` 与 `capabilities` 都对着这一条正则校验，四处不再各写一份。
+ */
+export const REGISTRATION_NAME_PATTERN = '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$'
+
+/**
  * manifest 里声明的动作：组件按下时发出的名字（D6）。
  *
  * `id` 是看板自己的动作名，或者 `提供方:名字` 点名某个插件注册的动作。声明过的动作还要有人给出
@@ -264,6 +271,13 @@ export interface WidgetManifest {
   source?: string
   /** `source` 是 `"http"` 时，宿主代发的那次请求（D6）。 */
   request?: WidgetRequest
+  /**
+   * 除了默认 `source` 之外，这张卡还能读的数据源（D32）。
+   *
+   * 白名单：按需读一个不在其中的源一律拒绝，默认源总可读。名字规则与 `source` 相同，省略表示
+   * 没有额外源。
+   */
+  sources?: string[]
   actions?: WidgetAction[]
   /**
    * 这个组件会调用的宿主能力（D24）：每项是能力注册表里的名字，需要时写成 `提供方:名字`。
@@ -383,7 +397,13 @@ export const WIDGET_MANIFEST_SCHEMA = {
     sizes: { type: 'array', minItems: 1, uniqueItems: true, items: { enum: WIDGET_FAMILIES } },
     props: { type: 'object' },
     data: { type: 'object' },
-    source: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
+    source: { type: 'string', pattern: REGISTRATION_NAME_PATTERN },
+    sources: {
+      type: 'array',
+      maxItems: 8,
+      uniqueItems: true,
+      items: { type: 'string', pattern: REGISTRATION_NAME_PATTERN },
+    },
     credentials: {
       type: 'array',
       maxItems: 8,
@@ -432,7 +452,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
         additionalProperties: false,
         required: ['id'],
         properties: {
-          id: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
+          id: { type: 'string', pattern: REGISTRATION_NAME_PATTERN },
           label: { $ref: '#/$defs/text' },
         },
       },
@@ -441,7 +461,7 @@ export const WIDGET_MANIFEST_SCHEMA = {
       type: 'array',
       maxItems: 16,
       uniqueItems: true,
-      items: { type: 'string', pattern: '^[a-z][a-z0-9.-]{1,39}(?::[a-z][a-z0-9.-]{1,39})?$' },
+      items: { type: 'string', pattern: REGISTRATION_NAME_PATTERN },
     },
     permissions: {
       type: 'object',

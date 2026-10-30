@@ -7,6 +7,10 @@
  * 读会失败：today 与 all 的读最多再补两次，补上时重定起点并清空这之间的实时累计，两段因此不重复。
  * 事件按会话 id 与 `event.seq` 去重——序号在会话内单调，重复投递的同一条事件只记一次。
  *
+ * 卡片上的数据由它自己的订阅推（D32）：订上先给一份当下的快照，之后每进一条带用量的事件再给一份，
+ * 另有一条 10 秒的节奏取代原来那条看板定时刷新——today 与 all 的那一拍顺手补读一次 dsh-usage 的历史
+ * （那段在宿主之外自己会变），所选会话的那一拍只重取快照。看板的定时链不再管这张卡。
+ *
  * 内存里只有聚合与每个窗口最近的 30 个点，不落盘：这份数据只描述本次运行，宿主重启之后重新开始。
  * 卡片的数据按通用链路写入与推送，这里不碰状态、不发通知。
  */
@@ -37,6 +41,9 @@ export const SESSION_USAGE_TREND_POINTS = 30
 
 /** 历史最多尝试几次，含注册时那一次：启动竞态只给这么多次机会。 */
 export const SESSION_USAGE_HISTORY_ATTEMPTS = 3
+
+/** 订阅里补读历史的间隔，毫秒：today 与 all 合并的那段在宿主之外自己会变。 */
+export const SESSION_USAGE_SUBSCRIBE_MS = 10_000
 
 /** 数据源回答的窗口。 */
 export type SessionUsageScope = 'session' | 'today' | 'all'
@@ -144,6 +151,8 @@ interface Ledger {
   days: Map<string, Window>
   /** 已经收下的调用数，用作到达次序：同一毫秒里的两次调用靠它定新旧。 */
   order: number
+  /** 有新事件进账时要通知的卡片订阅；退订只把这一条从集合里移走，全局事件订阅不随它停。 */
+  listeners: Set<() => void>
 }
 
 /** 一份空合计。 */
@@ -281,6 +290,8 @@ function record(ledger: Ledger, session: unknown, event: unknown): void {
   addTo(window.tally, point)
   pushPoint(window.recent, point)
   trimDays(ledger)
+  // 这一条已经落进全部合计，订阅着的卡这时候推出去的才是一份完整的读数。
+  for (const notify of ledger.listeners) notify()
 }
 
 /** 全部会话的合计：也就是 `all` 窗口的总量。 */
@@ -516,6 +527,8 @@ export interface SessionUsage {
  * 经 `history` 交进来，两段因此不重叠。给了 `loadHistory` 时起点还会在补读成功那一刻后移、账本整份
  * 清空（见 `refreshHistory`）：那之前的实时事件已经落进补读回来的历史里。
  *
+ * 这次会话事件订阅是全局的一份：卡片订阅只往账本上挂一个通知，退订一张卡不动它，改由 `dispose` 收。
+ *
  * @param deps - 会话服务、事件订阅、历史投影、重读入口与时钟。
  * @returns 数据源与拆除这次注册的函数。
  */
@@ -530,6 +543,7 @@ export function createSessionUsage(deps: SessionUsageDeps): SessionUsage {
     recent: [],
     days: new Map(),
     order: 0,
+    listeners: new Set(),
   }
   const stop = deps.subscribe((session, event) => { record(ledger, session, event) })
   return {
@@ -541,6 +555,48 @@ export function createSessionUsage(deps: SessionUsageDeps): SessionUsage {
         const props = isRecord(instance.props) ? instance.props : {}
         await refreshHistory(ledger, deps.loadHistory, now, scopeOf(props.scope))
         return snapshotOf(ledger, props, deps.sessions(), now())
+      },
+      /**
+       * 卡片可见期间持续推快照（D32）：订上先给一份当下的，之后每进一条带用量的会话事件再给一份。
+       *
+       * 窗口与所选会话取订阅成立那一刻的 props：props 一变宿主先退订再按最新的卡片面重订，实现因此
+       * 不必自己盯着新的 props。
+       *
+       * @param instance - 订阅这张卡片。
+       * @param emit - 推一份快照给宿主。
+       * @returns 退订函数：同步停表、不再回调。全局的事件订阅归 `dispose`，退订一张卡不动它。
+       */
+      subscribe(instance: InstanceFace, emit: (data: unknown) => void): () => void {
+        const props = isRecord(instance.props) ? instance.props : {}
+        const scope = scopeOf(props.scope)
+        let open = true
+        /** 等待链：同一条订阅的几份快照按发出的顺序落定，也不会两轮同时补读历史。 */
+        let queued: Promise<void> = Promise.resolve()
+        const push = (): void => {
+          queued = queued.then(async () => {
+            // 退订之后还留在链上的那几轮空转：不再补读历史，也不再回调。
+            if (!open) return
+            await refreshHistory(ledger, deps.loadHistory, now, scope)
+            if (!open) return
+            emit(snapshotOf(ledger, props, deps.sessions(), now()))
+          }).catch((error: unknown) => {
+            // 一条推送失败不停这条订阅：回调没有调用方可以接住它（D11），报出来之后下一轮照常。
+            console.error(`widget-board: 卡片 ${instance.id} 的用量快照没推出去：${error instanceof Error ? error.message : String(error)}`)
+          })
+        }
+        // 自己的 10 秒节奏，取代这张卡原来那条看板定时刷新：today 与 all 合并的历史在宿主之外自己会变，
+        // 这一拍补读一次再推；所选会话没有历史可补读，这一拍仍然推一份，好让「今天」与有没有会话这些
+        // 不靠事件变化的部分跟上（跨零点就是这样翻过去的）。
+        const timer = setInterval(push, SESSION_USAGE_SUBSCRIBE_MS)
+        timer.unref()
+        ledger.listeners.add(push)
+        // 初值只在订阅里推：宿主不替订阅着的卡读一次（D32）。
+        push()
+        return () => {
+          open = false
+          ledger.listeners.delete(push)
+          clearInterval(timer)
+        }
       },
     },
     dispose() {
@@ -561,7 +617,7 @@ export interface SessionUsageRegistration {
  * 先取历史快照，再建实时订阅：`startedAt` 因此落在历史快照之后，两段来源不重叠，同一段用量不会
  * 被两边各算一次。历史读不到时只让它那一层退出（D11），实时订阅照旧建立。
  *
- * 事件订阅与数据源一同建立、一同撤下：看板所有页面共用一个订阅，卡片只是读它。
+ * 事件订阅与数据源一同建立、一同撤下：看板所有页面共用一个订阅，每一张卡只挂一个通知。
  *
  * @param sources - 看板的注册表。
  * @param context - 宿主上下文。

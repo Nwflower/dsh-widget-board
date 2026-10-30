@@ -376,14 +376,15 @@ export function BoardDock({
       return
     }
     // 组件库在拖动开始时已经收起，面板走完退场动画前仍盖着落点：这里按看板的落点算，不把面板算作
-    // 阻挡；菜单还在底部，落回菜单上不算放进看板。
+    // 阻挡。菜单在打开组件库时也收起了，底部只剩那枚圆形按钮：落回按钮上不算放进看板，按钮之外的
+    // 板面照常落卡（整块菜单的盒子大半是空的，按它判会把板面下方的落点一起丢掉）。
     const over = (node: Element | null | undefined): boolean => {
       const rect = node?.getBoundingClientRect()
       return rect !== undefined && event.clientX >= rect.left && event.clientX <= rect.right
         && event.clientY >= rect.top && event.clientY <= rect.bottom
     }
-    const dock = dockRef.current?.querySelector('.dsh-widget-board__dock')
-    if (over(dock)) return
+    const trigger = dockRef.current?.querySelector('.dsh-widget-board__dock-trigger')
+    if (over(trigger)) return
     onAddAt(drag.entry.id, event.clientX, event.clientY).catch((error: Error) => {
       console.error(`widget-board: 拖放没有完成：${error.message}`)
     })

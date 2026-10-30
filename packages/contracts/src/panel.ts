@@ -7,7 +7,9 @@ export const WIDGET_BOARD_PANEL_ID = 'widget-board'
 export const PANEL_ORDER = 30
 
 /**
- * 设置页里那一节的 id 与排位（D21）：看板的重命名、移除与选中收在这里，标签条上只留新建。
+ * 设置页里那一节的 id 与排位（D21）：全部看板的改名、移除与选中在这里各有一份，列表比标签条好扫。
+ *
+ * 标签条上另有每块看板自己的更多按钮与右键菜单，两处调同一份管理动作。
  */
 export const SETTINGS_SECTION_ID = 'widget-board'
 

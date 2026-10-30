@@ -10,3 +10,39 @@ lib/
 
 # Editor session state
 .claude/
+
+# Local agent state and isolated runtime/cache directories.
+/.codex/
+/.agents/
+/.local-guardrails/
+/XDG_STATE_HOME/
+/.dsh/
+/.dsh-home/
+/.npm/
+/.pnpm-store/
+/.cache/
+/.playwright/
+
+# Browser/unit test output; fixtures and source remain tracked.
+/test-results/
+/playwright-report/
+/coverage/
+
+# Local credentials and environment values; commit templates only.
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.credentials*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS/editor scratch.
+*.tmp
+*.swp
+*~
+Thumbs.db
+Desktop.ini

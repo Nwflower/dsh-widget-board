@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict'
+const { mkdirSync, writeFileSync } = require('node:fs')
+const { join } = require('node:path')
 /**
  * board.cjs — 看板的测试辅助：读工作区快照、整块提交、复位卡片状态与盒子、改一张卡片的高度、只留画廊（D16、D17、D21）。
  *
@@ -149,4 +151,38 @@ async function addInstance(page, widget) {
   }, widget)
 }
 
-module.exports = { activeBoard, addInstance, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+/** 独立测试目录里的零高度组件，不依赖高度消息确认初始化。 */
+function createHandshakeFixture(home) {
+  const directory = join(home, 'widget-board/widgets/handshake-zero')
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(join(directory, 'widget.json'), JSON.stringify({ id: 'handshake-zero', title: { zh: '零高度握手', en: 'Zero-height handshake' }, version: '0.1.0', sizes: ['s'], props: { type: 'object', additionalProperties: false } }))
+  writeFileSync(join(directory, 'index.html'), '<div>握手回执回归</div>')
+  writeFileSync(join(directory, 'style.css'), 'html,body{height:0!important;min-height:0!important}div{position:fixed;top:0}')
+  writeFileSync(join(directory, 'main.js'), 'window.handshakeBoot = String(Date.now())')
+}
+
+async function handshakePass(page, check) {
+  const original = (await workspace(page)).active
+  const call = (route, body) => page.evaluate(async ({ route, body }) => {
+    const response = await fetch(`api/widget-board/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+    if (!response.ok) throw new Error(`握手夹具请求失败：${response.status}`)
+    return response.json()
+  }, { route, body })
+  const id = (await call('boards', { title: '握手回归' })).id
+  try {
+    const instance = (await call(`boards/${id}/instance`, { widget: 'handshake-zero' })).id
+    const card = page.locator(`[data-instance="${instance}"]`).first()
+    await card.waitFor()
+    const frame = await (await card.locator('iframe').elementHandle()).contentFrame()
+    await frame.waitForFunction(() => window.handshakeBoot && getComputedStyle(document.documentElement).getPropertyValue('--w-color-bg').trim())
+    const before = await frame.evaluate(() => ({ boot: window.handshakeBoot, height: document.body.getBoundingClientRect().height }))
+    await page.waitForTimeout(7200)
+    const after = await frame.evaluate(() => ({ boot: window.handshakeBoot, height: document.body.getBoundingClientRect().height }))
+    check('零高度组件确认初始化且不触发超时重载', before.height === 0 && after.height === 0 && before.boot === after.boot)
+  } finally {
+    await call(`boards/${original}/activate`)
+    await call(`boards/${id}/remove`)
+  }
+}
+
+module.exports = { activeBoard, addInstance, createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

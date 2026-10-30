@@ -10,6 +10,8 @@
 
 const TABS = '[data-dsh-widget-board-tabs]'
 const TAB = '[data-dsh-widget-board-tab]'
+const MORE = '[data-dsh-widget-board-tab-more]'
+const MENU = '[data-dsh-widget-board-board-menu]'
 const NEW_TAB = '[data-dsh-widget-board-tab-new]'
 const CARD = '.dsh-widget-board__flow[data-active="true"] [data-instance]'
 const BAND = 40
@@ -164,6 +166,22 @@ async function titlebarPass(page, { check }) {
     `${scrolled.position} / ${JSON.stringify(scrolled.strip)}`)
   await page.evaluate(() => { document.querySelector('.dsh-widget-board').scrollTop = 0 })
   await sleep(300)
+
+  // 标题栏里按得动：更多按钮没被拖动区吞掉，菜单开在看得见的地方。
+  const activeId = lifted.selected[0]
+  await page.locator(`${MORE}[data-dsh-widget-board-tab-more="${activeId}"]`).click()
+  await page.waitForSelector(MENU, { timeout: 5000 })
+  const menu = await page.evaluate(({ menu: selector }) => {
+    const node = document.querySelector(selector)
+    if (node === null) return null
+    const rect = node.getBoundingClientRect()
+    return { top: Math.round(rect.top), left: Math.round(rect.left), bottom: Math.round(rect.bottom), right: Math.round(rect.right), width: window.innerWidth, height: window.innerHeight }
+  }, { menu: MENU })
+  check('标题栏里的更多按钮能打开菜单',
+    menu !== null && menu.top >= 0 && menu.left >= 0 && menu.bottom <= menu.height && menu.right <= menu.width,
+    JSON.stringify(menu))
+  await page.keyboard.press('Escape')
+  await page.waitForFunction((selector) => document.querySelector(selector) === null, MENU, { timeout: 5000 })
 
   // 标题栏里按得动：新建入口没被拖动区吞掉。
   const before = lifted.tabs.length

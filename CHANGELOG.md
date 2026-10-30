@@ -20,11 +20,14 @@
 ### 体验优化
 
 - 会话里的 agent 不再收到插件注入的系统提示段：看板的存在与使用边界只写在 widget-authoring 的技能描述里，其余任务不被告知看板。描述写明什么时候该碰看板（用户点名看板、卡片、组件，或要改的卡片已经在板上）、看板归用户所有（未经请求不新增、删除、重排卡片，也不改既有卡片的 props 或数据源、不向它推数据；改前读回、改后确认），以及请求缺宾语时先查状态证据再澄清。工具清单只留在 skill 里，七个工具与「放卡与改卡是同一个工具」的说法一致，翻面组整组移除、换数据源只读一次与刷新策略也写进了指南。
+- 看板标签就地管理：每块标签右边多一个更多按钮，悬停或键盘聚焦时出现，右键标签也打开同一张菜单。菜单里可以给这块看板改名或删掉它，从别的标签打开不切换当前看板，关掉之后焦点回到按下的那枚按钮。改名弹窗预填当前名字，空名字就地报错，上限八十个字符（界面与宿主读同一份判定），中文输入法组合期间的回车不提交，保存失败时输入原样留在框里。删除确认写出看板标题、几格与几张卡片，删的是最后一块时说明会补一块空的；删掉哪一块之后显示哪一块由宿主决定。
 - 握手把这张卡可用的能力告诉组件：`init` 消息带上 `capabilities`（manifest 声明过、宿主当前解析得到的那些），运行时暴露为 `widget.capabilities`。热力图卡按它筛掉没装插件提供的能力，不再先发一次注定失败的调用再回退。
 
 ### 问题修复
 
 - 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
+- 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前预检提供方，正式调用继续核对授权。运行成本矮预览保留示例标识和主要读数。完整发送请求后断连会中止提供方调用，取消的读取不写回看板。组件初始化独立确认，零高度正文不会触发握手超时重载。
+- 静态演示将需要真实宿主数据的热力图换成年度进度卡，保留原盒子；补齐经过校验的可见性上报与已有卡片的空请求日志读取，避免演示页构建失败和缺失路由错误。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -38,11 +41,14 @@
 ### Improvements
 
 - A session agent no longer receives a system prompt section injected by the plugin: the board's existence and its usage boundaries live in the widget-authoring skill description, and other tasks are told nothing about a board. The description states when the board is in scope (the user names the board, a card, or a widget, or the card being changed is already on the board), that the board belongs to the user (no cards added, removed, or reordered, no props or data source changes and no data pushes without a request, and every change is read back before and after), and that a request with a missing object gets the cheapest state evidence first. The tool list lives only in the skill, which states the seven tools and that widget_place covers both placing and editing; it also notes that removing one side of a flip group removes both, that a rebound data source is read once, and how to declare a refresh policy.
+- Boards are managed right on their tabs: each tab gains a more button that appears on hover or keyboard focus, and right-clicking the tab opens the same menu. Rename or delete the board from there without switching to it; closing the menu returns focus to the button that opened it. The rename dialog is prefilled with the current name, reports an empty name in place, caps it at 80 characters (one rule shared by the UI and the host), never submits the Enter that confirms an IME composition, and keeps what you typed when saving fails. The delete confirmation names the board, its cells and its cards, says so when it is the last board, and leaves the host to decide which board shows afterwards.
 - The handshake now tells a widget which of its declared capabilities are actually available: the init message carries capabilities (declared in the manifest and resolvable in the host), exposed as widget.capabilities in the runtime. The activity card filters by it and no longer sends a call bound to fail before falling back.
 
 ### Bug Fixes
 
 - A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
+- Board management restores focus after dismissing a context menu or cancelling a failed deletion and uses shared motion timing. Optional capability calls check provider availability while host authorization remains mandatory. Short usage previews retain their sample label and primary reading. Disconnecting after a complete request aborts provider calls, and cancelled reads do not write back to the board. Initialization is acknowledged independently of content height, preventing handshake timeout reloads for zero-height content.
+- The static demo replaces the host-dependent heatmap with a year-progress card in the same box, validates visibility reports, and returns empty request logs for existing cards, avoiding build failures and missing-route errors.
 
 ## [0.1.6] - 2026-10-26
 

@@ -69,6 +69,19 @@
   pointer-events: none;
 }
 
+/* 一块标签是一组：文字按钮负责切换，更多按钮自己接指针（见 tabs.tsx）。更多按钮收在右侧留白的
+ * 那一条里，整体宽度与原来窄一些的标签条对齐：悬停出现时不把相邻标签推开。 */
+.dsh-widget-board__tab-group {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border-radius: 9999px;
+}
+
+.dsh-widget-board__tab-group .dsh-widget-board__tab { padding-right: 22px; }
+
 .dsh-widget-board__tab {
   position: relative;
   z-index: 1;
@@ -90,6 +103,53 @@
   cursor: pointer;
   transition: color var(--w-motion-base) var(--w-motion-ease-smooth);
 }
+
+/* 更多按钮：悬停或组里任何一个控件拿到焦点时出现；键盘聚焦时一直在。 */
+.dsh-widget-board__tab-more {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: none;
+  /* 静息态与键盘聚焦时都要看得清：13px 的三点在浅色白底上用次级文字色，三级色只有 3.7:1。 */
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    opacity var(--w-motion-fast) var(--w-motion-ease-smooth),
+    background-color var(--w-motion-fast) var(--w-motion-ease-smooth),
+    color var(--w-motion-fast) var(--w-motion-ease-smooth);
+}
+
+.dsh-widget-board__tab-group:hover .dsh-widget-board__tab-more,
+.dsh-widget-board__tab-group:focus-within .dsh-widget-board__tab-more,
+.dsh-widget-board__tab-more:focus-visible,
+.dsh-widget-board__tab-more[aria-expanded="true"] { opacity: 1; }
+
+@media (hover: none) {
+  .dsh-widget-board__tab-more { opacity: 1; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dsh-widget-board__tab-more:hover {
+    background: color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.dsh-widget-board__tab-more:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 
 .dsh-widget-board__tab[aria-selected="true"] { color: var(--dsw-alias-label-primary); }
 
@@ -129,10 +189,11 @@
 .dsh-widget-board__tab-new:disabled { opacity: 0.45; cursor: not-allowed; }
 .dsh-widget-board__tab-new:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 
-/* 减弱动效：药丸直接换位置（D10）。 */
+/* 减弱动效：药丸直接换位置，更多按钮直接出现（D10）。 */
 @media (prefers-reduced-motion: reduce) {
   .dsh-widget-board__tabs-pill,
-  .dsh-widget-board__tab { transition: none; }
+  .dsh-widget-board__tab,
+  .dsh-widget-board__tab-more { transition: none; }
 }
 
 /* Windows 桌面端：宿主把窗口标题栏让给页面时，标签条靠左挂进那一条（tabs.tsx 量位置与宽度）。
@@ -156,11 +217,16 @@
   line-height: 22px;
 }
 
+/* 标题栏里也留出更多按钮的那一条，悬停出现时不压到文字。 */
+.dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tab-group .dsh-widget-board__tab { padding-right: 18px; }
+
 .dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tab-new {
   width: 22px;
   height: 22px;
   font-size: 16px;
   line-height: 22px;
 }
+
+.dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tab-more { width: 16px; height: 16px; right: 3px; }
 
 .dsh-widget-board__tabs[data-titlebar="true"] .dsh-widget-board__tabs-pill { height: 22px; }

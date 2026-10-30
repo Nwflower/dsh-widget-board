@@ -5,15 +5,16 @@
  * 只被写状态、头与体。工作区用真的那一份，落在 `.debug/` 下的临时目录里：索引与看板文件的读写
  * 因此一起被测到。这一层判定的是本插件的行为，不是宿主的实现。
  */
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createServer, request as httpRequest } from 'node:http'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Board, BoardEvent, Grant, HostRequest, HostResponse, WidgetLibraryEntry } from '@dsh-widget-board/contracts'
 import { PLUGIN_ROUTE, grantKey } from '@dsh-widget-board/contracts'
+import { BOARD_TITLE_LIMIT } from '@dsh-widget-board/contracts'
 import type { RouteContext } from '../src/routes'
 import { createHandler } from '../src/routes'
-import { MY_BOARD_TITLE } from '../src/default-boards'
 import { readManyInto } from '../src/batch-reads'
 import { registerDataRead } from '../src/data-read'
 import type { GrantStore } from '../src/grants'
@@ -321,6 +322,37 @@ describe('看板的增删改与选中', () => {
     expect(response.status).toBe(400)
   })
 
+  it('八十个字符的标题可以存下，八十一个被拒绝', async () => {
+    const test = await harness()
+    const limit = '好'.repeat(BOARD_TITLE_LIMIT)
+    const saved = await test.send('POST', '/boards/board/rename', JSON.stringify({ title: limit }))
+    expect(saved.status).toBe(200)
+    expect(test.context.workspace.board('board').title).toBe(limit)
+    const longer = await test.send('POST', '/boards/board/rename', JSON.stringify({ title: `${limit}好` }))
+    expect(longer.status).toBe(400)
+    expect((JSON.parse(longer.body) as { error: string }).error).toContain(String(BOARD_TITLE_LIMIT))
+    expect(test.context.workspace.board('board').title).toBe(limit)
+  })
+
+  it('长度按字符计，星号表情不额外占位', async () => {
+    const test = await harness()
+    const title = '📌'.repeat(BOARD_TITLE_LIMIT)
+    const response = await test.send('POST', '/boards/board/rename', JSON.stringify({ title }))
+    expect(response.status).toBe(200)
+    expect(test.context.workspace.board('board').title).toBe(title)
+  })
+
+  it('新建看板也受同一份标题规则约束', async () => {
+    const test = await harness()
+    const tooLong = await test.send('POST', '/boards', JSON.stringify({ title: '好'.repeat(BOARD_TITLE_LIMIT + 1) }))
+    expect(tooLong.status).toBe(400)
+    const blank = await test.send('POST', '/boards', JSON.stringify({ title: '  ' }))
+    expect(blank.status).toBe(400)
+    const named = await test.send('POST', '/boards', JSON.stringify({ title: ' 工作 ' }))
+    expect(named.status).toBe(201)
+    expect((JSON.parse(named.body) as { snapshot: { boards: Board[] } }).snapshot.boards[1]?.title).toBe('工作')
+  })
+
   it('移除一块看板：文件与索引都不再提它', async () => {
     const test = await harness(RECORD, true)
     const response = await test.send('POST', '/boards/second/remove')
@@ -329,7 +361,7 @@ describe('看板的增删改与选中', () => {
     expect((JSON.parse(response.body) as { boards: Board[] }).boards).toHaveLength(1)
   })
 
-  it('移除最后一块看板时补上默认看板', async () => {
+  it('移除最后一块看板时补上空看板', async () => {
     const library = (await loadLibrary([{ dir: join(ROOT, 'packages', 'widgets'), source: 'builtin' }])).records
     const test = await harness(RECORD, false, library)
     const response = await test.send('POST', '/boards/board/remove')
@@ -338,8 +370,8 @@ describe('看板的增删改与选中', () => {
     expect(body.boards).toHaveLength(1)
     const replacement = body.boards[0] as Board
     expect(replacement.id).not.toBe('board')
-    expect(replacement.title).toBe(MY_BOARD_TITLE)
-    expect(replacement.instances.length).toBeGreaterThan(0)
+    expect(replacement.title).toBe('未命名看板')
+    expect(replacement.instances).toEqual([])
     expect(body.active).toBe(replacement.id)
     expect(test.events.at(-1)).toEqual({ type: 'board' })
   })
@@ -780,6 +812,50 @@ describe('动作', () => {
 })
 
 describe('提供方调用的超时、并发与健康', () => {
+  it.each(['read', 'action', 'call'] as const)('完整请求体发送后断开连接会中止 %s，读取不写盘', async kind => {
+    const test = await harness({ ...RECORD, manifest: { ...RECORD.manifest, actions: [{ id: 'cancel-test:wait' }], capabilities: ['cancel.wait'] } })
+    const started = Promise.withResolvers<AbortSignal>()
+    const release = Promise.withResolvers<{ n: number }>()
+    const wait = (signal?: AbortSignal) => {
+      if (!signal) throw new Error('提供方没有收到取消信号')
+      started.resolve(signal)
+      return release.promise
+    }
+    test.context.sources.registerDataSource({ apiVersion: 3, provider: 'cancel-test', id: 'cancel.wait', read: (_instance, signal) => wait(signal) })
+    test.context.sources.registerAction({ apiVersion: 3, provider: 'cancel-test', id: 'wait', run: (_instance, _payload, signal) => wait(signal) })
+    test.context.sources.registerCapability({ apiVersion: 3, provider: 'cancel-test', id: 'cancel.wait', input: { type: 'object' }, output: { type: 'object' }, call: (_instance, _args, signal) => wait(signal) })
+    const handler = createHandler(test.context)
+    const closed = Promise.withResolvers<void>()
+    let handled = Promise.resolve()
+    const server = createServer((request, response) => {
+      response.once('close', () => closed.resolve())
+      handled = handler(request, response)
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('测试服务没有回环端口')
+    const client = httpRequest({ host: '127.0.0.1', port: address.port, method: 'POST', path: `${PLUGIN_ROUTE}/instance/board-first/${kind}`, headers: { 'content-type': 'application/json' } })
+    // 断连本来就会产生 ECONNRESET；测试的判据是服务端收到中止且不写数据。
+    client.on('error', () => {})
+    const file = join(test.home, 'boards/board.json')
+    const before = { data: test.context.board.instances[0]?.data, revision: test.context.board.revision, events: test.events.length, disk: await readFile(file, 'utf8') }
+    try {
+      client.end(JSON.stringify(kind === 'read' ? { source: 'cancel.wait' } : kind === 'action' ? { id: 'cancel-test:wait' } : { capability: 'cancel.wait', args: {} }))
+      const signal = await started.promise
+      client.destroy()
+      await closed.promise
+      const aborted = signal.aborted
+      release.resolve({ n: 7 })
+      await handled
+      expect({ aborted, data: test.context.board.instances[0]?.data, revision: test.context.board.revision, events: test.events.length, disk: await readFile(file, 'utf8') }).toEqual({ aborted: true, ...before })
+    } finally {
+      client.destroy()
+      release.resolve({ n: 7 })
+      await handled
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+    }
+  })
+
   it('读取超时回 504，槽占满时下一个调用回 429', async () => {
     const test = await harness(RECORD, false, undefined, 20)
     // 两张卡都绑同一个读不完的数据源：8 个槽被那 8 次超时的调用占着，因为提供方忽略中止信号。

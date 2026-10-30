@@ -19,6 +19,7 @@ const { mkdirSync, writeFileSync } = require('node:fs')
 const { join } = require('node:path')
 const { workspace } = require('./board.cjs')
 const { centerCard, frameOf } = require('./frames.cjs')
+const { metricsViewPass } = require('./metrics.cjs')
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -128,17 +129,7 @@ const dataOf = (frame) => frame.evaluate(() => window.widget?.data ?? null)
 async function metricsPass(page, check) {
   await centerCard(page, '运行成本')
   const frame = await frameOf(page, METRICS_FRAME)
-  await frame.waitForSelector('.metrics[data-state="ready"]', { timeout: 30000 })
-  const view = await frame.evaluate(() => ({
-    rss: document.querySelector('[data-field="rss"]')?.textContent ?? '',
-    unit: document.querySelector('[data-field="rssUnit"]')?.textContent ?? '',
-    panelTitle: document.querySelector('[data-field="panelTitle"]')?.textContent ?? '',
-    system: document.querySelector('[data-field="system"]')?.textContent ?? '',
-    board: document.querySelector('[data-field="board"]')?.textContent ?? '',
-    library: document.querySelector('[data-field="library"]')?.textContent ?? '',
-  }))
-  check('运行成本卡读到宿主读数', /^[\d.,]+$/.test(view.rss) && view.unit !== '', view.rss + ' ' + view.unit)
-  check('运行成本卡画出系统、看板与组件库', view.panelTitle !== '' && view.system !== '' && view.board !== '' && view.library !== '', view.panelTitle + ' / ' + view.system + ' / ' + view.board + ' / ' + view.library)
+  await metricsViewPass(frame, check)
 
   const first = await dataOf(frame)
   const instance = await instanceOf(page, 'system-metrics')

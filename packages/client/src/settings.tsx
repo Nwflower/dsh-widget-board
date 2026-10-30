@@ -1,5 +1,5 @@
 /**
- * 设置页里的「看板」一节（D21）：列出全部看板，改名、移除与选中都在这里，标签条上只留新建。
+ * 设置页里的「看板」一节（D21）：列出全部看板，改名、移除与选中都在这里；标签条的更多按钮与右键菜单调同一份动作。
  * 看板列表下面是提供方的健康表（D31）：每个提供方能不能用、声明了哪些用途、累计注册与失败。
  *
  * 这一节由宿主的设置外壳挂上来，与看板页不共享内存：它自己取一次工作区，之后跟随变更通知
@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { boardTitleProblem } from '@dsh-widget-board/contracts'
 import type {
   BoardEventFrame,
   SettingsSectionProps,
@@ -16,7 +17,8 @@ import type {
 import { t } from './copy'
 import { subscribeLive } from './live'
 import { mergeEvent, needsSnapshot } from './merge'
-import { activateBoard, fetchWorkspace, removeBoard, renameBoard } from './snapshot'
+import { activateBoard, fetchWorkspace } from './snapshot'
+import { deleteBoardById, factsOf, renameBoardTo } from './board-management/actions'
 
 /** 没有提供方时共用的空表：快照还没到时也返回它。 */
 const NO_PROVIDERS: readonly WidgetProviderHealth[] = []
@@ -170,13 +172,12 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
 
   const onConfirmRename = useCallback(() => {
     const id = editing
-    const next = title.trim()
-    if (id === null || next === '') return
-    write(() => renameBoard(id, next), () => { setEditing(null); setTitle('') })
+    if (id === null) return
+    write(() => renameBoardTo(id, title), () => { setEditing(null); setTitle('') })
   }, [editing, title, write])
 
   const onRemove = useCallback((id: string) => {
-    write(() => removeBoard(id))
+    write(() => deleteBoardById(id))
   }, [write])
 
   const boards = snapshot === null ? [] : snapshot.boards
@@ -207,7 +208,7 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
                   {board.title}
                 </button>
                 <span className="dsh-widget-board__board-settings-count">
-                  {board.instances.length}
+                  {factsOf(board).cards}
                   {' '}
                   {t('boardCards')}
                 </span>
@@ -218,17 +219,18 @@ export function BoardSettings(_props: SettingsSectionProps): ReactNode {
                         className="dsh-widget-board__board-settings-input"
                         value={title}
                         aria-label={t('boardName')}
+                        aria-invalid={boardTitleProblem(title) !== null}
                         autoFocus
                         onChange={(event) => { setTitle(event.target.value) }}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') onConfirmRename()
+                          if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.keyCode !== 229) onConfirmRename()
                           if (event.key === 'Escape') onCancelRename()
                         }}
                       />
                       <button
                         type="button"
                         className="dsh-widget-board__board-settings-action"
-                        disabled={busy || title.trim() === ''}
+                        disabled={busy || boardTitleProblem(title) !== null}
                         onClick={onConfirmRename}
                       >
                         {t('renameConfirm')}

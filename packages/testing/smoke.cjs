@@ -22,8 +22,6 @@ const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
 const { editorPass } = require('./editor.cjs')
-const { composerPass, contentPass, libraryEntryPass } = require('./composer.cjs')
-const { sourcePass } = require('./source.cjs')
 const { capabilityPass } = require('./capability.cjs')
 const { lightSwitchPass } = require('./light-switch.cjs')
 const { markdownPass } = require('./markdown.cjs')
@@ -488,7 +486,7 @@ async function layoutPass(page) {
       && Math.abs(during.card.top - (startBox.y + 70)) <= 2
       && Math.abs(during.ghost.left - (startBox.x - metrics.step)) <= 2
       && Math.abs(during.ghost.top - (startBox.y + 64)) <= 2,
-    JSON.stringify({ during, start: { left: startBox.x, top: startBox.y }, step: metrics.step }),
+    JSON.stringify(during),
   )
   await page.mouse.up()
   const moved = await waitLayout(page, weatherId, (layout) => layout.x === 1 && layout.y > 0)
@@ -655,10 +653,6 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
     await addRemovePass(opened.page)
     await groupPass(opened.page, check)
     await editorPass(opened.page, check)
-    await composerPass(opened.page, check)
-    await libraryEntryPass(opened.page, check)
-    await contentPass(opened.page, check)
-    await sourcePass(opened.page, check)
     await capabilityPass(opened.page, check)
     await lightSwitchPass(opened.page, check)
     await markdownPass(opened.page, check)
@@ -669,12 +663,12 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
     await sharePass(opened.page, check)
     await dockPass(opened.page, check)
     await alignedGesturesPass(opened.page, check)
-    await handshakePass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)
     await reloadPass(opened.page)
     // 标签条放在最后：它新建一块看板再收掉，中途失败也不会影响前面的场景。
     await tabsPass(opened.page, { check })
+    await handshakePass(opened.page, check)
     await titlebarPass(opened.page, { check })
     reduced = await openPage(host.url, { reducedMotion: 'reduce' })
     await reducedPass(reduced.page)

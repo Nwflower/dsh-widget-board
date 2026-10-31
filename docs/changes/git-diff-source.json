@@ -1,0 +1,8 @@
+{
+  "group": "new",
+  "order": 8,
+  "external": true,
+  "at": "2026-10-31",
+  "zh": "内置的「改动」卡接上了真实的 Git 改动：新增数据源 `widget-board:git.diff`，卡片可见时每 5 秒读一次本地仓库的未提交改动，工作区干净时退回最近一次提交。读哪个目录由卡片设置里的「仓库路径」决定，留空时跟随当前活跃会话或第一个工作区。目录不是仓库、还没有第一次提交或 Git 读不出来时给一份空改动，卡片显示「暂无改动」。改动按文件分组：宽盒子左边给一份文件清单，点一个文件右边就换成它；窄盒子与常规盒子把每个文件收成手风琴的一节，默认只展开第一个文件。",
+  "en": "The built-in Diff card now shows real Git changes: a new `widget-board:git.diff` data source reads the local repository's uncommitted changes every 5 seconds while the card is visible, falling back to the most recent commit when the working tree is clean. Which directory it reads is decided by the card's repository path setting; left empty it follows the active session or the first workspace. A directory that is not a repository, a repository without a first commit and a failed Git read all yield an empty change list, and the card shows no changes. Changes are grouped by file: wide boxes put a file list on the left and clicking a file swaps the right side to it, while narrow and regular boxes fold each file into an accordion section with only the first file expanded by default."
+}

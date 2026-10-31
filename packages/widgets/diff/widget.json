@@ -5,18 +5,45 @@
     "en": "Diff"
   },
   "description": {
-    "zh": "一份统一的改动视图：新增行与删除行标着加减号，文件路径作为分节标题。",
-    "en": "A unified diff view: added and removed lines carry a sign, and file paths act as section headings."
+    "zh": "一份统一的改动视图：新增行与删除行标着加减号，改动按文件分组，宽盒子左边给文件清单，窄盒子收成手风琴。",
+    "en": "A unified diff view: added and removed lines carry a sign, and changes are grouped by file — a file list on the left in wide boxes, an accordion in narrow ones."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
-  "sizes": ["s", "l"],
-  "defaultBox": { "w": 2, "h": 18 },
-  "minBox": { "w": 1, "h": 14 },
+  "version": "0.3.0",
+  "sizes": [
+    "s",
+    "l"
+  ],
+  "source": "widget-board:git.diff",
+  "defaultBox": {
+    "w": 2,
+    "h": 18
+  },
+  "minBox": {
+    "w": 1,
+    "h": 14
+  },
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "cwd": {
+        "type": "string",
+        "maxLength": 260
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 80
+      },
+      "kicker": {
+        "type": "string",
+        "maxLength": 40
+      },
+      "meta": {
+        "type": "string",
+        "maxLength": 40
+      }
+    }
   },
   "data": {
     "type": "object",
@@ -26,10 +53,22 @@
         "maxItems": 400,
         "items": {
           "type": "object",
-          "required": ["text"],
+          "required": [
+            "text"
+          ],
           "properties": {
-            "type": { "enum": ["add", "remove", "context", "meta"] },
-            "text": { "type": "string", "maxLength": 400 }
+            "type": {
+              "enum": [
+                "add",
+                "remove",
+                "context",
+                "meta"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 400
+            }
           }
         }
       }
@@ -39,6 +78,14 @@
     "empty": {
       "zh": "暂无改动",
       "en": "No changes"
+    },
+    "props.cwd.label": {
+      "zh": "仓库路径",
+      "en": "Repository path"
+    },
+    "props.cwd.hint": {
+      "zh": "留空时跟随当前会话或工作区目录；填上路径就固定读那个仓库",
+      "en": "Leave empty to follow the active session or workspace directory; fill a path to pin that repository"
     }
   }
 }

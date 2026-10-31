@@ -1,11 +1,12 @@
 /*
- * 改动视图的样式：一行一条，行首是加减号，文件路径自成一行当作分节标题。
+ * 改动视图的样式：一行一条改动，行首是加减号；改动按文件收成组。
+ *
+ * 宽盒子把标题挪到左边一列，标题下面给文件清单，点一个文件右边就换成那个文件；窄盒子与常规盒子
+ * 没有左列，每一组收成手风琴的一节，点节头展开或收起，默认只展开第一个文件。
  *
  * 新增与删除只染背景与符号，正文始终用前景色，浅色与深色下都读得清（D10）。等宽字体与行高跟着
- * 卡片内容滚动，不撑高卡片。
- *
- * 三个场景各排一次：宽盒子把标题挪到左边（套件的 .t-data--split），改动行用满右边整条、一屏多读
- * 几行；窄高盒子行距放宽、整段代码在高度里居中；正方与常规保持一行一条。
+ * 卡片内容滚动，不撑高卡片。文件清单与改动列表各自是一个滚动区，里面的文字超出时省略号收尾，
+ * 不会把卡片撑宽。
  */
 .diff-card__body {
   gap: 0;
@@ -37,20 +38,6 @@
   white-space: pre-wrap;
 }
 
-.diff-card__line[data-type="meta"] {
-  margin-top: 5px;
-  padding-top: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 62%, transparent);
-  color: var(--w-color-muted, #6b7684);
-  font-weight: 600;
-}
-
-.diff-card__line[data-type="meta"]:first-child {
-  margin-top: 0;
-  padding-top: 1px;
-  border-top: 0;
-}
-
 .diff-card__line[data-type="add"] {
   background: color-mix(in srgb, #16a34a 16%, transparent);
 }
@@ -63,15 +50,153 @@
 .diff-card__line[data-type="remove"] .diff-card__sign { color: var(--w-tone-danger); }
 
 /*
- * 宽盒子：标题在左列竖排，改动行用满右边整条；一屏里比上下结构多读两行。
+ * 文件路径那一行：宽盒子右边画当前文件，窄盒子只有一个文件时也用它。
+ */
+.diff-card__file-head {
+  min-width: 0;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 62%, transparent);
+  color: var(--w-color-muted, #6b7684);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * 左列的文件清单：宽盒子才有，窄盒子与常规盒子把它藏起来。
+ */
+.diff-card__files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 2px;
+}
+
+:root:not([data-box-width="wide"]) .diff-card__files {
+  display: none;
+}
+
+.diff-card__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--w-space-xs, 4px);
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--w-color-fg, #0b1016);
+  font: inherit;
+  font-size: var(--w-type-caption, 12px);
+  text-align: left;
+  cursor: pointer;
+}
+
+.diff-card__file[data-active="true"] {
+  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 16%, transparent);
+  font-weight: 600;
+}
+
+.diff-card__file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-card__file-count {
+  flex: none;
+  color: var(--w-color-muted, #6b7684);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diff-card__file-dir {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--w-color-muted, #6b7684);
+  font-size: var(--w-type-caption, 12px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * 手风琴：窄盒子与常规盒子把改动按文件收成一节，节头是按钮。
+ */
+.diff-card__group {
+  min-width: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 55%, transparent);
+}
+
+.diff-card__group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--w-space-xs, 4px);
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--w-color-fg, #0b1016);
+  font: inherit;
+  font-size: var(--w-type-caption, 12px);
+  text-align: left;
+  cursor: pointer;
+}
+
+.diff-card__caret {
+  flex: none;
+  color: var(--w-color-muted, #6b7684);
+}
+
+.diff-card__group-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-card__group-count {
+  flex: none;
+  color: var(--w-color-muted, #6b7684);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diff-card__lines {
+  min-width: 0;
+}
+
+.diff-card__file:focus-visible,
+.diff-card__group-head:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: -2px;
+}
+
+/*
+ * 宽盒子：标题在左列竖排，标题下面是文件清单，右侧只画选中的那个文件。
  */
 :root[data-box-width="wide"] .diff-card > .t-data__head {
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--w-space-xs, 4px);
+  justify-content: flex-start;
+  align-self: stretch;
+  min-height: 0;
 }
 
 :root[data-box-width="wide"] .diff-card > .t-data__head .t-data__meta { text-align: left; }
+
+:root[data-box-width="wide"] .diff-card__files {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
 
 /* 窄盒子：行的左右内边距收掉，一行代码在 311px 里正好占满，不用折行。 */
 :root[data-box-width="narrow"] .diff-card__line { padding-inline: 0; }
@@ -88,5 +213,5 @@
 
 :root[data-box-height="tall"] .diff-card__line { padding-block: 2px; }
 
-:root[data-box-height="tall"] .diff-card__scroll > .diff-card__line:first-child { margin-top: auto; }
-:root[data-box-height="tall"] .diff-card__scroll > .diff-card__line:last-child { margin-bottom: auto; }
+:root[data-box-height="tall"] .diff-card__scroll > :first-child { margin-top: auto; }
+:root[data-box-height="tall"] .diff-card__scroll > :last-child { margin-bottom: auto; }

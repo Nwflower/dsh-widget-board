@@ -201,8 +201,12 @@ export const HOST_SESSION_EVENT = 'session/event'
  * 实时事件累计（D24 的实时用量数据源）。
  */
 export interface HostSessions {
-  /** 此刻活着的会话；每个只取 id。 */
-  list(): Array<{ id: string }>
+  /**
+   * 此刻活着的会话；每个只取 id 与它创建时的工作目录。
+   *
+   * `header.cwd` 是会话创建时的绝对目录；宿主没有这一项时它缺席，读它的地方按缺席处理（D11）。
+   */
+  list(): Array<{ id: string, header?: { cwd?: string } }>
 }
 
 /**
@@ -217,6 +221,32 @@ export function sessionsOf(context: unknown): HostSessions | undefined {
   const get = (context as { get?: (name: string) => unknown }).get
   if (get === undefined) return undefined
   return get.call(context, HOST_SESSIONS_SERVICE) as HostSessions | undefined
+}
+
+/** 宿主的工作区登记表名；数据源按它读工作区目录（D1）。 */
+export const HOST_WORKSPACE_REGISTRY_SERVICE = 'workspaceRegistry'
+
+/**
+ * 宿主的工作区登记表里本插件用到的那一面。
+ *
+ * `list()` 回宿主开着的工作区与它们的目录。宿主没有这一项服务时是 `undefined`，调用方据此给出
+ * 可见的说法（D11）。
+ */
+export interface HostWorkspaceRegistry {
+  /** 此刻开着的工作区；每个带它的 id 与目录。 */
+  list(): Array<{ id: string, path: string }>
+}
+
+/**
+ * 宿主的工作区登记表。
+ *
+ * @param context - 宿主交给插件 `apply` 的上下文。
+ * @returns 工作区登记表，或 `undefined`。
+ */
+export function workspaceRegistryOf(context: unknown): HostWorkspaceRegistry | undefined {
+  const get = (context as { get?: (name: string) => unknown }).get
+  if (get === undefined) return undefined
+  return get.call(context, HOST_WORKSPACE_REGISTRY_SERVICE) as HostWorkspaceRegistry | undefined
 }
 
 /**
@@ -249,9 +279,11 @@ export interface HostSessionEvent {
   data?: { usage?: HostTokenUsage }
 }
 
-/** 事件交回的那一个会话；只用它的 id。 */
+/** 事件交回的那一个会话；用它的 id 与它创建时的工作目录。 */
 export interface HostSessionRef {
   id: string
+  /** 会话创建时的工作目录；宿主没有这一项时它缺席（D11）。 */
+  header?: { cwd?: string }
 }
 
 /**

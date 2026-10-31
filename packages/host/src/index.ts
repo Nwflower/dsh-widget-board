@@ -17,7 +17,9 @@ import {
   WIDGET_BOARD_SERVICE_NAME,
   connectionOf,
   credentialsOf,
+  sessionsOf,
   webServerOf,
+  workspaceRegistryOf,
 } from '@dsh-widget-board/contracts'
 import { createVersionStore } from './blobs'
 import { loadAssets } from './assets'
@@ -37,6 +39,7 @@ import { createProviderRegistry, createWidgetBoardService, widgetIdsIn } from '.
 import { createMarketRegistry } from './market'
 import { registerDshAccount } from './dsh-account'
 import { createSystemMetricsSource } from './system-metrics'
+import { createGitDiffSource } from './git-diff'
 import { registerGithub } from './github'
 import { registerTheme } from './theme'
 import { registerUsage } from './usage'
@@ -208,6 +211,12 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     assets: () => live.assets,
     diskPath: join(home, 'boards'),
   }))
+  // 仓库改动的数据源：读的是本地 Git 仓库，不声明权限（D6）。读哪个目录由卡片自己的 props 决定，
+  // 没填时跟随当前活跃会话或第一个工作区；卡片可见期间由它自己的订阅每 5 秒推一份（D32）。
+  const disposeGitDiff = sources.registerDataSource(createGitDiffSource({
+    sessions: () => sessionsOf(ctx),
+    workspaces: () => workspaceRegistryOf(ctx),
+  }))
   // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责；每次请求记进这张卡的日志（D28）。
   const disposeHttpSource = sources.registerDataSource(
     createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION, {
@@ -362,6 +371,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     disposeUsage()
     tools?.dispose()
     disposeSystemMetrics()
+    disposeGitDiff()
     disposeHttpSource()
     disposeDataRead()
     subscriptions.stop()

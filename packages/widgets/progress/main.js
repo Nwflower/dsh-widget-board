@@ -65,6 +65,7 @@
       if (item === null || typeof item !== 'object' || typeof item.label !== 'string') continue
       if (typeof item.value !== 'number' || typeof item.max !== 'number' || !isFinite(item.value) || !isFinite(item.max) || item.max <= 0) continue
       var ratio = Math.min(1, Math.max(0, item.value / item.max))
+      var tone = item.tone === 'warn' || item.tone === 'danger' || item.tone === 'muted' ? item.tone : 'accent'
       var row = document.createElement('div')
       row.className = 'progress-card__row'
       var line = document.createElement('div')
@@ -86,6 +87,7 @@
       track.setAttribute('aria-valuetext', Math.round(ratio * 100) + '%')
       var bar = document.createElement('span')
       bar.className = 'progress-card__bar'
+      bar.dataset.tone = tone
       bar.style.transform = 'scaleX(' + ratio.toFixed(4) + ')'
       track.appendChild(bar)
       row.append(line, track)
@@ -94,6 +96,13 @@
         note.className = 'progress-card__note'
         note.textContent = item.note
         row.appendChild(note)
+      }
+      /* 状态不只靠颜色：读屏时另念一句接近上限。 */
+      if (tone === 'warn' || tone === 'danger') {
+        var state = document.createElement('span')
+        state.className = 'w-sr'
+        state.textContent = tone === 'danger' ? (isZh() ? '接近上限' : 'Near limit') : (isZh() ? '偏高' : 'High')
+        row.appendChild(state)
       }
       rows.push(row)
     }

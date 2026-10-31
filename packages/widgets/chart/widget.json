@@ -9,15 +9,20 @@
     "en": "Line, area and bar trends over one set of samples; for traffic, latency and quotas."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 2, "h": 22 },
   "minBox": { "w": 1, "h": 14 },
+  "source": "widget-board:usage.chart",
   "props": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "kind": { "enum": ["line", "area", "bar"] }
+      "kind": { "enum": ["line", "area", "bar"] },
+      "metric": { "type": "string", "enum": ["calls", "tokens"], "default": "calls" },
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
     }
   },
   "data": {
@@ -42,6 +47,42 @@
     "props.kind.label": {
       "zh": "图表类型",
       "en": "Chart kind"
+    },
+    "props.kind.line": {
+      "zh": "折线",
+      "en": "Line"
+    },
+    "props.kind.area": {
+      "zh": "面积",
+      "en": "Area"
+    },
+    "props.kind.bar": {
+      "zh": "柱状",
+      "en": "Bar"
+    },
+    "props.metric.label": {
+      "zh": "统计项",
+      "en": "Metric"
+    },
+    "props.metric.calls": {
+      "zh": "调用次数",
+      "en": "Calls"
+    },
+    "props.metric.tokens": {
+      "zh": "Token 用量",
+      "en": "Tokens"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "引题",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "附注",
+      "en": "Meta"
     },
     "empty": {
       "zh": "暂无采样点",

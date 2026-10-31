@@ -59,6 +59,11 @@
   transition: transform var(--w-motion-base) var(--w-motion-ease-smooth);
 }
 
+/* 状态色：进度条按 item.tone 着色，接近上限的条目另有读屏文字说明。 */
+.progress-card__bar[data-tone="warn"] { background: var(--w-tone-warn); }
+.progress-card__bar[data-tone="danger"] { background: var(--w-tone-danger); }
+.progress-card__bar[data-tone="muted"] { background: var(--w-color-muted, #6b7684); }
+
 .progress-card__note {
   margin: 0;
   color: var(--w-color-muted, #6b7684);

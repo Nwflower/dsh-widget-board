@@ -9,14 +9,22 @@
     "en": "An image with a caption; images arrive as data URLs or blob URLs, the only sources the sandbox allows."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 18 },
   "minBox": { "w": 1, "h": 12 },
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "preset": { "type": "string", "enum": ["glow", "grid", "aurora"], "default": "glow" },
+      "src": { "type": "string", "maxLength": 60000 },
+      "caption": { "type": "string", "maxLength": 160 },
+      "alt": { "type": "string", "maxLength": 160 },
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -30,6 +38,50 @@
     "empty": {
       "zh": "还没有图片",
       "en": "No image"
+    },
+    "props.preset.label": {
+      "zh": "封面样式",
+      "en": "Cover style"
+    },
+    "props.preset.glow": {
+      "zh": "光晕点阵",
+      "en": "Glow dots"
+    },
+    "props.preset.grid": {
+      "zh": "几何网格",
+      "en": "Geometric grid"
+    },
+    "props.preset.aurora": {
+      "zh": "极光波浪",
+      "en": "Aurora waves"
+    },
+    "props.src.label": {
+      "zh": "图片地址",
+      "en": "Image source"
+    },
+    "props.src.hint": {
+      "zh": "data URL 或 blob URL；沙箱只放行这两种来源",
+      "en": "A data URL or a blob URL; the sandbox allows only these two sources"
+    },
+    "props.caption.label": {
+      "zh": "说明",
+      "en": "Caption"
+    },
+    "props.alt.label": {
+      "zh": "替代文字",
+      "en": "Alt text"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "标签",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "说明",
+      "en": "Meta"
     }
   }
 }

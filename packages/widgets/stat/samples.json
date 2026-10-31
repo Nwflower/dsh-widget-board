@@ -1,10 +1,30 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "props": {
+      "metric": "calls"
+    },
+    "data": {
+      "value": 1284,
+      "unit": "次",
+      "delta": 12,
+      "note": "较上周",
+      "caption": "近 7 天 · 每小时的调用次数"
+    }
   },
   "l": {
-    "lang": "zh-CN",
-    "motion": "full"
+    "lang": "en-US",
+    "motion": "full",
+    "props": {
+      "metric": "tokens"
+    },
+    "data": {
+      "value": 1842000,
+      "unit": "tokens",
+      "delta": -8,
+      "note": "vs previous week",
+      "caption": "Last 7 days · tokens per hour"
+    }
   }
 }

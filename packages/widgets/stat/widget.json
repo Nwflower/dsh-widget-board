@@ -9,14 +9,20 @@
     "en": "A headline number with a unit, a trend and one line of context; for KPIs, quotas and elapsed time."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 16 },
   "minBox": { "w": 1, "h": 10 },
+  "source": "widget-board:usage.stat",
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "metric": { "type": "string", "enum": ["calls", "tokens"], "default": "calls" },
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -29,6 +35,30 @@
     }
   },
   "text": {
+    "props.metric.label": {
+      "zh": "统计项",
+      "en": "Metric"
+    },
+    "props.metric.calls": {
+      "zh": "调用次数",
+      "en": "Calls"
+    },
+    "props.metric.tokens": {
+      "zh": "Token 用量",
+      "en": "Tokens"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "引题",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "附注",
+      "en": "Meta"
+    },
     "empty": {
       "zh": "暂无数据",
       "en": "No data"

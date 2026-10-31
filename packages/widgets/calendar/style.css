@@ -328,6 +328,100 @@
 }
 
 :root[data-motion="reduced"] .cal-btn,
-:root[data-motion="reduced"] .cal-day {
+:root[data-motion="reduced"] .cal-day,
+:root[data-motion="reduced"] .cal-editor__btn {
   transition: none;
 }
+/*
+ * 日程编辑栏：点一个日期格之后出现在卡片底部，一行里写下日程、保存或清掉当天自建的那条。
+ *
+ * 编辑栏默认收着，不占网格的高度，所以日期格的字号还是 `fitType` 按原样的格子算出来的那一份
+ * （D13）。够宽的盒子里它一行排完，窄盒子里按钮换到第二行。
+ */
+.cal-editor {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--w-space-xs, 4px);
+  padding: var(--w-space-xs, 4px) var(--w-space-sm, 8px);
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e4e6eb) 88%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--w-color-fg, #15171c) 4%, transparent);
+}
+
+.cal-editor__date {
+  flex: none;
+  color: var(--w-color-muted, #6b7280);
+  font-family: var(--t-mono);
+  font-size: var(--w-type-caption, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+.cal-editor__input {
+  box-sizing: border-box;
+  min-width: 0;
+  flex: 1 1 120px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e4e6eb) 88%, transparent);
+  border-radius: 7px;
+  background: var(--w-color-surface, #fff);
+  color: var(--w-color-fg, #15171c);
+  font: inherit;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+}
+
+.cal-editor__input::placeholder {
+  color: var(--w-color-muted, #6b7280);
+  opacity: 0.75;
+}
+
+.cal-editor__btn {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e4e6eb) 88%, transparent);
+  border-radius: 7px;
+  background: none;
+  color: var(--w-color-muted, #6b7280);
+  font: inherit;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+  cursor: pointer;
+  transition:
+    color var(--w-motion-fast) var(--w-motion-ease-smooth),
+    background-color var(--w-motion-fast) var(--w-motion-ease-smooth);
+}
+
+.cal-editor__close {
+  width: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.cal-editor__input:focus-visible,
+.cal-editor__btn:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-editor__btn:hover {
+    background: color-mix(in srgb, var(--w-color-fg, #15171c) 6%, transparent);
+    color: var(--w-color-fg, #15171c);
+  }
+}
+
+/*
+ * 矮盒子画一周、很矮的连标题一起收掉，缩略画面里也不接指针：这三处放不下一行输入，编辑栏一起
+ * 收掉，日期格仍然点得动（只是不弹编辑栏）。
+ */
+.cal[data-week] .cal-editor,
+.cal[data-compact] .cal-editor,
+:root[data-box-height="short"] .cal-editor,
+:root[data-placement="preview"] .cal-editor {
+  display: none;
+}
+

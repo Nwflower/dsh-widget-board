@@ -1,10 +1,25 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "title": "合并事件增量", "meta": "12ms", "status": "ok" },
+        { "title": "等待授权的脚本", "meta": "1 项", "status": "warn" }
+      ]
+    }
   },
   "l": {
     "lang": "zh-CN",
-    "motion": "full"
+    "motion": "full",
+    "data": {
+      "items": [
+        { "title": "合并事件增量", "meta": "12ms", "status": "ok" },
+        { "title": "等待授权的脚本", "meta": "1 项", "status": "warn" },
+        { "title": "组件库重载", "meta": "3 个版本", "status": "idle" },
+        { "title": "会话清单刷新", "meta": "9 个会话", "status": "ok" },
+        { "title": "工作区切换", "meta": "2 个目录", "status": "idle" }
+      ]
+    }
   }
 }

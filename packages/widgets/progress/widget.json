@@ -9,14 +9,19 @@
     "en": "A set of progress bars with values and notes; for capacity, quotas and goals."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 18 },
   "minBox": { "w": 1, "h": 12 },
+  "source": "widget-board:capacity.items",
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -31,13 +36,26 @@
             "label": { "type": "string", "maxLength": 80 },
             "value": { "type": "number" },
             "max": { "type": "number" },
-            "note": { "type": "string", "maxLength": 80 }
+            "note": { "type": "string", "maxLength": 80 },
+            "tone": { "enum": ["accent", "warn", "danger", "muted"] }
           }
         }
       }
     }
   },
   "text": {
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "引题",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "附注",
+      "en": "Meta"
+    },
     "empty": {
       "zh": "暂无进度",
       "en": "No metrics"

@@ -11,6 +11,7 @@ import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { BoardEvent, WidgetMinBox, WidgetRoot } from '@dsh-widget-board/contracts'
 import {
+  BOARD_COMPATIBILITY,
   PACKAGE_NAME,
   PLUGIN_ROUTE,
   WIDGET_BOARD_API_VERSION,
@@ -40,9 +41,21 @@ import { createMarketRegistry } from './market'
 import { registerDshAccount } from './dsh-account'
 import { createSystemMetricsSource } from './system-metrics'
 import { createGitDiffSource } from './git-diff'
+import { createGitLogSource, createMarkdownDocSource, createRepoLinksSource } from './git-log'
+import type { GitLogDeps } from './git-log'
+import {
+  createBoardJsonSource,
+  createCapacityItemsSource,
+  createProvidersTableSource,
+  createRuntimeKvSource,
+  createSessionsListSource,
+  createUsageChartSource,
+  createUsageStatSource,
+} from './board-sources'
+import type { BoardSourceDeps } from './board-sources'
 import { registerGithub } from './github'
 import { registerTheme } from './theme'
-import { registerUsage } from './usage'
+import { createUsageReader, registerUsage } from './usage'
 import { createScheduler } from './refresh'
 import { createSubscriptions, intervalCardsOf } from './subscriptions'
 import { registerDataRead } from './data-read'
@@ -217,6 +230,44 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     sessions: () => sessionsOf(ctx),
     workspaces: () => workspaceRegistryOf(ctx),
   }))
+  /**
+   * 宿主本机客户端的根地址：宿主还没有绑定端口时它抛出来，这里按缺席处理（D11）。
+   */
+  const originOf = (): string | undefined => {
+    try {
+      return webServerOf(ctx).getOrigin?.()
+    } catch {
+      return undefined
+    }
+  }
+  // 仓库与文档的三个数据源：提交时间线、仓库链接与一份 Markdown 文档。都只读本机，不声明权限（D6）。
+  const gitDeps: GitLogDeps = {
+    sessions: () => sessionsOf(ctx),
+    workspaces: () => workspaceRegistryOf(ctx),
+    origin: () => originOf(),
+  }
+  // 宿主自己状态的七个数据源：会话、工作区、用量、容量、提供方、运行环境与当前看板。都只读宿主
+  // 进程里的东西，不声明权限（D6）；用量那两个读的是 `usage.ts` 已经折好的同一份汇总。
+  const boardDeps: BoardSourceDeps = {
+    sessions: () => sessionsOf(ctx),
+    workspaces: () => workspaceRegistryOf(ctx),
+    readUsage: createUsageReader(ctx, home),
+    health,
+    workspace,
+    records: () => context.records,
+    diskPath: join(home, 'boards'),
+    version: BOARD_COMPATIBILITY.boardVersion,
+  }
+  const disposeGitLog = sources.registerDataSource(createGitLogSource(gitDeps))
+  const disposeRepoLinks = sources.registerDataSource(createRepoLinksSource(gitDeps))
+  const disposeMarkdownDoc = sources.registerDataSource(createMarkdownDocSource(gitDeps))
+  const disposeSessionsList = sources.registerDataSource(createSessionsListSource(boardDeps))
+  const disposeUsageChart = sources.registerDataSource(createUsageChartSource(boardDeps))
+  const disposeUsageStat = sources.registerDataSource(createUsageStatSource(boardDeps))
+  const disposeCapacityItems = sources.registerDataSource(createCapacityItemsSource(boardDeps))
+  const disposeProvidersTable = sources.registerDataSource(createProvidersTableSource(boardDeps))
+  const disposeRuntimeKv = sources.registerDataSource(createRuntimeKvSource(boardDeps))
+  const disposeBoardJson = sources.registerDataSource(createBoardJsonSource(boardDeps))
   // 宿主自己的 HTTP 数据源（D6）：地址与主机来自组件的 manifest，映射成界面由组件自己负责；每次请求记进这张卡的日志（D28）。
   const disposeHttpSource = sources.registerDataSource(
     createHttpSource(() => context.records, PACKAGE_NAME, WIDGET_BOARD_API_VERSION, {
@@ -372,6 +423,16 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     tools?.dispose()
     disposeSystemMetrics()
     disposeGitDiff()
+    disposeGitLog()
+    disposeRepoLinks()
+    disposeMarkdownDoc()
+    disposeSessionsList()
+    disposeUsageChart()
+    disposeUsageStat()
+    disposeCapacityItems()
+    disposeProvidersTable()
+    disposeRuntimeKv()
+    disposeBoardJson()
     disposeHttpSource()
     disposeDataRead()
     subscriptions.stop()

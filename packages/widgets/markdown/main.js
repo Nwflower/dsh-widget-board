@@ -136,9 +136,20 @@
     el.content.innerHTML = typeof html === 'string' ? html : escapeHtml(markdown)
   }
 
+  /**
+   * 内容从三处来，按这个次序：数据源读回来的（推进来的或 `markdown.doc` 读的）、设置里写的
+   * `props.content`、组件自带的样例。
+   */
+  function contentOf(data) {
+    if (typeof data.markdown === 'string') return data.markdown
+    var props = widget === undefined ? {} : widget.props
+    if (props !== null && typeof props === 'object' && typeof props.content === 'string' && props.content.trim() !== '') return props.content
+    return sample()
+  }
+
   function applyData(source) {
     var data = source !== null && typeof source === 'object' ? source : {}
-    var markdown = typeof data.markdown === 'string' ? data.markdown : sample()
+    var markdown = contentOf(data)
     var blank = markdown.trim() === ''
     el.empty.textContent = emptyLabel()
     el.body.hidden = blank

@@ -1,10 +1,23 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "label": "上下文窗口", "value": 38, "max": 64, "note": "38 / 64 K", "tone": "accent" },
+        { "label": "月度调用", "value": 8200, "max": 10000, "note": "8.2 / 10 K", "tone": "warn" }
+      ]
+    }
   },
   "l": {
-    "lang": "zh-CN",
-    "motion": "full"
+    "lang": "en-US",
+    "motion": "full",
+    "data": {
+      "items": [
+        { "label": "Context window", "value": 38, "max": 64, "note": "38 / 64 K", "tone": "accent" },
+        { "label": "Monthly calls", "value": 8200, "max": 10000, "note": "8.2 / 10 K", "tone": "warn" },
+        { "label": "Local storage", "value": 64, "max": 100, "note": "64 / 100 GB", "tone": "muted" }
+      ]
+    }
   }
 }

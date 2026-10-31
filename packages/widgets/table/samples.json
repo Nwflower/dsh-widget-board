@@ -1,10 +1,37 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "columns": [
+        { "key": "name", "label": "服务" },
+        { "key": "state", "label": "状态" },
+        { "key": "latency", "label": "延迟", "align": "right" }
+      ],
+      "rows": [
+        { "name": "宿主", "state": "在线", "latency": "12 ms" },
+        { "name": "组件库", "state": "在线", "latency": "4 ms" },
+        { "name": "事件推送", "state": "在线", "latency": "9 ms" },
+        { "name": "数据源", "state": "在线", "latency": "31 ms" }
+      ]
+    }
   },
   "l": {
-    "lang": "zh-CN",
-    "motion": "full"
+    "lang": "en-US",
+    "motion": "full",
+    "data": {
+      "columns": [
+        { "key": "provider", "label": "Provider" },
+        { "key": "kind", "label": "Kind" },
+        { "key": "sources", "label": "Sources", "align": "right" },
+        { "key": "state", "label": "State", "align": "right" }
+      ],
+      "rows": [
+        { "provider": "dsh-widget-board", "kind": "builtin", "sources": 7, "state": "ready" },
+        { "provider": "dsh-task-board", "kind": "plugin", "sources": 3, "state": "ready" },
+        { "provider": "acme.widgets", "kind": "market", "sources": 12, "state": "pending" },
+        { "provider": "local.author", "kind": "user", "sources": 1, "state": "ready" }
+      ]
+    }
   }
 }

@@ -8,8 +8,19 @@
   </header>
   <div class="t-data__body">
     <div class="t-data__scroll links-card__list" data-role="list">
-      <div class="links-card__rows" data-role="rows"></div>
+      <div class="links-card__main">
+        <div class="links-card__rows" data-role="rows"></div>
+        <p class="t-data__empty links-card__empty" data-role="empty" hidden>暂无链接</p>
+      </div>
+      <div class="links-card__adder" data-role="adder" hidden>
+        <input class="links-card__field" data-role="new-title" type="text" maxlength="80" placeholder="标题" autocomplete="off" enterkeyhint="next">
+        <input class="links-card__field" data-role="new-url" type="text" maxlength="400" placeholder="https://example.com" autocomplete="off" enterkeyhint="done">
+        <div class="links-card__adder-row">
+          <button class="links-card__save" type="button" data-role="new-save">保存</button>
+          <button class="links-card__cancel" type="button" data-role="new-close" aria-label="关闭">×</button>
+        </div>
+      </div>
+      <button class="links-card__toggle" type="button" data-role="toggle" aria-expanded="false" aria-label="添加书签">+</button>
     </div>
-    <p class="t-data__empty" data-role="empty" hidden>暂无链接</p>
   </div>
 </div>

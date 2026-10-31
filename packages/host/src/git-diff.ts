@@ -11,9 +11,9 @@
  * 取样由订阅驱动（D32）：卡片可见时宿主订上，`subscribe` 立刻读一次、之后每 5 秒读一次；上一拍
  * 还没回来时这一拍跳过。卡片离开视口、props 变了或提供方撤下时宿主退订，退订之后不再回调。
  */
-import { execFile } from 'node:child_process'
-import type { DataSourceRegistration, HostSessions, HostWorkspaceRegistry, InstanceFace } from '@dsh-widget-board/contracts'
-import { WIDGET_BOARD_API_VERSION } from '@dsh-widget-board/contracts'
+import type { DataSourceRegistration, InstanceFace } from '@dsh-widget-board/contracts'
+import type { RepoCwdDeps } from './git-utils'
+import { dataSourceOf, resolveRepoCwd, runGit } from './git-utils'
 
 /** 数据源的 id 与提供方：组件 manifest 里写成 `widget-board:git.diff`。 */
 export const GIT_DIFF_PROVIDER = 'widget-board'
@@ -31,12 +31,6 @@ export const GIT_DIFF_LINE_LIMIT = 400
 /** 单行文字的上限，与组件 manifest 里 `text` 的 maxLength 一致。 */
 const TEXT_LIMIT = 400
 
-/** Git 命令的超时，毫秒：读不动就当这一拍没有改动。 */
-const COMMAND_TIMEOUT_MS = 5000
-
-/** Git 输出的上限，字节：一份大改动读不下时按失败处理。 */
-const COMMAND_MAX_BUFFER = 2 * 1024 * 1024
-
 /** 一行改动。 */
 export interface GitDiffLine {
   /** 行的类型：新增、删除、上下文或文件路径。 */
@@ -52,14 +46,7 @@ export interface GitDiffData {
 }
 
 /** 建这个数据源要读的东西；每项都可能缺席，缺席时按兜底走（D11）。 */
-export interface GitDiffDeps {
-  /** 宿主的会话服务；读当前活跃会话的工作目录。 */
-  sessions?: () => HostSessions | undefined
-  /** 宿主的工作区登记表；读第一个工作区的目录。 */
-  workspaces?: () => HostWorkspaceRegistry | undefined
-  /** 前两处都没有时用的目录。 */
-  defaultCwd?: string
-}
+export type GitDiffDeps = RepoCwdDeps
 
 /**
  * 一份 unified diff 里的三类行头：文件头、块头与说明行。
@@ -68,22 +55,6 @@ export interface GitDiffDeps {
  * 之类。改动本身只出现在块头之后。
  */
 const FILE_HEADER = /^(?:index |new file mode |deleted file mode |similarity index |rename from |rename to |old mode |new mode |dissimilarity index |copy from |copy to |GIT binary patch|Binary files )/
-
-/**
- * 在一个目录里跑一条 Git 命令。
- *
- * @param cwd - 目标目录。
- * @param args - 命令的参数。
- * @returns 命令的标准输出；命令失败时抛出。
- */
-function runGit(cwd: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile('git', args, { cwd, windowsHide: true, timeout: COMMAND_TIMEOUT_MS, maxBuffer: COMMAND_MAX_BUFFER, encoding: 'utf8' }, (error, stdout) => {
-      if (error) reject(error)
-      else resolve(stdout)
-    })
-  })
-}
 
 /**
  * 读一份改动：先看未提交的，没有未提交的就看最近一次提交。
@@ -187,38 +158,6 @@ export function parseUnifiedDiff(raw: string, limit = GIT_DIFF_LINE_LIMIT): GitD
 }
 
 /**
- * 这张卡要读哪个目录。
- *
- * 卡片自己填的 `cwd` 最优先；没填时取最后一个有工作目录的活跃会话；再没有取第一个工作区；
- * 都没有就用宿主进程的当前目录。
- *
- * @param instance - 订阅这张卡片。
- * @param deps - 会话、工作区与兜底目录。
- * @returns 目标目录。
- */
-function resolveCwd(instance: InstanceFace, deps: GitDiffDeps): string {
-  const pinned = instance.props?.cwd
-  if (typeof pinned === 'string' && pinned.trim() !== '') return pinned.trim()
-  const sessions = deps.sessions?.()
-  const live = sessions?.list()
-  if (Array.isArray(live)) {
-    for (let index = live.length - 1; index >= 0; index -= 1) {
-      const cwd = live[index]?.header?.cwd
-      if (typeof cwd === 'string' && cwd.trim() !== '') return cwd.trim()
-    }
-  }
-  const workspaces = deps.workspaces?.()
-  const spaces = workspaces?.list()
-  if (Array.isArray(spaces)) {
-    for (const space of spaces) {
-      const path = space?.path
-      if (typeof path === 'string' && path.trim() !== '') return path.trim()
-    }
-  }
-  return deps.defaultCwd ?? process.cwd()
-}
-
-/**
  * 建出仓库改动的数据源。
  *
  * @param deps - 会话、工作区与兜底目录。
@@ -232,50 +171,17 @@ export function createGitDiffSource(deps: GitDiffDeps): DataSourceRegistration {
    * @returns 改动行。
    */
   const collect = async (instance: InstanceFace): Promise<GitDiffData> => {
-    const cwd = resolveCwd(instance, deps)
+    const cwd = resolveRepoCwd(instance, deps)
     return { lines: parseUnifiedDiff(await readDiff(cwd)) }
   }
 
-  return {
-    apiVersion: WIDGET_BOARD_API_VERSION,
+  // 卡片可见期间持续读改动（D32）：先给一份当下的改动，之后每 5 秒一份；读是异步的，两拍之间会重叠，
+  // 上一拍还没回来时这一拍直接跳过（`./git-utils` 的采样闸门）。
+  return dataSourceOf({
     provider: GIT_DIFF_PROVIDER,
     id: GIT_DIFF_SOURCE,
-    read(instance: InstanceFace): Promise<GitDiffData> {
-      return collect(instance)
-    },
-    /**
-     * 卡片可见期间持续读改动（D32）：先给一份当下的改动，之后每 5 秒一份。
-     *
-     * 读是异步的（Git 要起一个进程），两拍之间会重叠：上一拍还没回来时这一拍直接跳过。
-     *
-     * @param instance - 订阅这张卡片。
-     * @param emit - 推一份改动给宿主。
-     * @returns 退订函数：同步停表，在途的那一次回来之后也不再回调。
-     */
-    subscribe(instance: InstanceFace, emit: (data: unknown) => void): () => void {
-      let alive = true
-      let busy = false
-      const take = async (): Promise<void> => {
-        if (!alive || busy) return
-        busy = true
-        try {
-          const payload = await collect(instance)
-          if (alive) emit(payload)
-        } catch (error) {
-          // 定时回调没有调用方可以接住它，抛出去会把整张看板带下来；这一拍跳过，下一拍照常读（D11）。
-          console.error(`widget-board: 改动采样失败：${error instanceof Error ? error.message : String(error)}`)
-        } finally {
-          busy = false
-        }
-      }
-      const timer = setInterval(() => { void take() }, GIT_DIFF_INTERVAL_MS)
-      // 定时器不拽住进程：宿主的退出时机不该由一张卡决定。
-      timer.unref()
-      void take()
-      return () => {
-        alive = false
-        clearInterval(timer)
-      }
-    },
-  }
+    intervalMs: GIT_DIFF_INTERVAL_MS,
+    label: '改动',
+    read: async (instance: InstanceFace): Promise<GitDiffData> => await collect(instance),
+  })
 }

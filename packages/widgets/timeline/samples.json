@@ -1,10 +1,23 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "time": "09:12", "title": "同步看板快照", "detail": "卡片与组件库一起更新", "status": "ok" }
+      ]
+    }
   },
   "l": {
     "lang": "zh-CN",
-    "motion": "full"
+    "motion": "full",
+    "data": {
+      "items": [
+        { "time": "09:12", "title": "同步看板快照", "detail": "卡片与组件库一起更新", "status": "ok" },
+        { "time": "10:40", "title": "提交自由布局", "detail": "列 2 · 高 22rem", "status": "ok" },
+        { "time": "11:05", "title": "推送一张卡的数据", "detail": "事件增量，没有重取整块看板", "status": "idle" },
+        { "time": "13:20", "title": "重载组件库", "detail": "内容哈希变了才重载", "status": "warn" }
+      ]
+    }
   }
 }

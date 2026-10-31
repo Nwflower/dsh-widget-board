@@ -455,12 +455,21 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   // 只挂当前看板：度量按同一块看板的内容区算，切换时新的栅格拿到同一份列宽与根字号。
   useEffect(() => {
     const node = boardsRef.current
+    const shell = shellRef.current
     if (node === null) return
-    const update = (): void => setMetrics(gridMetrics(node.clientWidth, rootFontSize()))
+    const update = (): void => {
+      const viewHeight = Math.max(shell?.clientHeight ?? 0, window.innerHeight || 0, window.screen?.availHeight || 0)
+      setMetrics(gridMetrics(node.clientWidth, rootFontSize(), viewHeight))
+    }
     update()
     const observer = new ResizeObserver(update)
     observer.observe(node)
-    return () => observer.disconnect()
+    if (shell !== null) observer.observe(shell)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
   }, [])
 
   // 观察器只随卡片名单重建：状态与布局的通知每秒都在改快照对象，观察器不能跟着每秒拆装一遍

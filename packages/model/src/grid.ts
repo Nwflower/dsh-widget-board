@@ -20,14 +20,14 @@ export const MAX_COLUMNS = 4
 /** 新卡片的高度，按根字号的倍数。 */
 export const DEFAULT_HEIGHT_REM = 22
 
-/** 卡片的高度档位，按根字号的倍数；缩放只在档位之间跳（D16）。 */
+/** 卡片的基础高度档位，按根字号的倍数；超过 30rem 后按 2rem 步进随屏幕与看板高度自由延伸（D16）。 */
 export const CARD_HEIGHT_TIERS_REM = [6, 10, 14, 18, 22, 26, 30] as const
 
 /** 卡片的最小高度档位，按根字号的倍数。 */
 export const MIN_HEIGHT_REM = CARD_HEIGHT_TIERS_REM[0]
 
-/** 卡片的最大高度档位，按根字号的倍数。 */
-export const MAX_HEIGHT_REM = CARD_HEIGHT_TIERS_REM[CARD_HEIGHT_TIERS_REM.length - 1] as number
+/** 卡片的最大高度上限，按根字号的倍数：由屏幕视口或看板高度动态决定，协议上限留足余量。 */
+export const MAX_HEIGHT_REM = 240
 
 /** 卡片顶部的纵向档位，按根字号的倍数；拖动、落点与自动堆叠都落在这张网格上（D16）。 */
 export const POSITION_STEP_REM = 2
@@ -58,11 +58,18 @@ export function ceilCardY(value: number): number {
  * @param value - 以根字号为单位的高度。
  * @returns 档位里的高度。
  */
-export function snapCardHeight(value: number): number {
+export function snapCardHeight(value: number, maxHeightRem = MAX_HEIGHT_REM): number {
+  const ceiling = Math.max(MIN_HEIGHT_REM, Math.min(MAX_HEIGHT_REM, snapCardY(maxHeightRem)))
+  const capped = Math.min(value, ceiling)
+  const topBase = CARD_HEIGHT_TIERS_REM[CARD_HEIGHT_TIERS_REM.length - 1] as number
+  if (capped > topBase) {
+    return Math.min(ceiling, Math.max(topBase, snapCardY(capped)))
+  }
   let best: number = CARD_HEIGHT_TIERS_REM[0]
-  let distance = Math.abs(value - best)
+  let distance = Math.abs(capped - best)
   for (const tier of CARD_HEIGHT_TIERS_REM) {
-    const next = Math.abs(value - tier)
+    if (tier > ceiling) break
+    const next = Math.abs(capped - tier)
     if (next < distance || (next === distance && tier > best)) {
       best = tier
       distance = next
@@ -82,7 +89,7 @@ export function minCardHeight(minimum: number): number {
   for (const tier of CARD_HEIGHT_TIERS_REM) {
     if (tier >= minimum) return tier
   }
-  return MAX_HEIGHT_REM
+  return Math.min(MAX_HEIGHT_REM, ceilCardY(minimum))
 }
 
 /** 这一帧的栅格：列数、列宽、间距与根字号。 */
@@ -91,6 +98,8 @@ export interface GridMetrics {
   columnWidth: number
   gap: number
   rootFontSize: number
+  /** 当前屏幕可视区的像素高度，供卡片下拉时动态自适应最大高度。 */
+  viewportHeight?: number
 }
 
 /** 一张待摆放的卡片：它自己的位置与尺寸。 */
@@ -202,13 +211,14 @@ export function clampCardBox(box: { w: number, h: number }, minBox?: WidgetMinBo
  * @param rootFontSize - 根字号的像素值，默认 16。
  * @returns 列数、列宽、间距与根字号。
  */
-export function gridMetrics(width: number, rootFontSize = 16): GridMetrics {
+export function gridMetrics(width: number, rootFontSize = 16, viewportHeight?: number): GridMetrics {
   const gap = GAP_REM * rootFontSize
   const minimum = MIN_COLUMN_REM * rootFontSize
-  if (width <= 0) return { columns: 1, columnWidth: 0, gap, rootFontSize }
+  const extra = viewportHeight !== undefined && viewportHeight > 0 ? { viewportHeight } : {}
+  if (width <= 0) return { columns: 1, columnWidth: 0, gap, rootFontSize, ...extra }
   const fitting = Math.floor((width + gap) / (minimum + gap))
   const columns = Math.min(MAX_COLUMNS, Math.max(1, fitting))
-  return { columns, columnWidth: (width - gap * (columns - 1)) / columns, gap, rootFontSize }
+  return { columns, columnWidth: (width - gap * (columns - 1)) / columns, gap, rootFontSize, ...extra }
 }
 
 /** 两张卡片的横向区间是否相交。 */

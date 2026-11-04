@@ -27,8 +27,36 @@ const BOARD_TITLES = ['Widget Board', 'Gallery'] as const
 /**
  * 精选看板上演示宿主兑现不了的卡，换成哪个组件：放在同一个盒子里，第一屏的版面不缺一块。
  * 画廊里的这几张直接去掉，其余的卡片按阅读顺序收紧。
+ *
+ * 每个组件给的是候选而不是一个：第一个在演示页上可用的候选算数。替身自己有了数据源时（例如表盘
+ * 指向容量表盘），版面仍然不缺一块。
  */
-const STAND_INS: Readonly<Record<string, string>> = { weather: 'year-progress', 'dsh-balance': 'gauge' }
+const STAND_INS: Readonly<Record<string, readonly string[]>> = {
+  weather: ['year-progress'],
+  'dsh-balance': ['gauge', 'flip-card'],
+  heatmap: ['chart', 'stat'],
+}
+
+/**
+ * 演示页上照样站得住的内置数据源。
+ *
+ * 这些数据源都由插件自己在宿主上兑现，演示宿主是只读的：一个都不兑现。它们名下的组件自带样例与
+ * 兜底渲染，因此演示页上照样画得出来。专为宿主实时采样设计的两张卡不在其中：离了宿主它们就没有
+ * 意义（`system-metrics` 与 `session-usage`）。
+ */
+const DEMO_SUPPORTED_SOURCES = new Set([
+  'widget-board:git.diff',
+  'widget-board:git.log',
+  'widget-board:repo.links',
+  'widget-board:markdown.doc',
+  'widget-board:sessions.list',
+  'widget-board:usage.chart',
+  'widget-board:usage.stat',
+  'widget-board:capacity.items',
+  'widget-board:providers.table',
+  'widget-board:runtime.kv',
+  'widget-board:board.json',
+])
 
 /** 画廊按三列排（D17）；收紧时按三列的栅格算。 */
 const GALLERY_METRICS = gridMetrics(1120)
@@ -62,13 +90,14 @@ export interface SeedOptions {
  * 一个组件需要演示宿主没有的哪一类东西。
  *
  * 数据源、动作、宿主能力与凭据都由真实宿主上的提供方或服务兑现；演示宿主只读，不兑现其中任何
- * 一类，所以需要它们的组件不进看板与组件库，而不是带着一张读不出数据的卡片出现。
+ * 一类，所以需要它们的组件不进看板与组件库，而不是带着一张读不出数据的卡片出现。自带样例与兜底
+ * 渲染的通用卡例外：它们的组件在演示页上照样画得出来。
  *
  * @param manifest - 组件 manifest。
  * @returns 需要的东西；这个组件在演示宿主上能完整工作时是 `undefined`。
  */
 function needsOf(manifest: WidgetManifest): UnsupportedWidget['needs'] | undefined {
-  if (manifest.source !== undefined) return 'source'
+  if (manifest.source !== undefined && !DEMO_SUPPORTED_SOURCES.has(manifest.source)) return 'source'
   if ((manifest.capabilities?.length ?? 0) > 0) return 'capability'
   if ((manifest.actions?.length ?? 0) > 0) return 'action'
   if ((manifest.credentials?.length ?? 0) > 0) return 'credential'
@@ -102,7 +131,7 @@ export async function writeDemoData({ lib, home, out }: SeedOptions): Promise<Ho
     ...board,
     instances: board.instances.map((instance) => {
       if (!skipped.has(instance.widget)) return instance
-      const stand = supported.get(STAND_INS[instance.widget] ?? '')
+      const stand = STAND_INS[instance.widget]?.map((id) => supported.get(id)).find((record) => record !== undefined)
       if (stand === undefined) throw new Error(`精选看板上的 ${instance.widget} 在演示页上没有替身`)
       return instanceOf(stand, board.instances, { layout: instance.layout })
     }),

@@ -2,20 +2,30 @@
  * 链接卡的样式：一行一条，左边是首字母色块，中间是标题与域名，右边是说明。
  *
  * 宽盒子里铺成多列格子，四列或两列都按可用宽度排；窄高盒子里整组在正文里居中，不让清单挤在
- * 上沿。行不做成按钮，所以没有悬停与焦点态：要开链接的卡片自己用 `widget.open`（D26），写在
- * 这里的只有排版。
+ * 上沿。每一行的主体是一个按钮：能打开的地址点一下交给宿主开新标签页，不能打开的地址就是一段
+ * 文字。添加书签的入口与输入行都在滚动区里，控件不会跑出盒子；缩略画面与矮盒子把入口收掉。
  */
 .links-card__list {
   display: flex;
   flex-direction: column;
 }
 
-/* 行的一层：宽盒子里它变成多列栅格，其余盒子里是一列，居中由外层给。 */
+/*
+ * 清单这一块占住正文里多出来的空间，里面的行竖着居中；加号与输入行排在它下面，贴着卡片底部。
+ */
+.links-card__main {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* 行的一层：宽盒子里它变成多列栅格，其余盒子里是一列。 */
 .links-card__rows {
   display: flex;
   flex: none;
   flex-direction: column;
-  margin-block: auto;
 }
 
 .links-card__row {
@@ -46,12 +56,33 @@
   text-transform: uppercase;
 }
 
+/* 行里的主体：能打开的地址是按钮，其余是一段文字，两者排版一样。 */
+.links-card__open,
+.links-card__static {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: var(--w-space-sm, 8px);
+}
+
+.links-card__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .links-card__body {
   flex: 1;
   min-width: 0;
 }
 
 .links-card__title {
+  display: block;
   overflow: hidden;
   color: var(--w-color-fg, #0b1016);
   font-size: var(--w-type-body, 14px);
@@ -61,6 +92,7 @@
 }
 
 .links-card__host {
+  display: block;
   overflow: hidden;
   color: var(--w-color-muted, #6b7684);
   font-family: var(--t-mono);
@@ -86,8 +118,133 @@
   white-space: nowrap;
 }
 
-/* 宽盒子：多列格子，格子之间留白，按可用宽度决定列数。 */
-:root[data-box-width="wide"] .links-card__rows {
+/* 自建的书签行右边带一个删除按钮。 */
+.links-card__remove {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--w-color-muted, #6b7684);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* 添加书签：列表底下一个紧凑的加号，点开就地展开输入行。 */
+.links-card__toggle {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  align-self: flex-start;
+  margin-top: var(--w-space-sm, 8px);
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 82%, transparent);
+  border-radius: 8px;
+  background: none;
+  color: var(--w-color-muted, #6b7684);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.links-card__adder {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--w-space-xs, 4px);
+  padding-top: var(--w-space-sm, 8px);
+}
+
+.links-card__field {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 88%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--w-color-fg, #0b1016) 4%, transparent);
+  color: var(--w-color-fg, #0b1016);
+  font: inherit;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+}
+
+.links-card__field::placeholder {
+  color: var(--w-color-muted, #6b7684);
+  opacity: 0.75;
+}
+
+.links-card__adder-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--w-space-xs, 4px);
+}
+
+.links-card__save {
+  flex: 1 1 auto;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--w-color-accent, #2563eb) 38%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--w-color-accent, #2563eb) 12%, transparent);
+  color: var(--w-color-accent, #2563eb);
+  font: inherit;
+  font-size: var(--w-type-caption, 12px);
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.links-card__cancel {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--w-color-border, #e5e7eb) 88%, transparent);
+  border-radius: 8px;
+  background: none;
+  color: var(--w-color-muted, #6b7684);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.links-card__open:focus-visible,
+.links-card__toggle:focus-visible,
+.links-card__save:focus-visible,
+.links-card__cancel:focus-visible,
+.links-card__remove:focus-visible,
+.links-card__field:focus-visible {
+  outline: 2px solid var(--w-color-accent, #2563eb);
+  outline-offset: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .links-card__open:hover .links-card__title {
+    color: var(--w-color-accent, #2563eb);
+  }
+
+  .links-card__toggle:hover,
+  .links-card__cancel:hover,
+  .links-card__remove:hover {
+    background: color-mix(in srgb, var(--w-color-fg, #0b1016) 6%, transparent);
+    color: var(--w-color-fg, #0b1016);
+  }
+}
+
+/*
+ * 宽盒子：多列格子，格子之间留白，按可用宽度决定列数。
+ * 选 `:not([hidden])` 是为了让行收起来时套件的 `.t-data [hidden]` 仍然管用。
+ */
+:root[data-box-width="wide"] .links-card__rows:not([hidden]) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: var(--w-space-sm, 8px) var(--w-space-xl, 24px);
@@ -114,4 +271,14 @@
   width: 24px;
   height: 24px;
   font-size: 11px;
+}
+
+/*
+ * 矮盒子与缩略画面里不接指针，也放不下输入行：加号与输入行一起收掉，剩下的清单照旧读。
+ */
+:root[data-box-height="short"] .links-card__toggle,
+:root[data-box-height="short"] .links-card__adder,
+:root[data-placement="preview"] .links-card__toggle,
+:root[data-placement="preview"] .links-card__adder {
+  display: none;
 }

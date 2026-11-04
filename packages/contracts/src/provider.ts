@@ -130,13 +130,14 @@ export function nativeProviderRegistration(identity: ProviderIdentity): WidgetNa
 /**
  * 组一份挂在把手下方的数据源。
  *
- * @param registration - 名字、权限与读取函数；版本与提供方名由把手注入。
+ * @param registration - 名字、权限、读取函数与可选的订阅函数；版本与提供方名由把手注入。
  * @returns 冻结的注册。
- * @throws {Error} 名字为空，或没有 `read`。
+ * @throws {Error} 名字为空，或没有 `read`，或 `subscribe` 不是函数。
  */
 export function sourceRegistration(registration: ProviderDataSourceRegistration): ProviderDataSourceRegistration {
   requireName(registration.id, '数据源的名字')
   requireFunction(registration.read, `数据源 ${registration.id} 的 read`)
+  if (registration.subscribe !== undefined) requireFunction(registration.subscribe, `数据源 ${registration.id} 的 subscribe`)
   return Object.freeze({ ...registration })
 }
 

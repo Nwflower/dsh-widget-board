@@ -82,7 +82,11 @@ describe('高度档位', () => {
     expect(snapCardHeight(12)).toBe(14)
     expect(snapCardHeight(20)).toBe(22)
     expect(snapCardHeight(24)).toBe(26)
-    expect(snapCardHeight(99)).toBe(30)
+    expect(snapCardHeight(32)).toBe(32)
+    expect(snapCardHeight(44)).toBe(44)
+    expect(snapCardHeight(72)).toBe(72)
+    expect(snapCardHeight(100, 68)).toBe(68)
+    expect(snapCardHeight(500)).toBe(MAX_HEIGHT_REM)
   })
 
   it('归一化布局时把高度收进档位', () => {
@@ -266,7 +270,8 @@ describe('组件的最小盒子', () => {
     expect(minCardHeight(6)).toBe(6)
     expect(minCardHeight(7)).toBe(10)
     expect(minCardHeight(26.5)).toBe(30)
-    expect(minCardHeight(100)).toBe(MAX_HEIGHT_REM)
+    expect(minCardHeight(45)).toBe(46)
+    expect(minCardHeight(500)).toBe(MAX_HEIGHT_REM)
   })
 
   it('布局的宽度与高度都抬到最小盒子', () => {

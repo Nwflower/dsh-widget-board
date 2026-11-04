@@ -9,6 +9,7 @@ import Ajv from 'ajv'
 import {
   BOARD_COMPATIBILITY,
   MARKET_LISTING_SCHEMA,
+  REGISTRATION_NAME_PATTERN,
   WIDGET_BOARD_FEATURES,
   WIDGET_BOARD_SUPPORTED_API_VERSIONS,
   WIDGET_MANIFEST_SCHEMA,
@@ -79,5 +80,29 @@ describe('manifest 的 requires', () => {
     const listingRequires = (MARKET_LISTING_SCHEMA.properties.versions.items.properties as Record<string, unknown>).requires
     expect(listingRequires).toBe(WIDGET_REQUIRES_SCHEMA)
     expect(WIDGET_MANIFEST_SCHEMA.properties.requires).toBe(WIDGET_REQUIRES_SCHEMA)
+  })
+})
+
+describe('manifest 的 sources', () => {
+  it('不写 sources 的旧 manifest 照旧通过', () => {
+    expect(validateManifest(manifest())).toBe(true)
+  })
+
+  it('额外源按与 source 相同的名字规则校验', () => {
+    expect(validateManifest(manifest({ source: 'http', request: { url: 'https://example.com/x' }, sources: ['demo:clock', 'static'] }))).toBe(true)
+    expect(validateManifest(manifest({ sources: ['Demo'] }))).toBe(false)
+    expect(validateManifest(manifest({ sources: ['demo:'] }))).toBe(false)
+    expect(validateManifest(manifest({ sources: 'demo:clock' }))).toBe(false)
+  })
+
+  it('同一个源只列一次，最多八项', () => {
+    expect(validateManifest(manifest({ sources: ['demo:clock', 'demo:clock'] }))).toBe(false)
+    expect(validateManifest(manifest({ sources: Array.from({ length: 8 }, (_, index) => `demo:s${String(index)}`) }))).toBe(true)
+    expect(validateManifest(manifest({ sources: Array.from({ length: 9 }, (_, index) => `demo:s${String(index)}`) }))).toBe(false)
+  })
+
+  it('与 source 共用同一条名字正则', () => {
+    expect(WIDGET_MANIFEST_SCHEMA.properties.source.pattern).toBe(REGISTRATION_NAME_PATTERN)
+    expect(WIDGET_MANIFEST_SCHEMA.properties.sources.items.pattern).toBe(REGISTRATION_NAME_PATTERN)
   })
 })

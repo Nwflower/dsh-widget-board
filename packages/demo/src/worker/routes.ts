@@ -20,7 +20,7 @@ import type {
   InstanceStateRequest,
   WidgetMinBox,
 } from '@dsh-widget-board/contracts'
-import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE, REQUEST_LOG_LIMIT, VISIBILITY_LIMIT, VISIBILITY_PATH, isVisibilityReport } from '@dsh-widget-board/contracts'
 import { isCardLayout } from '@dsh-widget-board/model'
 import { isRecord } from '../../../host/src/guards'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from '../../../host/src/limits'
@@ -124,7 +124,7 @@ async function requireInstance(context: DemoContext, id: string): Promise<{ boar
 }
 
 /**
- * 从看板上移除一个排列单元并写入：组卡按整组、普通卡按自己（D32）。
+ * 从看板上移除一个排列单元并写入：组卡按整组、普通卡按自己（D33）。
  *
  * @param context - 演示宿主上下文。
  * @param boardId - 看板 id。
@@ -209,13 +209,13 @@ async function addGroup(context: DemoContext, boardId: string, request: Request)
   await context.boards.save(boardId, (current) => {
     const added = withGroupAdded(current, front, back, layout === undefined ? {} : { layout })
     id = added.id
-    // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D32）。
+    // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D33）。
     return withArrangementUnits(added.board, [], groupUnitOf(added.board, id))
   }, { layoutChanged: true, event: () => ({ type: 'board' }) })
   return json(201, { id, snapshot: await context.boards.snapshot() })
 }
 
-/** 一次排列偏好的提交：真实宿主的 `POST /boards/<id>/arrangement`（D32）。 */
+/** 一次排列偏好的提交：真实宿主的 `POST /boards/<id>/arrangement`（D33）。 */
 async function submitArrangement(context: DemoContext, id: string, request: Request): Promise<Response> {
   const body = await jsonBody(request, LIMITS.layout)
   const valid = isRecord(body) && Number.isSafeInteger(body.expectedLayoutRevision) && (body.expectedLayoutRevision as number) >= 0
@@ -306,6 +306,16 @@ async function saveProps(context: DemoContext, id: string, request: Request): Pr
 
 /** 路由表；路径与方法一起决定走哪一条。 */
 const ROUTES: Route[] = [
+  {
+    method: 'POST',
+    pattern: new RegExp(`^${VISIBILITY_PATH}$`),
+    async handle(_context, request) {
+      const body = await jsonBody(request, VISIBILITY_LIMIT)
+      if (!isVisibilityReport(body)) throw new Refusal(400, '可见性上报需要合法的 viewer 与 visible')
+      // 演示宿主没有数据源调度；校验上报但不登记观众集合。
+      return json(200, { ok: true, accepted: false })
+    },
+  },
   { method: 'GET', pattern: /^\/boards$/, handle: async (context) => json(200, await context.boards.snapshot()) },
   { method: 'POST', pattern: /^\/boards$/, handle: async () => { throw unavailable('多块看板（新建看板）', 'multiple boards (new board)') } },
   { method: 'POST', pattern: /^\/boards\/([^/]+)\/rename$/, handle: async () => { throw unavailable('看板改名', 'board renaming') } },
@@ -352,7 +362,7 @@ const ROUTES: Route[] = [
       const group = body.group
       const board = await context.boards.findGroup(group)
       if (board === undefined) throw new Refusal(404, `看板上没有这一组：${group}`)
-      // 整组离开时它的排列单元一起离开（D32）。
+      // 整组离开时它的排列单元一起离开（D33）。
       await removeUnit(
         context,
         board.id,
@@ -412,7 +422,7 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const { board } = await requireInstance(context, id)
       await jsonBody(request, LIMITS.small)
-      // 这张卡代表的排列单元（组卡是整组）一起离开（D32）。
+      // 这张卡代表的排列单元（组卡是整组）一起离开（D33）。
       await removeUnit(
         context,
         board.id,
@@ -424,6 +434,14 @@ const ROUTES: Route[] = [
     },
   },
   { method: 'GET', pattern: /^\/instance\/([^/]+)\/settings$/, handle: async (context, _request, match) => await readSettings(context, decodeURIComponent(match[1] as string)) },
+  {
+    method: 'GET',
+    pattern: /^\/instance\/([^/]+)\/log$/,
+    async handle(context, _request, match) {
+      await requireInstance(context, decodeURIComponent(match[1] as string))
+      return json(200, { entries: [], limit: REQUEST_LOG_LIMIT })
+    },
+  },
   { method: 'POST', pattern: /^\/instance\/([^/]+)\/props$/, handle: async (context, request, match) => await saveProps(context, decodeURIComponent(match[1] as string), request) },
   { method: 'POST', pattern: /^\/instance\/([^/]+)\/read$/, handle: async () => { throw unavailable('数据源', 'data sources') } },
   { method: 'POST', pattern: /^\/instance\/([^/]+)\/action$/, handle: async () => { throw unavailable('动作', 'actions') } },

@@ -3,6 +3,7 @@
  *
  * 两个半边共用这一份，形状只在这里写一次。
  */
+import type { CapabilityMetadata } from './bridge'
 import type { WidgetCredential, WidgetFamily, WidgetLibraryEntry, LocalizedText, WidgetRefresh, WidgetSource } from './widget'
 import type { Grant, GrantKind } from './permission'
 import type { ActionPermission, MarketListing, WidgetBoardFeature } from './service'
@@ -43,20 +44,20 @@ export interface InstanceGroup {
   template: GroupTemplate
 }
 
-/** 看板的两种排列偏好：自由位置与整齐行列（D32）。 */
+/** 看板的两种排列偏好：自由位置与整齐行列（D33）。 */
 export const ARRANGEMENT_MODES = ['free', 'aligned'] as const
 
 /** 一种排列偏好。 */
 export type ArrangementMode = (typeof ARRANGEMENT_MODES)[number]
 
-/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D32）。 */
+/** 整齐模式里一个排列单元想占的盒子：宽度按列，高度按根字号的倍数（D33）。 */
 export interface AlignedBox {
   w: number
   h: number
 }
 
 /**
- * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D32）。
+ * 整齐模式的偏好：按保存的顺序逐行铺开，每个单元记一个期望盒子（D33）。
  *
  * 只留顺序与期望宽高，像素坐标每次画的时候现算：窗口宽度与根字号变了，存下的东西不用重写。
  * `order` 用的是排列单元 id——普通实例 id，或组卡取正面那张实例的 id。
@@ -67,7 +68,7 @@ export interface AlignedArrangement {
 }
 
 /**
- * 一块看板的排列偏好（D32）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
+ * 一块看板的排列偏好（D33）：`mode` 决定当前排法，`aligned` 在自由模式下保留供恢复。
  *
  * 自由模式的坐标继续存在每张卡的 `layout` 里；两种模式共用卡片、内容与状态，不复制卡片。
  */
@@ -77,7 +78,7 @@ export interface Arrangement {
 }
 
 /**
- * 新看板与第一次创建的那块看板用的排列偏好（D32）：整齐行列，空顺序。
+ * 新看板与第一次创建的那块看板用的排列偏好（D33）：整齐行列，空顺序。
  *
  * 旧看板读到的是 `free`，不给它们补这一份——已经存在的画廊不该在升级时自己换一种排法。
  */
@@ -161,7 +162,7 @@ export interface Board {
    */
   layoutRevision: number
   /**
-   * 排列偏好（D32）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
+   * 排列偏好（D33）：旧看板读出来是 `free`，新建与默认看板是 `aligned`。
    *
    * 缺席表示自由模式：读盘时在内存里补一份，下一次保存才写进文件。
    */
@@ -186,6 +187,13 @@ export interface WidgetSummary {
    * 握手里把这张卡可用的能力告诉组件，组件就不必先发一次注定失败的调用再回退。
    */
   availableCapabilities?: string[]
+  /**
+   * 声明过的每一项能力的元数据（D32），按 manifest 的声明次序，现在不可用的那些也在里面。
+   *
+   * `capabilities` 是其中的 id 白名单，`availableCapabilities` 是其中 `available` 为真的那些 id：
+   * 客户端只从这里取标题、说明与 schema，不必先发一次调用。
+   */
+  capabilityMetadata?: CapabilityMetadata[]
   /** 看板上的最小盒子（D16）。 */
   minBox?: { w: number, h: number }
   /** 这个类型有没有可配置的 props 或凭据（D27）：设置按钮据此决定出不出现。 */
@@ -500,7 +508,7 @@ export interface BoardLayoutRequest {
 }
 
 /**
- * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D32）。
+ * `POST /boards/<id>/arrangement` 的请求体：一次提交整块看板的排列偏好（D33）。
  *
  * 模式切换、整齐顺序与期望宽高一起提交；宿主核对布局修订号，过期时回 409 与当前快照。
  */

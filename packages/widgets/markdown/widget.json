@@ -9,15 +9,21 @@
     "en": "Markdown and code: headings, lists, tables, quotes and language-highlighted code blocks for notes, prompts and snippets."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 2, "h": 22 },
   "minBox": { "w": 1, "h": 18 },
   "libs": ["marked", "highlight"],
+  "source": "widget-board:markdown.doc",
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "file": { "type": "string", "maxLength": 260 },
+      "content": { "type": "string", "maxLength": 10000 },
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -29,6 +35,26 @@
     "empty": {
       "zh": "还没有内容",
       "en": "Nothing here yet"
+    },
+    "props.file.label": {
+      "zh": "文档路径",
+      "en": "Document path"
+    },
+    "props.file.hint": {
+      "zh": "相对仓库的文件路径，例如 README.md",
+      "en": "File path relative to the repository, e.g. README.md"
+    },
+    "props.content.label": {
+      "zh": "Markdown 内容",
+      "en": "Markdown content"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "标签",
+      "en": "Kicker"
     }
   }
 }

@@ -1,10 +1,40 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "value": {
+        "id": "board-1",
+        "title": "我的看板",
+        "instances": [
+          { "id": "card-a", "widget": "stat", "layout": { "w": 1, "h": 16 } },
+          { "id": "card-b", "widget": "chart", "layout": { "w": 2, "h": 22 } }
+        ],
+        "revision": 7
+      },
+      "caption": "看板文件 · board.json"
+    }
   },
   "l": {
-    "lang": "zh-CN",
-    "motion": "full"
+    "lang": "en-US",
+    "motion": "full",
+    "data": {
+      "value": {
+        "id": "board-1",
+        "title": "My board",
+        "instances": [
+          { "id": "card-a", "widget": "stat", "layout": { "w": 1, "h": 16 } },
+          { "id": "card-b", "widget": "chart", "layout": { "w": 2, "h": 22 } },
+          { "id": "card-c", "widget": "kv", "layout": { "w": 1, "h": 18 } }
+        ],
+        "revision": 7,
+        "settings": {
+          "theme": "system",
+          "columns": 3,
+          "animated": true
+        }
+      },
+      "caption": "Board file · board.json"
+    }
   }
 }

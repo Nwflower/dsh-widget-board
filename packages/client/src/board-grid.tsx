@@ -128,7 +128,7 @@ export interface BoardGridProps {
   onSnapshot: (snapshot: WorkspaceSnapshot) => void
   /** 宿主存下了这次布局：只把这一块看板的盒子并回去。 */
   onLayouts: (boardId: string, layoutRevision: number, layouts: Record<string, CardLayout>) => void
-  /** 宿主存下了这次排列偏好：把这一块看板的偏好并回去（D32）。 */
+  /** 宿主存下了这次排列偏好：把这一块看板的偏好并回去（D33）。 */
   onArrangement: (boardId: string, layoutRevision: number, arrangement: Arrangement) => void
   /** 记下或清掉一条失败提示。 */
   onFailure: (message: string | null) => void
@@ -196,7 +196,7 @@ export function BoardGrid({
 
   const cards = useMemo(() => groupCards(board.instances), [board.instances])
   const aligned = board.arrangement?.mode === 'aligned'
-  /** 整齐模式的排列顺序：草稿在手势里时按它画，否则按保存的那一份；新单元接在末尾（D32）。 */
+  /** 整齐模式的排列顺序：草稿在手势里时按它画，否则按保存的那一份；新单元接在末尾（D33）。 */
   const order = useMemo(() => {
     const saved = board.arrangement?.aligned?.order ?? []
     const known = cards.map(cardId)
@@ -287,7 +287,7 @@ export function BoardGrid({
     event.currentTarget.setPointerCapture(event.pointerId)
     // 从屏幕上正在显示的那一份开始拖：存储里的布局在窄列里可能被推开过，直接用它会跳一下。
     if (aligned) {
-      // 整齐模式：卡片从派生格子的当前位置跟手；落点是顺序草稿决定的那一格（D32）。
+      // 整齐模式：卡片从派生格子的当前位置跟手；落点是顺序草稿决定的那一格（D33）。
       const resolved = resolveAlignedLayout(alignedItems, metrics, minBoxOf)
       const placement = resolved.placements.find((entry) => entry.id === id)
       if (placement === undefined) return
@@ -357,6 +357,8 @@ export function BoardGrid({
     const columnStep = metrics.columnWidth + metrics.gap
     const flowWidth = flow?.clientWidth
       ?? metrics.columns * metrics.columnWidth + (metrics.columns - 1) * metrics.gap
+    const screenMaxPx = Math.max(metrics.viewportHeight ?? 0, window.innerHeight || 0, window.screen?.availHeight || 0, (flow?.clientHeight ?? 0) + 640)
+    const dynamicMaxRem = screenMaxPx > 0 ? Math.ceil((screenMaxPx * 1.5) / metrics.rootFontSize) : undefined
     if (aligned) {
       // 整齐模式：卡片跟手，落点按指针中心落入的派生格子定插入位置（B4）。
       const pointerX = event.clientX - (rect?.left ?? current.flowLeft)
@@ -398,7 +400,7 @@ export function BoardGrid({
             const entry = nextBoxes.get(rowId) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
             const minBox = minBoxOf(rowId)
             const lifted = minBox === undefined ? entry : { w: entry.w, h: Math.max(entry.h, minBox.h) }
-            return { ...lifted, h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize) }
+            return { ...lifted, h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize, dynamicMaxRem) }
           })
           const rowMinBoxes = rowIds.map((rowId) => minBoxOf(rowId))
           const height = rowHeightFor(rowBoxes, rowMinBoxes)
@@ -433,14 +435,18 @@ export function BoardGrid({
     } else {
       const minW = current.minBox?.w ?? 1
       const minWidthPx = minW * metrics.columnWidth + (minW - 1) * metrics.gap
-      const minimumWidth = Math.min(Math.max(MIN_FREE_WIDTH, minWidthPx), flowWidth - current.startPlacement.x)
-      const width = clamp(current.startPlacement.width + dx, minimumWidth, Math.max(minimumWidth, flowWidth - current.startPlacement.x))
+      const targetW = clamp(Math.round((current.startPlacement.width + dx + metrics.gap) / columnStep), 1, metrics.columns)
+      const targetX = clamp(current.layout.x, 0, Math.max(0, metrics.columns - targetW))
+      const leftPx = targetX * columnStep
+      const minimumWidth = Math.min(Math.max(MIN_FREE_WIDTH, minWidthPx), flowWidth - leftPx)
+      const width = clamp(current.startPlacement.width + dx, minimumWidth, Math.max(minimumWidth, flowWidth - leftPx))
       next = clampCardLayout({
         ...current.layout,
-        w: clamp(Math.round(current.layout.w + dx / columnStep), 1, metrics.columns - current.layout.x),
-        h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize),
+        x: targetX,
+        w: targetW,
+        h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize, dynamicMaxRem),
       }, current.minBox, metrics.columns)
-      free = { ...current.free, width, height: next.h * metrics.rootFontSize }
+      free = { ...current.free, x: leftPx, width, height: next.h * metrics.rootFontSize }
     }
     const nextDraft = { ...currentDraft, [current.id]: next }
     const nextDrag = { ...current, free, moved: true }

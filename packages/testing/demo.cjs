@@ -216,7 +216,10 @@ async function unsupportedPass(page, errors) {
 async function resetPass(page) {
   const id = await instanceOf(page, '番茄钟')
   const edited = await layoutOf(page, id)
-  await page.getByRole('button', { name: '恢复默认看板' }).click()
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    page.getByRole('button', { name: '恢复默认看板' }).click(),
+  ])
   await page.waitForSelector(VIEW, { timeout: 30000 })
   await settled(page)
   const fresh = await layoutOf(page, await instanceOf(page, '番茄钟'))

@@ -1,10 +1,25 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "key": "插件", "value": "dsh-widget-board", "note": "组件看板" },
+        { "key": "宿主", "value": "DeepSeek Harness", "note": "0.2.1" },
+        { "key": "看板", "value": 2, "note": "我的看板 · 组件画廊" }
+      ]
+    }
   },
   "l": {
-    "lang": "zh-CN",
-    "motion": "full"
+    "lang": "en-US",
+    "motion": "full",
+    "data": {
+      "items": [
+        { "key": "Plugin", "value": "dsh-widget-board", "note": "widget board" },
+        { "key": "Host", "value": "DeepSeek Harness", "note": "0.2.1" },
+        { "key": "Boards", "value": 2, "note": "mine · gallery" },
+        { "key": "Widgets", "value": 30, "note": "built-in" }
+      ]
+    }
   }
 }

@@ -19,6 +19,12 @@
     return widget === undefined || String(widget.lang || 'zh').toLowerCase().indexOf('zh') === 0
   }
 
+  /** 缩略画面：没有真数据时用一份样例，缩略图不会是一片空白。 */
+  function isPreview() {
+    if (widget === undefined || widget.size === null || widget.size === undefined) return false
+    return widget.size.placement === 'preview'
+  }
+
   function emptyLabel() {
     if (widget === undefined) return isZh() ? '暂无事件' : 'No events'
     var label = widget.t('empty')
@@ -100,7 +106,8 @@
   function applyData(source) {
     var base = defaults()
     var data = source !== null && typeof source === 'object' ? source : {}
-    var items = Array.isArray(data.items) ? data.items : base.items
+    var items = base.items
+    if (Array.isArray(data.items)) items = data.items.length === 0 && isPreview() ? base.items : data.items
     var count = render(items)
     var meta = applyProps(widget === undefined ? {} : widget.props)
     write(el.meta, meta !== '' ? meta : isZh() ? count + ' 个事件' : count + (count === 1 ? ' event' : ' events'))
@@ -114,5 +121,7 @@
       applyData(widget.data)
     })
     widget.onData(applyData)
+    // 位置变了要重画：缩略画面里空清单画样例，看板上画空态。
+    widget.onSize(function () { applyData(widget.data) })
   }
 })()

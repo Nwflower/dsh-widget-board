@@ -56,11 +56,17 @@
     return label === 'empty' ? (isZh() ? '暂无采样点' : 'No samples') : label
   }
 
-  function defaults() {
+  /** 统计项：只有调用次数与 Token 用量两种，其余按调用次数算。 */
+  function metricOf(props) {
+    return props !== null && typeof props === 'object' && props.metric === 'tokens' ? 'tokens' : 'calls'
+  }
+
+  function defaults(metric) {
+    var tokens = metric === 'tokens'
     if (isZh()) {
       return {
-        title: '请求量',
-        caption: '最近七天 · 每小时的请求数',
+        title: tokens ? 'Token 趋势' : '调用趋势',
+        caption: tokens ? '最近七天 · 每小时的 Token 用量' : '最近七天 · 每小时的调用次数',
         points: [
           { label: '周一', value: 32 }, { label: '周二', value: 48 }, { label: '周三', value: 41 },
           { label: '周四', value: 66 }, { label: '周五', value: 58 }, { label: '周六', value: 74 },
@@ -69,8 +75,8 @@
       }
     }
     return {
-      title: 'Requests',
-      caption: 'Last seven days · requests per hour',
+      title: tokens ? 'Token trend' : 'Call trend',
+      caption: tokens ? 'Last seven days · tokens per hour' : 'Last seven days · calls per hour',
       points: [
         { label: 'Mon', value: 32 }, { label: 'Tue', value: 48 }, { label: 'Wed', value: 41 },
         { label: 'Thu', value: 66 }, { label: 'Fri', value: 58 }, { label: 'Sat', value: 74 },
@@ -93,8 +99,8 @@
   }
 
   function applyProps(source) {
-    var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
+    var base = defaults(metricOf(props))
     write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
     write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
     card.dataset.kind = props.kind === 'area' || props.kind === 'bar' ? props.kind : 'line'
@@ -185,11 +191,14 @@
   }
 
   function applyData(source) {
-    var base = defaults()
+    var props = widget === undefined ? {} : widget.props
+    var base = defaults(metricOf(props))
     var data = source !== null && typeof source === 'object' ? source : {}
+    /* 没有 points 时用自带的一份样例；给了空数组就是明确说没有采样点，画空态。 */
     var points = Array.isArray(data.points) ? data.points.slice(0, MAX_POINTS).filter(function (point) {
       return point !== null && typeof point === 'object' && typeof point.label === 'string' && typeof point.value === 'number' && isFinite(point.value)
     }) : base.points
+    var meta = applyProps(props)
     write(el.caption, typeof data.caption === 'string' && data.caption.trim() !== '' ? data.caption : base.caption)
     draw(points)
     var empty = points.length === 0
@@ -201,7 +210,6 @@
     el.bars.hidden = empty
     el.axis.hidden = empty
     el.yaxis.hidden = empty
-    var meta = applyProps(widget === undefined ? {} : widget.props)
     write(el.meta, meta !== '' ? meta : summary(points))
   }
 

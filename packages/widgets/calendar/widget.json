@@ -9,7 +9,7 @@
     "en": "A month grid whose second line carries the lunar date, solar terms and festivals; days with plans get a dot or, in a wide box, a bar with the title. Steps to the previous or next month or back to today."
   },
   "author": "dsh-widget-board",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 22 },
   "minBox": { "w": 1, "h": 10 },

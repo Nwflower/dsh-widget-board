@@ -9,14 +9,20 @@
     "en": "A set of links with a letter mark, title, host and one line of context; for bookmarks, docs and services."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 22 },
   "minBox": { "w": 1, "h": 10 },
+  "source": "widget-board:repo.links",
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "cwd": { "type": "string", "maxLength": 260 },
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -40,6 +46,26 @@
     "empty": {
       "zh": "暂无链接",
       "en": "No links"
+    },
+    "props.cwd.label": {
+      "zh": "仓库路径",
+      "en": "Repository path"
+    },
+    "props.cwd.hint": {
+      "zh": "留空时跟随当前会话或工作区目录；填上路径就固定读那个仓库",
+      "en": "Leave empty to follow the active session or workspace directory; fill a path to pin that repository"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "标签",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "说明",
+      "en": "Meta"
     }
   }
 }

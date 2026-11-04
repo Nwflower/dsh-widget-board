@@ -1,10 +1,154 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "lines": [
+        {
+          "type": "meta",
+          "text": "src/board/layout.ts"
+        },
+        {
+          "type": "context",
+          "text": "export function place(cards, columns) {"
+        },
+        {
+          "type": "remove",
+          "text": "  const gap = 8"
+        },
+        {
+          "type": "add",
+          "text": "  const gap = 12"
+        },
+        {
+          "type": "context",
+          "text": "  return cards.map((card, index) => ({"
+        },
+        {
+          "type": "remove",
+          "text": "    x: index % columns,"
+        },
+        {
+          "type": "add",
+          "text": "    x: index % Math.max(1, columns),"
+        },
+        {
+          "type": "context",
+          "text": "    y: Math.floor(index / columns)"
+        },
+        {
+          "type": "context",
+          "text": "  }))"
+        },
+        {
+          "type": "context",
+          "text": "}"
+        },
+        {
+          "type": "meta",
+          "text": "src/board/grid.ts"
+        },
+        {
+          "type": "context",
+          "text": "export function columnsOf(width) {"
+        },
+        {
+          "type": "remove",
+          "text": "  const columns = Math.floor(width / 240)"
+        },
+        {
+          "type": "add",
+          "text": "  const columns = Math.max(1, Math.floor(width / 200))"
+        },
+        {
+          "type": "add",
+          "text": "  const gutter = 12"
+        },
+        {
+          "type": "context",
+          "text": "  return { columns, gutter }"
+        },
+        {
+          "type": "context",
+          "text": "}"
+        }
+      ]
+    }
   },
   "l": {
     "lang": "zh-CN",
-    "motion": "full"
+    "motion": "full",
+    "data": {
+      "lines": [
+        {
+          "type": "meta",
+          "text": "src/board/layout.ts"
+        },
+        {
+          "type": "context",
+          "text": "export function place(cards, columns) {"
+        },
+        {
+          "type": "remove",
+          "text": "  const gap = 8"
+        },
+        {
+          "type": "add",
+          "text": "  const gap = 12"
+        },
+        {
+          "type": "context",
+          "text": "  return cards.map((card, index) => ({"
+        },
+        {
+          "type": "remove",
+          "text": "    x: index % columns,"
+        },
+        {
+          "type": "add",
+          "text": "    x: index % Math.max(1, columns),"
+        },
+        {
+          "type": "context",
+          "text": "    y: Math.floor(index / columns)"
+        },
+        {
+          "type": "context",
+          "text": "  }))"
+        },
+        {
+          "type": "context",
+          "text": "}"
+        },
+        {
+          "type": "meta",
+          "text": "src/board/grid.ts"
+        },
+        {
+          "type": "context",
+          "text": "export function columnsOf(width) {"
+        },
+        {
+          "type": "remove",
+          "text": "  const columns = Math.floor(width / 240)"
+        },
+        {
+          "type": "add",
+          "text": "  const columns = Math.max(1, Math.floor(width / 200))"
+        },
+        {
+          "type": "add",
+          "text": "  const gutter = 12"
+        },
+        {
+          "type": "context",
+          "text": "  return { columns, gutter }"
+        },
+        {
+          "type": "context",
+          "text": "}"
+        }
+      ]
+    }
   }
 }

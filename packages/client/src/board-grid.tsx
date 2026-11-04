@@ -292,14 +292,20 @@ export function BoardGrid({
     } else {
       const minW = current.minBox?.w ?? 1
       const minWidthPx = minW * metrics.columnWidth + (minW - 1) * metrics.gap
-      const minimumWidth = Math.min(Math.max(MIN_FREE_WIDTH, minWidthPx), flowWidth - current.startPlacement.x)
-      const width = clamp(current.startPlacement.width + dx, minimumWidth, Math.max(minimumWidth, flowWidth - current.startPlacement.x))
+      const targetW = clamp(Math.round((current.startPlacement.width + dx + metrics.gap) / columnStep), 1, metrics.columns)
+      const targetX = clamp(current.layout.x, 0, Math.max(0, metrics.columns - targetW))
+      const leftPx = targetX * columnStep
+      const minimumWidth = Math.min(Math.max(MIN_FREE_WIDTH, minWidthPx), flowWidth - leftPx)
+      const width = clamp(current.startPlacement.width + dx, minimumWidth, Math.max(minimumWidth, flowWidth - leftPx))
+      const screenMaxPx = Math.max(metrics.viewportHeight ?? 0, window.innerHeight || 0, window.screen?.availHeight || 0, (flow?.clientHeight ?? 0) + 640)
+      const dynamicMaxRem = screenMaxPx > 0 ? Math.ceil((screenMaxPx * 1.5) / metrics.rootFontSize) : undefined
       next = clampCardLayout({
         ...current.layout,
-        w: clamp(Math.round(current.layout.w + dx / columnStep), 1, metrics.columns - current.layout.x),
-        h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize),
+        x: targetX,
+        w: targetW,
+        h: snapCardHeight((current.startPlacement.height + dy) / metrics.rootFontSize, dynamicMaxRem),
       }, current.minBox, metrics.columns)
-      free = { ...current.free, width, height: next.h * metrics.rootFontSize }
+      free = { ...current.free, x: leftPx, width, height: next.h * metrics.rootFontSize }
     }
     const nextDraft = { ...currentDraft, [current.id]: next }
     const nextDrag = { ...current, free, moved: true }

@@ -459,6 +459,44 @@ function harnessPath(context: unknown, ...segments: string[]): string {
 }
 
 /**
+ * 读一次用量汇总：折出来的结果按能力的形状拼好。
+ *
+ * @param context - 宿主上下文。
+ * @param cacheFile - 缓存文件的路径。
+ * @returns 用量汇总；没有会话日志时是空的一份。
+ */
+async function answerOf(context: unknown, cacheFile: string): Promise<UsageAnswer> {
+  const folded = await foldAll(context, cacheFile)
+  if (folded.days.length === 0) return emptyUsageAnswer()
+  return {
+    ready: true,
+    computedAt: folded.computedAt,
+    days: folded.days.map((day) => ({
+      date: day.date,
+      input: day.input,
+      output: day.output,
+      cacheRead: day.cacheRead,
+      cacheWrite: day.cacheWrite,
+      calls: day.calls,
+    })),
+    hours: folded.hours,
+    totals: totalsOf(folded.days),
+  }
+}
+
+/**
+ * 建一个读用量汇总的函数：看板的数据源与用量能力读的是同一份折算结果，日志只折一遍。
+ *
+ * @param context - 宿主上下文。
+ * @param home - 看板自己的目录；缓存文件放在它下面。
+ * @returns 读一次用量汇总的函数。
+ */
+export function createUsageReader(context: unknown, home: string): () => Promise<UsageAnswer> {
+  const cacheFile = join(home, CACHE_FILE)
+  return async (): Promise<UsageAnswer> => await answerOf(context, cacheFile)
+}
+
+/**
  * 建出用量能力。
  *
  * @param context - 宿主上下文。
@@ -478,22 +516,7 @@ export function usageCapability(context: unknown, cacheFile: string): Capability
     input: USAGE_INPUT,
     output: USAGE_OUTPUT,
     async call(_instance: InstanceFace, _args: unknown, _signal: AbortSignal): Promise<UsageAnswer> {
-      const folded = await foldAll(context, cacheFile)
-      if (folded.days.length === 0) return emptyUsageAnswer()
-      return {
-        ready: true,
-        computedAt: folded.computedAt,
-        days: folded.days.map((day) => ({
-          date: day.date,
-          input: day.input,
-          output: day.output,
-          cacheRead: day.cacheRead,
-          cacheWrite: day.cacheWrite,
-          calls: day.calls,
-        })),
-        hours: folded.hours,
-        totals: totalsOf(folded.days),
-      }
+      return await answerOf(context, cacheFile)
     },
   }
 }

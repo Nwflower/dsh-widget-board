@@ -12,11 +12,13 @@ import { describe, expect, it } from 'vitest'
 import {
   HOST_SESSION_EVENT,
   HOST_SESSIONS_SERVICE,
+  HOST_WORKSPACE_REGISTRY_SERVICE,
   MAIN_SLOT,
   SIDEBAR_PANELLIST_SLOT,
   WIDGET_BOARD_PANEL_ID,
   onSessionEvent,
   sessionsOf,
+  workspaceRegistryOf,
 } from '@dsh-widget-board/contracts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
@@ -68,6 +70,13 @@ describe('会话服务与事件契约', () => {
     expect(sessionsOf({ get: (name: string) => (name === HOST_SESSIONS_SERVICE ? service : undefined) })).toBe(service)
   })
 
+  it('会话带着它创建时的工作目录', () => {
+    const service = { list: () => [{ id: 'one', header: { cwd: '/repo/one' } }] }
+    expect(sessionsOf({ get: () => service })?.list()[0]?.header?.cwd).toBe('/repo/one')
+    const bare = { list: () => [{ id: 'two' }] }
+    expect(sessionsOf({ get: () => bare })?.list()[0]?.header?.cwd).toBeUndefined()
+  })
+
   it('事件订阅按全局范围建立，退订用宿主给的那一个函数', () => {
     const seen: { event: string, listener: unknown, options: unknown }[] = []
     let stopped = 0
@@ -88,5 +97,20 @@ describe('会话服务与事件契约', () => {
   it('缺少事件接口或退订函数时在发生处抛出', () => {
     expect(() => onSessionEvent({}, () => {})).toThrow(/没有 on/)
     expect(() => onSessionEvent({ on: () => undefined }, () => {})).toThrow(/退订函数/)
+  })
+})
+
+describe('工作区登记表契约', () => {
+  it('服务名按宿主的原样登记', () => {
+    expect(HOST_WORKSPACE_REGISTRY_SERVICE).toBe('workspaceRegistry')
+  })
+
+  it('服务缺席时读成 undefined，出现时原样交回', () => {
+    expect(workspaceRegistryOf({})).toBeUndefined()
+    expect(workspaceRegistryOf({ get: () => undefined })).toBeUndefined()
+    const registry = { list: () => [{ id: 'one', path: '/repo/one' }] }
+    const context = { get: (name: string) => (name === HOST_WORKSPACE_REGISTRY_SERVICE ? registry : undefined) }
+    expect(workspaceRegistryOf(context)).toBe(registry)
+    expect(workspaceRegistryOf(context)?.list()[0]?.path).toBe('/repo/one')
   })
 })

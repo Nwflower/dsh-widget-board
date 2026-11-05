@@ -27,10 +27,18 @@
     week: card.querySelector('[data-role="week"]'),
     grid: card.querySelector('[data-role="grid"]'),
     today: card.querySelector('[data-role="today"]'),
-    steps: Array.prototype.slice.call(card.querySelectorAll('.cal-btn--step'))
+    steps: Array.prototype.slice.call(card.querySelectorAll('.cal-btn--step')),
+    editor: card.querySelector('[data-role="editor"]'),
+    editorDate: card.querySelector('[data-role="editor-date"]'),
+    editorInput: card.querySelector('[data-role="editor-input"]'),
+    editorSave: card.querySelector('[data-role="editor-save"]'),
+    editorClear: card.querySelector('[data-role="editor-clear"]'),
+    editorClose: card.querySelector('[data-role="editor-close"]')
   }
 
-  var state = { month: '', events: [] }
+  var state = { month: '', events: [], custom: [], selected: '' }
+  /** 存下的日程只在第一次收到状态时接过来；之后的回声不覆盖正在改的那一份。 */
+  var restored = false
   var props = {}
   /** 上一次写进卡片的字号：写回去的值引起排版变化时，用它挡住来回震荡。 */
   var lastType = { u: 0, lu: 0 }
@@ -158,6 +166,8 @@
     cell.dataset.date = key
     if (date.getMonth() !== base.getMonth()) cell.dataset.outside = ''
     if (key === todayKey) cell.dataset.today = ''
+    if (state.selected === key) cell.dataset.selected = ''
+    cell.tabIndex = 0
 
     var number = document.createElement('span')
     number.className = 'cal-day__num'
@@ -273,7 +283,7 @@
     var rows = Math.ceil((offset + daysInMonth) / WEEKDAYS)
     var start = addDays(first, -offset)
     var todayKey = iso(new Date())
-    var events = groupEvents(state.events)
+    var events = groupEvents(state.events.concat(state.custom))
     var cells = []
     var week = card.hasAttribute('data-week')
 
@@ -296,6 +306,7 @@
     write(el.year, String(base.getFullYear()))
     write(el.sub, '农历' + monthInfo.monthName + ' · ' + monthInfo.yearGanZhi + monthInfo.yearShengXiao + '年')
     scheduleType()
+    syncEditor()
   }
 
   /** 矮盒子画一周，很矮的连标题一起收掉。档位变了要重建网格：两种排法的格子不一样。 */
@@ -311,6 +322,7 @@
     lastType = { u: 0, lu: 0 }
     if (changed) render()
     else scheduleType()
+    syncEditor()
   }
 
   function applyProps(source) {
@@ -329,6 +341,110 @@
     state.events = Array.isArray(data.events) ? data.events : []
   }
 
+  /**
+   * 编辑栏只在够高的盒子里出现：矮盒子画一周、缩略画面不接指针，两处都放不下一行输入。
+   */
+  function editorAllowed() {
+    if (card.hasAttribute('data-week') || card.hasAttribute('data-compact')) return false
+    if (widget === undefined || widget.size === null || widget.size === undefined) return true
+    return widget.size.placement !== 'preview'
+  }
+
+  /** 某一天用户自建的日程。 */
+  function customOf(key) {
+    var found = []
+    for (var index = 0; index < state.custom.length; index += 1) {
+      if (state.custom[index].date === key) found.push(state.custom[index])
+    }
+    return found
+  }
+
+  /** 编辑栏跟着选中的那天与盒子档位走：没选中就收起来，盒子太小也收起来。 */
+  function syncEditor() {
+    var open = state.selected !== '' && editorAllowed()
+    el.editor.hidden = !open
+    if (!open) return
+    write(el.editorDate, state.selected.slice(5))
+    el.editorClear.hidden = customOf(state.selected).length === 0
+  }
+
+  /** 点一个日期格：选中它，编辑栏里可以写一条日程。 */
+  function selectDate(key) {
+    if (!editorAllowed()) return
+    if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return
+    state.selected = key
+    var existing = customOf(key)
+    el.editorInput.value = existing.length > 0 ? existing[0].title : ''
+    render()
+    el.editorInput.focus()
+  }
+
+  /** 把自建的日程交给宿主存下来（D5）：切走再切回、页面重挂之后还在。 */
+  function persistCustom() {
+    if (widget !== undefined) widget.setState({ customEvents: state.custom })
+  }
+
+  /** 同一天只留一条自建日程：保存时把当天那一条换掉。 */
+  function saveEvent() {
+    if (state.selected === '') return
+    var title = el.editorInput.value.trim().slice(0, 120)
+    if (title === '') return
+    var next = []
+    for (var index = 0; index < state.custom.length; index += 1) {
+      if (state.custom[index].date !== state.selected) next.push(state.custom[index])
+    }
+    next.push({ date: state.selected, title: title })
+    state.custom = next
+    persistCustom()
+    render()
+  }
+
+  /** 清除当天自建的日程；数据源给的日程不动。 */
+  function clearEvent() {
+    if (state.selected === '') return
+    var next = []
+    for (var index = 0; index < state.custom.length; index += 1) {
+      if (state.custom[index].date !== state.selected) next.push(state.custom[index])
+    }
+    state.custom = next
+    el.editorInput.value = ''
+    persistCustom()
+    render()
+  }
+
+  function closeEditor() {
+    state.selected = ''
+    render()
+  }
+
+  function sameCustom(left, right) {
+    if (left.length !== right.length) return false
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index].date !== right[index].date || left[index].title !== right[index].title) return false
+    }
+    return true
+  }
+
+  /** 读回存着的日程：与数据源给的日程合在一起画。 */
+  function applyState(value) {
+    if (restored) return
+    if (value === null || typeof value !== 'object') return
+    restored = true
+    var events = Array.isArray(value.customEvents) ? value.customEvents : []
+    var next = []
+    for (var index = 0; index < events.length && next.length < LIMIT; index += 1) {
+      var event = events[index]
+      if (event === null || typeof event !== 'object') continue
+      if (typeof event.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(event.date)) continue
+      var title = typeof event.title === 'string' ? event.title.trim().slice(0, 120) : ''
+      if (title === '') continue
+      next.push({ date: event.date, title: title })
+    }
+    if (sameCustom(next, state.custom)) return
+    state.custom = next
+    render()
+  }
+
   function setMonth(key) {
     state.month = key
     render()
@@ -344,6 +460,42 @@
   })
   el.today.addEventListener('click', function () { setMonth('') })
 
+  el.grid.addEventListener('click', function (event) {
+    var target = event.target
+    if (!(target instanceof Element)) return
+    var cell = target.closest('.cal-day')
+    if (cell === null) return
+    selectDate(cell.dataset.date === undefined ? '' : cell.dataset.date)
+  })
+
+  el.grid.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    var target = event.target
+    if (!(target instanceof Element)) return
+    var cell = target.closest('.cal-day')
+    if (cell === null) return
+    event.preventDefault()
+    selectDate(cell.dataset.date === undefined ? '' : cell.dataset.date)
+  })
+
+  el.editorSave.addEventListener('click', saveEvent)
+  el.editorClear.addEventListener('click', clearEvent)
+  el.editorClose.addEventListener('click', closeEditor)
+
+  el.editorInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      saveEvent()
+      return
+    }
+    if (event.key === 'Escape') closeEditor()
+  })
+
+  write(el.editorSave, isZh() ? '保存' : 'Save')
+  write(el.editorClear, isZh() ? '清除' : 'Clear')
+  el.editorInput.placeholder = isZh() ? '添加日程…' : 'Add a plan…'
+  el.editorClose.setAttribute('aria-label', isZh() ? '关闭' : 'Close')
+
   el.steps[0].setAttribute('aria-label', label('previous', '上个月'))
   el.steps[1].setAttribute('aria-label', label('next', '下个月'))
   write(el.today, label('today', '今天'))
@@ -351,11 +503,13 @@
   applyBox(widget === undefined ? null : widget.size)
   applyProps(widget === undefined ? {} : widget.props)
   applyData(widget === undefined ? null : widget.data)
+  applyState(widget === undefined ? null : widget.state)
   render()
 
   if (widget !== undefined) {
     widget.onProps(function (next) { applyProps(next); render() })
     widget.onData(function (next) { applyData(next); render() })
     widget.onSize(applyBox)
+    widget.onState(applyState)
   }
 })()

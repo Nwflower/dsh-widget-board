@@ -1,5 +1,5 @@
 /**
- * 整齐行列的单元测试（D32）：逐行铺开、同排等高、跨列换行、不回填、动态根字号。
+ * 整齐行列的单元测试（D33）：逐行铺开、同排等高、跨列换行、不回填、动态根字号。
  *
  * 这里只测纯计算：给一串顺序与期望盒子，看它算出什么像素位置。自由布局的既有测试在 grid.test.ts，
  * 两种模式各自不变量、互不改写。
@@ -151,7 +151,8 @@ describe('动态根字号', () => {
 describe('盒子拟合', () => {
   it('期望的列数与高度被收进合法档位', () => {
     expect(fittedBox({ w: 9, h: 11 }, undefined, 3)).toEqual({ w: 3, h: 10 })
-    expect(fittedBox({ w: 0, h: 100 }, undefined, 3)).toEqual({ w: 1, h: 30 })
+    expect(fittedBox({ w: 0, h: 100 }, undefined, 3)).toEqual({ w: 1, h: 100 })
+    expect(fittedBox({ w: 9, h: 999 }, undefined, 3)).toEqual({ w: 3, h: 240 })
   })
 
   it('最小盒子把宽度与高度抬上去', () => {

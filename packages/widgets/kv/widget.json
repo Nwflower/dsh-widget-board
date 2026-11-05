@@ -9,15 +9,19 @@
     "en": "A set of key-value pairs for versions, hosts, config summaries and runtime state."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 18 },
   "minBox": { "w": 1, "h": 12 },
+  "source": "widget-board:runtime.kv",
   "props": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "columns": { "type": "integer", "minimum": 1, "maximum": 3 }
+      "columns": { "type": "integer", "minimum": 1, "maximum": 3 },
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
     }
   },
   "data": {
@@ -42,6 +46,18 @@
     "props.columns.label": {
       "zh": "列数",
       "en": "Columns"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "引题",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "附注",
+      "en": "Meta"
     },
     "empty": {
       "zh": "暂无字段",

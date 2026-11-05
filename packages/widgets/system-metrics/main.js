@@ -1,13 +1,15 @@
 /*
- * 运行成本卡的脚本（issue #5）：数据源每 5 秒给一份 SystemMetrics，这里只排版，并把最近 60 次
- * 常驻内存留在卡片状态里画走势。字节换算、历史裁剪与路径计算在 `view.js`，那份逻辑有单元测试。
+ * 运行成本卡的脚本（issue #5）：卡片可见期间数据源每 5 秒推一份 SystemMetrics（D32），这里只排版，
+ * 并把最近 60 次常驻内存留在卡片状态里画走势。字节换算、历史裁剪与路径计算在 `view.js`，那份逻辑
+ * 有单元测试。
  *
- * 面板按参考卡排：左边是主读数与「再测一次」，右边是一块带条形图的体检面板。按钮发出
- * `system-metrics.sample` 动作，宿主经同一条 `readInto` 重读一次；数据回来后照常走 `accept`。
+ * 面板按参考卡排：左边是主读数与「再测一次」，右边是一块带条形图的体检面板。按钮调用
+ * `widget-board:data.read` 读一次这个源，数据回来直接交给 `accept`；失败经 `reportError` 写在这张卡
+ * 上。能力不在时按钮是禁用的，不必发出一次注定失败的调用。
  *
- * 卡片不自己计时：刷新由宿主调度器按观众启停（D6）。离开视口时父页面发 `pause`，页面隐藏时
- * iframe 自己的 `visibilityState` 变 hidden；两种情况都停止绘制与状态写入，恢复时重画最后一份。
- * 组件库的缩略画面没有观众，画一份固定样例，也不写状态。
+ * 卡片不自己计时：什么时候推由宿主按观众与可见性决定（D32），订阅一退就没有数据再来。离开视口时
+ * 父页面发 `pause`，页面隐藏时 iframe 自己的 `visibilityState` 变 hidden；两种情况都停止绘制与状态
+ * 写入，恢复时重画最后一份。组件库的缩略画面没有观众，画一份固定样例，也不写状态。
  */
 ;(function () {
   'use strict'
@@ -21,7 +23,7 @@
   var MB = 1024 * 1024
   var GB = 1024 * 1024 * 1024
   var KB = 1024
-  var ACTION = 'system-metrics.sample'
+  var CAPABILITY = 'widget-board:data.read'
 
   /** 组件库缩略画面的样例：只在这个 inert 的预览里出现，不冒充宿主读数。 */
   var PREVIEW = {
@@ -60,7 +62,13 @@
   var hidden = document.visibilityState === 'hidden'
   var preview = false
   var pending = false
-  var againTimer = 0
+
+  /** 这张卡现在能不能调按需读：宿主没投影能力面时按空能力面处理，仍按能调去试（D32）。 */
+  function readable() {
+    if (widget === undefined || typeof widget.call !== 'function') return false
+    var available = widget.capabilities
+    return !Array.isArray(available) || available.indexOf(CAPABILITY) >= 0
+  }
 
   /** 当前语言：宿主把界面语言写在文档的 lang 上。 */
   function lang() {
@@ -194,7 +202,7 @@
       if (fields.trendLine !== undefined) fields.trendLine.setAttribute('d', trend.line)
       if (fields.trendArea !== undefined) fields.trendArea.setAttribute('d', trend.area)
     }
-    if (fields.again !== undefined && fields.again !== null) fields.again.disabled = pending
+    if (fields.again !== undefined && fields.again !== null) fields.again.disabled = pending || !readable()
   }
 
   /** 把最后一份数据重画一次；暂停或页面隐藏时不画。 */
@@ -207,15 +215,19 @@
     render(lastData)
   }
 
-  /** 「再测一次」的结果由下一次数据回来收尾；宿主没回时按超时放开按钮。 */
+  /** 收尾：放开按钮。成功与失败两条路都要走到这里，按钮不会停在「采样中」。 */
   function settle() {
     pending = false
-    if (againTimer !== 0) {
-      clearTimeout(againTimer)
-      againTimer = 0
-    }
     write(fields.again, label('again', '再测一次'))
-    if (fields.again !== undefined && fields.again !== null) fields.again.disabled = false
+    if (fields.again !== undefined && fields.again !== null) fields.again.disabled = !readable()
+  }
+
+  /** 一次读失败的可见说法：写在卡片上，同时收尾（D11）。 */
+  function fail(error) {
+    settle()
+    if (typeof widget.reportError !== 'function') return
+    var reason = error instanceof Error ? error.message : String(error)
+    widget.reportError(template('sampleFailed', '取样失败：{reason}', { reason: reason }))
   }
 
   /** 一次数据到来：先记采样，再画。暂停、页面隐藏与预览里都不写状态。 */
@@ -268,15 +280,21 @@
     }
   }
 
-  /** 再测一次：动作由宿主经同一条读取路径完成，数据回来时 accept 收尾。 */
+  /**
+   * 再测一次：调按需读读一次这个源，回来的数据直接交给 accept。
+   *
+   * 卡片上存着的那份数据仍只由订阅写：这一次读只把数据交回组件（D32）。能力调用的 promise 一定会
+   * 落定（运行时自带超时），两条路都先 settle，按钮不会停在「采样中」。
+   */
   function again() {
-    if (pending || preview || widget === undefined || typeof widget.action !== 'function') return
+    if (pending || preview || !readable()) return
     pending = true
     write(fields.again, label('sampling', '采样中…'))
     if (fields.again !== undefined && fields.again !== null) fields.again.disabled = true
-    widget.action(ACTION, {})
-    if (againTimer !== 0) clearTimeout(againTimer)
-    againTimer = setTimeout(settle, 6000)
+    widget.call(CAPABILITY).then(function (data) {
+      settle()
+      accept(data)
+    }, fail)
   }
 
   setLabels()

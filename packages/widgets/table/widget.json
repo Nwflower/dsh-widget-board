@@ -9,14 +9,19 @@
     "en": "A compact table whose columns, alignment and rows come from data; it scrolls when rows grow."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 2, "h": 22 },
   "minBox": { "w": 1, "h": 14 },
+  "source": "widget-board:providers.table",
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -42,6 +47,18 @@
     }
   },
   "text": {
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "引题",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "附注",
+      "en": "Meta"
+    },
     "empty": {
       "zh": "暂无行",
       "en": "No rows"

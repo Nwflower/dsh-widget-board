@@ -48,6 +48,14 @@
     }
   }
 
+  /** 接上实时数据没有别的标志：数据源给的是一份会话与工作区的清单，标题跟着换。 */
+  var live = false
+
+  function defaultTitle() {
+    if (!live) return defaults().title
+    return isZh() ? '会话与工作区' : 'Sessions and workspace'
+  }
+
   function statusLabel(status) {
     if (isZh()) return status === 'ok' ? '正常' : status === 'warn' ? '注意' : status === 'error' ? '异常' : '空闲'
     return status === 'ok' ? 'OK' : status === 'warn' ? 'Warning' : status === 'error' ? 'Error' : 'Idle'
@@ -58,10 +66,9 @@
   }
 
   function applyProps(source) {
-    var base = defaults()
     var props = source !== null && typeof source === 'object' ? source : {}
     write(el.kicker, typeof props.kicker === 'string' ? props.kicker : '')
-    write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : base.title)
+    write(el.title, typeof props.title === 'string' && props.title.trim() !== '' ? props.title : defaultTitle())
     return typeof props.meta === 'string' && props.meta.trim() !== '' ? props.meta : ''
   }
 
@@ -99,7 +106,8 @@
   function applyData(source) {
     var base = defaults()
     var data = source !== null && typeof source === 'object' ? source : {}
-    var items = Array.isArray(data.items) ? data.items : base.items
+    live = Array.isArray(data.items)
+    var items = live ? data.items : base.items
     var count = render(items)
     var meta = applyProps(widget === undefined ? {} : widget.props)
     write(el.meta, meta !== '' ? meta : isZh() ? count + ' 项' : count + (count === 1 ? ' item' : ' items'))

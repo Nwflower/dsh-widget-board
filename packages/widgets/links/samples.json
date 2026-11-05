@@ -1,10 +1,24 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "data": {
+      "items": [
+        { "title": "DeepSeek Harness", "url": "https://github.com/deepseek-ai/dsh", "note": "宿主" },
+        { "title": "组件格式", "url": "https://github.com/Nwflower/dsh-widget-board", "note": "文档" }
+      ]
+    }
   },
   "l": {
     "lang": "zh-CN",
-    "motion": "full"
+    "motion": "full",
+    "data": {
+      "items": [
+        { "title": "DeepSeek Harness", "url": "https://github.com/deepseek-ai/dsh", "note": "宿主" },
+        { "title": "组件格式", "url": "https://github.com/Nwflower/dsh-widget-board", "note": "文档" },
+        { "title": "本地宿主", "url": "http://127.0.0.1:54904", "note": "开发" },
+        { "title": "设计参考", "url": "https://transitions.dev", "note": "动效" }
+      ]
+    }
   }
 }

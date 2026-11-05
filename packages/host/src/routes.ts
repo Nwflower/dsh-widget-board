@@ -134,6 +134,12 @@ export interface RouteContext {
   sources: Registries
   /** 人给出过的授权，绑在组件版本上（D6）。 */
   grants: GrantStore
+  /**
+   * 重算一次按观众启停的东西（D6、D32）：定时刷新与数据订阅共用这一个入口。
+   *
+   * 授权给出或收回之后要调一次——订阅能不能开着取决于授权在不在。工具那一侧的替身没有它。
+   */
+  sync?: () => void
   /** 状态写入的预算：按卡与按看板各一份（D23）。 */
   limits: { stateCard: RateLimiter, stateBoard: RateLimiter }
   /** 宿主的凭据服务（D27）；没装时是 `undefined`，设置弹窗给出可见的说法。 */
@@ -307,7 +313,7 @@ const ROUTES: Route[] = [
           id,
           (current) => {
             // 自由坐标只属于自由模式：看板已经换成整齐行列时，过时的自由提交整体退回，
-            // 让页面按当前快照重画，避免两种客户端互相覆盖（D32、技术契约2）。
+            // 让页面按当前快照重画，避免两种客户端互相覆盖（D33、技术契约2）。
             if (current.arrangement?.mode === 'aligned') throw new StaleRevisionError(body.layoutRevision, current.layoutRevision)
             return withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox)
           },
@@ -360,7 +366,7 @@ const ROUTES: Route[] = [
         ...(wanted.props === undefined ? {} : { props: wanted.props }),
         ...(wanted.layout === undefined ? {} : { layout: wanted.layout }),
       }
-      // 排列单元的初始盒子来自组件的 defaultBox；整齐模式的新卡接在顺序末尾（D32）。
+      // 排列单元的初始盒子来自组件的 defaultBox；整齐模式的新卡接在顺序末尾（D33）。
       const box = defaultBoxOf(record)
       await context.workspace.save(boardId, (current) => withArrangementUnits(withInstanceAdded(current, record, options, id).board, [], [{ id, box }]), {
         layoutChanged: true,
@@ -397,7 +403,7 @@ const ROUTES: Route[] = [
       await context.workspace.save(boardId, (current) => {
         const added = withGroupAdded(current, front, back, wanted.layout === undefined ? {} : { layout: wanted.layout })
         id = added.id
-        // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D32）；盒子取落点或组默认。
+        // 组在整齐偏好里占一格，单元 id 是正面实例的 id（D33）；盒子取落点或组默认。
         return withArrangementUnits(added.board, [], groupUnitOf(added.board, id))
       }, { layoutChanged: true, event: () => ({ type: 'board' }) })
       json(response, 201, { id, snapshot: workspaceSnapshot(context) })
@@ -413,7 +419,7 @@ const ROUTES: Route[] = [
       const wanted = body as unknown as GroupRemoveRequest
       const board = context.workspace.findGroup(wanted.group)
       if (board === undefined) throw new Refusal(404, `看板上没有这一组：${wanted.group}`)
-      // 整组离开时它的排列单元一起离开（D32）。
+      // 整组离开时它的排列单元一起离开（D33）。
       await context.workspace.save(board.id, (current) => withArrangementUnits(withGroupRemoved(current, wanted.group), [arrangementUnitOf(current, current.instances.find((instance) => instance.group?.id === wanted.group) as BoardInstance)], []), { layoutChanged: true, event: () => ({ type: 'board' }) })
       // 组里的卡一起走了，它们的请求日志跟着收掉（D28）。
       for (const instance of board.instances.filter((instance) => instance.group?.id === wanted.group)) {
@@ -523,6 +529,8 @@ const ROUTES: Route[] = [
         ...(provider === undefined ? {} : { provider }),
         ...(permission === undefined ? {} : { permission }),
       })
+      // 刚给出一条授权：原来因为没有授权而没开的数据订阅现在可以开了（D32）。
+      context.sync?.()
       json(response, 200, { ok: true, grant })
     },
   },
@@ -534,6 +542,8 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const wanted = await grantRequestOf(context, request, id)
       const removed = await context.grants.revoke(wanted.kind, recordOfCard(context, id).hash, wanted.id)
+      // 收回了授权：靠它开着的数据订阅要跟着退掉（D32）。
+      context.sync?.()
       json(response, 200, { ok: true, removed })
     },
   },
@@ -545,7 +555,7 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const { board } = locate(context, id)
       await readJson(request, EMPTY_LIMIT)
-      // 这张卡代表的排列单元（组卡是整组）一起离开（D32）。
+      // 这张卡代表的排列单元（组卡是整组）一起离开（D33）。
       await context.workspace.save(board.id, (current) => {
         const unit = arrangementUnitOf(current, current.instances.find((instance) => instance.id === id) as BoardInstance)
         return withArrangementUnits(withInstanceRemoved(current, id), [unit], [])

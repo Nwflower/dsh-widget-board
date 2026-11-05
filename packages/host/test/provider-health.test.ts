@@ -12,6 +12,7 @@ import {
   capabilityTimeoutOf,
   createProviderHealth,
 } from '../src/provider-health'
+import { Refusal } from '../src/refusal'
 import { createRegistries } from '../src/sources'
 
 /** 一张不在看板上的卡片：执行器只看它怎样交给提供方。 */
@@ -127,6 +128,34 @@ describe('隔离与计数', () => {
       lastError: 'provider-failure：数据源 broken 失败：网络断了',
     })
     expect(beta).toEqual({ provider: 'beta', features: [], registrations: 1, failures: 0, timeouts: 0, available: true })
+  })
+
+  it('宿主自己的拒绝不算提供方的失败，原样交回调用方', async () => {
+    const health = createProviderHealth()
+    const registries = createRegistries(health)
+    registries.registerCapability({
+      apiVersion: 3,
+      provider: 'widget-board',
+      id: 'data.read',
+      call: () => { throw new Refusal(400, '组件没有声明数据源 probe.not-declared') },
+    })
+    registries.registerCapability({
+      apiVersion: 3,
+      provider: 'widget-board',
+      id: 'data.boom',
+      call: () => { throw new Error('网络断了') },
+    })
+    const signal = new AbortController().signal
+    // 拒绝原样交回去：状态码与原因都在，执行器不改写它，也不记到提供方名下。
+    await expect(registries.callCapability('data.read', FACE, {}, signal)).rejects.toMatchObject({ status: 400 })
+    expect(health.snapshot()[0]).toMatchObject({ provider: 'widget-board', registrations: 2, failures: 0, timeouts: 0 })
+    expect(health.snapshot()[0]?.lastError).toBeUndefined()
+    // 提供方真的抛出来的异常仍记一次失败。
+    await expect(registries.callCapability('data.boom', FACE, {}, signal)).rejects.toThrow('网络断了')
+    expect(health.snapshot()[0]).toMatchObject({
+      failures: 1,
+      lastError: 'provider-failure：能力 data.boom 失败：网络断了',
+    })
   })
 
   it('撤下之后不可用，重新注册恢复，计数不清零', () => {

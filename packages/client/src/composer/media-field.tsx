@@ -15,10 +15,21 @@ export async function copyMedia(source: string, board: string, binding: MediaBin
   return await resultOf(await fetch(`${CLIENT_ROUTE}/media/copy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, board, ...binding }) })) as MediaBinding
 }
 
+/**
+ * 图片卡在创建与内容编辑里要藏起来的字段。
+ *
+ * 图片组件的 props 与 data 都声明了说明与替代文字：脚本优先读 data，props 那一份留给数据源与旧看板。
+ * 两份都画出来会出现两个同名字段，所以表单只留 data 那一份，props 节把它们藏掉。
+ */
+const IMAGE_HIDDEN: Readonly<Record<string, readonly string[]>> = {
+  props: ['localImage', 'alt', 'caption'],
+  data: ['src'],
+}
+
 export function imageFormSchema(schema: Record<string, unknown> | undefined, section: string): Record<string, unknown> | undefined {
   if (!schema || typeof schema.properties !== 'object' || schema.properties === null) return schema
-  const hidden = section === 'props' ? 'localImage' : 'src'
-  return { ...schema, properties: Object.fromEntries(Object.entries(schema.properties).filter(([key]) => key !== hidden)) }
+  const hidden = IMAGE_HIDDEN[section] ?? []
+  return { ...schema, properties: Object.fromEntries(Object.entries(schema.properties).filter(([key]) => !hidden.includes(key))) }
 }
 
 export function ImageField({ target, value, onChange, disabled, onBusy, onPreview }: { target: string, value: MediaBinding, onChange: (value: MediaBinding) => void, disabled: boolean, onBusy: (busy: boolean) => void, onPreview: (url: string | null) => void }): ReactNode {

@@ -2,17 +2,8 @@
 const { centerCard, frameOf } = require('./frames.cjs')
 const METRICS_FRAME = 'iframe.dsh-widget-board__frame[title="运行成本"]'
 
-/**
- * 运行成本卡（issue #5）：数据源在真实宿主里返回完整结构，卡片把宿主、机器与看板的读数画出来。
- *
- * 不核对具体字节数：它随机器与当时的负载变化；只核对数据源结构、面板字段与文案接上了。
- *
- * @param page - 宿主页面，看板已经打开。
- */
-async function metricsPass(page, check) {
-  // 视口外的组件按暂停协议停止绘制，读取前先让卡片恢复可见。
-  await centerCard(page, '运行成本')
-  const frame = await frameOf(page, METRICS_FRAME)
+/** 运行成本的可见读数；静态结构与订阅生命周期场景共用同一份判据。 */
+async function metricsViewPass(frame, check) {
   await frame.waitForSelector('.metrics[data-state="ready"]', { timeout: 30000 })
   const view = await frame.evaluate(() => ({
     rss: document.querySelector('[data-field="rss"]')?.textContent ?? '',
@@ -24,6 +15,20 @@ async function metricsPass(page, check) {
   }))
   check('运行成本卡读到宿主读数', /^[\d.,]+$/.test(view.rss) && view.unit !== '', `${view.rss} ${view.unit}`)
   check('运行成本卡画出系统、看板与组件库', view.panelTitle !== '' && view.system !== '' && view.board !== '' && view.library !== '', `${view.panelTitle} / ${view.system} / ${view.board} / ${view.library}`)
+}
+
+/**
+ * 运行成本卡（issue #5）：数据源在真实宿主里返回完整结构，卡片把宿主、机器与看板的读数画出来。
+ *
+ * 不核对具体字节数：它随机器与当时的负载变化；只核对数据源结构、面板字段与文案接上了。
+ *
+ * @param page - 宿主页面，看板已经打开。
+ */
+async function metricsPass(page, check) {
+  // 视口外的组件按暂停协议停止绘制，读取前先让卡片恢复可见。
+  await centerCard(page, '运行成本')
+  const frame = await frameOf(page, METRICS_FRAME)
+  await metricsViewPass(frame, check)
   const data = await page.evaluate(async () => {
     const workspace = await (await fetch('api/widget-board/boards')).json()
     const board = workspace.boards.find((entry) => entry.id === workspace.active) ?? workspace.boards[0]
@@ -42,4 +47,4 @@ async function metricsPass(page, check) {
   )
 }
 
-module.exports = { metricsPass }
+module.exports = { metricsPass, metricsViewPass }

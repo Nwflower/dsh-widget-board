@@ -9,14 +9,19 @@
     "en": "A row list with status dots, a title, right-aligned meta and scrolling when the list grows."
   },
   "author": "dsh-widget-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 20 },
   "minBox": { "w": 1, "h": 12 },
+  "source": "widget-board:sessions.list",
   "props": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "title": { "type": "string", "maxLength": 80 },
+      "kicker": { "type": "string", "maxLength": 40 },
+      "meta": { "type": "string", "maxLength": 40 }
+    }
   },
   "data": {
     "type": "object",
@@ -40,6 +45,18 @@
     "empty": {
       "zh": "暂无条目",
       "en": "Nothing here yet"
+    },
+    "props.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "props.kicker.label": {
+      "zh": "标签",
+      "en": "Kicker"
+    },
+    "props.meta.label": {
+      "zh": "说明",
+      "en": "Meta"
     }
   }
 }

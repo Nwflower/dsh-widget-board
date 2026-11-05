@@ -17,5 +17,12 @@
   <div class="t-data__body cal-pane">
     <div class="cal-week" data-role="week" aria-hidden="true"></div>
     <div class="cal-grid" data-role="grid" role="grid" aria-label="月历"></div>
+    <div class="cal-editor" data-role="editor" hidden>
+      <span class="cal-editor__date" data-role="editor-date"></span>
+      <input class="cal-editor__input" data-role="editor-input" type="text" maxlength="120" placeholder="添加日程…" autocomplete="off" enterkeyhint="done">
+      <button class="cal-editor__btn" type="button" data-role="editor-save">保存</button>
+      <button class="cal-editor__btn" type="button" data-role="editor-clear">清除</button>
+      <button class="cal-editor__btn cal-editor__close" type="button" data-role="editor-close" aria-label="关闭">×</button>
+    </div>
   </div>
 </div>

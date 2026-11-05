@@ -90,7 +90,7 @@ async function open(page, url) {
 
 /** 拖动与缩放：松手写进演示宿主，刷新之后还在。 */
 async function layoutPass(page, url) {
-  // 默认看板是整齐行列（D32）：自由坐标的拖放检查先把看板切回自由布局，顺带验收排列路由。
+  // 默认看板是整齐行列（D33）：自由坐标的拖放检查先把看板切回自由布局，顺带验收排列路由。
   const switched = await page.evaluate(async () => {
     const workspace = await (await fetch('api/widget-board/boards')).json()
     const board = workspace.boards[0]
@@ -185,9 +185,29 @@ async function languagePass(page) {
 
 /** 演示宿主不提供的能力：拒绝里写明原因，数据不伪造。 */
 async function unsupportedPass(page, errors) {
-  // 这两个探针故意发出会被拒绝的请求，浏览器会把 501 与 409 记成控制台错误；它们不算页面的错误。
-  const expected = errors.length
   const id = await instanceOf(page, '番茄钟')
+  const supported = await page.evaluate(async cardId => {
+    const log = await fetch(`api/widget-board/instance/${cardId}/log`)
+    const visibility = await fetch('api/widget-board/visibility', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ viewer: 'demo-check', visible: [cardId] }),
+    })
+    return { log: { status: log.status, body: await log.json() }, visibility: { status: visibility.status, body: await visibility.json() } }
+  }, id)
+  check('已有卡片返回空请求日志及条数上限', supported.log.status === 200 && Array.isArray(supported.log.body.entries) && supported.log.body.entries.length === 0 && supported.log.body.limit > 0, JSON.stringify(supported.log))
+  check('演示页校验可见性上报但不启动数据调度', supported.visibility.status === 200 && supported.visibility.body.ok === true && supported.visibility.body.accepted === false, JSON.stringify(supported.visibility))
+  // 以下探针故意发出会被拒绝的请求；它们的控制台错误在断言后清除。
+  const expected = errors.length
+  const refused = await page.evaluate(async () => {
+    const log = await fetch('api/widget-board/instance/demo-missing/log')
+    const visibility = await fetch('api/widget-board/visibility', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ viewer: '', visible: [] }),
+    })
+    return { log: log.status, visibility: visibility.status }
+  })
+  check('未知卡片的请求日志仍返回 404', refused.log === 404, String(refused.log))
+  check('不合规的可见性上报返回 400', refused.visibility === 400, String(refused.visibility))
   const read = await page.evaluate(async (cardId) => {
     const response = await fetch(`api/widget-board/instance/${cardId}/read`, { method: 'POST' })
     return { status: response.status, body: await response.json() }
@@ -213,7 +233,7 @@ async function resetPass(page) {
   const id = await instanceOf(page, '番茄钟')
   const edited = await layoutOf(page, id)
   await Promise.all([
-    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
     page.getByRole('button', { name: '恢复默认看板' }).click(),
   ])
   await page.waitForSelector(VIEW, { timeout: 30000 })

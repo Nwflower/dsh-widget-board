@@ -149,7 +149,8 @@ SessionUsageSnapshot = {
 - 事件签名是 `(session: Session, event: SessionEvent)`，按作用域筛选分发，`{ global: true }` 的监听器绕过筛选（`packages/core/scope/README.md` 与宿主 `packages/core/session/src/index.ts` 里 `session/event` 的声明）。
 - `SessionEvent` 带 `type`、`seq`（会话内单调序号）、`time`（Unix 毫秒）与 `data`；`assistant/message` 的 `data.usage` 是 `TokenUsage`，适配器没有报告时整项缺席（宿主 `packages/core/session/src/types.ts` 与 `packages/llm/llm/src/types.ts`）。
 - `SessionStore.list()` 回的是活着的会话，按创建次序，每次给一个新数组（宿主 `packages/core/session/src/index.ts`）。
-- 这三条按宿主的类型声明与实现核对过：`HOST_SESSIONS_SERVICE`、`HOST_SESSION_EVENT`、`sessionsOf` 与 `onSessionEvent` 把名字与读取形状登记在 `packages/contracts/src/host.ts`。订阅是实时用量的必需项：上下文没有 `on`、或 `on` 不给退订函数时，在注册处抛出带原因的错误（D11）。真实宿主里的端到端观察属于集成验收，尚未由本任务的测试覆盖。
+- 这三条按宿主的类型声明与实现核对过：`HOST_SESSIONS_SERVICE`、`HOST_SESSION_EVENT`、`sessionsOf` 与 `onSessionEvent` 把名字与读取形状登记在 `packages/contracts/src/host.ts`。订阅是实时用量的必需项：上下文没有 `on`、或 `on` 不给退订函数时，在注册处抛出带原因的错误（D11）。
+- 真实宿主里的端到端核对在 `packages/testing/data-cards.cjs`：卡片滚进视口后拿到首份快照，会话事件推进来的结算出现在卡片与工作区快照里，把 props 的 `scope` 换成 `today` 再换回 `session` 时各按新窗口重订并出新快照。临时宿主里没有模型可跑，事件由场景生成的宿主插件经宿主的会话 API 追加（`Session.append('assistant/message', { usage })`），广播走宿主的 `session/event`，看板这一侧全是真实实现。
 - `/api/dsh-usage/overview` 的形状按 `dsh-usage` 的 `UsageOverviewView` 核对：`updatedAt`、`usage.today`、`usage.days`、`usage.range`、`usage.all` 都在，路由本身是 `kind: 'exact'` 且回环请求放行。`ctx.webServer.getOrigin()` 在端口绑定之前抛出，这一条按宿主的 `dsh-host-webserver` 声明核对。
 
 ## 内存，不落盘
@@ -160,9 +161,17 @@ SessionUsageSnapshot = {
 - 历史用量已经有按天缓存在磁盘上的那一份（`usage-cache.json`），两处各存一份会让「今天用了多少」出现两个来源。
 - 卡片状态受 64 KB 额度约束（D23），趋势与合计留在宿主侧，卡片只拿到这一份快照。
 
-## 单卡可见性刷新
+## 订阅与可见性
 
-数据源不往卡片推数据、不给自己设定时器：刷新的时机由看板已有的通用链路决定——组件 manifest 声明刷新策略，宿主唯一的调度器只在有人看着时按间隔读，卡片离开视口后暂停、回到视口时恢复并补读一次。数据源每次被读到就按当下的账本算一份新快照，所以暂停期间不丢数据，恢复时的读数已经包含期间的调用。历史那一份同样只在读的时候取：注册时那一次，加上按上面规则最多两次补读。
+数据源声明了 `subscribe`（D32）：卡片可见期间宿主订上，`subscribe` 先推一份当下的快照，之后每进一条带用量的会话事件再推一份，另有一条 10 秒的节奏——`today` 与 `all` 的那一拍顺手补读一次 `dsh-usage` 的历史（那一段在宿主之外自己会变），`session` 窗口的那一拍只重取快照。manifest 不写刷新策略，这张卡因此不进看板原来那条定时刷新链。
+
+- 可见性是订阅的前提：卡片离开视口、页面隐藏、观众走光、提供方撤下都退订，队列里还没发出去的那几轮空转，不再补读也不再回调；回到视口时重新订阅，第一拍立刻给一份新快照。
+- 订阅身份包含卡片 props 的稳定表示：`scope` 或 `session` 改了，宿主先同步退订，再按最新的卡片面重订，所以实现不必自己盯着新 props，新窗口的首份快照也会立刻到。
+- 推上去的快照按组件 manifest 的 `data` schema 核对，写入走与读取同一条路径与同一套修订号规则（D5、D23）；一条不合格只停它自己，记在提供方的健康记录里。
+- 同一张订阅的几份快照排在一条链上：按发出的次序落定，两轮不会同时补读历史。
+- 暂停期间不丢数据：累计留在宿主进程里，恢复或重订时的快照已经包含期间的调用。
+
+历史那一份同样只在读的时候取：注册时那一次，加上按上面规则最多两次补读。
 
 ## 检查
 

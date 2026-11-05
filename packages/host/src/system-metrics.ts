@@ -12,10 +12,14 @@
  * 看板与组件库的体积每次读都按当下的工作区与组件库算：卡片数、状态序列化后的字节、每张卡当前
  * 版本文档拼出来的字节。文档字节按组件版本缓存到下一次组件库重读（资产换了一份就清掉），5 秒一次
  * 的采样因此不会反复拼几十份文档。
+ *
+ * 取样由订阅驱动（D32）：卡片可见时宿主订上，`subscribe` 立刻读一次、之后每 5 秒读一次；上一拍还
+ * 没回来时这一拍跳过。卡片离开视口、props 变了或提供方撤下时宿主退订，退订之后不再回调。卡片上的
+ * 「再测一次」走 `widget-board:data.read`：读一次把数据交回组件，卡片的那份数据仍然只由订阅写。
  */
 import os from 'node:os'
 import { statfs } from 'node:fs/promises'
-import type { ActionRegistration, DataSourceRegistration, InstanceFace } from '@dsh-widget-board/contracts'
+import type { DataSourceRegistration, InstanceFace } from '@dsh-widget-board/contracts'
 import { WIDGET_BOARD_API_VERSION } from '@dsh-widget-board/contracts'
 import { buildDocument } from './document'
 import type { DocumentAssets } from './document'
@@ -31,8 +35,8 @@ export const SYSTEM_METRICS_SOURCE = 'system.metrics'
 /** 组件 manifest 里点名这个数据源时写的全名。 */
 export const SYSTEM_METRICS_NAME = `${SYSTEM_METRICS_PROVIDER}:${SYSTEM_METRICS_SOURCE}`
 
-/** 「再测一次」的动作：卡片按下后走宿主同一条读取与写入路径。 */
-export const SYSTEM_METRICS_ACTION = 'system-metrics.sample'
+/** 订阅里的采样间隔，毫秒：卡片可见时每这么多个毫秒读一次。 */
+export const SYSTEM_METRICS_INTERVAL_MS = 5000
 
 /** 宿主进程的内存读数，单位字节；范围是整个宿主进程。 */
 export interface HostMemory {
@@ -187,60 +191,88 @@ export function createSystemMetricsSource(deps: SystemMetricsDeps): DataSourceRe
     return size
   }
 
+  /**
+   * 读一次采样。订阅与按需读走同一条路，读数因此只有一处算法。
+   *
+   * @returns 宿主内存、机器读数与看板自己的计数。
+   */
+  const sample = async (): Promise<SystemMetrics> => {
+    const started = performance.now()
+    const boards = deps.workspace.list()
+    const records = deps.records()
+    const assets = deps.assets()
+    const memory = process.memoryUsage()
+    const system = await systemInfo(deps.diskPath)
+    let cards = 0
+    let state = 0
+    let documents = 0
+    for (const board of boards) {
+      for (const instance of board.instances) {
+        cards += 1
+        state += stateBytes(instance.state)
+        const record = records.get(instance.widget)
+        if (record !== undefined) documents += bytesOf(record, assets)
+      }
+    }
+    return {
+      sampledAt: new Date().toISOString(),
+      readMs: Math.round((performance.now() - started) * 10) / 10,
+      host: {
+        rss: memory.rss,
+        heapUsed: memory.heapUsed,
+        heapTotal: memory.heapTotal,
+        external: memory.external,
+        arrayBuffers: memory.arrayBuffers,
+      },
+      system,
+      board: { cards, boards: boards.length, stateBytes: state, documentsBytes: documents },
+      library: { widgets: records.size, versions: await deps.versions.count() },
+    }
+  }
+
   return {
     apiVersion: WIDGET_BOARD_API_VERSION,
     provider: SYSTEM_METRICS_PROVIDER,
     id: SYSTEM_METRICS_SOURCE,
-    async read(_instance: InstanceFace): Promise<SystemMetrics> {
-      const started = performance.now()
-      const boards = deps.workspace.list()
-      const records = deps.records()
-      const assets = deps.assets()
-      const memory = process.memoryUsage()
-      const system = await systemInfo(deps.diskPath)
-      let cards = 0
-      let state = 0
-      let documents = 0
-      for (const board of boards) {
-        for (const instance of board.instances) {
-          cards += 1
-          state += stateBytes(instance.state)
-          const record = records.get(instance.widget)
-          if (record !== undefined) documents += bytesOf(record, assets)
-        }
-      }
-      return {
-        sampledAt: new Date().toISOString(),
-        readMs: Math.round((performance.now() - started) * 10) / 10,
-        host: {
-          rss: memory.rss,
-          heapUsed: memory.heapUsed,
-          heapTotal: memory.heapTotal,
-          external: memory.external,
-          arrayBuffers: memory.arrayBuffers,
-        },
-        system,
-        board: { cards, boards: boards.length, stateBytes: state, documentsBytes: documents },
-        library: { widgets: records.size, versions: await deps.versions.count() },
-      }
+    read(_instance: InstanceFace): Promise<SystemMetrics> {
+      return sample()
     },
-  }
-}
-
-/**
- * 「再测一次」的动作：重新读一次这张卡的数据源，不另开一条取数路径。
- *
- * @param sample - 按卡片 id 重读一次（宿主路由里的 `readInto`）。
- * @returns 动作注册项；只读宿主读数，不声明权限。
- */
-export function createSystemMetricsAction(sample: (id: string) => Promise<unknown>): ActionRegistration {
-  return {
-    apiVersion: WIDGET_BOARD_API_VERSION,
-    provider: SYSTEM_METRICS_PROVIDER,
-    id: SYSTEM_METRICS_ACTION,
-    async run(instance: InstanceFace): Promise<null> {
-      await sample(instance.id)
-      return null
+    /**
+     * 卡片可见期间持续采样（D32）：先给一份当下的读数，之后每 5 秒一份。
+     *
+     * 采样是异步的（磁盘与版本库各要一次 await），两拍之间会重叠：上一拍还没回来时这一拍直接跳过。
+     * 排队的做法会让后到的一拍读到更晚的时刻却排在更旧的一份之后，而读数自带 `sampledAt`，跳过一拍
+     * 只让卡片晚 5 秒看到新数。
+     *
+     * @param _instance - 订阅这张卡片；读数按工作区整体算，不按单张卡。
+     * @param emit - 推一份采样给宿主。
+     * @returns 退订函数：同步停表，在途的那一次回来之后也不再回调。
+     */
+    subscribe(_instance: InstanceFace, emit: (data: unknown) => void): () => void {
+      let stopped = false
+      /** 上一拍还在读：一次只跑一次的闸门。 */
+      let sampling = false
+      const tick = (): void => {
+        if (stopped || sampling) return
+        sampling = true
+        void sample().then((metrics) => {
+          sampling = false
+          if (!stopped) emit(metrics)
+        }, (error: unknown) => {
+          // 这一拍失败时不抛出也不停表：定时回调没有调用方可以接住它，抛出去会把整张看板带下来。
+          // 下一拍照常读，卡片留着上一份读数（与定时链里单张卡读失败同一处理，D11）。
+          sampling = false
+          console.error(`widget-board: 运行成本采样失败：${error instanceof Error ? error.message : String(error)}`)
+        })
+      }
+      const timer = setInterval(tick, SYSTEM_METRICS_INTERVAL_MS)
+      // 定时器不拽住进程：宿主的退出时机不该由一张卡决定（与定时链同一个约定）。
+      timer.unref()
+      tick()
+      return () => {
+        stopped = true
+        clearInterval(timer)
+      }
     },
   }
 }

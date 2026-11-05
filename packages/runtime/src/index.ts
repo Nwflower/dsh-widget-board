@@ -424,7 +424,10 @@ window.addEventListener('message', (event: MessageEvent) => {
 })
 
 if (window.parent !== window) {
-  window.parent.postMessage({ type: 'ready' }, '*')
+  // 内联运行时后面还有组件脚本；分段加载时先握手会让它们漏掉初始化订阅。
+  const ready = (): void => { window.parent.postMessage({ type: 'ready' }, '*') }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready, { once: true })
+  else ready()
 } else {
   // 单独打开这份文档时没有宿主：按视口给一个尺寸，便于本地核对外观。
   applySize({ w: window.innerWidth, h: window.innerHeight, placement: 'inline', family: 'inline', cols: 1 })

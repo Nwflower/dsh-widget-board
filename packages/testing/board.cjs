@@ -3,6 +3,7 @@
 const { mkdirSync, readFileSync, writeFileSync } = require('node:fs')
 const { unzipSync } = require('fflate')
 const { join } = require('node:path')
+const { createServer } = require('node:http')
 /**
  * board.cjs — 看板的测试辅助：读工作区快照、整块提交、复位卡片状态与盒子、改一张卡片的高度、只留画廊（D16、D17、D21）。
  *
@@ -274,4 +275,56 @@ async function handshakePass(page, check) {
   }
 }
 
-module.exports = { activeBoard, addInstance, alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+/** 分段解析真实番茄钟文档：初始化必须等组件脚本登记完状态与尺寸订阅。 */
+async function parserHandshakePass(page, check) {
+  const root = join(__dirname, '../..')
+  const read = file => readFileSync(join(root, file), 'utf8')
+  const runtime = read('lib/runtime/runtime.js')
+  const markup = read('packages/widgets/pomodoro/index.html')
+  const main = read('packages/widgets/pomodoro/main.js')
+  const text = JSON.parse(read('packages/widgets/pomodoro/widget.json')).text
+  const init = { type: 'init', size: { w: 365, h: 352, placement: 'board', family: 'board', cols: 1 }, tokens: {}, lang: 'zh-CN', motion: 'full', props: {}, data: null, state: { minutes: 40, endsAt: Date.now() + 2400000 }, text }
+  const timers = new Set()
+  const server = createServer((request, response) => {
+    response.setHeader('Content-Type', 'text/html; charset=utf-8')
+    if (request.url === '/widget') {
+      response.write(`<!doctype html><html><body>${markup}<script>${runtime}</script>`)
+      // 网络分段允许运行时先执行、解析器随后才读到组件脚本。
+      const timer = setTimeout(() => {
+        timers.delete(timer)
+        response.end(`<script>${main}</script></body></html>`)
+      }, 200)
+      timers.add(timer)
+      return
+    }
+    response.end(`<!doctype html><html><body><script>
+      addEventListener('message', event => {
+        if (event.data?.type !== 'ready') return;
+        const channel = new MessageChannel();
+        channel.port1.onmessage = event => { if (event.data.type === 'ready') window.initialized = true; };
+        event.source.postMessage({type:'connect'}, '*', [channel.port2]);
+        channel.port1.postMessage(${JSON.stringify(init)});
+      });
+    </script><iframe sandbox="allow-scripts" src="/widget"></iframe></body></html>`)
+  })
+  let isolated
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', resolve)
+    })
+    isolated = await page.context().newPage()
+    await isolated.goto(`http://127.0.0.1:${server.address().port}`)
+    await isolated.waitForFunction(() => window.initialized === true)
+    const frame = await (await isolated.locator('iframe').elementHandle()).contentFrame()
+    const actual = await frame.evaluate(() => ({ stored: window.widget.state, running: document.querySelector('.pomo').dataset.running, pressed: document.querySelector('#pomo-start').getAttribute('aria-pressed') }))
+    check('分段加载时番茄钟订阅收到初始化状态', actual.stored.minutes === 40 && actual.running === 'true' && actual.pressed === 'true', JSON.stringify(actual))
+  } finally {
+    if (isolated) await isolated.close()
+    for (const timer of timers) clearTimeout(timer)
+    server.closeAllConnections()
+    await new Promise(resolve => server.close(resolve))
+  }
+}
+
+module.exports = { activeBoard, addInstance, alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, parserHandshakePass, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

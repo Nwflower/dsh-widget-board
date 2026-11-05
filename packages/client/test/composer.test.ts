@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { SCHEMA_DEPTH, fieldsOfTree, labelOf } from '../src/composer/schema'
 import { formPathOf, formResult } from '../src/composer/fields'
+import { imageFormSchema } from '../src/composer/media-field'
 import { TEMPLATES, seedOf, templateOf } from '../src/composer/templates'
 import { buildSync } from 'esbuild'
 import { runInNewContext } from 'node:vm'
@@ -169,5 +170,45 @@ describe('模板', () => {
     expect(templateOf('links')?.key).toBe('links')
     expect(templateOf('countdown')?.key).toBe('countdown')
     expect(templateOf('weather')).toBeUndefined()
+  })
+})
+
+describe('图片卡的字段', () => {
+  const propsSchema = {
+    type: 'object',
+    properties: {
+      preset: { type: 'string' },
+      src: { type: 'string' },
+      caption: { type: 'string' },
+      alt: { type: 'string' },
+      localImage: { type: 'boolean' },
+    },
+  }
+  const dataSchema = {
+    type: 'object',
+    properties: {
+      src: { type: 'string' },
+      caption: { type: 'string' },
+      alt: { type: 'string' },
+    },
+  }
+  const keysOf = (schema: Record<string, unknown> | undefined): string[] => Object.keys(schema?.properties as Record<string, unknown>)
+
+  it('说明与替代文字只在数据那一节出现一次', () => {
+    const props = keysOf(imageFormSchema(propsSchema, 'props'))
+    const data = keysOf(imageFormSchema(dataSchema, 'data'))
+    expect(props).toEqual(['preset', 'src'])
+    expect(data).toEqual(['caption', 'alt'])
+    expect(props.filter((key) => data.includes(key))).toEqual([])
+  })
+
+  it('本地图片开关只在设置里，地址只在数据里', () => {
+    expect(keysOf(imageFormSchema(propsSchema, 'props'))).not.toContain('localImage')
+    expect(keysOf(imageFormSchema(dataSchema, 'data'))).not.toContain('src')
+  })
+
+  it('没有 properties 的 schema 原样返回', () => {
+    expect(imageFormSchema(undefined, 'props')).toBeUndefined()
+    expect(imageFormSchema({ type: 'object' }, 'props')).toEqual({ type: 'object' })
   })
 })

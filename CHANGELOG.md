@@ -41,6 +41,7 @@
 - 看板管理菜单恢复操作焦点，动效使用统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留期望宽度。组件通过既有端口确认初始化，零高度正文不再超时重载。可选能力调用预检提供方，正式调用继续核对授权。运行成本和今日运势缩略图在矮盒中保留主要内容。市场组件安装串行检查冲突，目录与来源记录失败时恢复；损坏来源表保留原文件。看板备份可在全新目录恢复市场组件，保持原始哈希和只读来源。已安装市场组件在没有提供方时仍可从组件库添加。完整发送请求后断连会中止提供方调用，取消的读取不写回看板。
 - 校园卡缺失图片时保留默认图案和不可用提示；普通事项状态更新不会清空仍然有效的媒体错误。保存提示仍优先显示，保存结束后恢复媒体提示。
 - 静态演示将需要真实宿主数据的热力图换成年度进度卡，保留原盒子；补齐经过校验的可见性上报与已有卡片的空请求日志读取，避免演示页构建失败和缺失路由错误。
+- 修复组件文档分段加载时提前握手造成的初始化丢失：运行时在文档解析完成后通知父页面，确保组件脚本已登记状态、数据和尺寸订阅，番茄钟重载后能够恢复保存的计时。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -75,6 +76,7 @@
 - Board management restores action focus and uses shared motion timing. Aligned dragging within the same cell preserves order, and narrow vertical resizing retains the wanted width. Widgets acknowledge initialization through the existing port so zero-height documents do not reload. Optional capability calls check provider availability while host authorization remains mandatory. Short usage and fortune previews retain their primary content. Market installs serialize conflict checks and restore directories and provenance on failure, preserving malformed provenance files. Board backups restore market widgets into fresh homes with their original hashes and read-only source. Installed market widgets remain available to add without a provider. Disconnecting after a complete request aborts provider calls, and cancelled reads do not write back to the board.
 - Campus cards retain the default pattern and unavailable-image message when media is missing. Ordinary item state updates no longer clear an active media error. Save status takes priority and the media message returns when saving finishes.
 - The static demo replaces the host-dependent heatmap with a year-progress card in the same box, validates visibility reports, and returns empty request logs for existing cards, avoiding build failures and missing-route errors.
+- Wait for component document parsing to finish before announcing runtime readiness, so scripts receive their initial state, data and size even when HTML arrives in separate chunks. Saved Pomodoro sessions now resume reliably after reloading.
 
 ## [0.1.6] - 2026-10-26
 

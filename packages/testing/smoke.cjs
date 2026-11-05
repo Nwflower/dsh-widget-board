@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
+const { alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, parserHandshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -656,6 +656,7 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
   let reduced
   try {
     opened = await openPage(host.url)
+    await parserHandshakePass(opened.page, check)
     await mainPass(opened.page, opened.problems)
     // 数据卡场景故意让按需读失败一次，排在主路径的控制台检查之后：那一页的错误由这一条自己核对。
     await dataCardsPass(opened.page, check)

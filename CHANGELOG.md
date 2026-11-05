@@ -37,6 +37,7 @@
 - 主题切换时卡片不再被整页快照拍进去，切换本身轻了；新配色按圆点扫到各张卡的时刻分批推送，发起切换的卡片立即换、圆外的卡片留在旧配色，转场结束时全部换好，不再出现圆点还没到、卡片先变了的情况。转场被跳过、页面切走或宿主迟迟不让转场开始时，页面上的标记、卡片暂停与扣住的令牌都会收回。
 - 看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。整齐模式在自身格子内拖动时保持顺序，窄屏纵向缩放保留原期望宽度。组件通过既有端口明确确认初始化，零高度正文不再因缺少高度消息触发超时重载。调用可选能力前复用设置模型检查提供方，缺席时组件可继续选择其它提供方；成功预检使用有界缓存，正式调用继续核对宿主授权。运行成本缩略卡在矮盒中收起明细，保留示例标识和主要读数。今日运势缩略图缩小分数并收起装饰进度条，为两行判词保留空间，避免较长每日判词被裁掉。
 - 静态演示将需要真实宿主数据的热力图换成年度进度卡，保留原盒子；补齐经过校验的可见性上报与已有卡片的空请求日志读取，避免演示页构建失败和缺失路由错误。
+- 修复组件文档分段加载时提前握手造成的初始化丢失：运行时在文档解析完成后通知父页面，确保组件脚本已登记状态、数据和尺寸订阅，番茄钟重载后能够恢复保存的计时。
 
 <h3 id="en-unreleased">New Features</h3>
 
@@ -67,6 +68,7 @@
 - A theme switch no longer takes a viewport snapshot with every card in it, so the switch itself is lighter; the new palette reaches each card when the circle covers it, the card that started the switch changes at once, cards outside the circle keep the old palette, and the rest land as the transition ends, so no card changes before the circle arrives. A skipped transition, a page left for another tab, or a host that never lets the transition start now all have their mark, suspension and held tokens taken back.
 - Board management returns focus after dismissing a context menu or cancelling a failed deletion, and inherits the shared motion curve. Aligned dragging within the same cell preserves order, and vertical resizing in a narrow window retains the wanted column span. Widgets acknowledge initialization through the existing port, so zero-height documents do not reload for lack of height messages. Optional capability calls check provider availability through the settings model, with a bounded successful-preflight cache and host authorization on every call. Short usage previews hide details while retaining the sample label and primary reading. Fortune previews use a compact score without the decorative meter to keep longer daily readings visible in two lines.
 - The static demo replaces the host-dependent heatmap with a year-progress card in the same box, validates visibility reports, and returns empty request logs for existing cards, avoiding build failures and missing-route errors.
+- Wait for component document parsing to finish before announcing runtime readiness, so scripts receive their initial state, data and size even when HTML arrives in separate chunks. Saved Pomodoro sessions now resume reliably after reloading.
 
 ## [0.1.6] - 2026-10-26
 

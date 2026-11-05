@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 8,
+  "at": "2026-11-05",
+  "external": false,
+  "zh": "修复组件文档分段加载时提前握手造成的初始化丢失：运行时在文档解析完成后通知父页面，确保组件脚本已登记状态、数据和尺寸订阅，番茄钟重载后能够恢复保存的计时。",
+  "en": "Wait for component document parsing to finish before announcing runtime readiness, so scripts receive their initial state, data and size even when HTML arrives in separate chunks. Saved Pomodoro sessions now resume reliably after reloading."
+}

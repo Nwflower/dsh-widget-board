@@ -11,11 +11,11 @@ import { recordOf } from '../library'
 import { Refusal } from '../refusal'
 import { json } from '../response'
 import type { Route, RouteContext } from '../routes'
-import { binaryInputs, sourceModelOf, writeWidgetType } from '../widget-write/write'
+import { binaryInputs, sourceModelOf, writeWidgetType, WIDGET_MAX_TOTAL_BYTES } from '../widget-write/write'
 import { applySourceRoute } from './apply'
 
-/** 写一个组件类型的请求体上限：一整个组件目录，比一张卡的内容大（技术契约 4）。 */
-export const DEFINE_LIMIT = 1024 * 1024
+/** 写一个组件类型的请求体上限：一整个组件目录；资源以 base64 回传，留出编码膨胀的余量。 */
+export const DEFINE_LIMIT = Math.ceil(WIDGET_MAX_TOTAL_BYTES * 4 / 3) + 64 * 1024
 
 /**
  * 读一份文件表：键是相对路径，值是文本内容。

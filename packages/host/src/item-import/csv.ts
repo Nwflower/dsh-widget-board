@@ -12,9 +12,15 @@ export function parseCsv(request: ItemImportRequest, now: string): { headers: st
   if (!mapping.title || !mapping.due || !headers.includes(mapping.title) || !headers.includes(mapping.due)) throw new Error('必须明确映射 title 和 due')
   const targets = Object.values(mapping).filter(Boolean)
   if (new Set(targets).size !== targets.length || targets.some(value => !headers.includes(value!))) throw new Error('映射列不可重复且必须存在')
+  const globalErrors = parsed.errors.filter(error => error.row === undefined).map(error => error.message)
+  const rowErrors = new Map<number, string[]>()
+  for (const error of parsed.errors) {
+    if (error.row === undefined) continue
+    rowErrors.set(error.row, [...(rowErrors.get(error.row) ?? []), error.message])
+  }
   const rows = parsed.data.slice(1).map((values, index) => {
     const fields = Object.fromEntries(CSV_FIELDS.map(key => [key, mapping[key] ? values[headers.indexOf(mapping[key]!)] ?? '' : '']))
-    const errors = parsed.errors.filter(error => error.row === index + 1 || error.row === undefined).map(error => error.message)
+    const errors = [...(rowErrors.get(index + 1) ?? []), ...globalErrors]
     if (values.length !== headers.length) errors.push('列数与表头不一致')
     return importRow(index + 1, fields, request, now, 'csv', undefined, errors.length ? errors.join('；') : undefined)
   })

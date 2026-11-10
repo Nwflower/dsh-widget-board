@@ -14,8 +14,8 @@ import { json } from '../response'
 import type { Route, RouteContext } from '../routes'
 import type { PreviewStore } from './store'
 
-/** 上传预览内容的请求体上限：与一个组件目录同量。 */
-export const PREVIEW_LIMIT = 16 * 1024 * 1024
+/** 上传预览内容的请求体上限：一个组件目录的资源以 base64 回传，留出编码膨胀的余量。 */
+export const PREVIEW_LIMIT = 24 * 1024 * 1024
 
 /**
  * 读预览请求里的文件表。

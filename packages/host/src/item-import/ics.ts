@@ -96,11 +96,17 @@ export function parseIcs(request: ItemImportRequest, now: string): { headers: st
         dateOnly: String(due?.kind === 'date' || time?.isDate === true), timeZone: due?.timeZone ?? request.timeZone,
       }, request, now, 'ics', uid, request.edits?.[String(row)]?.due ? undefined : failure))
     }
+    const byUid = new Map<string, Component[]>()
+    for (const entry of components) {
+      if (!entry.hasProperty('recurrence-id')) continue
+      const uid = value(entry, 'uid')
+      byUid.set(uid, [...(byUid.get(uid) ?? []), entry])
+    }
     for (const component of components.filter(entry => !entry.hasProperty('recurrence-id'))) {
       seen.add(component)
       const start = timeValue(component, 'dtstart')
       if (!start) { append(component); continue }
-      const exceptions = components.filter(entry => entry.hasProperty('recurrence-id') && value(entry, 'uid') === value(component, 'uid'))
+      const exceptions = byUid.get(value(component, 'uid')) ?? []
       const event = new ICAL.Event(component, { exceptions, strictExceptions: true })
       if (!event.isRecurring()) { append(component, start); continue }
       const iterator = event.iterator()

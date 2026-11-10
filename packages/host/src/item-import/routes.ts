@@ -92,7 +92,8 @@ export function itemImportRoutes(context: RouteContext): Route[] {
         const wanted = raw as unknown as ItemImportCommit
         const session = storedPreview(context, wanted.previewId, id)
         const found = target(context, id)
-        if (Object.keys(decision).some(row => !session.rows.some(item => item.row === Number(row)))) throw new Refusal(400, '选择引用了不存在的候选')
+        const known = new Set(session.rows.map(item => item.row))
+        if (Object.keys(decision).some(row => !known.has(Number(row)))) throw new Refusal(400, '选择引用了不存在的候选')
         let finalState: CampusState | undefined
         const saved = await context.workspace.save(found.board.id, current => {
           if (current.revision !== wanted.expectedRevision || wanted.expectedRevision !== session.revision || found.record.hash !== session.hash) throw new Refusal(409, '内容或组件已改变，请保留预览并重新匹配后再次确认', { code: 'stale-revision', revision: current.revision })

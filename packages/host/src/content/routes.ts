@@ -191,6 +191,9 @@ export function contentRoutes(context: RouteContext): Route[] {
         if (!Number.isSafeInteger(wanted.expectedRevision) || wanted.expectedRevision < 0) {
           throw new Refusal(400, '内容写入要带上读到的 expectedRevision')
         }
+        if (wanted.expectedHash !== undefined && wanted.expectedHash !== '' && wanted.expectedHash !== record.hash) {
+          throw new Refusal(409, '组件在你编辑期间变过，重读之后再来', { code: 'stale-hash', hash: record.hash })
+        }
         if (wanted.props === undefined && !('data' in wanted) && !('state' in wanted) && wanted.media === undefined) {
           throw new Refusal(400, '这次内容写入没有要改的项')
         }

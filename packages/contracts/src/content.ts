@@ -69,6 +69,8 @@ export interface InstanceComposeRequest extends MediaBinding {
 export interface InstanceContentRequest extends MediaBinding {
   /** 编辑器读到的那份看板修订号；对不上就返回 409。 */
   expectedRevision: number
+  /** 编辑器打开时那一版组件的哈希；组件换了 schema 时让保存停下来重读。 */
+  expectedHash?: string
   props?: Record<string, unknown>
   data?: unknown
   state?: unknown

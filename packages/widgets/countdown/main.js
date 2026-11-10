@@ -102,14 +102,11 @@ import { DateTime } from 'luxon'
   /** 解析 YYYY-MM-DD；不成立的日期（例如 2 月 30 日）读成 null。 */
   function parseDate(text) {
     if (typeof text !== 'string') return null
-    var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text.trim())
-    if (match === null) return null
-    var year = Number(match[1])
-    var month = Number(match[2])
-    var day = Number(match[3])
-    var probe = new Date(Date.UTC(year, month - 1, day))
-    if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return null
-    return { year: year, month: month, day: day }
+    var raw = text.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
+    var probe = DateTime.fromISO(raw, { zone: 'utc' })
+    if (!probe.isValid || probe.toISODate() !== raw) return null
+    return { year: probe.year, month: probe.month, day: probe.day }
   }
 
   /** 解析 HH:mm；读不出来时返回 null，交给调用处给出可见的说法。 */

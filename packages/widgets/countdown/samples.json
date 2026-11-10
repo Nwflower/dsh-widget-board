@@ -1,10 +1,24 @@
 {
   "s": {
     "lang": "zh-CN",
-    "motion": "reduced"
+    "motion": "reduced",
+    "props": {
+      "name": "期末周",
+      "date": "2026-12-20",
+      "time": "09:00",
+      "zone": "Asia/Shanghai",
+      "note": "距离最后一门考试"
+    }
   },
   "l": {
     "lang": "zh-CN",
-    "motion": "full"
+    "motion": "full",
+    "props": {
+      "name": "开学",
+      "date": "2027-02-22",
+      "allDay": true,
+      "zone": "Asia/Shanghai",
+      "note": "新学期第一天"
+    }
   }
 }

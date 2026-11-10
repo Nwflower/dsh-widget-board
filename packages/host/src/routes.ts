@@ -32,7 +32,9 @@ import type {
   WidgetLibraryEntry,
   WidgetRoot,
 } from '@dsh-widget-board/contracts'
-import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE } from '@dsh-widget-board/contracts'
+import { FLIP_GROUP_BACK, FLIP_GROUP_FRONT, PLUGIN_ROUTE, withRequestSignal } from '@dsh-widget-board/contracts'
+import { BOARD_TITLE_LIMIT, boardTitleProblem } from '@dsh-widget-board/contracts'
+import type { BoardTitleProblem } from '@dsh-widget-board/contracts'
 import type { VersionStore } from './blobs'
 import { buildDocument, contentSecurityPolicy, freshNonce } from './document'
 import { groupRoutes } from './groups'
@@ -76,6 +78,13 @@ const DATA_LIMIT = 256 * 1024
 
 /** 加卡片、移除卡片与看板管理这类请求体可以没有。 */
 const EMPTY_LIMIT = 1024
+
+/** 看板标题不合规矩时回给客户端的那一句（D21）。 */
+const BOARD_TITLE_REFUSAL: Record<BoardTitleProblem, string> = {
+  'not-text': '看板标题要是文字',
+  empty: '看板标题不能是空的',
+  'too-long': `看板标题最多 ${String(BOARD_TITLE_LIMIT)} 个字符`,
+}
 
 /** 路由处理器读到的一切；组件库与资产随热重载替换，所以这里持有一个可变的对象。 */
 export interface RouteContext {
@@ -157,18 +166,6 @@ function rejectionOf(request: HostRequest, connection: HostConnection | undefine
 }
 
 /**
- * 一条请求被取消时让提供方也停下（D6、D31）：连接断开之后不该继续读下去。
- *
- * @param request - 宿主的请求；测试替身可以没有 `on`。
- * @returns 中止信号。
- */
-function abortSignalOf(request: HostRequest): AbortSignal {
-  const controller = new AbortController()
-  request.on?.('aborted', () => { controller.abort() })
-  return controller.signal
-}
-
-/**
  * 从写好的看板里取回这次提交的卡片盒子：宿主抬过下限之后，推给其他页面的是真正存下的那一份。
  *
  * @param board - 写入后的看板。
@@ -236,7 +233,10 @@ const ROUTES: Route[] = [
       const body = await readJson(request, EMPTY_LIMIT)
       if (body !== undefined && !isRecord(body)) throw new Refusal(400, '新建看板要写明标题')
       const wanted = (body ?? {}) as BoardCreateRequest
-      if (wanted.title !== undefined && typeof wanted.title !== 'string') throw new Refusal(400, '看板标题要是文字')
+      if (wanted.title !== undefined) {
+        const problem = boardTitleProblem(wanted.title)
+        if (problem !== null) throw new Refusal(400, BOARD_TITLE_REFUSAL[problem])
+      }
       const board = await context.workspace.create(wanted.title)
       json(response, 201, { id: board.id, snapshot: workspaceSnapshot(context) })
     },
@@ -249,7 +249,9 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       boardById(context, id)
       const body = await readJson(request, EMPTY_LIMIT)
-      if (!isRecord(body) || typeof body.title !== 'string' || body.title.trim() === '') throw new Refusal(400, '改标题要写明 title')
+      if (!isRecord(body)) throw new Refusal(400, '改标题要写明 title')
+      const problem = boardTitleProblem(body.title)
+      if (problem !== null) throw new Refusal(400, BOARD_TITLE_REFUSAL[problem])
       await context.workspace.rename(id, (body as unknown as BoardRenameRequest).title)
       json(response, 200, workspaceSnapshot(context))
     },
@@ -460,7 +462,7 @@ const ROUTES: Route[] = [
       const body = await readJson(request, DATA_LIMIT)
       if (!isRecord(body) || typeof body.id !== 'string' || body.id === '') throw new Refusal(400, '动作要写明 id')
       const wanted = body as unknown as InstanceActionRequest
-      const result = await runAction(context, id, wanted.id, wanted.payload, abortSignalOf(request))
+      const result = await withRequestSignal(request, response, async signal => await runAction(context, id, wanted.id, wanted.payload, signal))
       json(response, 200, { ok: true, result: result ?? null })
     },
   },
@@ -472,7 +474,7 @@ const ROUTES: Route[] = [
       const id = decodeURIComponent(match[1] as string)
       const body = await readJson(request, EMPTY_LIMIT)
       const asked = isRecord(body) && typeof body.source === 'string' ? body.source : undefined
-      const data = await readInto(context, id, asked, abortSignalOf(request))
+      const data = await withRequestSignal(request, response, async signal => await readInto(context, id, asked, signal))
       json(response, 200, { ok: true, data: data ?? null })
     },
   },

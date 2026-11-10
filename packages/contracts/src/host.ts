@@ -16,6 +16,8 @@ export interface HostRequest {
   [Symbol.asyncIterator](): AsyncIterator<string | Uint8Array>
   /** 客户端断开时取消在途调用（D24）；测试替身可以没有这一项。 */
   on?(event: 'aborted', listener: () => void): unknown
+  off?(event: 'aborted', listener: () => void): unknown
+  readonly aborted?: boolean
 }
 
 /** 宿主交到路由里的响应。 */
@@ -26,6 +28,25 @@ export interface HostResponse {
   write?(chunk: string): unknown
   /** 订阅响应自身的关闭，用来把长连接的观众摘掉。 */
   on?(event: 'close', listener: () => void): unknown
+  off?(event: 'close', listener: () => void): unknown
+  readonly writableEnded?: boolean
+  readonly destroyed?: boolean
+}
+
+/** 请求体读完后断连只关闭响应；三种提供方调用共用这一份取消与清理规则（D31）。 */
+export async function withRequestSignal<T>(request: HostRequest, response: HostResponse, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController()
+  const abort = (): void => { controller.abort() }
+  const closed = (): void => { if (response.writableEnded !== true) abort() }
+  request.on?.('aborted', abort)
+  response.on?.('close', closed)
+  try {
+    if (request.aborted || response.destroyed && response.writableEnded !== true) abort()
+    return await work(controller.signal)
+  } finally {
+    request.off?.('aborted', abort)
+    response.off?.('close', closed)
+  }
 }
 
 /** 一条路由：`exact` 逐字匹配，`prefix` 匹配它本身与它下面的一切。 */

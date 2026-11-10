@@ -10,7 +10,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Board, BoardEvent, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from './library'
-import { defaultBoard, seedBoards } from './default-boards'
+import { seedBoards } from './default-boards'
 import { StaleRevisionError, emptyBoard, readBoard, withLayouts, writeBoard } from './state'
 
 /** 索引的格式版本。 */
@@ -85,7 +85,7 @@ export interface Workspace {
    */
   rename(id: string, title: string): Promise<void>
   /**
-   * 移除一块看板；移除最后一块时补上默认看板并选中它。
+   * 移除一块看板；移除最后一块时补上空看板并选中它。
    *
    * @param id - 看板 id。
    */
@@ -310,10 +310,8 @@ export async function openWorkspace(
       board(id)
       await queue(async () => {
         const rest = current.boards.filter((entry) => entry !== id)
-        // 最后一块被移除时补上默认看板：看板页总得有一块可以显示（D21）。清单在动内存之前算出来，
-        // 组件库与清单对不上时这次移除失败，工作区仍是原来那一份（D11）。先写新看板的文件再写索引，
-        // 两步之间停下来时磁盘上仍是原来那一份。
-        const replacement = rest.length === 0 ? defaultBoard(records) : undefined
+        // 最后一块被移除时补一块空看板（D21）；新看板写成功后才改索引和内存。
+        const replacement = rest.length === 0 ? emptyBoard(nextTitle()) : undefined
         if (replacement !== undefined) await writeBoard(boardFileOf(home, replacement.id), replacement)
         boards.delete(id)
         if (replacement !== undefined) boards.set(replacement.id, replacement)

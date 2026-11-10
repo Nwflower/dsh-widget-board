@@ -39,9 +39,12 @@ export function refusalOf(error: unknown): never {
  * @param id - 卡片实例的 id。
  * @param data - 已经核对过的数据。
  */
-export async function storeData(context: RouteContext, id: string, data: unknown): Promise<void> {
+export async function storeData(context: RouteContext, id: string, data: unknown, signal?: AbortSignal): Promise<void> {
   const { board } = locate(context, id)
-  await context.workspace.save(board.id, (current) => withInstanceData(current, id, data), {
+  await context.workspace.save(board.id, (current) => {
+    signal?.throwIfAborted()
+    return withInstanceData(current, id, data)
+  }, {
     event: () => ({ type: 'instance', id, data }),
   })
 }
@@ -120,7 +123,7 @@ export async function loadData(
  */
 export async function readInto(context: RouteContext, id: string, source?: string, signal?: AbortSignal): Promise<unknown> {
   const { data } = await loadData(context, id, source, signal)
-  await storeData(context, id, data)
+  await storeData(context, id, data, signal)
   return data
 }
 

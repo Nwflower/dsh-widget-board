@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
+const { createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -29,9 +29,11 @@ const { noticePass } = require('./notice.cjs')
 const { openBoard } = require('./panel.cjs')
 const { tabsPass } = require('./tabs.cjs')
 const { titlebarPass } = require('./titlebar.cjs')
+const { boardManagementPass, overflowPass, reducedMotionPass } = require('./board-management.cjs')
 const { providerPass } = require('./provider.cjs')
 const { providerV3Pass } = require('./provider-v3.cjs')
 const { githubPass } = require('./github.cjs')
+const { metricsPass } = require('./metrics.cjs')
 const { sharePass } = require('./share.cjs')
 const { dataCardsPass, prepareCardsProbe } = require('./data-cards.cjs')
 
@@ -120,6 +122,7 @@ async function mainPass(page, problems) {
   check('卡片大小由布局给出', weatherBox.height > 300, `天气 ${weatherBox.width}×${weatherBox.height}`)
   check('组件填满卡片', Math.abs(weatherBox.frameWidth - weatherBox.width) <= 1 && Math.abs(weatherBox.frameHeight - weatherBox.height) <= 1, `iframe ${weatherBox.frameWidth}×${weatherBox.frameHeight}`)
   await settled(page)
+  await metricsPass(page, check)
 
   const boxes = await page.evaluate(() => Array.from(document.querySelectorAll('[data-instance]')).map((node) => {
     const rect = node.getBoundingClientRect()
@@ -605,6 +608,7 @@ async function reloadPass(page) {
 async function reducedPass(page) {
   await page.waitForSelector(PANEL_ICON, { timeout: 120000 })
   await openBoard(page)
+  await page.locator(WEATHER_FRAME).scrollIntoViewIfNeeded()
   const weather = await frameOf(page, WEATHER_FRAME)
   check('根部标着减弱动效', (await weather.evaluate(() => document.documentElement.dataset.motion)) === 'reduced')
   const still = await weather.evaluate(() => ({
@@ -629,6 +633,7 @@ async function reducedPass(page) {
 }
 
 const home = scratchHome('smoke-')
+createHandshakeFixture(home)
 // 数据卡场景要一条真实的会话结算：临时宿主里没有模型，这份插件经宿主的会话事件总线补上（见 data-cards.cjs）。
 const cardsProbe = prepareCardsProbe()
 start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 'fixtures', 'provider-v3'), cardsProbe] }).then(async (host) => {
@@ -668,11 +673,16 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
     await reloadPass(opened.page)
     // 标签条放在最后：它新建一块看板再收掉，中途失败也不会影响前面的场景。
     await tabsPass(opened.page, { check })
+    await handshakePass(opened.page, check)
     await titlebarPass(opened.page, { check })
     reduced = await openPage(host.url, { reducedMotion: 'reduce' })
     await reducedPass(reduced.page)
+    await reducedMotionPass(reduced.page, { check })
     const errors = reduced.problems.filter((problem) => problem.startsWith('error:') || problem.startsWith('pageerror:'))
     check('减弱动效下控制台没有错误', errors.length === 0, errors.join(' / '))
+    // 看板管理会删光全部看板（最后一块删完的样子也要看），排在所有需要卡片与布局的场景之后。
+    await boardManagementPass(opened.page, { check })
+    await overflowPass(opened.page, { check })
   } finally {
     // 任何一步抛出来都要把这一轮起的页面与宿主收干净：留着的宿主会占住端口与临时 profile。
     if (opened !== undefined) await opened.close()

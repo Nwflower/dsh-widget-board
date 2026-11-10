@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 4,
+  "at": "2026-10-29",
+  "external": false,
+  "zh": "看板管理菜单在右键关闭和删除失败后取消时恢复触发按钮焦点，菜单动效读取外壳的统一曲线。调用可选能力前预检提供方，正式调用继续核对授权。运行成本矮预览保留示例标识和主要读数。完整发送请求后断连会中止提供方调用，取消的读取不写回看板。组件初始化独立确认，零高度正文不会触发握手超时重载。",
+  "en": "Board management restores focus after dismissing a context menu or cancelling a failed deletion and uses shared motion timing. Optional capability calls check provider availability while host authorization remains mandatory. Short usage previews retain their sample label and primary reading. Disconnecting after a complete request aborts provider calls, and cancelled reads do not write back to the board. Initialization is acknowledged independently of content height, preventing handshake timeout reloads for zero-height content."
+}

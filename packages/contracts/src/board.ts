@@ -73,6 +73,40 @@ export const FLIP_GROUP_BACK = 'fortune'
 /** 看板题头组件的 id；旧看板升级时补上这一张卡（D16）。 */
 export const BOARD_HERO_ID = 'board-hero'
 
+/**
+ * 看板标题的长度上限，按 Unicode 码点计（D21）。
+ *
+ * 界面、新建与改名路由读同一个数：标签药丸的宽度与标题栏那一条的容纳空间都按它算得出来。
+ */
+export const BOARD_TITLE_LIMIT = 80
+
+/**
+ * 一段看板标题的长度，按 Unicode 码点计：一个字符算一个，星号表情也只算一个。
+ *
+ * @param title - 任何一段文字。
+ * @returns 码点个数。
+ */
+export function boardTitleLength(title: string): number {
+  return [...title].length
+}
+
+/** 标题不合规矩的三种情况。 */
+export type BoardTitleProblem = 'not-text' | 'empty' | 'too-long'
+
+/**
+ * 看板标题合不合规矩（D21）。宿主与界面读同一份判定，各自说自己的语言。
+ *
+ * @param title - 用户写下的原始标题。
+ * @returns `null` 表示可以用；否则是哪里不合规矩。
+ */
+export function boardTitleProblem(title: unknown): BoardTitleProblem | null {
+  if (typeof title !== 'string') return 'not-text'
+  const wanted = title.trim()
+  if (wanted === '') return 'empty'
+  if (boardTitleLength(wanted) > BOARD_TITLE_LIMIT) return 'too-long'
+  return null
+}
+
 /** 一块看板。 */
 export interface Board {
   version: number

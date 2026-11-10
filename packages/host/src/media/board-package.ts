@@ -1,6 +1,5 @@
 /** 看板备份的完整性校验，在任何安装或创建之前完成。 */
 import { createHash, randomUUID } from 'node:crypto'
-import sharp from 'sharp'
 import { MEDIA_TOTAL_BYTES, type Board, type BoardInstance } from '@dsh-widget-board/contracts'
 import { isCardLayout } from '@dsh-widget-board/model'
 import { buildDocument, freshNonce } from '../document'
@@ -13,6 +12,7 @@ import { instanceOf, stateBytes, withArrangement } from '../state'
 import { checkContentBudget, contentIssues, handshakeBytes } from '../content/validate'
 import { checkedMedia } from './store'
 import { mediaOf } from './routes'
+import { sharpOf } from './sharp'
 
 /** base64 必须为规范编码，避免无效字符被 Buffer 静默忽略。 */
 export function decodeBase64(value: unknown): Buffer {
@@ -34,6 +34,7 @@ export function packageRecord(widget: BoardPackageWidget): WidgetRecord {
 }
 
 export async function validateBoardPackage(context: RouteContext, pkg: BoardPackage): Promise<{ records: Map<string, WidgetRecord>, resources: Map<string, Buffer> }> {
+  const sharp = await sharpOf()
   if (pkg.cards.length > 1000 || pkg.widgets.length > 64) throw new Refusal(413, '看板包卡片或组件过多')
   const records = new Map<string, WidgetRecord>()
   for (const widget of pkg.widgets) {

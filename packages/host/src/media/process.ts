@@ -1,7 +1,7 @@
 /** 图片解码与去元数据；输入、像素与输出额度分别校验。 */
-import sharp from 'sharp'
 import { MEDIA_INPUT_BYTES, type MediaRole } from '@dsh-widget-board/contracts'
 import { Refusal } from '../refusal'
+import { sharpOf } from './sharp'
 
 /** 只识别批准的三种文件签名；解码器还会独立校验实际格式。 */
 export function imageFormat(bytes: Buffer): 'png' | 'jpeg' | 'webp' | undefined {
@@ -17,6 +17,7 @@ export async function processImage(bytes: Buffer, mime: string, role: MediaRole)
   const format = imageFormat(bytes)
   if (format === undefined || mime !== `image/${format}`) throw new Refusal(400, '只支持签名与 MIME 一致的 PNG、JPEG、WebP')
   try {
+    const sharp = await sharpOf()
     const image = sharp(bytes, { limitInputPixels: 8192 * 8192, failOn: 'warning', animated: true })
     const metadata = await image.metadata()
     if (metadata.format !== format || (metadata.pages ?? 1) !== 1) throw new Refusal(400, '不支持动画或格式不一致的图片')

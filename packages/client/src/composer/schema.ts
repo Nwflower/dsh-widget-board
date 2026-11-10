@@ -179,12 +179,19 @@ function fieldsUnder(schema: Record<string, unknown>, depth: number): SchemaFiel
   const required = Array.isArray(schema.required)
     ? schema.required.filter((key): key is string => typeof key === 'string')
     : []
-  return Object.entries(schema.properties).map(([key, raw]) => ({
-    key,
-    node: nodeOf(raw, depth),
-    required: required.includes(key),
-    ...(isRecord(raw) && raw.default !== undefined ? { defaultValue: raw.default } : {}),
-  }))
+  const fields: SchemaField[] = []
+  for (const [key, raw] of Object.entries(schema.properties)) {
+    // 隐藏字段由设置界面或工具写（例如城市解析出的坐标），城市字段在卡片设置里有自己的检索与定位。
+    // 通用表单不画它们，免得城市名、地名与坐标各说各的。
+    if (isRecord(raw) && (raw.format === 'hidden' || raw.format === 'city')) continue
+    fields.push({
+      key,
+      node: nodeOf(raw, depth),
+      required: required.includes(key),
+      ...(isRecord(raw) && raw.default !== undefined ? { defaultValue: raw.default } : {}),
+    })
+  }
+  return fields
 }
 
 /**

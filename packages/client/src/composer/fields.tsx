@@ -278,6 +278,47 @@ function ArrayItems({ node, value, onChange, env, path }: {
   )
 }
 
+/** 数字输入：草稿先留在本地，能完整打出负号与小数点之后再写回卡片。 */
+function NumberControl({ node, path, value, onChange, disabled }: {
+  node: Extract<SchemaNode, { kind: 'number' }>
+  path: string
+  value: unknown
+  onChange: (next: unknown) => void
+  disabled: boolean
+}): ReactNode {
+  const [draft, setDraft] = useState(() => (typeof value === 'number' ? String(value) : ''))
+  // 外部换了一份值（重新读取、切换卡片）时跟上；值没变时保住正在输入的中间写法。
+  useEffect(() => {
+    if (typeof value === 'number') setDraft((previous) => Number(previous) === value ? previous : String(value))
+    else setDraft('')
+  }, [value])
+  const shown = (typeof value === 'number' ? String(value) : '')
+  return (
+    <input
+      className="dsh-widget-board__input dsh-widget-board__input--number"
+      type="number"
+      inputMode={node.integer ? 'numeric' : 'decimal'}
+      step={node.integer ? 1 : 'any'}
+      data-dsh-widget-board-field={path}
+      value={draft}
+      min={node.min}
+      max={node.max}
+      disabled={disabled}
+      onChange={(event: ChangeEvent<HTMLInputElement>) => {
+        const raw = event.target.value
+        setDraft(raw)
+        if (raw === '') { onChange(undefined); return }
+        const parsed = Number(raw)
+        if (Number.isFinite(parsed)) onChange(node.integer ? Math.round(parsed) : parsed)
+      }}
+      onBlur={() => {
+        if (draft === '' || !Number.isFinite(Number(draft))) setDraft(shown)
+        else if (Number(draft) !== value) setDraft(shown)
+      }}
+    />
+  )
+}
+
 /** 一个值转成一个控件。 */
 function Control({ node, path, field, value, onChange, env }: {
   node: SchemaNode
@@ -309,25 +350,7 @@ function Control({ node, path, field, value, onChange, env }: {
     )
   }
   if (node.kind === 'number') {
-    return (
-      <input
-        className="dsh-widget-board__input dsh-widget-board__input--number"
-        type="number"
-        inputMode={node.integer ? 'numeric' : 'decimal'}
-        step={node.integer ? 1 : 'any'}
-        data-dsh-widget-board-field={path}
-        value={typeof value === 'number' ? String(value) : ''}
-        min={node.min}
-        max={node.max}
-        disabled={disabled}
-        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-          const raw = event.target.value
-          if (raw === '') { onChange(undefined); return }
-          const parsed = Number(raw)
-          onChange(Number.isFinite(parsed) ? (node.integer ? Math.round(parsed) : parsed) : undefined)
-        }}
-      />
-    )
+    return <NumberControl node={node} path={path} value={value} onChange={onChange} disabled={disabled} />
   }
   if (node.kind === 'enum') {
     return (

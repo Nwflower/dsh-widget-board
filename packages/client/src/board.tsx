@@ -23,6 +23,7 @@ import type { GridMetrics } from '@dsh-widget-board/model'
 import { DEFAULT_HEIGHT_REM, gridMetrics, snapCardY } from '@dsh-widget-board/model'
 import { BoardGrid } from './board-grid'
 import { useBoardArrangement } from './board-arrangement'
+import { useBoardSelection } from './board-selection'
 import { CardComposer } from './composer/composer'
 import { ContentEditor } from './composer/content-editor'
 import { deleteBoardById, renameBoardTo } from './board-management/actions'
@@ -38,7 +39,6 @@ import { subscribeLive } from './live'
 import { mergeArrangement, mergeEvent, mergeLayout, needsSnapshot } from './merge'
 import { noticeOf, notificationStore } from './notifications'
 import {
-  activateBoard,
   addGroup,
   addInstance,
   createBoard,
@@ -64,7 +64,9 @@ const TYPE = (tokens as { type: Record<string, string> }).type
 const SPACE = (tokens as { space: Record<string, string> }).space
 const RADIUS = (tokens as { radius: { card: string } }).radius.card
 const SHELL_STYLE = {
+  '--w-space-xs': SPACE.xs,
   '--w-space-sm': SPACE.sm,
+  '--w-space-md': SPACE.md,
   '--w-space-lg': SPACE.lg,
   '--w-space-xl': SPACE.xl,
   '--w-motion-fast': MOTION.fast,
@@ -125,6 +127,8 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const busyRef = useRef(false)
   /** 快照请求的序号：先发出、后返回的那一份不能盖掉更新的那一份。 */
   const fetchIdRef = useRef(0)
+  /** 换看板的请求序号：先发后到的旧答复不能把选中改回去。 */
+  const activateIdRef = useRef(0)
   /** 最近合并的事件帧：换上落后的快照之后按修订号把它们重放回去（D18）。 */
   const recentFramesRef = useRef<readonly BoardEventFrame[]>([])
   const exitingRef = useRef(new Set<string>())
@@ -164,6 +168,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   /** 换上一份宿主刚给的快照：在途的重取作废，失败提示清掉（D5）。 */
   const apply = useCallback((next: WorkspaceSnapshot): void => {
     fetchIdRef.current += 1
+    activateIdRef.current += 1
     const merged = adopt(next)
     cachedWorkspace = merged
     setSnapshot(merged)
@@ -174,6 +179,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const refetch = useCallback(() => {
     const id = fetchIdRef.current + 1
     fetchIdRef.current = id
+    activateIdRef.current += 1
     fetchWorkspace().then((next) => {
       if (id !== fetchIdRef.current) return
       const merged = adopt(next)
@@ -308,15 +314,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     : snapshot.boards.find((board) => board.id === snapshot.active) ?? snapshot.boards[0] ?? null
 
   /** 换一块看板：先按本地换过去，宿主的答复到了以它为准（D5）。 */
-  const onSelectBoard = useCallback((id: string) => {
-    if (snapshot === null || id === snapshot.active || busyRef.current) return
-    if (editor !== null) closeEditor()
-    setSnapshot((previous) => previous === null ? previous : { ...previous, active: id })
-    activateBoard(id).then((next) => { apply(next) }, (error: Error) => {
-      setFailure(error.message)
-      refetch()
-    })
-  }, [apply, closeEditor, editor, refetch, snapshot])
+  const onSelectBoard = useBoardSelection(snapshot, busyRef, editor !== null, closeEditor, activateIdRef, apply, refetch, setFailure, setSnapshot)
 
   /** 新建一块看板：宿主起名字并把它选中（D21）。 */
   const onNewBoard = useCallback(() => {

@@ -107,6 +107,19 @@ describe('schema 读成控件树', () => {
     expect(fieldsOfTree(undefined)).toEqual([])
     expect(fieldsOfTree({ type: 'object' })).toEqual([])
   })
+
+  it('隐藏字段和城市字段不画通用控件', () => {
+    const fields = fieldsOfTree({
+      type: 'object',
+      properties: {
+        city: { type: 'string', format: 'city' },
+        latitude: { type: 'number', format: 'hidden' },
+        place: { type: 'object', format: 'hidden' },
+        title: { type: 'string' },
+      },
+    })
+    expect(fields.map((field) => field.key)).toEqual(['title'])
+  })
 })
 
 describe('字段名字', () => {

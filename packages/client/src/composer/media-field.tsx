@@ -1,7 +1,7 @@
 /** 图片选择只上传到受限编辑会话；绑定留到用户正式保存。 */
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { MEDIA_INPUT_BYTES, CLIENT_ROUTE, instanceCallPath, type InstanceMedia, type MediaBinding, type MediaUploaded } from '@dsh-widget-board/contracts'
+import { MEDIA_INPUT_BYTES, CLIENT_ROUTE, instanceCallPath, type InstanceMedia, type MediaBinding, type MediaRole, type MediaUploaded } from '@dsh-widget-board/contracts'
 import { isChinese } from '../copy'
 import { readMedia } from '../../../runtime/src/media/read'
 
@@ -13,6 +13,31 @@ async function resultOf(response: Response): Promise<Record<string, unknown>> {
 
 export async function copyMedia(source: string, board: string, binding: MediaBinding): Promise<MediaBinding> {
   return await resultOf(await fetch(`${CLIENT_ROUTE}/media/copy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, board, ...binding }) })) as MediaBinding
+}
+
+/**
+ * 只把刚改的那一个角色并进最新一份绑定。
+ *
+ * @param previous - 当前保存的绑定。
+ * @param next - 一个图片字段按它看到的旧值算出的新绑定。
+ * @param role - 这个字段负责的角色。
+ * @returns 其余角色保持最新值、这个角色取 `next` 的绑定。
+ */
+export function mergeMedia(previous: MediaBinding, next: MediaBinding, role: MediaRole): MediaBinding {
+  const media: InstanceMedia = { ...(previous.media ?? {}) }
+  const mediaTickets = { ...(previous.mediaTickets ?? {}) }
+  if (next.media?.[role] === undefined) delete media[role]
+  else media[role] = next.media[role]
+  if (next.mediaTickets?.[role] === undefined) delete mediaTickets[role]
+  else mediaTickets[role] = next.mediaTickets[role]
+  const result: MediaBinding = { ...previous }
+  if (next.mediaSession === undefined) delete result.mediaSession
+  else result.mediaSession = next.mediaSession
+  if (Object.keys(media).length === 0) delete result.media
+  else result.media = media
+  if (Object.keys(mediaTickets).length === 0) delete result.mediaTickets
+  else result.mediaTickets = mediaTickets
+  return result
 }
 
 /**
@@ -32,7 +57,7 @@ export function imageFormSchema(schema: Record<string, unknown> | undefined, sec
   return { ...schema, properties: Object.fromEntries(Object.entries(schema.properties).filter(([key]) => !hidden.includes(key))) }
 }
 
-export function ImageField({ target, value, onChange, disabled, onBusy, onPreview, role = 'background' }: { target: string, value: MediaBinding, onChange: (value: MediaBinding) => void, disabled: boolean, onBusy: (busy: boolean) => void, onPreview: (url: string | null) => void, role?: 'background' | 'icon' }): ReactNode {
+export function ImageField({ target, value, onChange, disabled, onBusy, onPreview, role = 'background' }: { target: string, value: MediaBinding, onChange: (value: MediaBinding, role: MediaRole) => void, disabled: boolean, onBusy: (busy: boolean) => void, onPreview: (url: string | null) => void, role?: 'background' | 'icon' }): ReactNode {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
@@ -65,7 +90,7 @@ export function ImageField({ target, value, onChange, disabled, onBusy, onPrevie
       if (!preview.ok) throw new Error(String((await resultOf(preview)).error))
       const blob = await preview.blob()
       current.signal.throwIfAborted()
-      onChange({ ...value, mediaSession: session, media: { ...value.media, [role]: uploaded.ref }, mediaTickets: { ...value.mediaTickets, [role]: uploaded.uploadTicket } })
+      onChange({ ...value, mediaSession: session, media: { ...value.media, [role]: uploaded.ref }, mediaTickets: { ...value.mediaTickets, [role]: uploaded.uploadTicket } }, role)
       setUrl(URL.createObjectURL(blob))
     } catch (caught) {
       if (!current.signal.aborted) setError((caught as Error).message)
@@ -78,7 +103,7 @@ export function ImageField({ target, value, onChange, disabled, onBusy, onPrevie
     </label>
     <p className="dsh-widget-board__editor-note">{busy ? (zh ? '正在处理图片…' : 'Processing image…') : value.media?.[role] ? (zh ? '图片已选择，保存后生效' : 'Image selected; save to apply') : (zh ? 'PNG / JPEG / WebP，最大 10MiB；不支持动画' : 'PNG / JPEG / WebP, up to 10MiB; static images only')}</p>
     {url === null ? null : <img src={url} alt={zh ? '所选图片预览' : 'Selected image preview'} style={{ display: 'block', maxWidth: '100%', maxHeight: '16rem', objectFit: 'contain' }} />}
-    {value.media?.[role] ? <button type="button" className="dsh-widget-board__editor-ghost" disabled={disabled || busy} onClick={() => { const refs = { ...value.media }; const tickets = { ...value.mediaTickets }; delete refs[role]; delete tickets[role]; setUrl(null); onChange({ ...value, media: refs as InstanceMedia, mediaTickets: tickets }) }}>{zh ? '移除图片' : 'Remove image'}</button> : null}
+    {value.media?.[role] ? <button type="button" className="dsh-widget-board__editor-ghost" disabled={disabled || busy} onClick={() => { const refs = { ...value.media }; const tickets = { ...value.mediaTickets }; delete refs[role]; delete tickets[role]; setUrl(null); onChange({ ...value, media: refs as InstanceMedia, mediaTickets: tickets }, role) }}>{zh ? '移除图片' : 'Remove image'}</button> : null}
     {error === null ? null : <p role="alert" className="dsh-widget-board__editor-error">{error}</p>}
   </section>
 }

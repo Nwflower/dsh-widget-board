@@ -65,6 +65,8 @@ function trapFocus(dialog: HTMLDivElement, onEscape: () => void): () => void {
   // Escape 挂在文档上：焦点偶尔落在弹窗外（例如刚打开的那一帧），也要能关掉。
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
+    // 输入法用 Escape 取消候选时不能关掉弹窗，否则刚输入的内容跟着丢。
+    if (event.isComposing || event.keyCode === 229) return
     event.stopPropagation()
     event.preventDefault()
     onEscape()

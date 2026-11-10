@@ -119,7 +119,7 @@ export function CardComposer({
   const [previewAutoRun, setPreviewAutoRun] = useState(true)
   const [sourcePane, setSourcePane] = useState<'editor' | 'preview'>('editor')
   const [sourceBinary, setSourceBinary] = useState<Record<string, string>>({})
-  /** 源码模式里当前的���件内容：预览面板按它开一个预览会话。 */
+  /** 源码模式里当前的文件内容：预览面板按它开一个预览会话。 */
   const [sourceFiles, setSourceFiles] = useState<Record<string, string>>({})
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const closeRef = useRef<HTMLButtonElement | null>(null)
@@ -163,7 +163,7 @@ export function CardComposer({
     }
   }, [anchor])
 
-  useEffect(() => { closeRef.current?.focus() }, [])
+  useLayoutEffect(() => { if (rect !== null) closeRef.current?.focus() }, [rect])
 
   /** 换一个模板：内容换成新模板的预填值。 */
   const choose = useCallback((next: Template | null, nextAdvanced: string | null): void => {
@@ -258,10 +258,10 @@ export function CardComposer({
       className="dsh-widget-board__editor-layer"
       style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.stopPropagation()
-          requestClose()
-        }
+        if (event.key !== 'Escape') return
+        if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
+        event.stopPropagation()
+        requestClose()
       }}
     >
       <div className="dsh-widget-board__editor-backdrop" onPointerDown={requestClose} />

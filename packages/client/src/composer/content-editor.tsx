@@ -31,7 +31,7 @@ import {
 import { SchemaForm, formPathOf } from './fields'
 import { SourceEditorPanel } from './source-panel'
 import { PreviewPanel } from './preview-panel'
-import { copyMedia, imageFormSchema, ImageDraftPreview, ImageField } from './media-field'
+import { copyMedia, imageFormSchema, ImageDraftPreview, ImageField, mergeMedia } from './media-field'
 import { CampusForm, isCampusSchema } from '../campus/form'
 import { campusProps, campusState } from '@dsh-widget-board/model/campus/model'
 import { CampusMedia } from './campus-media'
@@ -172,7 +172,7 @@ export function ContentEditor({
 
   useEffect(() => { load(false) }, [load])
 
-  useEffect(() => { closeRef.current?.focus() }, [])
+  useLayoutEffect(() => { if (rect !== null) closeRef.current?.focus() }, [rect])
 
   const sections = useMemo(() => (model === null ? [] : sectionsOf(model)), [model])
   const preview = model === null ? undefined : widgets[model.widget.id]
@@ -194,6 +194,7 @@ export function ContentEditor({
       if (isCampusSchema(model.widget.stateSchema)) { campusProps(props); campusState(state) }
       const saved = await saveCardContent(instanceId, {
         expectedRevision: model.revision,
+        expectedHash: model.widget.hash,
         ...media,
         props,
         data,
@@ -279,6 +280,7 @@ export function ContentEditor({
       style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
+        if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
         event.stopPropagation()
         requestClose()
       }}
@@ -333,7 +335,7 @@ export function ContentEditor({
             <fieldset disabled={exchangePending} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             {model === null
               ? <p className="dsh-widget-board__editor-empty">{t('editorLoading')}</p>
-              : sourceOpen ? null : isCampusSchema(model.widget.stateSchema) ? <CampusForm props={props} state={state} onProps={setProps} onState={setState} onPending={setCampusPending} disabled={saving || mediaBusy} media={<CampusMedia target={instanceId} value={media} onChange={next => { setMedia(next); setProps(current => ({ ...current, hasBackground: Boolean(next.media?.background), hasIcon: Boolean(next.media?.icon) })) }} onBusy={setMediaBusy} disabled={saving || mediaBusy} />} /> : sections.map((section) => {
+              : sourceOpen ? null : isCampusSchema(model.widget.stateSchema) ? <CampusForm props={props} state={state} onProps={setProps} onState={setState} onPending={setCampusPending} disabled={saving || mediaBusy} media={<CampusMedia target={instanceId} value={media} onChange={(next, role) => { setMedia(previous => mergeMedia(previous, next, role)); setProps(current => role === 'background' ? { ...current, hasBackground: next.media?.background !== undefined } : { ...current, hasIcon: next.media?.icon !== undefined }) }} onBusy={setMediaBusy} disabled={saving || mediaBusy} />} /> : sections.map((section) => {
                 const schema = section.key === 'props'
                   ? model.widget.propsSchema
                   : section.key === 'data' ? model.widget.dataSchema : model.widget.stateSchema

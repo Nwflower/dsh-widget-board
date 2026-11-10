@@ -505,7 +505,7 @@ export function BoardGrid({
         orderDraftRef.current = null
         setOrderDraft(null)
         onBusyChange(false)
-        console.error(`widget-board: ${t('arrangementFailed')}：${error.message}`)
+        onFailure(error.message)
         onRefetch()
       })
       return
@@ -541,10 +541,10 @@ export function BoardGrid({
       draftRef.current = null
       setDraft(null)
       onBusyChange(false)
-      console.error(`widget-board: ${t('layoutFailed')}：${error.message}`)
+      onFailure(error.message)
       onRefetch()
     })
-  }, [aligned, board.arrangement, board.id, boxesById, cancelDrag, cards, metrics, onArrangement, onBusyChange, onLayouts, onRefetch, onSnapshot])
+  }, [aligned, board.arrangement, board.id, boxesById, cancelDrag, cards, metrics, onArrangement, onBusyChange, onFailure, onLayouts, onRefetch, onSnapshot])
 
   useEffect(() => {
     if (drag === null) return

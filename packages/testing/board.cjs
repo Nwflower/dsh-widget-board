@@ -30,12 +30,35 @@ function activeBoard(snapshot) {
 }
 
 /**
+ * 把当前选中的那块看板切回自由布局：自由坐标只属于自由模式，写 free 盒子的测试先走这一步（D33）。
+ *
+ * @param page - 宿主页面。
+ * @returns 切换之后的看板；排列提交被拒绝（修订号过期之类）时是 `undefined`。
+ */
+async function ensureFree(page) {
+  const snapshot = await workspace(page)
+  const board = activeBoard(snapshot)
+  if (board.arrangement?.mode !== 'aligned') return board
+  const status = await page.evaluate(async ({ boardId, layoutRevision }) => {
+    const response = await fetch(`api/widget-board/boards/${encodeURIComponent(boardId)}/arrangement`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedLayoutRevision: layoutRevision, arrangement: { mode: 'free' } }),
+    })
+    return response.status
+  }, { boardId: board.id, layoutRevision: board.layoutRevision })
+  if (status !== 200) throw new Error(`切回自由布局失败：${status}`)
+  return activeBoard(await workspace(page))
+}
+
+/**
  * 按当前快照给选中的那块看板写一份整块布局。
  *
  * @param page - 宿主页面。
  * @param build - 从快照里的实例算出新的布局表。
  */
 async function writeLayouts(page, build) {
+  await ensureFree(page)
   const snapshot = await workspace(page)
   const board = activeBoard(snapshot)
   const layouts = build(board.instances)
@@ -151,6 +174,58 @@ async function addInstance(page, widget) {
   }, widget)
 }
 
+/** 整齐模式的真实手势：自身格子内移动不换序，窄屏纵向缩放保留期望宽度。 */
+async function alignedGesturesPass(page, check) {
+  const { settled } = require('./geometry.cjs')
+  const viewport = page.viewportSize()
+  const original = (await workspace(page)).active
+  const call = (route, body) => page.evaluate(async ({ route, body }) => {
+    const response = await fetch(`api/widget-board/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+    if (!response.ok) throw new Error(`手势夹具请求失败：${response.status}`)
+    return response.json()
+  }, { route, body })
+  const id = (await call('boards', { title: '排列手势回归' })).id
+  try {
+    const ids = []
+    for (let index = 0; index < 3; index++) ids.push((await call(`boards/${id}/instance`, { widget: 'markdown' })).id)
+    let board = activeBoard(await workspace(page))
+    await call(`boards/${id}/arrangement`, { expectedLayoutRevision: board.layoutRevision, arrangement: { mode: 'aligned', aligned: { order: ids, boxes: Object.fromEntries(ids.map((key, index) => [key, { w: index === 0 ? 2 : 1, h: 22 }])) } } })
+    const card = page.locator(`.dsh-widget-board__flow[data-active="true"] [data-instance="${ids[0]}"]`).first()
+    await card.waitFor()
+    await card.scrollIntoViewIfNeeded()
+    await settled(page)
+    board = activeBoard(await workspace(page))
+    const move = await card.locator('[data-dsh-widget-board-handle="move"]').boundingBox()
+    if (move === null) throw new Error('找不到移动手柄')
+    await page.mouse.move(move.x + move.width / 2, move.y + move.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(move.x + move.width / 2 + 8, move.y + move.height / 2)
+    await page.mouse.up()
+    await page.waitForFunction(async ({ id, revision }) => (await (await fetch('api/widget-board/boards')).json()).boards.find(board => board.id === id).layoutRevision > revision, { id, revision: board.layoutRevision })
+    const moved = activeBoard(await workspace(page))
+    check('整齐模式在自身格子内拖动保持顺序', JSON.stringify(moved.arrangement.aligned.order) === JSON.stringify(ids))
+    await page.setViewportSize({ width: 640, height: 900 })
+    await page.waitForFunction(() => document.querySelector('[data-dsh-widget-board-columns]')?.getAttribute('data-dsh-widget-board-columns') === '1')
+    await card.scrollIntoViewIfNeeded()
+    await settled(page)
+    board = activeBoard(await workspace(page))
+    const resize = await card.locator('[data-dsh-widget-board-handle="resize"]').boundingBox()
+    if (resize === null) throw new Error('找不到缩放手柄')
+    await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2 + 64, { steps: 8 })
+    await page.mouse.up()
+    await page.waitForFunction(async ({ id, revision }) => (await (await fetch('api/widget-board/boards')).json()).boards.find(board => board.id === id).layoutRevision > revision, { id, revision: board.layoutRevision })
+    const resized = activeBoard(await workspace(page)).arrangement.aligned.boxes[ids[0]]
+    check('窄屏只纵向缩放保留跨列期望', resized.w === 2 && resized.h > board.arrangement.aligned.boxes[ids[0]].h, JSON.stringify(resized))
+  } finally {
+    await page.mouse.up()
+    await call(`boards/${original}/activate`)
+    await call(`boards/${id}/remove`)
+    await page.setViewportSize(viewport)
+  }
+}
+
 /** 独立测试目录里的零高度组件，不依赖高度消息确认初始化。 */
 function createHandshakeFixture(home) {
   const directory = join(home, 'widget-board/widgets/handshake-zero')
@@ -161,6 +236,7 @@ function createHandshakeFixture(home) {
   writeFileSync(join(directory, 'main.js'), 'window.handshakeBoot = String(Date.now())')
 }
 
+/** 初始化成功后跨过父页面原有六秒看门时限，文档不能因为没有高度消息而重载。 */
 async function handshakePass(page, check) {
   const original = (await workspace(page)).active
   const call = (route, body) => page.evaluate(async ({ route, body }) => {
@@ -185,4 +261,4 @@ async function handshakePass(page, check) {
   }
 }
 
-module.exports = { activeBoard, addInstance, createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }
+module.exports = { activeBoard, addInstance, alignedGesturesPass, createHandshakeFixture, handshakePass, ensureFree, keepOnlyGallery, resetCards, resetLayout, setCardHeight, workspace, writeLayouts }

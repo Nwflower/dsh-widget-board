@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight } = require('./board.cjs')
+const { alignedGesturesPass, createHandshakeFixture, handshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -109,6 +109,8 @@ async function mainPass(page, problems) {
   check('插件的样式表挂上了文档', await page.evaluate((selector) => document.querySelector(selector) !== null, SHEET))
   await keepOnlyGallery(page)
   await resetCards(page)
+  // 默认看板是整齐行列（D33）：自由坐标的几何检查先把看板切回自由布局。
+  await ensureFree(page)
   await openBoard(page)
   await ensureTemplates(page)
   await resetLayout(page)
@@ -173,6 +175,7 @@ async function mainPass(page, problems) {
   )
   check('图标是天气图标之一', ['sun', 'moon', 'cloud', 'rain', 'snow', 'bolt'].includes(String(after.icon)), String(after.icon))
 
+  await page.locator(POMODORO_FRAME).scrollIntoViewIfNeeded()
   const pomodoro = await frameOf(page, POMODORO_FRAME)
   check('番茄钟画出来了', await pomodoro.evaluate(() => document.querySelector('.pomo') !== null))
   const box = await pomodoro.evaluate(() => ({
@@ -453,6 +456,7 @@ async function templatePass(page) {
  */
 async function layoutPass(page) {
   await resetLayout(page)
+  await ensureFree(page)
   await openBoard(page)
   await settled(page)
 
@@ -535,6 +539,7 @@ async function layoutPass(page) {
   const kept = await layoutOf(page, weatherId)
   check('重载之后布局还在', kept?.x === resized.x && kept?.w === resized.w && kept?.h === resized.h, JSON.stringify(kept))
 
+  await ensureFree(page)
   await resetLayout(page)
   await sleep(600)
 }
@@ -668,6 +673,7 @@ start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 
     await providerV3Pass(opened.page, check, { url: host.url })
     await sharePass(opened.page, check)
     await dockPass(opened.page, check)
+    await alignedGesturesPass(opened.page, check)
     await layoutPass(opened.page)
     await narrowPass(opened.page)
     await reloadPass(opened.page)

@@ -4,11 +4,11 @@
  * 状态存在宿主上，卡片重挂之后靠它把会话接回来；合并规则只有一条，所以由单元测试盯着。
  */
 import { afterAll, describe, expect, it } from 'vitest'
-import { rmdir, unlink } from 'node:fs/promises'
+import { readFile, rmdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Board, BoardInstance, WidgetMinBox } from '@dsh-widget-board/contracts'
 import type { WidgetRecord } from '../src/library'
-import { readBoard, withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts, writeBoard } from '../src/state'
+import { readBoard, withArrangementUnits, withBoardArrangement, withBoardLayouts, withDefaultSources, withGroupAdded, withGroupRemoved, withInstanceAdded, withInstanceData, withInstanceRemoved, withInstanceState, withLayouts, writeBoard } from '../src/state'
 
 /** 看板文件写在 `.debug/` 下，跑完删掉：这一条要经过真的文件读写，不碰系统临时目录。 */
 const ROOT = join(process.cwd(), '.debug', 'tests', `state-${String(process.pid)}-${String(Date.now())}`)
@@ -273,6 +273,40 @@ describe('翻面组', () => {
   })
 })
 
+describe('排列偏好（D33）', () => {
+  it('一次提交换掉整份偏好，不合法的形状整体拒绝', () => {
+    const current = { ...board(), arrangement: { mode: 'aligned' as const, aligned: { order: ['first', 'second'], boxes: { first: { w: 1, h: 22 }, second: { w: 1, h: 22 } } } } }
+    const next = withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['second', 'first'], boxes: { second: { w: 2, h: 18 }, first: { w: 1, h: 14 } } } })
+    expect(next.arrangement).toEqual({ mode: 'aligned', aligned: { order: ['second', 'first'], boxes: { second: { w: 2, h: 18 }, first: { w: 1, h: 14 } } } })
+    expect(() => withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['first'], boxes: { first: { w: 1, h: 22 } } } })).toThrow(/漏掉了看板上的卡片/)
+    expect(() => withBoardArrangement(current, { mode: 'aligned', aligned: { order: ['first', 'missing'], boxes: { first: { w: 1, h: 22 }, missing: { w: 1, h: 22 } } } })).toThrow(/看板上没有这个排列单元/)
+  })
+
+  it('切回自由模式只换偏好，卡片坐标不动', () => {
+    const current = { ...board(), arrangement: { mode: 'aligned' as const, aligned: { order: ['first', 'second'], boxes: { first: { w: 1, h: 22 }, second: { w: 1, h: 22 } } } } }
+    const next = withBoardArrangement(current, { mode: 'free' })
+    expect(next.arrangement).toEqual({ ...current.arrangement, mode: 'free' })
+    expect(next.instances).toEqual(current.instances)
+  })
+
+  it('排列单元的接上与去掉由 withArrangementUnits 完成', () => {
+    const aligned = { mode: 'aligned' as const, aligned: { order: ['first'], boxes: { first: { w: 1, h: 22 } } } }
+    const added = withInstanceAdded({ ...board(), instances: board().instances.slice(0, 1), arrangement: aligned }, record('clock'))
+    const withUnit = withArrangementUnits(added.board, [], [{ id: added.id, box: { w: 1, h: 22 } }])
+    expect(withUnit.arrangement?.aligned?.order).toEqual(['first', added.id])
+    expect(withUnit.arrangement?.aligned?.boxes).toHaveProperty(added.id)
+    const removed = withArrangementUnits(withInstanceRemoved(withUnit, added.id), [added.id], [])
+    expect(removed.arrangement?.aligned?.order).toEqual(['first'])
+    expect(removed.arrangement?.aligned?.boxes).toEqual({ first: { w: 1, h: 22 } })
+  })
+
+  it('自由模式的看板加卡移卡不动偏好', () => {
+    const current = { ...board(), arrangement: { mode: 'free' as const } }
+    const added = withInstanceAdded(current, record('clock'))
+    expect(added.board.arrangement).toEqual({ mode: 'free' })
+  })
+})
+
 /**
  * 作者域 id（D8、D30）：组件库把市场来源的 id 读成 `<作者域>.<名字>`，卡片记住的是这个字符串。
  *
@@ -300,7 +334,12 @@ describe('看板文件里的组件 id', () => {
     await writeBoard(file, current)
     const records = new Map([['nwflower.clock', marketRecord('nwflower.clock')], ['weather', record('weather')]])
     const back = await readBoard(file, records)
-    expect(back).toEqual(current)
+    expect(back).toEqual({ ...current, version: 3, arrangement: { mode: 'free' } })
+    expect(JSON.parse(await readFile(file, 'utf8')).version).toBe(2)
+    // 老文件读取只在内存迁移；保存迁移结果后写出当前格式。
+    await writeBoard(file, back)
+    expect(JSON.parse(await readFile(file, 'utf8')).version).toBe(3)
+    expect(await readBoard(file, records)).toEqual(back)
     expect(back.instances.map((instance) => instance.widget)).toEqual(['pomodoro', 'weather', 'nwflower.clock'])
   })
 })

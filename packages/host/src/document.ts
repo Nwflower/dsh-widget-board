@@ -49,10 +49,13 @@ const MIME: Record<string, string> = {
  * 这一份文档的 CSP。
  *
  * @param nonce - 本次响应的 nonce。
+ * @param options.sandbox - 是否带上 `sandbox`；静态演示只能写 `<meta>`，那里会忽略它（D3、D25）。
  * @returns `content-security-policy` 头的值。
  */
-export function contentSecurityPolicy(nonce: string): string {
+export function contentSecurityPolicy(nonce: string, options: { sandbox?: boolean } = {}): string {
   return [
+    // 文档被直接顶层打开时也按 iframe 的沙箱运行：组件脚本不能读宿主来源的 cookie 或存储（D3）。
+    ...(options.sandbox === false ? [] : ['sandbox allow-scripts']),
     "default-src 'none'",
     `script-src 'nonce-${nonce}'`,
     "style-src 'unsafe-inline'",

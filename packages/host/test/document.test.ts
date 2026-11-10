@@ -122,9 +122,14 @@ describe('文档', () => {
 describe('CSP', () => {
   it('只放行同一个 nonce 的脚本，网络一律关掉', () => {
     const policy = contentSecurityPolicy('abc')
+    expect(policy).toContain('sandbox allow-scripts')
     expect(policy).toContain("script-src 'nonce-abc'")
     expect(policy).toContain("connect-src 'none'")
     expect(policy).toContain("default-src 'none'")
     expect(policy).toContain('img-src data: blob:')
+  })
+
+  it('写进 meta 的演示文档省掉 sandbox，避免浏览器忽略并告警', () => {
+    expect(contentSecurityPolicy('abc', { sandbox: false })).not.toContain('sandbox')
   })
 })

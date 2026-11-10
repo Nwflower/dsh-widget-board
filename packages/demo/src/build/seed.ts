@@ -69,6 +69,8 @@ const DOCUMENT_LANG = 'zh-CN'
  *
  * 静态托管不能按请求设响应头。策略的文本来自宿主的 `contentSecurityPolicy`，nonce 是这份文档
  * 构建时生成的那一个；`script-src`、`connect-src` 等限制对文档里的脚本照样生效（D3）。
+ * `sandbox` 不能经 `<meta>` 送达，会触发浏览器警告；演示页的卡片 iframe 本来就带
+ * `sandbox="allow-scripts"`，这里只省掉那一条（D25）。
  *
  * @param html - 宿主拼出来的文档。
  * @param nonce - 文档里内联脚本用的 nonce。
@@ -76,7 +78,7 @@ const DOCUMENT_LANG = 'zh-CN'
  */
 function withMetaPolicy(html: string, nonce: string): string {
   return html.replace('<head>', `<head>
-<meta http-equiv="content-security-policy" content="${contentSecurityPolicy(nonce)}">`)
+<meta http-equiv="content-security-policy" content="${contentSecurityPolicy(nonce, { sandbox: false })}">`)
 }
 
 /** 一次构建的位置：`lib` 是 `npm run build` 的产物，`home` 是铺默认看板用的临时目录，`out` 是演示页根。 */

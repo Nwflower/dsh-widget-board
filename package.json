@@ -81,11 +81,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "ical.js": "2.2.1",
-    "luxon": "3.7.2",
-    "papaparse": "5.7.0",
-    "sharp": "0.35.5",
-    "semver": "^7.8.5"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "6.18.6",
@@ -112,11 +108,15 @@
     "esbuild": "0.28.2",
     "fflate": "^0.8.3",
     "highlight.js": "^11.12.0",
+    "ical.js": "2.2.1",
     "jscpd": "5.4.1",
+    "luxon": "3.7.2",
     "marked": "^18.1.1",
+    "papaparse": "5.7.0",
     "playwright": "1.64.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "semver": "^7.8.5",
     "three": "^0.186.1",
     "typescript": "7.0.2",
     "vitest": "5.0.5"

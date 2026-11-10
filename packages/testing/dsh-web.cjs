@@ -107,7 +107,8 @@ async function availablePort() {
     const available = await new Promise((resolve, reject) => {
       const server = createServer()
       server.once('error', error => {
-        if (error.code === 'EADDRINUSE') resolve(false)
+        // Windows 的保留端口段会以 EACCES 拒绝绑定：与占用一样换一个端口，不终止整趟测试。
+        if (error.code === 'EADDRINUSE' || error.code === 'EACCES') resolve(false)
         else reject(error)
       })
       server.listen(port, '127.0.0.1', () => {

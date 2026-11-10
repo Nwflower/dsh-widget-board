@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 1,
+  "at": "2026-11-10",
+  "external": false,
+  "zh": "合入审阅修正：整齐排列接受 30rem 以上的 2rem 高度档，并在写入前把盒子收进合法档位，含高默认盒子的看板不会写出打不开的版本 3 文件；创建器与内容编辑的数字输入保留负号和小数草稿，隐藏字段与城市字段不再画成通用输入；标签切换的旧答复不再覆盖新选中，拖动、缩放与换排失败会给出可见原因；创建器、内容编辑与改名弹窗打开后焦点进入弹窗，输入法组合期间的 Escape 不关闭弹窗；校园卡背景与图标各自计忙碌并合并绑定，保存不会只带上一张图。源码保存的请求上限与组件目录额度一致，内容编辑带上组件哈希核对，CSV/ICS 导入按行建索引不再逐行全表扫描，倒计时按 Luxon 校验日期，样例覆盖有内容的状态。",
+  "en": "Review fixes: aligned rows accept 2rem height steps above 30rem and normalize boxes before writing, so a board with a tall default box can no longer be written as an unreadable version 3 file. Number fields in the composer and content editor keep a local draft for minus signs and decimals, and hidden or city fields are no longer drawn as generic inputs. A late tab-activation reply no longer overrides a newer selection, and failed drag, resize or arrangement submissions now show a visible reason. Focus enters the composer, content editor and rename dialog when they open, and Escape during an IME composition no longer closes them. Campus background and icon uploads track busy state per role and merge bindings, so saving cannot keep only one image. The source-save request limit matches the widget directory budget, content edits carry the widget hash for a version check, CSV/ICS imports index rows instead of scanning every row, the countdown validates dates with Luxon, and its samples cover a populated state."
+}

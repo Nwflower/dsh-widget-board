@@ -32,9 +32,11 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 ## A few doors
 
 | Board in the sidebar | Switch board tabs, drag and tidy cards; the default board is filled on first launch |
-| More button on a tab | Rename or delete that board; right-clicking the tab opens the same menu without switching boards |
 |---|---|
+| More button on a tab | Rename or delete that board; right-clicking the tab opens the same menu without switching boards |
+| Layout mode | Switch between free placement and aligned rows; aligned mode keeps saved order, one row at a time, with equal heights |
 | Plus menu | Add, tidy, refresh; Add opens the library as a full-height panel that rises from the bottom |
+| Countdown | Add a countdown card that shows the time left to a date, time and time zone |
 | Card gear | Change the widget's props, fill in credentials, review and grant data sources and permissions |
 | Edit widget source | Load CodeMirror on demand; save a separate user type and apply it to the current card; updating all instances requires an explicit choice and a version check |
 | Source drafts and preview | Save, restore and delete drafts; preview uses the real sandbox without performing formal actions, capability calls or notifications |

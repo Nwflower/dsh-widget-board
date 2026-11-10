@@ -310,9 +310,10 @@ const COPY = {
 /** 一条文案的键。 */
 export type CopyKey = keyof typeof COPY
 
-/** 当前的界面语言：浏览器的文档语言优先，没有文档时按中文（单元测试与纯函数用）。 */
+/** 当前的界面语言：浏览器的文档语言优先；没有文档时按中文（单元测试与纯函数用）。 */
 function currentLang(): string {
-  const fromDocument = typeof document === 'undefined' ? '' : document.documentElement.lang
+  if (typeof document === 'undefined') return 'zh-CN'
+  const fromDocument = document.documentElement.lang
   const fromNavigator = typeof navigator === 'undefined' ? '' : navigator.language
   return fromDocument || fromNavigator || 'zh-CN'
 }

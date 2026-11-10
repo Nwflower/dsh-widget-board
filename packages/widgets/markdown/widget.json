@@ -55,6 +55,14 @@
     "props.kicker.label": {
       "zh": "标签",
       "en": "Kicker"
+    },
+    "data.markdown.label": {
+      "zh": "正文",
+      "en": "Body"
+    },
+    "data.markdown.hint": {
+      "zh": "Markdown 写法，表格与代码块都支持",
+      "en": "Markdown; tables and fenced code are supported"
     }
   }
 }

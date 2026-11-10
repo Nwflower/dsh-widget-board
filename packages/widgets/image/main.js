@@ -25,6 +25,36 @@
   var loaded = null
   var props = {}
   var data = {}
+  var localUrl = null
+  var reading = null
+
+  /** 放开这一轮本地图片：作废在途读取、收回 blob URL，再按设置里的地址重画一次。 */
+  function release() {
+    if (reading) reading.abort()
+    reading = null
+    var had = localUrl !== null
+    if (localUrl) URL.revokeObjectURL(localUrl)
+    localUrl = null
+    if (had) paint()
+  }
+
+  async function loadLocal() {
+    release()
+    if (!widget || props.localImage !== true || widget.paused) return
+    var current = new AbortController()
+    reading = current
+    showPlaceholder()
+    try {
+      var blob = await widget.readMedia('background', { signal: current.signal })
+      if (current.signal.aborted) return
+      localUrl = URL.createObjectURL(blob)
+      paint()
+    } catch (error) {
+      if (current.signal.aborted) return
+      showPlaceholder()
+      write(el.empty, error.message)
+    }
+  }
 
   function isZh() {
     return widget === undefined || String(widget.lang || 'zh').toLowerCase().indexOf('zh') === 0
@@ -64,7 +94,10 @@
   /** 画一遍：标题区、说明与画面都从这里出去，props 或 data 变了就再画一次。 */
   function paint() {
     var base = defaults()
-    var src = pick(data.src, props.src, '')
+    var focusX = typeof props.focusX === 'number' ? props.focusX : 50
+    var focusY = typeof props.focusY === 'number' ? props.focusY : 50
+    var source = pick(data.src, props.src, '')
+    var src = localUrl === null ? source : localUrl
     var caption = pick(data.caption, props.caption, base.caption)
     var alt = pick(data.alt, props.alt, base.alt)
     var preset = typeof props.preset === 'string' && props.preset !== '' ? props.preset : 'glow'
@@ -75,6 +108,7 @@
     el.cover.setAttribute('aria-label', alt)
     el.cover.dataset.preset = preset
     el.img.alt = alt
+    el.img.style.objectPosition = String(focusX) + '% ' + String(focusY) + '%'
     if (src === loaded) return
     loaded = src
     if (src === '') { showCover(); return }
@@ -104,7 +138,10 @@
   applyProps(widget === undefined ? {} : widget.props)
   applyData(widget === undefined ? null : widget.data)
   if (widget !== undefined) {
-    widget.onProps(applyProps)
-    widget.onData(applyData)
+    widget.onProps(function (props) { applyProps(props); void loadLocal() })
+    widget.onData(function (data) { applyData(data); void loadLocal() })
+    widget.onPause(function (paused) { if (paused) release(); else void loadLocal() })
+    window.addEventListener('pagehide', release)
+    void loadLocal()
   }
 })()

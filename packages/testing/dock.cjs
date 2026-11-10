@@ -69,8 +69,8 @@ async function dockPass(page, check) {
       bottom: rect === undefined ? false : window.innerHeight - rect.bottom < 60,
     }
   }, DOCK)
-  check('下方菜单展开四个动作', menu.expanded === 'true' && menu.actions.join(',') === 'add,tidy,arrange,refresh', menu.actions.join(' / '))
-  check('三个动作都有名字', menu.labels.every((label) => label.length > 0), menu.labels.join(' / '))
+  check('下方菜单展开五个动作', menu.expanded === 'true' && menu.actions.join(',') === 'create,add,tidy,refresh,arrange', menu.actions.join(' / '))
+  check('五个动作都有名字', menu.labels.every((label) => label.length > 0), menu.labels.join(' / '))
   check('菜单固定在看板这一栏的下方居中', menu.centered && menu.bottom)
 
   // 添加动作打开上拉的组件库：一扇铺满看板这一栏的面板，按来源分组的网格，每格画着组件自己的缩略画面。

@@ -1,0 +1,8 @@
+{
+  "group": "improvements",
+  "order": 2,
+  "at": "2026-10-25",
+  "external": true,
+  "zh": "统一卡片与编辑界面的宿主字体、正文层级和留白；普通正文在宽高变化时保持字号，紧凑盒子使用同一套内边距与标题档位。补充共享视觉契约和真实沙箱排版检查，保留时钟、倒计时主读数与图表的专用比例。",
+  "en": "Unify host fonts, body hierarchy and spacing across cards and editors. Ordinary text keeps its size as the box grows, and compact boxes share padding and heading levels. Add a shared visual contract and real-sandbox typography checks while retaining specialized clock, countdown and chart proportions."
+}

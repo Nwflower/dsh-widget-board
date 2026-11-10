@@ -32,12 +32,12 @@ async function sharePass(page, check) {
   }, id)
   check('导出的响应是 zip', roundTrip.exportStatus === 200 && roundTrip.type === 'application/zip' && roundTrip.bytes > 0, `${roundTrip.exportStatus} ${roundTrip.type} ${roundTrip.bytes}`)
   // 导出的是内置组件：包能解开（否则报的是「不是有效的组件包」），但内置组件不许被覆盖（D8、D17）。
-  check('内置组件的包能解开但不会被覆盖', roundTrip.importStatus === 400 && String(roundTrip.body.error).includes('是内置的'), `${roundTrip.importStatus} ${JSON.stringify(roundTrip.body).slice(0, 80)}`)
+  check('内置组件的包能解开但不会被覆盖', roundTrip.importStatus === 403 && roundTrip.body.code === 'readonly-source' && String(roundTrip.body.error).includes('是内置的'), `${roundTrip.importStatus} ${JSON.stringify(roundTrip.body).slice(0, 80)}`)
 
   const board = await page.evaluate(async () => {
     const snapshot = await (await fetch('api/widget-board/boards')).json()
     const exported = await fetch(`api/widget-board/boards/${encodeURIComponent(snapshot.active)}/export`)
-    const pkg = await exported.json()
+    const pkg = await new Response(exported.body.pipeThrough(new DecompressionStream('gzip'))).json()
     return { status: exported.status, cards: Array.isArray(pkg.cards) ? pkg.cards.length : -1, widgets: Array.isArray(pkg.widgets) ? pkg.widgets.length : -1 }
   })
   check('看板导出带着卡片与用到的组件', board.status === 200 && board.cards > 0 && board.widgets > 0, JSON.stringify(board))

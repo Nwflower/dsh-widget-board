@@ -20,7 +20,7 @@ const CONTROLS = 140
 const MENU_CLEARANCE = 300
 /** 标题栏里标签条与两侧留出的空隙。 */
 const AIR = 12
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const { sleep } = require('./road.cjs')
 
 /**
  * 装上或撤掉桌面壳替身：根节点标记、标题栏高度与窗口控制层，然后催一次重排。

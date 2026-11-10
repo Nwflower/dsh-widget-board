@@ -26,6 +26,9 @@ import { createRegistries } from '../src/sources'
 import type { Registries } from '../src/sources'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
+import { createRequestLog } from '../src/request-log'
+import { openDrafts } from '../src/drafts/store'
+import { createPreviews } from '../src/preview/store'
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -221,6 +224,9 @@ async function harness(options: {
     refresh: async () => undefined,
     sources,
     grants: memoryGrants(),
+    requests: createRequestLog(),
+    drafts: openDrafts(join(home, 'drafts')),
+    previews: createPreviews(),
     ...(options.credentials === undefined ? {} : { credentials: () => options.credentials }),
   }
   const handler = createHandler(context)
@@ -293,12 +299,18 @@ describe('设置读模型', () => {
 
   it('快照里的组件元信息标出可设置', async () => {
     const stat = record('stat', { props: PROPS })
-    const plain = record('todo')
-    const test = await harness({ records: [stat, plain], instances: [card('one', stat), card('two', plain)] })
+    // 只有 data schema 的组件也算可设置：卡片设置里有「编辑内容」（技术契约 3）。
+    const withData = record('todo', { data: { type: 'object', properties: { items: { type: 'array' } } } })
+    const plain = record('clock')
+    const test = await harness({
+      records: [stat, withData, plain],
+      instances: [card('one', stat), card('two', withData), card('three', plain)],
+    })
     const response = await test.send('GET', '/boards')
     const snapshot = JSON.parse(response.body) as { widgets: Record<string, { settings?: boolean }> }
     expect(snapshot.widgets.stat?.settings).toBe(true)
-    expect(snapshot.widgets.todo?.settings).toBeUndefined()
+    expect(snapshot.widgets.todo?.settings).toBe(true)
+    expect(snapshot.widgets.clock?.settings).toBeUndefined()
   })
 })
 

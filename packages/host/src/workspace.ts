@@ -76,7 +76,7 @@ export interface Workspace {
    * @param title - 标题；省略时起一个「未命名看板」。
    * @returns 新的看板。
    */
-  create(title?: string): Promise<Board>
+  create(title?: string, initialize?: (board: Board) => Board): Promise<Board>
   /**
    * 改一块看板的标题。
    *
@@ -281,15 +281,20 @@ export async function openWorkspace(
         notify({ type: 'active', board: id })
       })
     },
-    async create(title) {
+    async create(title, initialize) {
       const wanted = title?.trim()
       return await queue(async () => {
         // 标题在队列里才定：两次新建同时到来时不会撞上同一个名字。
-        const next = emptyBoard(wanted === undefined || wanted === '' ? nextTitle() : wanted)
+        const empty = emptyBoard(wanted === undefined || wanted === '' ? nextTitle() : wanted)
+        const next = initialize === undefined ? empty : initialize(empty)
         await writeBoard(boardFileOf(home, next.id), next)
+        const index = { version: INDEX_FORMAT, active: next.id, boards: [...current.boards, next.id] }
+        try { await writeJson(indexFile, index) } catch (error) {
+          await rm(boardFileOf(home, next.id), { force: true })
+          throw error
+        }
         boards.set(next.id, next)
-        current = { version: INDEX_FORMAT, active: next.id, boards: [...current.boards, next.id] }
-        await writeIndex()
+        current = index
         notify({ type: 'board' })
         return next
       })

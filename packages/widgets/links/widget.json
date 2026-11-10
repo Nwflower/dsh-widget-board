@@ -66,6 +66,26 @@
     "props.meta.label": {
       "zh": "说明",
       "en": "Meta"
+    },
+    "data.items.label": {
+      "zh": "链接",
+      "en": "Links"
+    },
+    "data.items.hint": {
+      "zh": "每一项要一个标题与地址，说明可留空",
+      "en": "Each item needs a title and an address; the note is optional"
+    },
+    "data.items.title.label": {
+      "zh": "标题",
+      "en": "Title"
+    },
+    "data.items.url.label": {
+      "zh": "地址",
+      "en": "Address"
+    },
+    "data.items.note.label": {
+      "zh": "说明",
+      "en": "Note"
     }
   }
 }

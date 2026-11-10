@@ -1,0 +1,44 @@
+/* 跨任务的外观约束：参照已验收 T04，数值与颜色继续读取公共令牌（D10）。 */
+.dsh-widget-board,
+.dsh-widget-board__editor,
+.dsh-widget-board__board-dialog,
+.dsh-widget-board__board-menu,
+.dsh-widget-board__library {
+  font-family: var(--dsw-font-family);
+  font-size: var(--w-type-body, 14px);
+  line-height: 1.5;
+}
+
+:is(.dsh-widget-board__editor, .dsh-widget-board__board-dialog, .dsh-widget-board__board-menu, .dsh-widget-board__library) :where(button, input, select, textarea) {
+  font-family: var(--dsw-font-family);
+}
+
+.dsh-widget-board__board-menu-title,
+.dsh-widget-board__board-dialog-label,
+.dsh-widget-board__board-dialog-note {
+  font-family: var(--dsw-font-family);
+  font-size: var(--w-type-caption, 12px);
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.dsh-widget-board__board-menu {
+  gap: var(--w-space-xs, 4px);
+  padding: var(--w-space-sm, 8px);
+}
+
+.dsh-widget-board__board-menu-item {
+  padding: var(--w-space-sm, 8px) var(--w-space-md, 12px);
+  line-height: 1.5;
+}
+
+.dsh-widget-board__board-dialog-head { padding: 20px var(--w-space-xl, 24px) var(--w-space-lg, 16px); }
+.dsh-widget-board__board-dialog-body { padding: var(--w-space-xl, 24px); gap: var(--w-space-lg, 16px); }
+.dsh-widget-board__board-dialog-foot { padding: var(--w-space-lg, 16px) var(--w-space-xl, 24px); gap: var(--w-space-sm, 8px); }
+.dsh-widget-board__board-dialog-input { line-height: 1.5; }
+
+@media (max-width: 760px) {
+  .dsh-widget-board__board-dialog-head,
+  .dsh-widget-board__board-dialog-body,
+  .dsh-widget-board__board-dialog-foot { padding-inline: var(--w-space-lg, 16px); }
+}

@@ -143,6 +143,8 @@ async function settingsOf(context: RouteContext, id: string): Promise<CardSettin
       source: record.source,
       ...(record.provider === undefined ? {} : { provider: record.provider }),
       ...(record.manifest.props === undefined ? {} : { propsSchema: record.manifest.props }),
+      ...(record.manifest.data === undefined ? {} : { dataSchema: record.manifest.data }),
+      ...(record.manifest.state === undefined ? {} : { stateSchema: record.manifest.state }),
       ...(record.manifest.text === undefined ? {} : { text: record.manifest.text }),
       ...(record.manifest.refresh === undefined ? {} : { refresh: record.manifest.refresh }),
     },

@@ -15,6 +15,7 @@ import type {
   BoardRenameRequest,
   CardLayout,
   CardSettings,
+  ContentIssue,
   CredentialStatus,
   GrantKind,
   GroupAddRequest,
@@ -52,6 +53,8 @@ import {
   instanceStatePath,
   refreshPath,
 } from '@dsh-widget-board/contracts'
+
+import type { ContentIssueSubject } from './snapshot-content'
 
 /** 只缓存已成功预读的能力名称；正式调用仍核对宿主授权，失败后下次重新读取。 */
 const knownCapabilities = new Set<string>()
@@ -100,21 +103,41 @@ export class PropsRejectedError extends Error {
   }
 }
 
+/** 一份失败响应的字段；两条失败路径都只读这几个键。 */
+interface FailureBody extends Record<string, unknown> {
+  error?: string
+  code?: string
+  kind?: GrantKind
+  id?: string
+  provider?: string
+  issues?: ContentIssue[]
+  subject?: ContentIssueSubject
+  revision?: number
+  snapshot?: unknown
+  /** 组件类型冲突时宿主给的当前版本哈希。 */
+  current?: string
+}
+
 /**
- * 读一份失败响应：缺授权时给 `GrantRequiredError`，其余给普通错误。
+ * 读一份失败响应体：读不出来时退回状态码。
  *
  * @param response - 失败的响应。
  * @param subject - 出错的这件事，写在消息开头。
- * @returns 抛出去的错误。
+ * @returns 解出来的字段与拼好的消息。
  */
-export async function failureOf(response: Response, subject: string): Promise<Error> {
-  let body: { error?: string, code?: string, kind?: GrantKind, id?: string, provider?: string } & Record<string, unknown> = {}
+export async function failureBodyOf(response: Response, subject: string): Promise<{ body: FailureBody, message: string }> {
+  let body: FailureBody = {}
   try {
-    body = await response.json() as typeof body
+    body = await response.json() as FailureBody
   } catch {
-    return new BoardError(`${subject}：HTTP ${response.status}`, undefined, {})
+    return { body, message: `${subject}：HTTP ${response.status}` }
   }
-  const message = body.error === undefined ? `${subject}：HTTP ${response.status}` : `${subject}：${body.error}`
+  return { body, message: body.error === undefined ? `${subject}：HTTP ${response.status}` : `${subject}：${body.error}` }
+}
+
+/** 读一份失败响应：授权拒绝与其它宿主错误分别保留类型。 */
+export async function failureOf(response: Response, subject: string): Promise<Error> {
+  const { body, message } = await failureBodyOf(response, subject)
   if (body.code === 'grant-required' && typeof body.id === 'string') {
     return new GrantRequiredError(message, body.kind ?? 'action', body.id, body.provider)
   }
@@ -122,7 +145,7 @@ export async function failureOf(response: Response, subject: string): Promise<Er
 }
 
 /** 一份响应体是不是工作区快照。 */
-function isWorkspace(value: unknown): value is WorkspaceSnapshot {
+export function isWorkspace(value: unknown): value is WorkspaceSnapshot {
   return Array.isArray((value as WorkspaceSnapshot | undefined)?.boards)
 }
 
@@ -632,3 +655,5 @@ export async function removeInstance(id: string): Promise<WorkspaceSnapshot> {
   const response = await fetch(instanceRemovePath(id), { method: 'POST' })
   return await snapshotOf(response, '移除不了这张卡片')
 }
+
+export { ContentRejectedError, ContentStaleError, composeInstance, fetchWidgetForm, fetchCardContent, saveCardContent } from './snapshot-content'

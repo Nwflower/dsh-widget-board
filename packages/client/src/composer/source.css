@@ -1,0 +1,196 @@
+/*
+ * 高级源码、预览与草稿（技术契约 4—5）：源码面板是一列文件标签加一个编辑器，预览面板是一个带
+ * 尺寸档的视口。
+ *
+ * 颜色只读宿主的 --dsw-* 别名，间距、字号与圆角读看板令牌（D10）；CodeMirror 自己在根节点上挂
+ * --w-*，深色时用它的深色主题，不另带一套配色。
+ */
+
+.dsh-widget-board__source {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__source-head {
+  display: flex;
+  align-items: center;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__source-title {
+  font-size: var(--w-type-body);
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsh-widget-board__source-origin {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--w-type-caption);
+}
+
+.dsh-widget-board__source-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--w-space-xs);
+}
+
+.dsh-widget-board__source-tab {
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsw-font-family);
+  font-size: var(--w-type-caption);
+  cursor: pointer;
+}
+
+.dsh-widget-board__source-tab[aria-selected='true'] {
+  border-color: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsh-widget-board__source-editor {
+  min-height: 240px;
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsh-widget-board__source-editor .cm-editor {
+  height: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--w-type-caption);
+}
+
+.dsh-widget-board__source-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.dsh-widget-board__source-editor .cm-gutters {
+  background: transparent;
+  border-right: 1px solid var(--dsw-alias-border-l1);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsh-widget-board__source-note {
+  margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--w-type-caption);
+}
+
+.dsh-widget-board__source-id {
+  width: 220px;
+  margin-left: var(--w-space-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.dsh-widget-board__source-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--w-space-sm);
+  padding-top: var(--w-space-sm);
+  border-top: 1px solid var(--dsw-alias-border-l1);
+}
+
+.dsh-widget-board__composer-modes {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsh-widget-board__composer-mode {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsw-font-family);
+  font-size: var(--w-type-caption);
+  cursor: pointer;
+}
+
+.dsh-widget-board__composer-mode[aria-pressed='true'] {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.dsh-widget-board__preview {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--w-space-sm);
+}
+
+.dsh-widget-board__preview-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsh-widget-board__preview-size {
+  width: 24px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--dsw-font-family);
+  font-size: var(--w-type-caption);
+  cursor: pointer;
+}
+
+.dsh-widget-board__preview-size[aria-pressed='true'] {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsh-widget-board__preview-stage {
+  display: flex;
+  overflow: auto;
+  justify-content: safe center;
+  padding: var(--w-space-sm);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsh-widget-board__preview-frame {
+  flex-shrink: 0;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-base);
+}
+
+.dsh-widget-board__source-panes { display: none; }
+
+@media (max-width: 760px) {
+  .dsh-widget-board__source-panes { display: flex; gap: var(--w-space-sm); padding: var(--w-space-sm) var(--w-space-lg); }
+  [data-dsh-widget-board-source-pane='editor'] > .dsh-widget-board__composer-preview,
+  [data-dsh-widget-board-source-pane='preview'] > .dsh-widget-board__composer-form { display: none; }
+  .dsh-widget-board__source-id { width: min(220px, 100%); margin-left: 0; }
+  .dsh-widget-board__source-head { flex-wrap: wrap; }
+}

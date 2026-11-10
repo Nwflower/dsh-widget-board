@@ -10,6 +10,7 @@
   },
   "author": "dsh-widget-board",
   "version": "0.2.0",
+  "capabilities": ["widget-board:media.read"],
   "sizes": ["s", "l"],
   "defaultBox": { "w": 1, "h": 18 },
   "minBox": { "w": 1, "h": 12 },
@@ -23,7 +24,10 @@
       "alt": { "type": "string", "maxLength": 160 },
       "title": { "type": "string", "maxLength": 80 },
       "kicker": { "type": "string", "maxLength": 40 },
-      "meta": { "type": "string", "maxLength": 40 }
+      "meta": { "type": "string", "maxLength": 40 },
+      "localImage": { "type": "boolean", "title": "使用本地图片 / Use local image", "default": false },
+      "focusX": { "type": "number", "minimum": 0, "maximum": 100, "default": 50, "title": "水平焦点 / Horizontal focus" },
+      "focusY": { "type": "number", "minimum": 0, "maximum": 100, "default": 50, "title": "垂直焦点 / Vertical focus" }
     }
   },
   "data": {
@@ -35,6 +39,10 @@
     }
   },
   "text": {
+    "props.focusX.label": { "zh": "水平焦点（%）", "en": "Horizontal focus (%)" },
+    "props.focusY.label": { "zh": "垂直焦点（%）", "en": "Vertical focus (%)" },
+    "data.alt.label": { "zh": "图片替代文字", "en": "Alternative text" },
+    "data.caption.label": { "zh": "图片说明", "en": "Caption" },
     "empty": {
       "zh": "还没有图片",
       "en": "No image"

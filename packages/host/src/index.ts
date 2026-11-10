@@ -31,6 +31,8 @@ import type { GrantStore } from './grants'
 import { loadLibrary } from './library'
 import type { LibraryLoad } from './library'
 import { createLive } from './live'
+import { openDrafts, draftsDirOf } from './drafts/store'
+import { createPreviews } from './preview/store'
 import type { RouteContext } from './routes'
 import { createHandler } from './routes'
 import { readManyInto } from './batch-reads'
@@ -66,6 +68,8 @@ import type { ToolRegistration } from './tools'
 import { openWorkspace } from './workspace'
 import { createWatchRegistry, watchTree } from './watch'
 import { dshHome } from './home'
+import { createMediaStore } from './media/store'
+import { mediaCapability } from './media/capability'
 
 /** 插件名：宿主的加载器按它登记这一行。 */
 export const name = PACKAGE_NAME
@@ -172,6 +176,12 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   })
   // 授权表：人给出过的那些，绑在组件版本上（D6）。
   const grants: GrantStore = await openGrants(grantFile)
+  // 草稿：人在编辑器里还没保存的那一份（技术契约 4）。只住在插件自己的目录里。
+  const drafts = openDrafts(draftsDirOf(home))
+  // 预览会话：还没写进组件库的那一份代码（技术契约 5）。与正式的 records、versions、grants 分开。
+  const previews = createPreviews()
+  const media = createMediaStore(join(home, 'media'), workspace)
+  const disposeMedia = sources.registerCapability(mediaCapability(media))
 
   /** 刷新路由要调的重读：重读函数在下面定义，闭包先接住这个变量。 */
   let refreshLibrary: () => Promise<void> = async () => {}
@@ -212,6 +222,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
     credentials: () => credentialsOf(ctx),
     selfChecks: createSelfChecks(),
     requests,
+    drafts,
+    previews,
+    media,
     market,
     marketDir,
   }
@@ -417,6 +430,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   ctx.effect(() => () => {
     unsubscribeVolatile?.()
     disposeDshAccount()
+    disposeMedia()
     disposeTheme()
     disposeGithub()
     disposeUsage()

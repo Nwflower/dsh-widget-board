@@ -420,7 +420,7 @@ function WidgetList({
 export function WidgetGrid(props: WidgetGridProps): ReactNode {
   const { entries } = props
   const examples = entries.filter((entry) => entry.source === 'example')
-  const installed = (['builtin', 'user', 'plugin'] as const)
+  const installed = (['builtin', 'user', 'market', 'plugin'] as const)
     .map((source) => ({ source, items: entries.filter((entry) => entry.source === source) }))
     .filter((group) => group.items.length > 0)
 

@@ -29,6 +29,8 @@ import { createRequestLog } from '../src/request-log'
 import { writeBoard } from '../src/state'
 import { openWorkspace } from '../src/workspace'
 import { BOARD_STATE_WRITES_PER_SECOND, STATE_WRITES_PER_SECOND, createRateLimiter } from '../src/limits'
+import { openDrafts } from '../src/drafts/store'
+import { createPreviews } from '../src/preview/store'
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -239,6 +241,9 @@ async function harness(
       stateCard: createRateLimiter(STATE_WRITES_PER_SECOND),
       stateBoard: createRateLimiter(BOARD_STATE_WRITES_PER_SECOND),
     },
+    requests: createRequestLog(),
+    drafts: openDrafts(join(home, 'drafts')),
+    previews: createPreviews(),
   }
   const handler = createHandler(context)
   return {

@@ -1,0 +1,129 @@
+{
+  "id": "countdown",
+  "title": {
+    "zh": "日期倒计时",
+    "en": "Countdown"
+  },
+  "description": {
+    "zh": "距离一个日期还有几天几时几分：按指定时区的墙上时间算，到点之后改成已经过去的说法。",
+    "en": "Days, hours and minutes to a date in the wall time of a chosen time zone; after the moment passes it says how long ago it was."
+  },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "l"],
+  "defaultBox": { "w": 1, "h": 16 },
+  "minBox": { "w": 1, "h": 10 },
+  "props": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "name": { "type": "string", "maxLength": 60 },
+      "date": { "type": "string", "format": "date", "maxLength": 10 },
+      "time": { "type": "string", "format": "time", "maxLength": 5 },
+      "allDay": { "type": "boolean" },
+      "zone": { "type": "string", "maxLength": 40 },
+      "offsetMinutes": { "type": "integer", "minimum": -840, "maximum": 840 },
+      "note": { "type": "string", "maxLength": 120 }
+    }
+  },
+  "text": {
+    "props.name.label": {
+      "zh": "名称",
+      "en": "Name"
+    },
+    "props.name.hint": {
+      "zh": "显示成卡片的标题",
+      "en": "Shown as the card title"
+    },
+    "props.date.label": {
+      "zh": "日期",
+      "en": "Date"
+    },
+    "props.date.hint": {
+      "zh": "目标日期，写成 YYYY-MM-DD",
+      "en": "The target date, written YYYY-MM-DD"
+    },
+    "props.time.label": {
+      "zh": "时刻",
+      "en": "Time"
+    },
+    "props.time.hint": {
+      "zh": "目标时刻，写成 HH:mm；全天时不看这一项",
+      "en": "The target time, written HH:mm; ignored when all day"
+    },
+    "props.allDay.label": {
+      "zh": "全天",
+      "en": "All day"
+    },
+    "props.allDay.hint": {
+      "zh": "按目标时区当天的 00:00 算",
+      "en": "Counts from 00:00 of that day in the target time zone"
+    },
+    "props.zone.label": {
+      "zh": "时区",
+      "en": "Time zone"
+    },
+    "props.zone.hint": {
+      "zh": "IANA 名字，省略时按 Asia/Shanghai",
+      "en": "An IANA name; Asia/Shanghai when omitted"
+    },
+    "props.note.label": {
+      "zh": "备注",
+      "en": "Note"
+    },
+    "props.offsetMinutes.label": { "zh": "UTC 偏移（分钟）", "en": "UTC offset (minutes)" },
+    "props.offsetMinutes.hint": { "zh": "仅重复时刻必须填，例如纽约夏令时 -240、标准时 -300；其它时间可留空", "en": "Required for ambiguous times, e.g. -240 or -300 in New York; otherwise optional" },
+    "props.note.hint": {
+      "zh": "一行说明，矮盒子里收起",
+      "en": "One line of context; hidden in short boxes"
+    },
+    "title": {
+      "zh": "倒数日",
+      "en": "Countdown"
+    },
+    "empty": {
+      "zh": "还没设日期，在设置里填一个",
+      "en": "No date yet — set one in the card settings"
+    },
+    "badTime": {
+      "zh": "时刻读不出来，写成 HH:mm；全天项目不看这一项",
+      "en": "The time could not be read; write it as HH:mm"
+    },
+    "remaining": {
+      "zh": "还有",
+      "en": "To go"
+    },
+    "passed": {
+      "zh": "已经过去",
+      "en": "Passed"
+    },
+    "done": {
+      "zh": "就是今天",
+      "en": "Today"
+    },
+    "days": {
+      "zh": "天",
+      "en": "days"
+    },
+    "hours": {
+      "zh": "小时",
+      "en": "hours"
+    },
+    "minutes": {
+      "zh": "分钟",
+      "en": "minutes"
+    },
+    "invalidZone": {
+      "zh": "时区无效，请填写 IANA 时区名",
+      "en": "Invalid IANA time zone"
+    },
+    "allDayHint": {
+      "zh": "全天：按 {zone} 的 00:00 算",
+      "en": "All day: 00:00 in {zone}"
+    },
+    "zoneHint": {
+      "zh": "按 {zone} 的墙上时间计算",
+      "en": "Counted in {zone} at wall-clock time"
+    }
+  }
+}

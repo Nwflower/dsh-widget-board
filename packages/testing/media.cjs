@@ -5,6 +5,7 @@ const { openDockAction } = require('./library.cjs')
 const { waitFor } = require('./road.cjs')
 const fs = require('node:fs')
 const path = require('node:path')
+const { captureAppearance } = require('./appearance.cjs')
 
 async function mediaPass(page, check) {
   const evidence = path.resolve(__dirname, '../../.debug/evidence/T05')
@@ -63,14 +64,7 @@ async function mediaPass(page, check) {
     check('切离看板暂停或卸载并释放图片URL', released)
     await page.evaluate(async board => { await fetch(`api/widget-board/boards/${board}/activate`, { method: 'POST' }) }, board)
     check('恢复看板重新读取图片', (await imageReady(instance.id)).width === 640)
-    for (const scheme of ['light', 'dark']) {
-      await page.emulateMedia({ colorScheme: scheme })
-      for (const width of [1440, 1024, 640]) {
-        await page.setViewportSize({ width, height: 900 })
-        await page.waitForTimeout(150)
-        await page.screenshot({ path: path.join(evidence, `image-${width}-${scheme}.png`) })
-      }
-    }
+    await captureAppearance(page, evidence, 'image')
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.emulateMedia({ colorScheme: 'light' })
     await page.locator(`[data-instance="${instance.id}"] [data-dsh-widget-board-handle="settings"]`).click()

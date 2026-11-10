@@ -6,7 +6,6 @@
  *
  * 这几条判定是纯的：面板画按钮、宿主写目录都按它，两处不会给出不同的答案。
  */
-
 import type { WidgetSource } from '@dsh-widget-board/contracts'
 
 /** 组件 id 的形状：与 manifest 的 schema 与写入服务一致。 */

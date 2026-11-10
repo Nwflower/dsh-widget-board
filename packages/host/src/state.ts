@@ -302,7 +302,7 @@ function isAlignedBox(value: unknown): value is AlignedBox {
  *
  * 版本 1 的看板升级时把原来的固定题头补成一张 `board-hero` 卡；版本 2 的看板补一份 `free` 排列
  * 偏好，原实例 `layout` 不动（D33）；盒子缺失或形状不对的卡片按最矮的一列补上默认位置，并把盒子
- * 抬到组件的最小盒子。补过的那一份写回磁盘。
+ * 抬到组件的最小盒子。版本 2 只在内存补齐，下一次正常保存才写出版本 3；其余修正写回磁盘。
  *
  * @param file - 这一块看板的文件。
  * @param records - 已校验的组件。

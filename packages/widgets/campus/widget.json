@@ -1,0 +1,77 @@
+{
+  "id": "campus",
+  "title": { "zh": "校园事务", "en": "Campus planner" },
+  "description": { "zh": "按身份管理事项、里程碑与校园入口；所有期限由你录入。", "en": "Manage personal deadlines, milestones and campus links. All dates are entered by you." },
+  "author": "dsh-widget-board",
+  "version": "0.1.0",
+  "sizes": ["s", "m", "l"],
+  "defaultBox": { "w": 1, "h": 22 },
+  "minBox": { "w": 1, "h": 14 },
+  "capabilities": ["widget-board:media.read"],
+  "props": {
+    "type": "object", "additionalProperties": false,
+    "properties": {
+      "schoolPreset": { "type": "string", "enum": ["generic", "bupt", "bit", "xmu", "csu", "custom"], "default": "generic" },
+      "degree": { "type": "string", "enum": ["undergraduate", "master", "doctoral"], "default": "master" },
+      "genericTheme": { "type": "string", "enum": ["book", "tree", "clock"], "default": "book" },
+      "customSchool": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "maxLength": 80 },
+          "shortName": { "type": "string", "maxLength": 12 },
+          "iconAlt": { "type": "string", "maxLength": 160 }
+        }
+      },
+      "backgroundPosition": { "type": "object", "additionalProperties": false, "properties": { "x": { "type": "number", "minimum": 0, "maximum": 100 }, "y": { "type": "number", "minimum": 0, "maximum": 100 } } },
+      "backgroundStrength": { "type": "number", "minimum": 0, "maximum": 24, "default": 12 },
+      "timeZone": { "type": "string", "minLength": 1, "maxLength": 80, "default": "Asia/Shanghai" },
+      "hasBackground": { "type": "boolean", "default": false },
+      "hasIcon": { "type": "boolean", "default": false },
+      "reminderEnabled": { "type": "boolean", "default": true },
+      "reminderLeadHours": { "type": "number", "enum": [0, 1, 24, 72], "default": 24 }
+    },
+    "allOf": [{ "if": { "required": ["schoolPreset"], "properties": { "schoolPreset": { "const": "custom" } } }, "then": { "required": ["customSchool"], "properties": { "customSchool": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } } }]
+  },
+  "state": {
+    "$id": "https://dsh-widget-board.local/schema/campus-state-v1",
+    "type": "object", "additionalProperties": false,
+    "required": ["schemaVersion", "items", "links", "customCategories", "reminderLedger"],
+    "properties": {
+      "schemaVersion": { "const": 1 },
+      "items": {
+        "type": "array", "maxItems": 100,
+        "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "kind", "title", "category", "due", "status", "source", "createdAt", "updatedAt"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "kind": { "type": "string", "enum": ["deadline", "milestone"] },
+            "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "category": { "type": "string", "maxLength": 40 },
+            "due": {
+              "oneOf": [
+                { "type": "object", "additionalProperties": false, "required": ["kind", "date", "timeZone"], "properties": { "kind": { "const": "date" }, "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }, "timeZone": { "type": "string", "minLength": 1, "maxLength": 80 } } },
+                { "type": "object", "additionalProperties": false, "required": ["kind", "at", "timeZone"], "properties": { "kind": { "const": "instant" }, "at": { "type": "string", "maxLength": 40, "pattern": "Z$" }, "timeZone": { "type": "string", "minLength": 1, "maxLength": 80 } } }
+              ]
+            },
+            "status": { "type": "string", "enum": ["todo", "done", "cancelled"] },
+            "url": { "type": "string", "maxLength": 2048, "pattern": "^https?://" },
+            "note": { "type": "string", "maxLength": 500 },
+            "source": { "type": "string", "minLength": 1, "maxLength": 40 },
+            "sourceUid": { "type": "string", "maxLength": 200 },
+            "createdAt": { "type": "string", "maxLength": 40, "pattern": "Z$" },
+            "updatedAt": { "type": "string", "maxLength": 40, "pattern": "Z$" }
+          }
+        }
+      },
+      "links": { "type": "array", "maxItems": 12, "items": { "type": "object", "additionalProperties": false, "required": ["id", "title", "url"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 80 }, "title": { "type": "string", "minLength": 1, "maxLength": 40 }, "url": { "type": "string", "maxLength": 2048, "pattern": "^https?://" } } } },
+      "customCategories": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 40 } },
+      "reminderLedger": { "type": "object", "maxProperties": 500, "additionalProperties": { "type": "string", "maxLength": 100 } }
+    }
+  },
+  "text": {
+    "props.schoolPreset.label": { "zh": "学校", "en": "School" },
+    "props.degree.label": { "zh": "身份", "en": "Degree" },
+    "props.timeZone.label": { "zh": "时区", "en": "Time zone" }
+  }
+}

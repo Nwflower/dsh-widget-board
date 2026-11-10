@@ -15,6 +15,7 @@ import { clientCapabilityOf } from './capabilities'
 import type { CapabilityFace } from './capability-face'
 import { capabilityFaceOf } from './capability-face'
 import { openInNewTab } from './open-url'
+import { campusAction, closeCampusDialog } from './campus/actions'
 
 /** 卡片这么久没有收到组件的任何一条消息，就重新连一次（D11）。 */
 const ANSWER_TIMEOUT_MS = 6000
@@ -137,6 +138,7 @@ export function CardSurface({
   const settleAction = (error?: Error): void => {
     if (error === undefined) {
       setAsking(null)
+      setFailure(null)
       return
     }
     setFailure(error.message)
@@ -259,6 +261,12 @@ export function CardSurface({
           setFailure(t('inlineDetached'))
           return
         }
+        if (message.id === 'widget-board:edit-content' || message.id === 'widget-board:campus-status') {
+          const anchor = frame.closest<HTMLElement>('[data-dsh-widget-board-view]')
+          if (preview || anchor === null) { setFailure(t('previewNoAction')); return }
+          void campusAction(instance.id, message.id, message.payload, anchor, themeRef.current, frames, () => live).then(() => { settleAction() }, settleAction)
+          return
+        }
         if (preview) {
           setFailure(t('previewNoAction'))
           return
@@ -302,6 +310,7 @@ export function CardSurface({
     frame.src = src
     return () => {
       live = false
+      closeCampusDialog(instance.id)
       window.clearTimeout(watchdog)
       for (const controller of callsRef.current.values()) controller.abort()
       callsRef.current.clear()

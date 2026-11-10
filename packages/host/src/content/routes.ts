@@ -24,6 +24,7 @@ import { json } from '../response'
 import { workspaceSnapshot } from '../snapshot'
 import type { Route, RouteContext } from '../routes'
 import { isCardLayout } from '@dsh-widget-board/model'
+import { campusProps, campusState, isCampusSchema } from '@dsh-widget-board/model/campus/model'
 import { STATE_BYTES_LIMIT } from '../limits'
 import { instanceOf, stateBytes, withArrangementUnits, withInstancePatched } from '../state'
 import { checkContentBudget, contentIssues, handshakeBytes } from './validate'
@@ -112,6 +113,20 @@ function settle(
   if (written.props !== undefined) contentIssues('props', manifest.props, written.props)
   if ('data' in written && written.data !== null) contentIssues('data', manifest.data, written.data)
   if ('state' in written && written.state !== null) contentIssues('state', manifest.state, written.state)
+  // 校园结构的用户副本与内置组件使用同一语义校验；只校验本次点名的字段，保留旧内容编辑契约。
+  if (isCampusSchema(manifest.state)) {
+    for (const subject of ['props', 'state'] as const) {
+      if (!(subject in written)) continue
+      try {
+        if (subject === 'props') campusProps(written.props)
+        else campusState(written.state)
+      } catch (error) {
+        const message = (error as Error).message
+        if (subject === 'state' && stateBytes(written.state) > STATE_BYTES_LIMIT) throw new Refusal(413, message, { code: 'state-too-large' })
+        throw new Refusal(400, message, { subject, issues: [{ path: '/', message }] })
+      }
+    }
+  }
   return written
 }
 

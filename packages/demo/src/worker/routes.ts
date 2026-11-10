@@ -46,7 +46,6 @@ import {
   withInstanceStateChecked,
 } from '../../../host/src/state'
 import type { HostData } from '../data'
-import type { HostData } from '../data'
 import type { Boards } from './boards'
 import type { Live } from './live'
 
@@ -147,7 +146,8 @@ async function removeUnit(
 }
 
 /** 一块看板上的卡片布局提交：真实宿主的 `POST /boards/<id>/layout`。 */
-async function submitLayout(context: DemoContext, id: string, request: Request): Promise<Response> {  const body = await jsonBody(request, LIMITS.layout)
+async function submitLayout(context: DemoContext, id: string, request: Request): Promise<Response> {
+  const body = await jsonBody(request, LIMITS.layout)
   const valid = isRecord(body) && Number.isSafeInteger(body.layoutRevision) && (body.layoutRevision as number) >= 0 && isRecord(body.layouts)
   if (!valid) throw new Refusal(400, '布局提交的形状不对：需要 layoutRevision 与 layouts')
   const wanted = body as unknown as BoardLayoutRequest
@@ -368,7 +368,7 @@ const ROUTES: Route[] = [
         board.id,
         (current) => current.instances.find((instance) => instance.group?.id === group),
         (current, picked) => arrangementUnitOf(current, picked),
-        (current, id) => withGroupRemoved(current, id),
+        (current) => withGroupRemoved(current, group),
       )
       return json(200, await context.boards.snapshot())
     },

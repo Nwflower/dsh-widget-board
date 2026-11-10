@@ -5,9 +5,10 @@
  * 校园与图片两个模板要等媒体与校园组件可用之后才出现（T05、T06），不在这里放点了没有用的入口。
  */
 import type { LocalizedText } from '@dsh-widget-board/contracts'
+import { DEFAULT_CAMPUS_PROPS, EMPTY_CAMPUS_STATE } from '@dsh-widget-board/model/campus/model'
 
 /** 模板的键；顺序就是界面上的顺序（C02）。 */
-export const TEMPLATE_KEYS = ['text', 'todo', 'links', 'countdown', 'image', 'advanced'] as const
+export const TEMPLATE_KEYS = ['text', 'todo', 'links', 'countdown', 'image', 'campus', 'advanced'] as const
 
 /** 一个模板。 */
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number]
@@ -85,6 +86,11 @@ export const TEMPLATES: readonly Template[] = [
     hint: { zh: '本地图片、说明与焦点位置', en: 'Local image, caption and focal point' },
     seed: { props: { focusX: 50, focusY: 50 }, data: { alt: '', caption: '' }, state: null },
     sections: ['props', 'data'],
+  },
+  {
+    key: 'campus', widget: 'campus', title: { zh: '校园事务', en: 'Campus planner' },
+    hint: { zh: '个人事项、阶段里程碑与学校入口', en: 'Personal deadlines, milestones and school links' },
+    seed: { props: { ...DEFAULT_CAMPUS_PROPS }, data: null, state: EMPTY_CAMPUS_STATE }, sections: ['props', 'state'],
   },
   {
     key: 'advanced',

@@ -1,0 +1,5 @@
+{
+  "s": { "lang": "zh-CN", "motion": "reduced", "props": { "schoolPreset": "generic", "degree": "undergraduate" } },
+  "m": { "lang": "zh-CN", "motion": "reduced", "props": { "schoolPreset": "bit", "degree": "master" } },
+  "l": { "lang": "en-US", "motion": "reduced", "props": { "schoolPreset": "xmu", "degree": "doctoral" }, "state": { "schemaVersion": 1, "items": [{ "id": "sample-only", "kind": "milestone", "title": "示例：填写自己的里程碑", "category": "示例", "due": { "kind": "date", "date": "2030-06-01", "timeZone": "Asia/Shanghai" }, "status": "todo", "source": "sample", "createdAt": "2026-10-25T00:00:00Z", "updatedAt": "2026-10-25T00:00:00Z" }], "links": [], "customCategories": [], "reminderLedger": {} } }
+}

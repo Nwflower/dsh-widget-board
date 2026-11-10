@@ -1,0 +1,23 @@
+<section class="t-data campus" aria-label="校园事务">
+  <header class="campus__head">
+    <img class="campus__photo" data-media="background" alt="" aria-hidden="true" hidden>
+    <div class="campus__patterns" aria-hidden="true">
+      <img data-pattern="book" src="{{asset:assets/book.svg}}" alt="">
+      <img data-pattern="tree" src="{{asset:assets/tree.svg}}" alt="" hidden>
+      <img data-pattern="clock" src="{{asset:assets/clock.svg}}" alt="" hidden>
+      <img data-pattern="signal" src="{{asset:assets/signal.svg}}" alt="" hidden>
+      <img data-pattern="building" src="{{asset:assets/building.svg}}" alt="" hidden>
+      <img data-pattern="roof" src="{{asset:assets/roof.svg}}" alt="" hidden>
+      <img data-pattern="mountain" src="{{asset:assets/mountain.svg}}" alt="" hidden>
+    </div>
+    <img class="campus__icon" data-media="icon" alt="" hidden>
+    <div class="campus__identity"><h2 class="t-data__title" data-field="school">我的校园</h2><span class="campus__degree" data-field="degree">硕士生</span></div>
+  </header>
+  <div class="campus__body">
+    <section class="campus__upcoming"><div class="campus__section-head"><h3 data-field="recent-label">近期事项</h3><span data-field="count"></span></div><div class="campus__items" data-role="items"></div></section>
+    <section class="campus__milestone" data-role="milestone"><div class="campus__section-head"><h3 data-field="milestone-label">下一里程碑</h3><span data-field="progress"></span></div><p data-field="next"></p><div class="campus__meter" role="progressbar" aria-label="里程碑进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></section>
+    <nav class="campus__links" data-role="links" aria-label="常用入口"></nav>
+  </div>
+  <p class="campus__feedback" data-field="feedback" role="status" hidden></p>
+  <footer class="campus__actions"><button type="button" data-action="add">新增事项</button><button type="button" data-action="manage">查看全部</button></footer>
+</section>

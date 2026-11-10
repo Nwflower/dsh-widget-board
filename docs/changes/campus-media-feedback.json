@@ -1,0 +1,8 @@
+{
+  "group": "fixes",
+  "order": 5,
+  "at": "2026-10-30",
+  "external": false,
+  "zh": "校园卡缺失图片时保留默认图案和不可用提示；普通事项状态更新不会清空仍然有效的媒体错误。保存提示仍优先显示，保存结束后恢复媒体提示。",
+  "en": "Campus cards retain the default pattern and unavailable-image message when media is missing. Ordinary item state updates no longer clear an active media error. Save status takes priority and the media message returns when saving finishes."
+}

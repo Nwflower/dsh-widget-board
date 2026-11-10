@@ -17,7 +17,7 @@ const { join } = require('node:path')
 const { openPage, scratchHome, start } = require('./dsh-web.cjs')
 const { cardBox, centerCard, frameOf } = require('./frames.cjs')
 const { columnStep, layoutOf, settled, waitLayout } = require('./geometry.cjs')
-const { alignedGesturesPass, createHandshakeFixture, handshakePass, parserHandshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
+const { alignedGesturesPass, createHandshakeFixture, createMarketFixture, handshakePass, parserHandshakePass, keepOnlyGallery, resetCards, resetLayout, setCardHeight, ensureFree } = require('./board.cjs')
 const { dockPass } = require('./dock.cjs')
 const { openLibrary } = require('./library.cjs')
 const { groupPass } = require('./group.cjs')
@@ -588,10 +588,9 @@ async function reloadPass(page) {
     check('改了组件文件后卡片按新哈希重挂', after !== '' && after !== before, after === '' ? '一直没换地址' : after.split('/widget/')[1]?.slice(0, 12))
     const frame = await frameOf(page, WEATHER_FRAME)
     check('重挂之后天气卡仍然画出来', await frame.evaluate(() => document.querySelector('.wx') !== null))
-    // 选中的是哪一天存在宿主上，重挂之后回来；文案与地点也要重新接上。
-    await sleep(600)
-    // 热重载可能让同一张卡再换一次地址：等落定之后重新取一次它的 frame，别握着已经拆掉的那一个。
+    // 重取热重载后的 frame，等待宿主恢复选中的预报日；文案与地点也要重新接上。
     const settledFrame = await frameOf(page, WEATHER_FRAME)
+    await settledFrame.waitForFunction(() => document.querySelector('.t-tab[aria-selected="true"]')?.id === 'wx-tab-3' && document.querySelector('#wx-day')?.textContent !== '—', null, { timeout: 10000 }).catch(() => {})
     const reloaded = await settledFrame.evaluate(() => ({
       place: document.querySelector('#wx-place')?.textContent,
       day: document.querySelector('#wx-day')?.textContent ?? '',
@@ -639,6 +638,7 @@ async function reducedPass(page) {
 
 const home = scratchHome('smoke-')
 createHandshakeFixture(home)
+createMarketFixture(home)
 // 数据卡场景要一条真实的会话结算：临时宿主里没有模型，这份插件经宿主的会话事件总线补上（见 data-cards.cjs）。
 const cardsProbe = prepareCardsProbe()
 start({ home, extras: [join(__dirname, 'fixtures', 'provider'), join(__dirname, 'fixtures', 'provider-v3'), cardsProbe] }).then(async (host) => {

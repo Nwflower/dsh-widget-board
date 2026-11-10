@@ -44,7 +44,7 @@ async function contentFailureOf(response: Response, subject: string): Promise<Er
 }
 
 /**
- * 一次创建一张完整的卡片（技术契约 3）。
+ * 一次创建一张完整的卡片（D27）。
  *
  * @param boardId - 看板 id。
  * @param body - 组件、编辑器预览的那一版、props、data 与盒子。
@@ -64,7 +64,7 @@ export async function composeInstance(boardId: string, body: InstanceComposeRequ
 }
 
 /**
- * 读一个组件的表单模型（技术契约 3）：创建器在还没建出实例时按它画表单与预览。
+ * 读一个组件的表单模型（D27）：创建器在还没建出实例时按它画表单与预览。
  *
  * @param id - 组件 id。
  * @returns 组件的 schema、文案与盒子。
@@ -79,7 +79,7 @@ export async function fetchWidgetForm(id: string): Promise<WidgetFormModel> {
 }
 
 /**
- * 读一张卡的内容读模型（技术契约 3）。
+ * 读一张卡的内容读模型（D27）。
  *
  * @param id - 卡片实例的 id。
  * @returns 实例、看板修订号与组件表单。
@@ -96,7 +96,7 @@ export async function fetchCardContent(id: string): Promise<CardContentModel> {
 }
 
 /**
- * 保存一张卡的内容（技术契约 3）。
+ * 保存一张卡的内容（D27）。
  *
  * @param id - 卡片实例的 id。
  * @param body - 读到的修订号与要改的那几项。

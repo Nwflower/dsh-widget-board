@@ -176,9 +176,9 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   })
   // 授权表：人给出过的那些，绑在组件版本上（D6）。
   const grants: GrantStore = await openGrants(grantFile)
-  // 草稿：人在编辑器里还没保存的那一份（技术契约 4）。只住在插件自己的目录里。
+  // 草稿：人在编辑器里还没保存的那一份（D7）。只住在插件自己的目录里。
   const drafts = openDrafts(draftsDirOf(home))
-  // 预览会话：还没写进组件库的那一份代码（技术契约 5）。与正式的 records、versions、grants 分开。
+  // 预览会话：还没写进组件库的那一份代码（D3）。与正式的 records、versions、grants 分开。
   const previews = createPreviews()
   const media = createMediaStore(join(home, 'media'), workspace)
   const disposeMedia = sources.registerCapability(mediaCapability(media))

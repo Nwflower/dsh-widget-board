@@ -62,7 +62,7 @@ export interface CardEditorProps {
   onClose: () => void
   /** 组卡换槽之后的新快照。 */
   onSnapshot: (snapshot: WorkspaceSnapshot) => void
-  /** 打开这张卡的内容编辑（C02、C05）：组件声明了 data 或 state 时才有入口。 */
+  /** 打开这张卡的内容编辑：组件声明了 data 或 state 时才有入口。 */
   onEditContent?: (instanceId: string) => void
 }
 
@@ -357,7 +357,7 @@ export function CardEditorDialog({
   const currentTitle = currentWidget === undefined ? '' : textOf(widgets[currentWidget]?.title ?? { zh: currentWidget, en: currentWidget })
   const grows = pendingWidget?.minBox !== undefined && slot !== undefined
     && (pendingWidget.minBox.w > slot.layout.w || pendingWidget.minBox.h > slot.layout.h)
-  // 只有组件声明了 data 或 state 的 schema，内容编辑才有可填的项（C02）；纯外观的组件不画这个入口。
+  // 只有组件声明了 data 或 state 的 schema，内容编辑才有可填的项；纯外观的组件不画这个入口。
   const editable = settings !== null && (settings.widget.dataSchema !== undefined || settings.widget.stateSchema !== undefined)
   const pickable = library.filter((entry) => entry.id !== FLIP_GROUP_ID
     && entry.error === undefined

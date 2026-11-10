@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * board-management.cjs — 看板标签的就地管理（D21、B1）。
+ * board-management.cjs — 看板标签的就地管理（D21）。
  *
  * 走查只用插件自己的标记。核对的是用户看得见的行为：更多按钮与标签右键打开同一张菜单、从别的
  * 标签打开不切换看板、关闭之后焦点回到触发按钮、改名按钮的宽窄跟着变、中文输入法组合期间的回车
@@ -88,7 +88,7 @@ async function boardManagementPass(page, { check }) {
   check('新建之后多一块看板并选中它', created.ids.length === 2 && second !== null && second !== base, JSON.stringify(created.selected))
 
   try {
-    // B02：非当前标签打开菜单不切换看板。
+    // 非当前标签打开菜单不切换看板。
     await openMenu(page, base)
     const staying = await strip(page)
     check('从非当前标签打开菜单不切换看板', staying.selected === second, `${String(staying.selected)} / 期望 ${String(second)}`)
@@ -99,7 +99,7 @@ async function boardManagementPass(page, { check }) {
     check('菜单里有改名与移除两项', actions.length === 2 && actions.includes('rename') && actions.includes('remove'), JSON.stringify(actions))
     check('菜单写着它管的是哪一块', (await menu.textContent())?.includes((await page.locator(`[data-dsh-widget-board-tab="${base}"]`).textContent()) ?? '') === true)
 
-    // B01：Escape 关闭并归还焦点。焦点回来是在这一轮事件走完之后，等它落定再判。
+    // Escape 关闭并归还焦点。焦点回来是在这一轮事件走完之后，等它落定再判。
     await page.keyboard.press('Escape')
     await page.waitForFunction((selector) => document.querySelector(selector) === null, MENU, { timeout: 5000 })
     const afterEscape = await page.evaluate(async (id) => {
@@ -108,7 +108,7 @@ async function boardManagementPass(page, { check }) {
     }, base)
     check('Escape 关掉菜单并把焦点还给更多按钮', afterEscape === true && await closed(page), String(afterEscape))
 
-    // B01：外部点击关闭并把焦点还回去。
+    // 外部点击关闭并把焦点还回去。
     await openMenu(page, base)
     await page.mouse.click(5, 5)
     await page.waitForFunction((selector) => document.querySelector(selector) === null, MENU, { timeout: 5000 })
@@ -118,7 +118,7 @@ async function boardManagementPass(page, { check }) {
     }, base)
     check('外部点击关掉菜单并把焦点还给更多按钮', afterOutside === true && await closed(page), String(afterOutside))
 
-    // B03：标签右键打开同一个菜单，同样不切换。
+    // 标签右键打开同一个菜单，同样不切换。
     await page.locator(`[data-dsh-widget-board-tab="${base}"]`).click({ button: 'right' })
     await page.waitForSelector(MENU, { timeout: 5000 })
     const rightClick = await strip(page)
@@ -167,7 +167,7 @@ async function boardManagementPass(page, { check }) {
     await page.waitForFunction((selector) => document.querySelector(selector) === null, MENU, { timeout: 5000 })
     check('Tab 离开菜单时菜单收起', await closed(page))
 
-    // B04、B06：改名成功、宽度跟着变。
+    // 改名成功、宽度跟着变。
     const original = await page.locator(`[data-dsh-widget-board-tab="${base}"]`).textContent()
     const widthBefore = (await strip(page)).ids.length === 2 ? (await page.locator(`[data-dsh-widget-board-tab-group="${base}"]`).boundingBox())?.width ?? 0 : 0
     await openMenu(page, base)
@@ -199,7 +199,7 @@ async function boardManagementPass(page, { check }) {
       `${JSON.stringify(settled.pill)} / ${JSON.stringify(settled.active)}`)
     check('标题变长之后标签跟着变宽', widthAfter > widthBefore, `${widthAfter} / ${widthBefore}`)
 
-    // B04：空白名字就近报错，不提交。填过空白之后提示换成原因，保存按钮不可按。
+    // 空白名字就近报错，不提交。填过空白之后提示换成原因，保存按钮不可按。
     await openMenu(page, base)
     await page.locator(MENU_RENAME).click()
     await page.waitForSelector(RENAME, { timeout: 5000 })
@@ -215,12 +215,12 @@ async function boardManagementPass(page, { check }) {
     check('空名字就地报错、保存按钮不可按', blank.open && blank.invalid === 'true' && blank.disabled === true, JSON.stringify(blank))
     check('空名字的说明是给人看的一句话', /不能是空的/.test(blank.text), blank.text)
 
-    // B05：Escape 取消，标签不动。
+    // Escape 取消，标签不动。
     await page.keyboard.press('Escape')
     await page.waitForSelector(RENAME, { state: 'detached', timeout: 5000 })
     check('Escape 取消改名，标签还是原来的名字', (await page.locator(`[data-dsh-widget-board-tab="${base}"]`).textContent()) === longName)
 
-    // B05：中文输入法组合期间的回车不保存。
+    // 中文输入法组合期间的回车不保存。
     await openMenu(page, base)
     await page.locator(MENU_RENAME).click()
     await page.waitForSelector(RENAME, { timeout: 5000 })
@@ -237,12 +237,12 @@ async function boardManagementPass(page, { check }) {
     check('输入法组合期间的回车不保存', composing && await page.locator(RENAME).count() === 1,
       `弹窗 ${await page.locator(RENAME).count()} 个`)
 
-    // B05：组合结束之后正常回车保存。
+    // 组合结束之后正常回车保存。
     await page.locator(RENAME_INPUT).press('Enter')
     await page.waitForSelector(RENAME, { state: 'detached', timeout: 10000 })
     check('正常回车保存新名字', (await page.locator(`[data-dsh-widget-board-tab="${base}"]`).textContent()) === '输入法中')
 
-    // B06：改名失败保留输入、标签不动。让这一次改名请求在宿主那一侧失败。
+    // 改名失败保留输入、标签不动。让这一次改名请求在宿主那一侧失败。
     await openMenu(page, base)
     await page.locator(MENU_RENAME).click()
     await page.waitForSelector(RENAME, { timeout: 5000 })
@@ -267,7 +267,7 @@ async function boardManagementPass(page, { check }) {
     await page.locator(RENAME_CANCEL).click()
     await page.waitForSelector(RENAME, { state: 'detached', timeout: 5000 })
 
-    // B07：删除确认报出标题、几格、几张卡。
+    // 删除确认报出标题、几格、几张卡。
     await openMenu(page, second)
     await page.locator(MENU_REMOVE).click()
     await page.waitForSelector(DELETE, { timeout: 5000 })
@@ -284,7 +284,7 @@ async function boardManagementPass(page, { check }) {
     check('删除确认打开时焦点在取消上', deleteFocus === true, String(deleteFocus))
     await page.locator(DELETE_CANCEL).click()
     await page.waitForSelector(DELETE, { state: 'detached', timeout: 5000 })
-    // B11：删除失败不丢前端看板。让这一次删除在宿主那一侧失败，确认弹窗留着并写出原因。
+    // 删除失败不丢前端看板。让这一次删除在宿主那一侧失败，确认弹窗留着并写出原因。
     await openMenu(page, base)
     await page.locator(MENU_REMOVE).click()
     await page.waitForSelector(DELETE, { timeout: 5000 })
@@ -305,7 +305,7 @@ async function boardManagementPass(page, { check }) {
     await page.waitForFunction(id => document.activeElement?.getAttribute('data-dsh-widget-board-tab-more') === id, base)
     check('删除失败后取消仍归还触发按钮焦点', true)
 
-    // B09：删非当前看板不改变活动看板。
+    // 删非当前看板不改变活动看板。
     const beforeRemove = await strip(page)
     await openMenu(page, base)
     await page.locator(MENU_REMOVE).click()
@@ -317,7 +317,7 @@ async function boardManagementPass(page, { check }) {
       `${String(afterRemove.selected)} / ${JSON.stringify(afterRemove.ids)}`)
     check('删除之后弹窗与菜单都关掉', await closed(page))
 
-    // B08、B10、B11：把剩下的都删掉，最后一块删掉之后补一块空的。
+    // 把剩下的都删掉，最后一块删掉之后补一块空的。
     let guard = 0
     while ((await strip(page)).ids.length > 0 && guard < 8) {
       guard += 1
@@ -360,7 +360,7 @@ async function boardManagementPass(page, { check }) {
     const leftoverCards = await page.evaluate(() => document.querySelectorAll('[data-instance]').length)
     check('补上来的这块是空的', leftoverCards === 0, String(leftoverCards))
   } finally {
-    // 这一段会删光全部看板（B10 就是要看最后一块删完的样子），之后宿主补一块空的；后面的场景
+    // 这一段会删光全部看板，要看最后一块删完的样子，之后宿主补一块空的；后面的场景
     // 用不到原来的卡片，这里只把当下的看板数写出来，失败时好对照。
     const ids = (await strip(page)).ids
     if (ids.length !== 1) console.log(`      看板管理这一段结束时还剩 ${String(ids.length)} 块看板`)

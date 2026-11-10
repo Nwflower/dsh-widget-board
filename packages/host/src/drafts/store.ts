@@ -1,10 +1,10 @@
 /**
- * 草稿（技术契约 4、C5）：人在编辑器的草稿，住在插件自己的 `drafts/` 目录里。
+ * 草稿（D7）：人在编辑器的草稿，住在插件自己的 `drafts/` 目录里。
  *
  * 草稿是「还没保存的那一份」：源码与表单值各存一份，目标与基础版本记在里面，恢复时按它核对。
- * 凭据值不进草稿——字段里只有凭据的名字和它配没配，密钥由宿主的凭据服务保存（C12）。
+ * 凭据值不进草稿——字段里只有凭据的名字和它配没配，密钥由宿主的凭据服务保存。
  *
- * 最多二十份：满了就明确告诉人要先清理哪一份，不静默删掉旧的（C13）。
+ * 最多二十份：满了就明确告诉人要先清理哪一份，不静默删掉旧的。
  */
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -17,7 +17,7 @@ import { binaryInputs, checkWidgetFiles, normalizeWidgetPath } from '../widget-w
 /** 草稿目录里最多存几份。 */
 export const DRAFT_LIMIT = 20
 
-/** 一份草稿最多多少字节：按一个组件目录的上限算（技术契约 4）。 */
+/** 一份草稿最多多少字节：按一个组件目录的上限算（D7）。 */
 export const DRAFT_BYTES_LIMIT = 16 * 1024 * 1024
 const pendingWrites = new Map<string, Promise<void>>()
 
@@ -72,7 +72,7 @@ function isDraft(value: unknown): value is WidgetDraft {
 }
 
 /**
- * 草稿里有没有凭据值：字段里出现密钥形状的内容就拒绝写下去（C12）。
+ * 草稿里有没有凭据值：字段里出现密钥形状的内容就拒绝写下去。
  *
  * 凭据的名字是 manifest 里声明的 `ref`（例如 `DEEPSEEK_API_KEY`），值是另一回事。这里查的是常见的
  * 密钥形状，而不是字段名——字段名可以自己定，值的形状不会。
@@ -192,7 +192,7 @@ export function openDrafts(dir: string): DraftStore {
 }
 
 /**
- * 草稿的路径：它只住在插件自己的目录里，客户端给的文件路径一律不接受（技术契约 4）。
+ * 草稿的路径：它只住在插件自己的目录里，客户端给的文件路径一律不接受（D7）。
  *
  * @param dir - 草稿目录。
  * @param id - 草稿 id。

@@ -360,7 +360,7 @@ export function BoardGrid({
     const screenMaxPx = Math.max(metrics.viewportHeight ?? 0, window.innerHeight || 0, window.screen?.availHeight || 0, (flow?.clientHeight ?? 0) + 640)
     const dynamicMaxRem = screenMaxPx > 0 ? Math.ceil((screenMaxPx * 1.5) / metrics.rootFontSize) : undefined
     if (aligned) {
-      // 整齐模式：卡片跟手，落点按指针中心落入的派生格子定插入位置（B4）。
+      // 整齐模式：卡片跟手，落点按指针中心落入的派生格子定插入位置（D33）。
       const pointerX = event.clientX - (rect?.left ?? current.flowLeft)
       const pointerY = event.clientY - (rect?.top ?? current.flowTop)
       let free = current.free
@@ -387,7 +387,7 @@ export function BoardGrid({
           }
         }
       } else {
-        // 整齐模式的缩放：横向改自己的期望宽度，纵向抬整行（B4）。
+        // 整齐模式的缩放：横向改自己的期望宽度，纵向抬整行（D33）。
         const box = boxesById.get(current.id) ?? { w: 1, h: DEFAULT_HEIGHT_REM }
         const wanted = clamp(Math.round(box.w + dx / columnStep), 1, MAX_COLUMNS)
         const nextBoxes = new Map(boxesById)
@@ -479,7 +479,7 @@ export function BoardGrid({
         setOrderDraft(null)
         return
       }
-      // 提交在路上时保持本地预览，等宿主的答复到了再换；松手瞬间不闪回旧位置（B4）。
+      // 提交在路上时保持本地预览，等宿主的答复到了再换；松手瞬间不闪回旧位置（D33）。
       busyRef.current = true
       onBusyChange(true)
       const savedOrder = board.arrangement?.aligned?.order ?? []

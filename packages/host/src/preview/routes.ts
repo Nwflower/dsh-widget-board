@@ -1,10 +1,10 @@
 /**
- * 预览的三条路由（技术契约 5）。
+ * 预览的三条路由（D3）。
  *
  * `POST /preview` 上传一份已校验的文件与预览数据，返回一个不可猜测的会话 id；`GET /preview/<id>/document`
  * 输出由 `buildDocument` 生成的预览文档；`DELETE /preview/<id>` 释放。
  *
- * 预览的一切都只留在会话里：不写正式的 widgets、versions、boards 或 grants（技术契约 5）。
+ * 预览的一切都只留在会话里：不写正式的 widgets、versions、boards 或 grants（D3）。
  */
 import { readJson } from '../body'
 import { contentSecurityPolicy } from '../document'
@@ -69,7 +69,7 @@ export function previewRoutes(previews: PreviewStore): Route[] {
         const id = decodeURIComponent(match[1] as string)
         const lang = new URL(request.url ?? '/', 'http://board.invalid').searchParams.get('lang') ?? 'zh-CN'
         const { html, nonce } = previews.document(id, context.live.assets, lang)
-        // 预览与正式卡片用同一份 CSP：不给 same-origin，不放开网络（D3、技术契约 5）。
+        // 预览与正式卡片用同一份 CSP：不给 same-origin，不放开网络（D3）。
         response.writeHead(200, {
           'content-type': 'text/html; charset=utf-8',
           'content-security-policy': contentSecurityPolicy(nonce),

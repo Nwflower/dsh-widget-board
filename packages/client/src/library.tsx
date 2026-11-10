@@ -38,7 +38,7 @@ export interface LibraryPanelProps {
   onClose: () => void
   /** 导入一个组件包或装一个市场条目之后重读组件库（D8）。 */
   onImported?: () => void
-  /** 打开创建卡片（C01、C02）：模板与表单在插件自己的弹窗里，不用离开这一页。 */
+  /** 打开创建卡片：模板与表单在插件自己的弹窗里，不用离开这一页。 */
   onCreate?: () => void
 }
 

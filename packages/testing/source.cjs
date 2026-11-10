@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * source.cjs — 高级源码、草稿与真实预览的真实宿主检查（C08—C17）。
+ * source.cjs — 高级源码、草稿与真实预览的真实宿主检查。
  *
  * 三条路径都从界面走：在创建器里切到高级源码，读一个只读源并另存成一个用户组件；在源码面板里
  * 改一处内容并写下去；在预览面板里看一段还没进组件库的代码真的画出来。查找只用插件自己写在
@@ -97,13 +97,13 @@ async function defineOn(page, id, extra = {}) {
 }
 
 /**
- * 高级源码、草稿与真实预览（技术契约 4—5）。
+ * 高级源码、草稿与真实预览（D7、D3）。
  *
  * @param page - 宿主页面，看板已经打开。
  * @param check - 记一条判据。
  */
 async function sourcePass(page, check) {
-  // C08：只读源（内置组件）不能就地改，源码面板标出来并给出另存用的 id。
+  // 只读源（内置组件）不能就地改，源码面板标出来并给出另存用的 id。
   await openSource(page, 'markdown')
   // 等源码读回来：面板头部的来源标记与另存用的 id 都要等它。
   await page.waitForFunction(() => {
@@ -117,7 +117,7 @@ async function sourcePass(page, check) {
   const readOnlyNote = await page.locator('.dsh-widget-board__source-note').first().textContent()
   check('只读源说明是另存', String(readOnlyNote).includes('另存'), String(readOnlyNote).slice(0, 40))
 
-  // C14：编辑器真的建出来了——CodeMirror 那个分包按需加载之后才有。
+  // 编辑器真的建出来了——CodeMirror 那个分包按需加载之后才有。
   await waitForEditor(page)
   const editor = await page.evaluate(() => {
     const node = document.querySelector('[data-dsh-widget-board-source-editor] .cm-editor')
@@ -125,7 +125,7 @@ async function sourcePass(page, check) {
   })
   check('源码编辑器建出来了', editor.present && editor.lines > 0, `${String(editor.lines)} 行`)
 
-  // C17：切到别的文件标签，编辑器换内容。
+  // 切到别的文件标签，编辑器换内容。
   const tabs = await page.locator('[data-dsh-widget-board-source-tab]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-dsh-widget-board-source-tab')))
   check('源码面板列出组件的文件', tabs.includes('widget.json') && tabs.includes('index.html') && tabs.includes('style.css'), tabs.join(','))
 
@@ -139,7 +139,7 @@ async function sourcePass(page, check) {
   const dirty = await page.locator('[data-dsh-widget-board-source-save]').isEnabled()
   check('改了内容之后可以写下去', dirty)
 
-  // C09：写下去的是一个新用户组件，原来的只读源没被动过。
+  // 写下去的是一个新用户组件，原来的只读源没被动过。
   await page.locator('[data-dsh-widget-board-source-save]').click()
   const written = await waitFor(async () => await hasWidget(page, suggested), 20000)
   check('只读源另存为一个新的用户组件', written, suggested)
@@ -150,7 +150,7 @@ async function sourcePass(page, check) {
   const read = await sourceModel(page)
   check('新组件的源码读得出来', read.status === 200 && read.body.id === 'markdown', `${String(read.status)} ${String(read.body.id)}`)
 
-  // C16：预览会话开得起来、画得出东西，关掉之后就没有了。
+  // 预览会话开得起来、画得出东西，关掉之后就没有了。
   const preview = await page.evaluate(async () => {
     const created = await fetch('api/widget-board/preview', {
       method: 'POST',
@@ -186,7 +186,7 @@ async function sourcePass(page, check) {
   check('预览用同一份 CSP', preview.csp.includes("default-src 'none'") && !preview.csp.includes('same-origin'), preview.csp.slice(0, 60))
   check('预览关掉之后就没有了', preview.released === 200 && preview.afterStatus === 404, `${String(preview.released)} / ${String(preview.afterStatus)}`)
 
-  // C15：预览里的动作、调用与通知不产生正式副作用。这里让预览里的组件真的去发一次动作，
+  // 预览里的动作、调用与通知不产生正式副作用。这里让预览里的组件真的去发一次动作，
   // 看它有没有进到正式的动作路由里。
   const sideEffect = await page.evaluate(async () => {
     // 一份会发动作的组件：动作名是宿主真的注册过的一个。
@@ -237,7 +237,7 @@ async function sourcePass(page, check) {
   check('预览的 iframe 与父页面不同源，父页面读不到它的内容', sideEffect.reachable === false && sideEffect.sameOrigin === false, JSON.stringify(sideEffect))
   check('预览没有真实的实例 id，动作没有去处', sideEffect.routed === 404, String(sideEffect.routed))
 
-  // C13：草稿存下来、读得出来、删得掉。
+  // 草稿存下来、读得出来、删得掉。
   const draft = await page.evaluate(async () => {
     const saved = await fetch('api/widget-board/drafts', {
       method: 'POST',
@@ -261,7 +261,7 @@ async function sourcePass(page, check) {
   check('草稿存下来再读出来是同一份', draft.status === 201 && draft.readStatus === 200 && draft.content === '<p>草稿</p>', JSON.stringify(draft).slice(0, 90))
   check('草稿删得掉', draft.removed === 200 && draft.afterStatus === 404, `${String(draft.removed)} / ${String(draft.afterStatus)}`)
 
-  // C10：expectedHash 对不上时回 409，旧目录原样保留。这里用刚另存出来的那个用户组件。
+  // expectedHash 对不上时回 409，旧目录原样保留。这里用刚另存出来的那个用户组件。
   const conflict = await defineOn(page, suggested, { expectedHash: 'c'.repeat(64) })
   check('expectedHash 对不上时回 409', conflict.status === 409 && conflict.body.code === 'stale-hash', `${String(conflict.status)} ${String(conflict.body.code)}`)
 
@@ -269,11 +269,11 @@ async function sourcePass(page, check) {
   const noHash = await defineOn(page, suggested)
   check('更新不带 expectedHash 时回 409', noHash.status === 409, `${String(noHash.status)} ${String(noHash.body.code)}`)
 
-  // C08：只读来源的更新被拒。
+  // 只读来源的更新被拒。
   const readonly = await defineOn(page, 'markdown')
   check('只读来源的更新被拒', readonly.status === 403 && readonly.body.code === 'readonly-source', `${String(readonly.status)} ${String(readonly.body.code)}`)
 
-  // C13：面板里存草稿、恢复草稿，以及关闭时的三个选择。
+  // 面板里存草稿、恢复草稿，以及关闭时的三个选择。
   await openSource(page, 'markdown')
   await waitForEditor(page)
   const draftEditor = page.locator('[data-dsh-widget-board-source-editor] .cm-content')

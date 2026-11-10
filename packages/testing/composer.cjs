@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 /**
- * composer.cjs — 创建卡片与编辑内容的真实宿主检查（C01—C07）。
+ * composer.cjs — 创建卡片与编辑内容的真实宿主检查。
  *
  * 三条路径都从界面走：下方菜单的「创建卡片」进创建器，填完提交；组件库头部的「创建卡片」也进同一个
  * 弹窗；卡片设置里的「编辑内容」改已有卡片的 data。查找只用插件自己写在节点上的标记
@@ -99,20 +99,20 @@ async function removeCards(page, ids) {
 }
 
 /**
- * 创建器与内容编辑共用的一段：C01 的两个入口、C02 的四个模板、C03 的数组增删排序。
+ * 创建器与内容编辑共用的一段：两个创建入口、四个模板、数组增删排序。
  *
  * @param page - 宿主页面。
  * @param check - 记一条判据。
  */
 async function composerPass(page, check) {
   const created = []
-  // C01：下方菜单的入口真的打开弹窗。
+  // 下方菜单的入口真的打开弹窗。
   await openComposerFromMenu(page)
   check('菜单里的创建卡片打开创建器', await page.locator('[data-dsh-widget-board-composer]').count() === 1)
   const templates = await page.locator('[data-dsh-widget-board-template]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-dsh-widget-board-template')))
   check('创建器列出可用模板', templates.join(',') === 'text,todo,links,countdown,image,campus,advanced', templates.join(','))
 
-  // C02：文本笔记 —— 标题与正文，提交之后卡片带着这两项内容出现。
+  // 文本笔记 —— 标题与正文，提交之后卡片带着这两项内容出现。
   const before = (await cardsOf(page, 'markdown')).length
   await pickTemplate(page, 'text')
   await fillField(page, 'title', '冒烟笔记')
@@ -124,7 +124,7 @@ async function composerPass(page, check) {
   check('文本笔记的内容落盘', textCard !== undefined && textCard.data?.markdown?.includes('创建器写进来的正文'), JSON.stringify(textCard?.data ?? null))
   if (textCard !== undefined) created.push(textCard.id)
 
-  // C02：待办 —— 数组项加两条，顺序按填的来。
+  // 待办 —— 数组项加两条，顺序按填的来。
   const todoBefore = (await cardsOf(page, 'todo')).length
   await openComposerFromMenu(page)
   await pickTemplate(page, 'todo')
@@ -132,7 +132,7 @@ async function composerPass(page, check) {
   await fillField(page, 'items.0.text', '第一条')
   await page.locator('[data-dsh-widget-board-add-item="items"]').click()
   await fillField(page, 'items.1.text', '第二条')
-  // C03：数组项的上下移动——把第二条移到第一条前面。
+  // 数组项的上下移动——把第二条移到第一条前面。
   await page.locator('[data-dsh-widget-board-item]').nth(1).locator('[data-dsh-widget-board-move="up"]').click()
   const order = await page.locator('[data-dsh-widget-board-field^="items."][data-dsh-widget-board-field$=".text"]').evaluateAll((nodes) => nodes.map((node) => node.value))
   check('数组项可以加、可以上下移动', order.join(',') === '第二条,第一条', order.join(','))
@@ -142,7 +142,7 @@ async function composerPass(page, check) {
   check('待办清单创建成功且顺序正确', todoCreated && todoCard?.state?.items?.map((item) => item.text).join(',') === '第二条,第一条', JSON.stringify(todoCard?.state ?? null))
   if (todoCard !== undefined) created.push(todoCard.id)
 
-  // C02：链接 —— 一项标题加地址。
+  // 链接 —— 一项标题加地址。
   const linksBefore = (await cardsOf(page, 'links')).length
   await openComposerFromMenu(page)
   await pickTemplate(page, 'links')
@@ -155,7 +155,7 @@ async function composerPass(page, check) {
   check('链接创建成功', linksCreated && linkCard?.data?.items?.[0]?.url === 'https://example.com/docs', JSON.stringify(linkCard?.data ?? null))
   if (linkCard !== undefined) created.push(linkCard.id)
 
-  // C02：倒计时 —— 日期与时刻，时区默认留着。
+  // 倒计时 —— 日期与时刻，时区默认留着。
   const countdownBefore = (await cardsOf(page, 'countdown')).length
   await openComposerFromMenu(page)
   await pickTemplate(page, 'countdown')
@@ -168,7 +168,7 @@ async function composerPass(page, check) {
   check('日期倒计时创建成功', countdownCreated && countdownCard?.props?.date === '2030-06-01', JSON.stringify(countdownCard?.props ?? null))
   if (countdownCard !== undefined) created.push(countdownCard.id)
 
-  // C04：宿主拒绝时逐字段原因落回对应的那一行，输入保留。
+  // 宿主拒绝时逐字段原因落回对应的那一行，输入保留。
   await openComposerFromMenu(page)
   await pickTemplate(page, 'links')
   await page.locator('[data-dsh-widget-board-add-item="items"]').click()
@@ -188,7 +188,7 @@ async function composerPass(page, check) {
 }
 
 /**
- * 组件库头部的第二个创建入口（C01）。
+ * 组件库头部的第二个创建入口。
  *
  * @param page - 宿主页面。
  * @param check - 记一条判据。
@@ -233,7 +233,7 @@ async function libraryEntryPass(page, check) {
 }
 
 /**
- * 编辑一张已有卡片的内容（C02、C05、C06、C07）。
+ * 编辑一张已有卡片的内容。
  *
  * @param page - 宿主页面。
  * @param check - 记一条判据。
@@ -282,20 +282,20 @@ async function contentOnBoard(page, check, boardId) {
   await entry.click()
   await page.waitForSelector('[data-dsh-widget-board-content-editor]', { timeout: 10000 })
 
-  // C02：改正文，保存之后宿主上的这一张卡跟着换，别的卡不动。
+  // 改正文，保存之后宿主上的这一张卡跟着换，别的卡不动。
   const others = (await workspace(page)).boards.find(board => board.id === boardId).instances.filter(card => card.id !== created.id)
   await fillField(page, 'markdown', '改成第二版正文。')
   await page.locator('[data-dsh-widget-board-content-save]').click()
   const saved = await waitFor(async () => (await cardOf(page, created.id))?.data?.markdown === '改成第二版正文。', 10000)
   check('内容编辑保存成功', saved)
 
-  // C05：只改这一张卡。
+  // 只改这一张卡。
   const after = (await workspace(page)).boards.find(board => board.id === boardId).instances.filter(card => card.id !== created.id)
   const untouched = others.length === 1 && JSON.stringify(others.map((card) => [card.id, card.props, card.data, card.state]))
     === JSON.stringify(after.map((card) => [card.id, card.props, card.data, card.state]))
   check('编辑一张卡不改其它卡片', untouched)
 
-  // C06：保存失败时输入保留。把卡片所在看板的修订号改掉，制造一次冲突。
+  // 保存失败时输入保留。把卡片所在看板的修订号改掉，制造一次冲突。
   await fillField(page, 'markdown', '第三版，会撞上冲突。')
   // 别处改一次这块看板：宿主的修订号随之变化，编辑器手里那份就旧了。
   const board = (await workspace(page)).boards.find((candidate) => candidate.instances.some((card) => card.id === created.id))
@@ -311,7 +311,7 @@ async function contentOnBoard(page, check, boardId) {
   check('修订号过期时给出冲突与两条出路', conflicted)
   check('冲突之后输入还在', await page.locator('[data-dsh-widget-board-field="markdown"]').inputValue() === '第三版，会撞上冲突。')
 
-  // C07 的另一半：另存为新卡片，草稿变成一张新卡。
+  // 另存为新卡片：草稿变成一张新卡。
   const before = (await cardsOf(page, 'markdown')).length
   await page.locator('[data-dsh-widget-board-content-save-as-new]').click()
   const branched = await waitFor(async () => (await cardsOf(page, 'markdown')).length === before + 1, 15000)

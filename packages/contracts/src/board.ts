@@ -354,7 +354,7 @@ export interface CardSettings {
     source: WidgetSource
     provider?: string
     propsSchema?: Record<string, unknown>
-    /** manifest 的 `data` 与 `state` schema（技术契约 3）：有其中一份时这张卡有「编辑内容」入口。 */
+    /** manifest 的 `data` 与 `state` schema（D27）：有其中一份时这张卡有「编辑内容」入口。 */
     dataSchema?: Record<string, unknown>
     stateSchema?: Record<string, unknown>
     text?: Record<string, LocalizedText>

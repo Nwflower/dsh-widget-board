@@ -33,7 +33,7 @@ export type SnapshotContext = Pick<RouteContext, 'records' | 'entries'> & {
 /**
  * 一个组件有没有设置弹窗要展示的项（D27）：非空 props schema、凭据、能力，或者能编辑的内容。
  *
- * 「能编辑的内容」指 manifest 声明了 data 或 state 的 schema（技术契约 3）：这两种组件的设置里
+ * 「能编辑的内容」指 manifest 声明了 data 或 state 的 schema（D27）：这两种组件的设置里
  * 有「编辑内容」，那也是一项可设置的东西，没有它按钮就不出现。
  *
  * @param manifest - 组件 manifest。

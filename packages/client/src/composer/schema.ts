@@ -1,14 +1,14 @@
 /**
- * schema 到控件的映射（C03、C04、D27）：把一份 JSON Schema 读成一棵控件树。
+ * schema 到控件的映射（D27）：把一份 JSON Schema 读成一棵控件树。
  *
  * 树里不带路径与文案：同一个字段嵌在哪一层，路径就由渲染那一层拼出来，名字与说明也按拼好的路径去
  * manifest 的 `text` 里取。以 object 与 array 为递归边界，最多展开四层；更深的写法、`$ref`、联合
- * schema 之类不展开的写法给一个显式的 JSON 编辑入口与原因（C03、C04）。
+ * schema 之类不展开的写法给一个显式的 JSON 编辑入口与原因。
  */
 import type { LocalizedText } from '@dsh-widget-board/contracts'
 import { isChinese } from '../copy'
 
-/** 递归展开的层数上限；再深的写法只给 JSON 编辑（C03）。 */
+/** 递归展开的层数上限；再深的写法只给 JSON 编辑。 */
 export const SCHEMA_DEPTH = 4
 
 /** 一个普通对象。 */
@@ -22,7 +22,7 @@ export type SchemaNode =
     kind: 'string'
     multiline: boolean
     maxLength?: number
-    /** `date`、`time`、`url` 各出一只对应的输入框（C03）；其它字符串用文本框。 */
+    /** `date`、`time`、`url` 各出一只对应的输入框；其它字符串用文本框。 */
     format?: 'date' | 'time' | 'url'
   }
   | { kind: 'number', min?: number, max?: number, integer: boolean }

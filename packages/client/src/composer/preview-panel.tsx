@@ -1,12 +1,12 @@
 /**
- * 预览面板（技术契约 5、C6）。
+ * 预览面板（D3）。
  *
  * 预览用真实的组件文档、真实的运行时与真实的 CSP：它跑在一个独立的 iframe 里，与看板上的卡片
- * 同一个 `sandbox="allow-scripts"`，不给 same-origin，也不改 CSP（技术契约 5）。
+ * 同一个 `sandbox="allow-scripts"`，不给 same-origin，也不改 CSP（D3）。
  *
  * 预览与正式卡片的区别只有一处，但那一处是关键：预览里的动作、能力调用与通知不产生正式副作用。
  * 帧的标识在握手中心里明确分成 `preview` 与 `instance`，预览帧的端口走一条只提供状态、尺寸、主题
- * 与错误的通道：组件按下按钮时看到的是一句「预览里不能做这件事」，而不是真的去跑（C15）。
+ * 与错误的通道：组件按下按钮时看到的是一句「预览里不能做这件事」，而不是真的去跑。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -37,7 +37,7 @@ export interface PreviewPanelProps {
   frames: FrameHost
 }
 
-/** 预览的尺寸档：宽度与高度各三档（C6）。 */
+/** 预览的尺寸档：宽度与高度各三档。 */
 const WIDTHS = [
   { key: 'narrow', label: 'S', px: 300 },
   { key: 'regular', label: 'M', px: 420 },
@@ -51,7 +51,7 @@ const HEIGHTS = [
   { key: 'tall', label: 'L', px: 520 },
 ] as const
 
-/** 重建预览的防抖：三百毫秒（C6）。 */
+/** 重建预览的防抖：三百毫秒。 */
 const REBUILD_DEBOUNCE_MS = 300
 
 /**
@@ -101,7 +101,7 @@ export function PreviewPanel({ files, binaryFiles, props, data, state, theme, fr
     }
   }, [binaryFiles, data, files, props, state])
 
-  // 内容变了之后重建：防抖三百毫秒，尺寸与主题的变化不进这里（C6）。
+  // 内容变了之后重建：防抖三百毫秒，尺寸与主题的变化不进这里。
   useEffect(() => {
     if (!autoRun) {
       ++generation.current
@@ -126,7 +126,7 @@ export function PreviewPanel({ files, binaryFiles, props, data, state, theme, fr
     if (id !== null) void releasePreview(id).catch(() => undefined)
   }, [])
 
-  // 预览帧的握手：端口只提供状态、尺寸与主题，动作、能力调用与通知一律拒绝（C15）。
+  // 预览帧的握手：端口只提供状态、尺寸与主题，动作、能力调用与通知一律拒绝。
   useEffect(() => {
     if (sessionId === null) return
     const frame = frameRef.current
@@ -198,10 +198,10 @@ export function PreviewPanel({ files, binaryFiles, props, data, state, theme, fr
         else setFailure('预览状态超过桥额度')
       }
       if (message.type === 'height') {
-        // 组件报上来的高度只改预览视口，不改面板的盒子（C6）。
+        // 组件报上来的高度只改预览视口，不改面板的盒子。
         // 尺寸由用户控制，组件的高度报告不写入正式布局。
       }
-      // 动作、能力调用与通知在预览里没有正式去处：给一句能看见的说法，不执行（D15、C16）。
+      // 动作、能力调用与通知在预览里没有正式去处：给一句能看见的说法，不执行（D3）。
       if (message.type === 'action') {
         send({ type: 'call-error', requestId: message.id, code: 'preview', message: t('previewNoEffect') })
         setFailure(t('previewNoEffect'))
@@ -211,7 +211,7 @@ export function PreviewPanel({ files, binaryFiles, props, data, state, theme, fr
         setFailure(t('previewNoEffect'))
       }
       if (message.type === 'notify') {
-        // 通知不进正式的未读列表（C6）。
+        // 通知不进正式的未读列表。
         setFailure(t('previewNoEffect'))
       }
     }

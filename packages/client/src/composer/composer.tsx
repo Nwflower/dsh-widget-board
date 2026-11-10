@@ -1,9 +1,9 @@
 /**
- * 创建卡片（C01、C02、C06）：选模板、填内容、看真实渲染，再一次写进看板。
+ * 创建卡片：选模板、填内容、看真实渲染，再一次写进看板。
  *
  * 内容先留在这一层，只有按下「添加到看板」才变成正式实例；宿主拒绝时按逐字段原因把提示放回对应的
- * 那一行，输入一个字都不丢（C06）。预览用真实的组件文档与真实的盒子，但只有本地状态：预览里改
- * 出来的东西没有地方可写（C01 的「无假占位」说的是这个——每一个入口都真的会做事）。
+ * 那一行，输入一个字都不丢。预览用真实的组件文档与真实的盒子，但只有本地状态：预览里改
+ * 出来的东西没有地方可写（每一个入口都真的会做事）。
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -112,7 +112,7 @@ export function CardComposer({
   /** 选中组件的那份表单模型：schema 与文案按它画，创建器不必先把实例建出来。 */
   const [form, setForm] = useState<WidgetFormModel | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
-  /** 高级模式：改的是组件源码而不是这张卡的内容（C4）。 */
+  /** 高级模式：改的是组件源码而不是这张卡的内容。 */
   const [sourceOpen, setSourceOpen] = useState(false)
   /** 源码模式下的预览：文件与内容交给它渲染。 */
   const [sourceCloseRequest, setSourceCloseRequest] = useState(0)
@@ -208,7 +208,7 @@ export function CardComposer({
     setIssues(map)
   }
 
-  /** 提交：一次写进一张完整的卡片（C02、C06）。 */
+  /** 提交：一次写进一张完整的卡片。 */
   const submit = async (): Promise<void> => {
     if (widgetId === null || widget === undefined || saving || mediaBusy || campusPending) return
     setSaving(true)
@@ -236,7 +236,7 @@ export function CardComposer({
     }
   }
 
-  /** 关掉弹窗：填过内容时先确认（C06 的一半——输入不因为一次误点丢掉）。 */
+  /** 关掉弹窗：填过内容时先确认（输入不因为一次误点丢掉）。 */
   const requestClose = (): void => {
     if (sourceOpen) { setSourceCloseRequest((value) => value + 1); return }
     const blank = Object.keys(props).length === 0 && (data === null || data === undefined) && (state === null || state === undefined)
@@ -320,7 +320,7 @@ export function CardComposer({
               })}
             </div>
 
-            {/* 高级模式：改的是组件源码（C4）。它有自己的面板，表单模式不受影响。 */}
+            {/* 高级模式：改的是组件源码。它有自己的面板，表单模式不受影响。 */}
             {widgetId === null
               ? null
               : (
@@ -444,7 +444,7 @@ export function CardComposer({
                 ))}
               </span>
             </div>
-            {/* 源码模式下走真正的预览会话：文件还没进组件库时也能看到它画出来的样子（C6）。 */}
+            {/* 源码模式下走真正的预览会话：文件还没进组件库时也能看到它画出来的样子。 */}
             {sourceOpen && widgetId !== null
               ? (
                 <PreviewPanel

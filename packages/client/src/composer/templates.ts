@@ -1,5 +1,5 @@
 /**
- * 创建卡片的模板（C01、C02）：每个模板是一种组件、一份预填的内容与一句说明。
+ * 创建卡片的模板：每个模板是一种组件、一份预填的内容与一句说明。
  *
  * 模板只是组件的预设，不新建组件类型：选中之后仍然是那种组件的普通实例，表单按同样的 schema 画。
  * 校园与图片两个模板要等媒体与校园组件可用之后才出现（T05、T06），不在这里放点了没有用的入口。
@@ -7,7 +7,7 @@
 import type { LocalizedText } from '@dsh-widget-board/contracts'
 import { DEFAULT_CAMPUS_PROPS, EMPTY_CAMPUS_STATE } from '@dsh-widget-board/model/campus/model'
 
-/** 模板的键；顺序就是界面上的顺序（C02）。 */
+/** 模板的键；顺序就是界面上的顺序。 */
 export const TEMPLATE_KEYS = ['text', 'todo', 'links', 'countdown', 'image', 'campus', 'advanced'] as const
 
 /** 一个模板。 */
@@ -32,7 +32,7 @@ export interface Template {
    * 模板要展开的那几节，按次序。
    *
    * 组件把内容分散在 props、data 与 state 三处；一个模板只展开它真正用到的那几节，别让「初始状态」
-   * 这种实现细节站到正文前面（C03、C04）。
+   * 这种实现细节站到正文前面。
    */
   sections: readonly ('props' | 'data' | 'state')[]
 }
@@ -43,7 +43,7 @@ const EMPTY: TemplateSeed = { props: {}, data: null, state: null }
 /**
  * 全部模板。
  *
- * 文本笔记优先复用 markdown（C02）：它的 data.markdown 就是正文，标题走 props.title。待办与链接的
+ * 文本笔记优先复用 markdown：它的 data.markdown 就是正文，标题走 props.title。待办与链接的
  * 表单分别落在 todo 的 state.items 与 links 的 data.items 上，形状与组件脚本读的一致。
  */
 export const TEMPLATES: readonly Template[] = [

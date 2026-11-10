@@ -1,8 +1,8 @@
 /**
- * 来源规则（技术契约 4、C4）。
+ * 来源规则（D7）。
  *
  * 内置与插件提供的组件是只读源：改它们时另存为一个新的用户组件 id，manifest 的 id 与目录名跟着
- * 一起改（C4）。已有用户组件也默认另存。
+ * 一起改。已有用户组件也默认另存。
  *
  * 这几条判定是纯的：面板画按钮、宿主写目录都按它，两处不会给出不同的答案。
  */
@@ -23,7 +23,7 @@ const ID_LIMIT = 39
  */
 export function suggestedIdOf(id: string, source: WidgetSource): string {
   void source
-  // 目录名要与 manifest 的 id 一致（C4）；`user-` 前缀说明它是从别处复制来的。
+  // 目录名要与 manifest 的 id 一致；`user-` 前缀说明它是从别处复制来的。
   const slug = id
     .replace(/[^a-z0-9-]/g, '-')
     .replace(/^-+/, '')

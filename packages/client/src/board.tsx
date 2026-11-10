@@ -116,9 +116,9 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
   const [refreshGeneration, setRefreshGeneration] = useState(0)
   /** 正在编辑的卡片或组；`null` 时弹窗关着（D27）。 */
   const [editor, setEditor] = useState<EditorTarget | null>(null)
-  /** 创建卡片弹窗开着（C01）；与设置弹窗互斥，两个都按看板页的矩形定位。 */
+  /** 创建卡片弹窗开着；与设置弹窗互斥，两个都按看板页的矩形定位。 */
   const [composerOpen, setComposerOpen] = useState(false)
-  /** 正在编辑内容的那张卡（C02）；与上面两个弹窗互斥。 */
+  /** 正在编辑内容的那张卡；与上面两个弹窗互斥。 */
   const [contentId, setContentId] = useState<string | null>(null)
   const shellRef = useRef<HTMLDivElement | null>(null)
   const boardsRef = useRef<HTMLDivElement | null>(null)
@@ -199,7 +199,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     setEditor({ kind, id })
   }, [])
 
-  /** 打开创建卡片：组件库先收起来，两个浮层不同时开着（C01）。 */
+  /** 打开创建卡片：组件库先收起来，两个浮层不同时开着。 */
   const openComposer = useCallback((): void => {
     setLibraryOpen(false)
     setEditor(null)
@@ -207,7 +207,7 @@ export function BoardPage({ context }: BoardPageProps): ReactNode {
     setComposerOpen(true)
   }, [])
 
-  /** 打开一张卡的内容编辑（C02）：设置弹窗让位，回来之后重新打开它。 */
+  /** 打开一张卡的内容编辑：设置弹窗让位，回来之后重新打开它。 */
   const openContent = useCallback((id: string): void => {
     setContentId(id)
     setEditor(null)

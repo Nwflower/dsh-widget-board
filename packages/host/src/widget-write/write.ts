@@ -1,8 +1,8 @@
 /**
- * 用户组件的共享写入服务（技术契约 4）。
+ * 用户组件的共享写入服务（D7）。
  *
  * 三条入口——`widget_define` 工具、页面里的高级源码编辑、`.dshw` 导入——都经这一份写入，不各自写
- * 一套来源保护与并发核对（技术契约 4 的「工具入口、UI 入口和导入入口均执行来源保护」）。
+ * 一套来源保护与并发核对（D17 的「工具入口、UI 入口和导入入口均执行来源保护」）。
  *
  * 一条写入分成三步：先核对来源与并发（只读源不能就地改，版本对不上就冲突），再把新目录完整地搭
  * 出来并验证，最后用同父目录的暂存→验证→交换替换旧目录。旧版本在交换之后才清理：读库时看到的是
@@ -22,7 +22,7 @@ import type { DocumentAssets } from '../document'
 /** 组件 id 的形状：与 `widget_define` 与 manifest 的 schema 一致。 */
 export const WIDGET_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 
-/** 一个组件目录里最多几个文件（技术契约 4）。 */
+/** 一个组件目录里最多几个文件（D7）。 */
 export const WIDGET_MAX_FILES = 64
 
 /** 单个文件最多多少字节。 */
@@ -48,7 +48,7 @@ export interface WidgetWriteRequest {
   /**
    * 更新时读到的版本哈希。
    *
-   * 新建时不带；更新时必须带。对不上就是并发冲突，由调用方回 409（C4）。
+   * 新建时不带；更新时必须带。对不上就是并发冲突，由调用方回 409。
    */
   expectedHash?: string
 }
@@ -119,7 +119,7 @@ export function userRootOf(roots: readonly WidgetRoot[]): WidgetRoot {
 }
 
 /**
- * 一个只读来源上的建议 id：另存为一个新的用户组件时用它做默认名（C4）。
+ * 一个只读来源上的建议 id：另存为一个新的用户组件时用它做默认名。
  *
  * @param id - 原组件的 id。
  * @param source - 原组件的来源。
@@ -128,7 +128,7 @@ export function userRootOf(roots: readonly WidgetRoot[]): WidgetRoot {
 export function suggestedUserId(id: string, source: WidgetSource): string {
   void source
   const slug = id.replace(/[^a-z0-9-]/g, '-').replace(/^-+/, '').replace(/-+$/, '').slice(0, 24) || 'widget'
-  // 目录名要与 manifest 的 id 一致（C4）；`user-` 前缀说明它是从别处复制来的。
+  // 目录名要与 manifest 的 id 一致；`user-` 前缀说明它是从别处复制来的。
   return `user-${slug}-${randomUUID().slice(0, 8)}`.slice(0, 40)
 }
 
@@ -158,7 +158,7 @@ function filesOf(manifest: WidgetManifest, files: readonly WidgetFileInput[]): {
  * 写一个用户组件类型：核对来源与并发，搭出完整的新目录，再替换旧目录。
  *
  * 只读来源（内置与插件提供）不能就地改：调用方先把它另存为一个新的用户组件 id，再走这里。更新
- * 已有用户组件时要带 `expectedHash`：对不上说明别人改过，返回 409 而不是覆盖（C4）。
+ * 已有用户组件时要带 `expectedHash`：对不上说明别人改过，返回 409 而不是覆盖。
  *
  * `records` 是取当前组件库的方法而不是它自己：重读组件库会换掉整张表（D17），拿着旧的那一份
  * 会在写完之后以为组件没进库。
@@ -214,7 +214,7 @@ async function writeUnlocked(options: {
   const root = userRootOf(roots)
   const existing = options.records().get(request.id)
   if (existing !== undefined && existing.source !== 'user') {
-    // 只读源：内置与插件提供的组件不落在用户目录里，导入与编辑都另存为一个新的 id（技术契约 4）。
+    // 只读源：内置与插件提供的组件不落在用户目录里，导入与编辑都另存为一个新的 id（D7）。
     throw new Refusal(403, `${request.id} 是${existing.source === 'builtin' ? '内置' : '插件提供'}的组件，不能就地改；另存为一个新的用户组件`, {
       code: 'readonly-source',
       source: existing.source,
@@ -289,7 +289,7 @@ async function writeUnlocked(options: {
 }
 
 /**
- * 读一个组件类型的全部源码（技术契约 4）。
+ * 读一个组件类型的全部源码（D7）。
  *
  * 凭据值不在这里：manifest 只声明凭据的名字与用途，值由宿主的凭据服务保存（D27）。二进制资源
  * 按大小列出，不按文本读回——它们进编辑器没有意义。

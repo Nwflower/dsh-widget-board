@@ -207,7 +207,7 @@ const COPY = {
     zh: '这是一次性预览，动作没有去处；把它放上看板之后就能按。',
     en: 'This is a one-off preview, so actions have nowhere to go; place it on the board to use them.',
   },
-  // 创建器与内容编辑（C01—C07）。
+  // 创建器与内容编辑。
   create: { zh: '创建卡片', en: 'Create card' },
   createTitle: { zh: '新建一张卡片', en: 'New card' },
   createHint: { zh: '选一个模板，填好内容再放进看板', en: 'Pick a template, fill in the content, then add it' },
@@ -264,7 +264,7 @@ const COPY = {
   formAdvancedPick: { zh: '选一个组件', en: 'Pick a widget' },
   formAdvancedChange: { zh: '换一个组件', en: 'Change widget' },
   formArrayCount: { zh: '条', en: 'items' },
-  // 高级源码、草稿与预览（技术契约 4—5）。
+  // 高级源码、草稿与预览（D7、D3）。
   sourceTitle: { zh: '编辑组件源码', en: 'Edit the widget source' },
   sourceLoading: { zh: '正在读源码…', en: 'Reading the source…' },
   sourceWritable: { zh: '可以就地改', en: 'Editable in place' },

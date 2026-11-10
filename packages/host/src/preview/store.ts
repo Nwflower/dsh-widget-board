@@ -1,12 +1,12 @@
 /**
- * 预览会话（技术契约 5）。
+ * 预览会话（D3）。
  *
  * 预览是「还没写进组件库的那一份代码」：它跑在真实的组件文档里，用同一套 `buildDocument`、同一份
  * 运行时与同一套 CSP，但它的一切都只留在一个内存会话里——不写正式的 widgets、versions、boards 或
  * grants。
  *
  * 预览端口只提供预览状态、尺寸、主题与错误：动作、能力调用与通知一律拒绝，预览里按下去不能产生
- * 正式副作用（C15）。会话十分钟过期，关闭时释放，同时最多四个。
+ * 正式副作用。会话十分钟过期，关闭时释放，同时最多四个。
  */
 import { randomBytes } from 'node:crypto'
 import type { PreviewSession, WidgetManifest } from '@dsh-widget-board/contracts'
@@ -20,16 +20,16 @@ import { contentHash, manifestProblem } from '../library'
 import { binaryInputs, checkWidgetFiles, normalizeWidgetPath } from '../widget-write/write'
 import { contentIssues, handshakeBytes } from '../content/validate'
 
-/** 一个预览会话活多久：十分钟（C6）。 */
+/** 一个预览会话活多久：十分钟。 */
 export const PREVIEW_TTL_MS = 10 * 60 * 1000
 
-/** 同时最多几个预览会话（C6）。 */
+/** 同时最多几个预览会话。 */
 export const PREVIEW_LIMIT = 4
 
 /** 预览的文件与数据加在一起的上限：与一个组件目录同量。 */
 export const PREVIEW_BYTES_LIMIT = 16 * 1024 * 1024
 
-/** 预览握手里 props、data 与 state 各自的上限：跟着桥与状态额度走（技术契约 5）。 */
+/** 预览握手里 props、data 与 state 各自的上限：跟着桥与状态额度走（D3）。 */
 export const PREVIEW_STATE_LIMIT = 64 * 1024
 
 /** 预览会话的一份内容。 */
@@ -106,7 +106,7 @@ function previewId(): string {
 }
 
 /**
- * 把预览的文件读成一份组件记录：它不落盘，只活在这个会话里（技术契约 5）。
+ * 把预览的文件读成一份组件记录：它不落盘，只活在这个会话里（D3）。
  *
  * @param files - 组件目录里的文件。
  * @returns 组件记录。
@@ -165,7 +165,7 @@ function bytesOf(value: unknown): number {
 export function createPreviews(): PreviewStore {
   const sessions = new Map<string, Session>()
 
-  /** 顺手清掉过期的会话：过期的不再占位置（C16）。 */
+  /** 顺手清掉过期的会话：过期的不再占位置。 */
   const sweep = (): void => {
     const now = Date.now()
     for (const [id, session] of sessions) {

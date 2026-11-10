@@ -148,9 +148,9 @@ export interface RouteContext {
   selfChecks: SelfChecks
   /** 组件对外请求的日志（D28）：按卡片记最近几十条。 */
   requests: RequestLog
-  /** 草稿的存储（技术契约 4）：只在插件自己的 `drafts/` 目录里。 */
+  /** 草稿的存储（D7）：只在插件自己的 `drafts/` 目录里。 */
   drafts: DraftStore
-  /** 预览会话的管理处（技术契约 5）：与正式的 widgets、versions、boards 与 grants 分开。 */
+  /** 预览会话的管理处（D3）：与正式的 widgets、versions、boards 与 grants 分开。 */
   previews: PreviewStore
   /** 市场提供方注册表（D8 之后的市场契约）。 */
   market: MarketRegistry
@@ -313,7 +313,7 @@ const ROUTES: Route[] = [
           id,
           (current) => {
             // 自由坐标只属于自由模式：看板已经换成整齐行列时，过时的自由提交整体退回，
-            // 让页面按当前快照重画，避免两种客户端互相覆盖（D33、技术契约2）。
+            // 让页面按当前快照重画，避免两种客户端互相覆盖（D33）。
             if (current.arrangement?.mode === 'aligned') throw new StaleRevisionError(body.layoutRevision, current.layoutRevision)
             return withBoardLayouts(current, layouts, (widget) => context.records.get(widget)?.manifest.minBox)
           },

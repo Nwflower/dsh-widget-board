@@ -77,7 +77,7 @@ export interface BoardDockProps {
   onToggleArrangement: () => void
   /** 主动重读组件库与运行时。 */
   onRefresh: () => void
-  /** 打开创建卡片（C01）。 */
+  /** 打开创建卡片。 */
   onCreate: () => void
 }
 

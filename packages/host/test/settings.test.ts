@@ -299,7 +299,7 @@ describe('设置读模型', () => {
 
   it('快照里的组件元信息标出可设置', async () => {
     const stat = record('stat', { props: PROPS })
-    // 只有 data schema 的组件也算可设置：卡片设置里有「编辑内容」（技术契约 3）。
+    // 只有 data schema 的组件也算可设置：卡片设置里有「编辑内容」（D27）。
     const withData = record('todo', { data: { type: 'object', properties: { items: { type: 'array' } } } })
     const plain = record('clock')
     const test = await harness({

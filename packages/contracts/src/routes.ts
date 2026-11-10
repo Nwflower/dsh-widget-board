@@ -42,10 +42,10 @@ export const ARRANGEMENT_ROUTE = 'arrangement'
 /** 按组 id 操作整组：移除与换槽都挂在它下面（D19、D27）。 */
 export const GROUP_ROUTE = '/group'
 
-/** 创建一张完整的卡片：`POST /boards/<id>/compose`，props、data 与 state 一次写进去（技术契约 3）。 */
+/** 创建一张完整的卡片：`POST /boards/<id>/compose`，props、data 与 state 一次写进去（D27）。 */
 export const COMPOSE_ROUTE = 'compose'
 
-/** 编辑一张卡的内容：`POST /instance/<id>/content`，带读到的修订号（技术契约 3）。 */
+/** 编辑一张卡的内容：`POST /instance/<id>/content`，带读到的修订号（D27）。 */
 export const CONTENT_ROUTE = 'content'
 
 /** 按组 id 移除整组：`POST /group/remove`（D19）。 */
@@ -242,10 +242,10 @@ export const boardArrangementPath = (id: string): string => boardPath(id, ARRANG
 /** 往看板上加一张卡的地址，文档相对。 */
 export const boardInstancePath = (id: string): string => boardPath(id, INSTANCE_ADD_ROUTE)
 
-/** 创建一张完整卡片的地址，文档相对（技术契约 3）。 */
+/** 创建一张完整卡片的地址，文档相对（D27）。 */
 export const boardComposePath = (id: string): string => boardPath(id, COMPOSE_ROUTE)
 
-/** 一个组件的表单模型地址，文档相对（技术契约 3）：创建器按它画表单。
+/** 一个组件的表单模型地址，文档相对（D27）：创建器按它画表单。
  *
  * @param id - 组件 id。
  * @returns 读表单模型的路径。
@@ -253,40 +253,40 @@ export const boardComposePath = (id: string): string => boardPath(id, COMPOSE_RO
 export const libraryFormPath = (id: string): string => `${CLIENT_ROUTE}/library/${encodeURIComponent(id)}/form`
 
 /**
- * 一个组件类型的源码地址，文档相对（技术契约 4）：高级模式按它读文件。
+ * 一个组件类型的源码地址，文档相对（D7）：高级模式按它读文件。
  *
  * @param id - 组件 id。
  * @returns 读源码的路径。
  */
 export const librarySourcePath = (id: string): string => `${CLIENT_ROUTE}/library/${encodeURIComponent(id)}/source`
 
-/** 写下一个用户组件类型的地址，文档相对（技术契约 4）。 */
+/** 写下一个用户组件类型的地址，文档相对（D7）。 */
 export const libraryDefinePath = (): string => `${CLIENT_ROUTE}/library/define`
 /** 将一个经过版本核对的组件应用到指定实例。 */
 export const instanceSourcePath = (id: string): string => `${CLIENT_ROUTE}${INSTANCE_ROUTE}/${encodeURIComponent(id)}/source`
 
-/** 草稿的地址前缀，文档相对（技术契约 4）。 */
+/** 草稿的地址前缀，文档相对（D7）。 */
 export const DRAFTS_ROUTE = '/drafts'
 
-/** 草稿列表的地址，文档相对（技术契约 4）。 */
+/** 草稿列表的地址，文档相对（D7）。 */
 export const draftsPath = (): string => `${CLIENT_ROUTE}${DRAFTS_ROUTE}`
 
 /**
- * 一份草稿的地址，文档相对（技术契约 4）。
+ * 一份草稿的地址，文档相对（D7）。
  *
  * @param id - 草稿 id。
  * @returns 这一份草稿的路径。
  */
 export const draftPath = (id: string): string => `${CLIENT_ROUTE}${DRAFTS_ROUTE}/${encodeURIComponent(id)}`
 
-/** 预览的地址前缀，文档相对（技术契约 5）。 */
+/** 预览的地址前缀，文档相对（D3）。 */
 export const PREVIEW_ROUTE = '/preview'
 
-/** 新建预览会话的地址，文档相对（技术契约 5）。 */
+/** 新建预览会话的地址，文档相对（D3）。 */
 export const previewPath = (): string => `${CLIENT_ROUTE}${PREVIEW_ROUTE}`
 
 /**
- * 预览文档的地址，文档相对（技术契约 5）。
+ * 预览文档的地址，文档相对（D3）。
  *
  * @param id - 预览会话 id。
  * @returns 预览文档的路径。
@@ -294,7 +294,7 @@ export const previewPath = (): string => `${CLIENT_ROUTE}${PREVIEW_ROUTE}`
 export const previewDocumentPath = (id: string): string => `${CLIENT_ROUTE}${PREVIEW_ROUTE}/${encodeURIComponent(id)}/document`
 
 /**
- * 一张卡内容的地址，文档相对（技术契约 3）。
+ * 一张卡内容的地址，文档相对（D27）。
  *
  * @param id - 卡片实例的 id。
  * @returns 读与写共用的路径。

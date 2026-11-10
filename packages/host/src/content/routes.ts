@@ -1,5 +1,5 @@
 /**
- * 人工内容写入的两条路由（技术契约 3）：创建一张完整的卡片、编辑一张卡的内容。
+ * 人工内容写入的两条路由（D27）：创建一张完整的卡片、编辑一张卡的内容。
  *
  * 两条都只从人的界面调用，身份由路由栅栏确认；与组件自己的 `/state` 不同，它们不占组件的写入
  * 频率额度，一整次人工保存算一次请求。创建要么整张卡都写进去，要么什么都不留；编辑只改被点名的
@@ -37,7 +37,7 @@ async function bindMedia<T>(context: RouteContext, target: string, binding: Medi
   return await mediaOf(context).bind(target, binding, save, true, beforeBind)
 }
 
-/** 创建与编辑的请求体上限（技术契约 3）：一整张卡的内容，比单次状态写入大。 */
+/** 创建与编辑的请求体上限（D27）：一整张卡的内容，比单次状态写入大。 */
 export const CONTENT_LIMIT = 128 * 1024
 
 /**
@@ -96,7 +96,7 @@ function cardOf(context: RouteContext, id: string): { board: Board, instance: Bo
  *
  * 没点名的项用实例上的原值原样保留、不过 schema：旧卡片上的值要么是 null（`/instance` 建出来就是这个），
  * 要么是当初按当时的 schema 写进去的；组件升级过 schema 之后再用新规则卡它，会让「旧卡改个标题」这种
- * 一次普通的编辑失败（技术契约第 3 节的「可选 props/data/state」指的是要改的那几项）。
+ * 一次普通的编辑失败（D27 的「可选 props/data/state」指的是要改的那几项）。
  *
  * `null` 表示「还没有内容」，与 `/instance` 建卡时的初值同义：它只说明这一份没填过，不算与 schema 不符。
  *
@@ -282,7 +282,7 @@ export function contentRoutes(context: RouteContext): Route[] {
   ]
 }
 
-/** 编辑器读到的那份修订号已经过期（技术契约 3）。 */
+/** 编辑器读到的那份修订号已经过期（D27）。 */
 class ContentStaleError extends Error {
   constructor(readonly expected: number, readonly actual: number) {
     super(`这张卡在别处改过了：编辑器读到的是第 ${String(expected)} 版，现在是第 ${String(actual)} 版`)

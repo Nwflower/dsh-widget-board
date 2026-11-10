@@ -50,7 +50,7 @@ function embeddedOf(record: WidgetRecord): BoardPackageWidget {
 /**
  * 写一个组件的目录；同 id 的旧版本先由共享写入服务换掉。
  *
- * 来源保护与并发核对都在共享的写入服务里（技术契约 4）：导入与工具、界面写组件走同一条路，不会
+ * 来源保护与并发核对都在共享的写入服务里（D7）：导入与工具、界面写组件走同一条路，不会
  * 各自写一套检查。
  *
  * @param context - 路由上下文。
@@ -276,7 +276,7 @@ export function shareRoutes(context: RouteContext): Route[] {
         const id = unpacked.manifest.id
         const existing = routes.records.get(id)
         // 来源保护先于别的判定：内置与插件提供的组件谁也不能用导入覆盖，哪怕内容一模一样
-        // （技术契约 4）。
+        // （D7）。
         if (existing !== undefined && existing.source !== 'user') {
           throw new Refusal(403, `${id} 是${existing.source === 'builtin' ? '内置' : '插件提供'}的组件，不能覆盖；换一个 id 再导入`, { code: 'readonly-source' })
         }

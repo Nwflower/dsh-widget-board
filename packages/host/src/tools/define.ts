@@ -5,7 +5,7 @@
  * 每一份文件都要经一次校验：路径不许越出组件目录，manifest 按 `contracts` 里的 JSON Schema 校验，
  * `index.html` 与 `style.css` 必须给。不合格的写入不落地。
  *
- * 来源保护、并发核对与目录交换都在共享的写入服务里（技术契约 4）：工具、页面里的高级源码编辑与
+ * 来源保护、并发核对与目录交换都在共享的写入服务里（D7）：工具、页面里的高级源码编辑与
  * `.dshw` 导入走同一条路，不会各写一套。
  */
 import type { DefineValue, SelfCheckResult, WidgetToolSpec } from '@dsh-widget-board/contracts'
@@ -65,7 +65,7 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
 
       const notes: string[] = []
       // 覆盖要显式说清：共享写入服务按 `expectedHash` 核对并发，工具这一处的「覆盖」是人的意思，
-      // 服务的核对是机器的事实（技术契约 4）。
+      // 服务的核对是机器的事实（D7）。
       const current = context.route.records.get(wanted.id)
       const expectedHash = wanted.expectedHash
       if (current !== undefined && wanted.replace !== true) {
@@ -127,7 +127,7 @@ export function defineTool(context: ToolContext): WidgetToolSpec {
  * 读一份文件表：路径要在组件目录之内，内容要是字符串。
  *
  * 路径的判定与共享写入服务用同一处：工具与页面里的高级源码编辑对同一个路径给出同一个判定
- * （技术契约 4）。
+ * （D7）。
  *
  * @param value - 模型给的 files。
  * @returns 文件表。

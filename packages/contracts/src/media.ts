@@ -1,4 +1,4 @@
-/** 实例媒体的受限上传、绑定与分块读取（技术契约 6）。 */
+/** 实例媒体的受限上传、绑定与分块读取（D3）。 */
 export const MEDIA_READ_CAPABILITY = 'widget-board:media.read'
 export const MEDIA_CHUNK_BYTES = 24 * 1024
 export const MEDIA_INPUT_BYTES = 10 * 1024 * 1024

@@ -1,8 +1,8 @@
 /**
- * 高级源码、草稿与预览的宿主接口（技术契约 4—5）。
+ * 高级源码、草稿与预览的宿主接口（D7、D3）。
  *
  * 这一份只管与宿主说话：读源码、写组件、存草稿与开预览会话。看板、卡片与内容那几组调用在
- * `snapshot.ts` 里，两边都不写对方的读模型（技术契约 3 与 4—5 的形状各写一次）。
+ * `snapshot.ts` 里，两边都不写对方的读模型（形状各写一次）。
  */
 import type {
   PreviewCreateRequest,
@@ -40,7 +40,7 @@ async function errorOf(response: Response, subject: string): Promise<string> {
 }
 
 /**
- * 写一个组件类型时撞上了并发：宿主说这一版已经变了（技术契约 4）。
+ * 写一个组件类型时撞上了并发：宿主说这一版已经变了（D7）。
  *
  * 界面据此重读组件库并保留人的输入：不能静默覆盖别人刚写的那一版。
  */
@@ -52,7 +52,7 @@ export class SourceConflictError extends Error {
 }
 
 /**
- * 读一个组件类型的全部源码（技术契约 4）。
+ * 读一个组件类型的全部源码（D7）。
  *
  * @param id - 组件 id。
  * @returns 源码读模型。
@@ -69,7 +69,7 @@ export async function fetchWidgetSource(id: string): Promise<WidgetSourceModel> 
 }
 
 /**
- * 写一个用户组件类型（技术契约 4）。
+ * 写一个用户组件类型（D7）。
  *
  * @param body - 组件 id、manifest、文件与读到的哈希。
  * @returns 写下的组件。
@@ -104,7 +104,7 @@ export async function defineWidget(body: WidgetDefineRequest): Promise<WidgetDef
 }
 
 /**
- * 列出全部草稿（技术契约 4）。
+ * 列出全部草稿（D7）。
  *
  * @returns 草稿摘要，按更新时间从新到旧。
  * @throws {Error} 请求失败。
@@ -118,7 +118,7 @@ export async function fetchDrafts(): Promise<WidgetDraftSummary[]> {
 }
 
 /**
- * 写一份草稿（技术契约 4）。
+ * 写一份草稿（D7）。
  *
  * @param draft - 草稿内容；`draftId` 省略时新造一份。
  * @returns 存下来的那一份。
@@ -137,7 +137,7 @@ export async function saveDraft(draft: Omit<WidgetDraft, 'draftId' | 'updatedAt'
 }
 
 /**
- * 读一份草稿（技术契约 4）。
+ * 读一份草稿（D7）。
  *
  * @param id - 草稿 id。
  * @returns 那份草稿。
@@ -152,7 +152,7 @@ export async function fetchDraft(id: string): Promise<WidgetDraft> {
 }
 
 /**
- * 删掉一份草稿（技术契约 4）。
+ * 删掉一份草稿（D7）。
  *
  * @param id - 草稿 id。
  * @returns 删掉了没有。
@@ -166,7 +166,7 @@ export async function removeDraft(id: string): Promise<boolean> {
 }
 
 /**
- * 新建一个预览会话（技术契约 5）。
+ * 新建一个预览会话（D3）。
  *
  * @param body - 预览的文件与数据。
  * @returns 会话。
@@ -185,7 +185,7 @@ export async function createPreview(body: PreviewCreateRequest): Promise<Preview
 }
 
 /**
- * 释放一个预览会话（技术契约 5）。
+ * 释放一个预览会话（D3）。
  *
  * @param id - 预览 id。
  * @returns 释放了没有。

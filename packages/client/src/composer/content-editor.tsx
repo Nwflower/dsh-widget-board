@@ -1,10 +1,10 @@
 /**
- * 编辑一张卡的内容（C02、C05、C06、C07）：按组件声明的 schema 改 props、data 与 state，保存时带上
+ * 编辑一张卡的内容：按组件声明的 schema 改 props、data 与 state，保存时带上
  * 读到的看板修订号。
  *
- * 只改这一张卡：保存走 `POST /instance/<id>/content`，组件源码、同一类型的其它卡片都不动（C05）。
- * 修订号过期时保留草稿并给出两条路——重新读取，或把这份内容另存成一张新卡片（C07）；保存失败时
- * 输入原样留在这里（C06）。
+ * 只改这一张卡：保存走 `POST /instance/<id>/content`，组件源码、同一类型的其它卡片都不动。
+ * 修订号过期时保留草稿并给出两条路——重新读取，或把这份内容另存成一张新卡片；保存失败时
+ * 输入原样留在这里。
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -61,7 +61,7 @@ interface Section {
 }
 
 /**
- * 三节的次序（C02）：外观、数据、状态，缺 schema 的节不出现。
+ * 三节的次序：外观、数据、状态，缺 schema 的节不出现。
  *
  * @param model - 这张卡的内容读模型。
  * @returns 要画的那几节。
@@ -151,7 +151,7 @@ export function ContentEditor({
     }
   }, [anchor])
 
-  /** 重读这张卡：初值、修订号与 schema 一起换（C07 的「重新读取」）。 */
+  /** 重读这张卡：初值、修订号与 schema 一起换（重新读取）。 */
   const load = useCallback((keepDraft: boolean): void => {
     setLoadError(null)
     fetchCardContent(instanceId).then((next) => {
@@ -183,7 +183,7 @@ export function ContentEditor({
       && JSON.stringify(media.media ?? {}) === JSON.stringify(model.instance.media ?? {}))
   const dirty = !blank || campusPending || exchangePending
 
-  /** 保存：带上读到的修订号；字段原因、冲突与失败分开处理（C06、C07）。 */
+  /** 保存：带上读到的修订号；字段原因、冲突与失败分开处理。 */
   const save = async (): Promise<void> => {
     if (model === null || saving || mediaBusy || campusPending || exchangePending) return
     setSaving(true)
@@ -223,7 +223,7 @@ export function ContentEditor({
     }
   }
 
-  /** 另存为新卡片：把这份内容按同一个组件建一张新卡（C07）。 */
+  /** 另存为新卡片：把这份内容按同一个组件建一张新卡。 */
   const saveAsNew = async (layout?: CardLayout): Promise<void> => {
     if (model === null || saving || mediaBusy || campusPending || exchangePending) return
     setSaving(true)

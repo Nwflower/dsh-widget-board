@@ -1,5 +1,5 @@
 /**
- * 嵌套表单（C03、C04）：schema 树画成控件，数组能加、删、上下移动，对象里不支持的写法给一个显式
+ * 嵌套表单：schema 树画成控件，数组能加、删、上下移动，对象里不支持的写法给一个显式
  * 的 JSON 入口兜底。
  *
  * 数组项的身份不放进值里：值就是卡片真正会存下的那份 JSON，项的身份留在这一层的状态里，重排时按
@@ -88,7 +88,7 @@ function enumLabel(value: string, text: Readonly<Record<string, LocalizedText>> 
   return isChinese() ? fromText.zh : fromText.en
 }
 
-/** 一段 JSON 的编辑入口：不支持表单的写法、超过递归层数、没声明过的键都走这里（C04）。 */
+/** 一段 JSON 的编辑入口：不支持表单的写法、超过递归层数、没声明过的键都走这里。 */
 function JsonControl({ value, onChange, reason, env, path }: {
   value: unknown
   onChange: (next: unknown) => void
@@ -154,7 +154,7 @@ function JsonControl({ value, onChange, reason, env, path }: {
   )
 }
 
-/** 一项数组：加在末尾、删掉、上下移动，键序跟着身份走（C03）。 */
+/** 一项数组：加在末尾、删掉、上下移动，键序跟着身份走。 */
 function ArrayItems({ node, value, onChange, env, path }: {
   node: Extract<SchemaNode, { kind: 'array' }>
   value: unknown

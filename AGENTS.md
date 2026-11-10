@@ -118,7 +118,7 @@
 ## 改动流程
 
 1. 改 `packages/*/src/` 与 `packages/widgets/`，不碰 `lib/`。
-2. 构建，在真实宿主上看效果；测试只有一个入口（D13）。
+2. 构建，在真实宿主上看效果：浏览器验证先走宿主的浏览器工具（`browser_navigate`、`browser_snapshot`、`browser_screenshot`、`browser_console`、`browser_network`）；这些工具缺席时用 `packages/testing/` 里的场景；整轮判定与云端任务由 Playwright 跑（`npm run smoke`、`npm run demo:check`、`npm run matrix`）。测试只有一个入口（D13）。
 3. 视觉改动由用户在浅色与深色下核对。
 4. 同步文档：双语 README 一起改；行为变化在 `docs/changes/` 加一个文件，由脚本生成 CHANGELOG 的 `[Unreleased]` 段；方向变化按 D14 写成 ADR 并重新生成索引。
 

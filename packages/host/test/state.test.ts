@@ -300,6 +300,17 @@ describe('排列偏好（D33）', () => {
     expect(removed.arrangement?.aligned?.boxes).toEqual({ first: { w: 1, h: 22 } })
   })
 
+  it('整齐盒子接受 30rem 以上的 2rem 档，并把不合档的写入收进去', () => {
+    const aligned = { mode: 'aligned' as const, aligned: { order: ['first'], boxes: { first: { w: 1, h: 32 } } } }
+    const current = { ...board(), instances: board().instances.slice(0, 1), arrangement: aligned }
+    const withUnit = withArrangementUnits(current, [], [{ id: 'new', box: { w: 1, h: 31 } }])
+    expect(withUnit.arrangement?.aligned?.boxes.new).toEqual({ w: 1, h: 32 })
+    expect(() => withBoardArrangement(current, {
+      mode: 'aligned',
+      aligned: { order: ['first'], boxes: { first: { w: 1, h: 32 } } },
+    })).not.toThrow()
+  })
+
   it('自由模式的看板加卡移卡不动偏好', () => {
     const current = { ...board(), arrangement: { mode: 'free' as const } }
     const added = withInstanceAdded(current, record('clock'))

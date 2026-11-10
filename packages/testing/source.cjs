@@ -139,7 +139,7 @@ async function sourcePass(page, check) {
   const dirty = await page.locator('[data-dsh-widget-board-source-save]').isEnabled()
   check('改了内容之后可以写下去', dirty)
 
-  // C09：写下去的是一个新��用户组件，原来的只读源没被动过。
+  // C09：写下去的是一个新用户组件，原来的只读源没被动过。
   await page.locator('[data-dsh-widget-board-source-save]').click()
   const written = await waitFor(async () => await hasWidget(page, suggested), 20000)
   check('只读源另存为一个新的用户组件', written, suggested)

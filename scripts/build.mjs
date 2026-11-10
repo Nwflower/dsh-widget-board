@@ -246,6 +246,7 @@ async function buildClientChunk() {
     banner: { js: CHUNK_OPEN },
     footer: { js: CHUNK_CLOSE },
   }, '.js')
+  checkClientBoundary(code)
   writeAtomic(path.join(LIB, 'client.source-editor.js'), code)
   return Buffer.byteLength(code)
 }

@@ -1,8 +1,8 @@
 /**
- * 高级源码面板（技术契约 4、C4）。
+ * 高级源码面板（D7）。
  *
  * 面板按来源规则给出能做什么：内置与插件提供的组件是只读源，编辑它们时另存为一个新的用户组件；
- * 已有用户组件默认另存，只有明确选了「更新全部实例」才就地改，并且要带 `expectedHash`（C4）。
+ * 已有用户组件默认另存，只有明确选了「更新全部实例」才就地改，并且要带 `expectedHash`。
  *
  * 编辑器按需加载：CodeMirror 那个分包在第一次打开高级模式时才去取。面板自己管文件的当前内容、
  * 预览与保存的每一步，按钮的可用状态由「有没有改动」与「来源能不能改」决定。
@@ -29,7 +29,7 @@ export interface SourceEditorPanelProps {
   theme: ShellTheme
   /** 写好了：带着新版本的信息交给页面。 */
   onSaved: (result: { id: string, hash: string }) => void
-  /** 当前的文件内容变了：预览面板按它重建（C6）。 */
+  /** 当前的文件内容变了：预览面板按它重建。 */
   onFilesChanged?: (files: Record<string, string>) => void
   /** 关掉面板。 */
   onClose: () => void
@@ -80,7 +80,9 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
   const [binaryFiles, setBinaryFiles] = useState<Record<string, string>>({})
   const revision = useRef<number | null>(null)
   const baseHash = useRef<string | null>(null)
-  /** 关闭时先问一句：存草稿、放弃还是继续编辑（C13）。 */
+  /** 本次面板里已经写成功的组件版本：应用失败后重试按它更新，不再当成新建。 */
+  const savedRef = useRef<{ id: string, hash: string } | null>(null)
+  /** 关闭时先问一句：存草稿、放弃还是继续编辑。 */
   const [confirmClose, setConfirmClose] = useState(false)
   /** 这一份草稿的 id：存过一次之后，继续编辑按它更新，不另起一份。 */
   const [draftId, setDraftId] = useState<string | null>(null)
@@ -102,7 +104,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
       if (!live) return
       setModel(next)
       baseHash.current = next.hash
-      // 宿主给的建议 id 优先：它才是真正写盘的那一份判定（C4）。
+      // 宿主给的建议 id 优先：它才是真正写盘的那一份判定。
       setTargetId(next.suggestedId ?? suggestedIdOf(next.id, next.source))
       setFiles({ 'widget.json': next.manifest, ...next.files })
       setBinaryFiles(next.binaryFiles ?? {})
@@ -120,7 +122,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
     return () => { live = false }
   }, [instanceId])
 
-  // 编辑器按需加载：第一次打开高级模式时才去取那个分包（技术契约 4）。
+  // 编辑器按需加载：第一次打开高级模式时才去取那个分包（D7）。
   useEffect(() => {
     let live = true
     loadSourceEditor().then((module) => {
@@ -172,7 +174,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
       || Object.entries(files).some(([path, text]) => path !== 'widget.json' && text !== (model.files[path] ?? ''))
   }, [files, model])
 
-  // 文件变了就把新的一份交给预览面板：它按这一份开预览会话（C6）。
+  // 文件变了就把新的一份交给预览面板：它按这一份开预览会话。
   useEffect(() => {
     onFilesChanged?.(files)
   }, [files, onFilesChanged])
@@ -186,7 +188,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
   }, [closeRequest])
 
   /**
-   * 存一份草稿：草稿住在插件自己的目录里，凭据值不进来（技术契约 4、C12）。
+   * 存一份草稿：草稿住在插件自己的目录里，凭据值不进来（D7）。
    *
    * @returns 存下的草稿 id；失败时是 `null`。
    */
@@ -211,7 +213,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
   }
 
   /**
-   * 恢复一份草稿：文件回到编辑器里，人可以接着改（C13）。
+   * 恢复一份草稿：文件回到编辑器里，人可以接着改。
    */
   const restoreDraft = async (id = draftId): Promise<void> => {
     if (id === null) return
@@ -234,7 +236,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
   }
 
   /**
-   * 关掉面板：有未保存的内容时先问一句——存草稿、放弃还是继续编辑（C13）。
+   * 关掉面板：有未保存的内容时先问一句——存草稿、放弃还是继续编辑。
    */
   const requestClose = (): void => {
     if (!changed || confirmClose) {
@@ -254,20 +256,25 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
     try {
       const parsed = JSON.parse(files['widget.json'] ?? '{}') as unknown
       const destination = updateAll && writable ? model.id : targetId
-      // manifest 的 id 要与目录名一致（C4）：另存时它跟着目标 id 一起改，就地改时不动。
+      // manifest 的 id 要与目录名一致：另存时它跟着目标 id 一起改，就地改时不动。
       const manifest = isRecord(parsed) ? { ...parsed, id: destination } : parsed
       const rest: Record<string, string> = {}
       for (const [path, text] of Object.entries(files)) {
         if (path === 'widget.json') continue
         rest[path] = text
       }
+      const expectedHash = updateAll && writable
+        ? baseHash.current ?? model.hash
+        : savedRef.current?.id === destination ? savedRef.current.hash : undefined
       const written = await defineWidget({
         id: destination,
         manifest,
         files: rest,
         binaryFiles,
-        ...(updateAll && writable ? { expectedHash: baseHash.current ?? model.hash } : {}),
+        ...(expectedHash === undefined ? {} : { expectedHash }),
       })
+      savedRef.current = { id: written.id, hash: written.hash }
+      baseHash.current = written.hash
       if (!updateAll && instanceId !== undefined) {
         const response = await fetch(instanceSourcePath(instanceId), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ widget: written.id, expectedHash: written.hash, expectedRevision: revision.current }) })
         if (!response.ok) {
@@ -275,7 +282,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
           throw new Error(failure.error ?? `应用失败：HTTP ${response.status}`)
         }
       }
-      // 正式保存成功之后才删除本次草稿（技术契约 4）。
+      // 正式保存成功之后才删除本次草稿（D7）。
       if (draftId !== null) await removeDraftRequest(draftId).catch(() => undefined)
       onSaved({ id: written.id, hash: written.hash })
     } catch (caught) {
@@ -368,7 +375,7 @@ export function SourceEditorPanel({ widgetId, instanceId, theme, onSaved, onFile
 
       {error === null ? null : <p className="dsh-widget-board__editor-error" role="alert">{error}</p>}
 
-      {/* 关闭时先问一句：存草稿、放弃还是继续编辑（C13）。 */}
+      {/* 关闭时先问一句：存草稿、放弃还是继续编辑。 */}
       {confirmClose
         ? (
           <footer className="dsh-widget-board__source-foot" data-dsh-widget-board-source-close-choice="">

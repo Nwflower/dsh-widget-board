@@ -41,9 +41,6 @@
     "./package.json": "./package.json"
   },
   "dsh": {
-    "engines": {
-      "dsh": ">=0.2.1-rc.1"
-    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
@@ -74,7 +71,8 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24.9.0",
+    "dsh": ">=0.2.2-rc.2"
   },
   "peerDependencies": {
     "react": "^18.2.0"

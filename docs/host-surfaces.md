@@ -1,6 +1,6 @@
 # 宿主接入面
 
-方案依赖的宿主能力，以及每一项的出处。核实时的宿主是全局安装的 `@deepseek-ai/dsh` 0.2.1-rc.1，宿主包在它的 `node_modules/@deepseek-ai/` 下，类型声明在各包的 `lib/types/`。下文的「任务看板」指 `dsh-web` 仓库的 `packages/dsh-task-board`（本机只读副本：`D:\DSH\dsh-claude-style\.debug\dsh-web\packages\dsh-task-board`）。
+方案依赖的宿主能力，以及每一项的出处。核实时的宿主是全局安装的 `@deepseek-ai/dsh` 0.2.2-rc.3，宿主包在它的 `node_modules/@deepseek-ai/` 下，类型声明在各包的 `lib/types/`。下文的「任务看板」指 `dsh-web` 仓库的 `packages/dsh-task-board`（本机只读副本：`D:\DSH\dsh-claude-style\.debug\dsh-web\packages\dsh-task-board`）。
 
 这些条目在 `packages/contracts` 的契约表建立后搬进契约表，各带一条契约测试（D1），本文件随之删去对应条目。
 
@@ -17,6 +17,8 @@
 - **两个 `inject` 不是一回事**：`package.json` 的 `dsh.client.inject` 只排模块行的到达次序（包名，供 entry 组合与 factory 到达），不注入任何服务；服务注入写在插件导出的 `inject` 上。把服务名写进前者不会报错，也不会生效。出处：`DshClientManifest` 的注释、`WebBootEntry` 的 `inject`；本仓库的 `packages/testing/fixtures/provider/package.json` 与 `client.js`。
 - **提供方的类型入口只含类型**：根包 `exports["./service"]` 的条件只有 `types`，指向 `tsc --emitDeclarationOnly` 从 `packages/contracts/src` 写出的声明；提供方用 `import type` 取类型，运行时读 `service.apiVersion`，不导入版本常量或 `versionMismatch`。出处：本仓库的 `package.json`、`tsconfig.types.json`、`scripts/check-provider-types.mjs`。
 - **插件页的开关能停用与启用提供方**：插件管理页的 bundle 开关调用 `pluginManager/setBundleEnabled`，行开关调用 `setPluginEnabled`；本仓库的冒烟经行开关停用与启用提供方，核对组件库、数据源、动作与授权的撤下和恢复。出处：`dsh-client-ui-plugin-manager/lib/client.js` 的 `setEnabled`/`setRowEnabled` 与 `data-plugin-package`/`data-plugin-row` 标记；本仓库的 `packages/testing/provider.cjs`。
+- **顶层兼容性声明**：宿主 `app-boot` 读取插件 `package.json` 顶层的 `engines.dsh`（及 `engines.node >= 24.9.0`）核对运行时版本；写在 `dsh.engines` 下会被忽略。出处：宿主 `@deepseek-ai/dsh-app-boot` 的 `plugin-compatibility.ts` 与 `dsh-package-manifest` 的 `types.ts`。
+- **浏览器半边样式**：宿主在 `ui-renderer` 中为构建期提取元信息的静态库挂载 `<style data-plugin="..." data-path="...">`；本插件将样式表内联后在 `entry.ts` 的 `ctx.effect` 中自行挂载并移除 `<style data-plugin="dsh-widget-board">`。出处：本仓库的 `packages/client/src/style.ts` 与宿主 `@deepseek-ai/dsh-client-ui-renderer`。
 
 ### 界面表面
 
@@ -37,8 +39,8 @@
 - **skill**：`ctx.skills.register(SkillRegistration)` 注册运行时 skill。出处：`dsh-skill/lib/types/index.d.ts`。
 - **虚拟 skill 会被列出来、模型能加载**（D9）：注册的 `widget-authoring` 在一个空的临时会话里输入 `/` 之后出现在「技能」一节；`invocation.modelInvocable` 与 `userInvocable` 都为真。出处：本仓库的 `packages/host/src/tools/index.ts`，在 0.2.1-rc.2 的真实临时宿主里核实（`packages/testing/dsh-web.cjs` 起的实例，打开新会话输入 `/`）。
 - **工具视图在 `result` 阶段读得到工具写的那一份数据**（D9）：工具注册项可以用 `output.presentationMeta(args, value)` 把一份 JSON 交给 `tool/result` 的 `meta`，视图的 `result` 阶段从 `block.meta` 读到同一份（`ToolResultNode` 的 `meta`）。出处：`dsh-tools/lib/types/index.d.ts` 的 `ToolOutputDefinition.presentationMeta` 与 `dsh-client-ui-conversation/lib/types/client/contract/records.d.ts` 的 `ToolResultNode`（0.2.1-rc.2，按类型声明核实）。会话重新打开时按同一份重画与视图在真实会话里的样子，还没有人在场的端到端核对（D9 的完成判据）。
-- **路由**：`ctx.webServer.register(route)`（`WebRoute` 来自 `@deepseek-ai/dsh-host-webserver`）交给插件原始请求，宿主的 `/api` 栅栏不覆盖插件路由。插件自己调用 `ctx.get('connection')?.requestRejection(req)` 借用宿主的栅栏与认证；没有这项服务时只放行本机回环。出处：`D:\DSH\dsh-claude-style\packages\engine\node\http.ts`。
-- **组件文档路由与 CSP 在真实宿主里跑通**（D3）：`kind: 'prefix'` 的一条路由交给插件整棵子树；`sandbox="allow-scripts"` 的 iframe 指向按哈希寻址的文档，文档里的运行时与组件脚本以内联 `<script nonce=…>` 运行，响应头的 CSP 是 `default-src 'none'`、`connect-src 'none'`；iframe 的导航请求带着会话 cookie，`requestRejection({ headers })` 放行。出处：本仓库的 `packages/host/src/routes.ts` 与 `packages/testing/smoke.cjs`（在 0.2.1-rc.1 上实证）。
+- **路由**：`ctx.webServer.register({ kind: 'prefix', path, auth: 'required', handler })`（`WebRoute` 来自 `@deepseek-ai/dsh-host-webserver`）注册受保护路由，宿主 `WebServer` 在进入 `handler(req, res, peer)` 前经 `webserver/authorize` 完成来源检查与凭据认证并传入 `peer`（省略 `auth` 时宿主缺省同样为 `'required'`）。未经过 `WebServer` 准入（`peer === undefined`）时，本插件调用 `ctx.get('connection')?.admit(req)` 进行来源校验与认证；没有连接服务时只放行本机回环同站请求。出处：`@deepseek-ai/dsh-host-webserver` 的 `WebServer` 与 `@deepseek-ai/dsh-client-connection` 的 `rpc-host.ts`；本仓库的 `packages/host/src/index.ts` 与 `packages/host/src/routes.ts`。
+- **组件文档路由与 CSP 在真实宿主里跑通**（D3）：`kind: 'prefix'`、`auth: 'required'` 的一条路由交给插件整棵子树；`sandbox="allow-scripts"` 的 iframe 指向按哈希寻址的文档，文档里的运行时与组件脚本以内联 `<script nonce=…>` 运行，响应头的 CSP 是 `default-src 'none'`、`connect-src 'none'`；iframe 的导航请求带着同源会话 cookie，经宿主 `WebServer` 准入后放行。出处：本仓库的 `packages/host/src/routes.ts` 与 `packages/testing/smoke.cjs`（在 0.2.2-rc.3 上核实）。
 - **插件的私有路由必须放在 `/api/` 下，浏览器半边用文档相对的地址**（D1）：桌面外壳的页面来源是 `dsh-app://app`，它的协议处理器只把 `/api/*` 转给宿主的 web 服务——`api/task-board/state` 回 200，`plugins/…` 回 404，随包发布的客户端脚本地址也是文档相对的（`plugins/??<包名>/client.js` 没有开头斜杠）。前缀因此定成 `/api/widget-board`，客户端只从 `CLIENT_ROUTE` 拼地址。同一协议下的沙箱 iframe 指向 `api/…` 能正常加载（`load` 事件与 `contentWindow` 都正常）。出处：任务看板 `src/protocol.ts` 与 `src/client/host-api.ts` 的「DOCUMENT-RELATIVE」注释；本仓库在桌面外壳的页面里实测。
 - **凭据**：`ctx.get('credentials')` 是凭据接缝，`describe(ref)` 回 `{ configured, source?, writable }`（永不回值），`set(ref, value)` 与 `unset(ref)` 写提供方管理的存储。来源层由提供方定义（本地提供方用 `env`、`file`、`project-env`、`user-env`），启动环境供值的项是只读的。形状按本插件用到的部分记在 `packages/contracts/src/host.ts` 的 `credentialsOf`。出处：`dsh-credentials/lib/types/index.d.ts` 与 `dsh-credentials-local` 的 README（0.2.1-rc.2）。
 - **凭据的值只有宿主半边读得到**：`resolve(ref)` 回 `{ value, source }` 或 `undefined`，每次操作现取、不跨操作缓存（改过的值下一次就生效）。本地提供方的文件是 `<DSH_HOME>/.credentials.yaml`，`refs:` 下按环境变量名存值，改完自动重载。看板只在代发外部请求时读值，卡片与设置弹窗读的都是 `describe`。出处：`dsh-credentials/lib/types/index.d.ts` 的 `CredentialProvider.resolve` 与 `dsh-credentials-local` 的 README（本地文件格式与重载）。

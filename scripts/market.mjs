@@ -120,8 +120,8 @@ function check(toolingOf) {
   if (compatibility.boardVersion !== rootPackage.version) {
     problems.push(`兼容表的看板版本是 ${compatibility.boardVersion}，package.json 的 version 是 ${String(rootPackage.version)}`)
   }
-  if (compatibility.dsh !== rootPackage.dsh?.engines?.dsh) {
-    problems.push(`兼容表的 DSH 下限是 ${compatibility.dsh}，package.json 的 dsh.engines.dsh 是 ${String(rootPackage.dsh?.engines?.dsh)}`)
+  if (compatibility.dsh !== rootPackage.engines?.dsh) {
+    problems.push(`兼容表的 DSH 下限是 ${compatibility.dsh}，package.json 的 engines.dsh 是 ${String(rootPackage.engines?.dsh)}`)
   }
   let index
   try {

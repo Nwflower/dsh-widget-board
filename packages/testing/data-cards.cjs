@@ -50,8 +50,8 @@ function prepareCardsProbe() {
     type: 'module',
     main: 'host.js',
     exports: { '.': './host.js', './package.json': './package.json' },
+    engines: { dsh: '>=0.2.2-rc.2' },
     dsh: {
-      engines: { dsh: '>=0.2.1-rc.1' },
       bundle: { patch: './cordis.patch.yml' },
     },
   }, null, 2) + '\n')

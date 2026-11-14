@@ -269,14 +269,14 @@ function readerOf(context: unknown): SessionReader | undefined {
   return query ?? undefined
 }
 
-/** 释放一次观察的租约：宿主经 `Symbol.dispose` 收回，也有宿主给一个具名的 `dispose`。 */
+/** 释放一次观察的租约：宿主经 `Symbol.dispose` 收回，旧宿主提供具名的 `dispose`。 */
 function release(observation: { [Symbol.dispose]?(): void, dispose?(): void }): void {
-  if (typeof observation.dispose === 'function') {
-    observation.dispose()
+  const symbolDispose = observation[Symbol.dispose]
+  if (typeof symbolDispose === 'function') {
+    symbolDispose.call(observation)
     return
   }
-  const dispose = (observation as { [Symbol.dispose]?: () => void })[Symbol.dispose]
-  if (typeof dispose === 'function') dispose.call(observation)
+  if (typeof observation.dispose === 'function') observation.dispose()
 }
 
 /**

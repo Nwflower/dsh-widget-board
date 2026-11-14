@@ -47,6 +47,8 @@ DeepSeek Harness 的组件看板：一页可以拖动、缩放的卡片，每张
 
 ## 安装
 
+要求 DeepSeek Harness `>= 0.2.2-rc.2` 与 Node.js `>= 24.9.0`。
+
 ```sh
 dsh plugin add dsh-widget-board
 ```

@@ -1,0 +1,8 @@
+{
+  "at": "2026-11-14",
+  "group": "fixes",
+  "order": 0,
+  "external": true,
+  "zh": "适配 DeepSeek Harness 0.2.2：插件路由显式声明必填认证并接收宿主准入的 peer 上下文（未经过宿主准入层时退回 connection.admit），将兼容性字段 engines.dsh 移至根 package.json 顶层并设为 >=0.2.2-rc.2，同时将 Node.js 最低版本更新为 >=24.9.0，优先使用 Symbol.dispose 释放会话日志观察租约。",
+  "en": "Adapt to DeepSeek Harness 0.2.2: declare auth: 'required' on the plugin HTTP route and accept the admitted peer (falling back to connection.admit when called outside WebServer), move engines.dsh to top-level engines (>=0.2.2-rc.2) alongside engines.node >=24.9.0, and prefer Symbol.dispose when releasing session log observations."
+}

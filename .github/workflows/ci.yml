@@ -70,7 +70,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       # 宿主装进全局：冒烟用 `dsh plugin add` 把本仓库装进临时 profile，再起 `dsh web`。
-      - run: npm install --global pnpm@11 @deepseek-ai/dsh@0.2.1-rc.1
+      - run: npm install --global pnpm@11 @deepseek-ai/dsh@0.2.2-rc.3
         timeout-minutes: 10
       - run: npm run smoke
         timeout-minutes: 20

@@ -20,7 +20,7 @@ const sheet = `${board}\n${tabs}\n${management}\n${settings}\n${editor}\n${edito
 /**
  * 把本插件的样式表挂进文档头。
  *
- * 加载器按 `data-plugin` 与 `data-plugin-css` 认领插件自己的 `<style>`，卸载插件时一并移除。
+ * 返回的清理函数由 `entry.ts` 的 `ctx.effect` 持有，在插件停用或卸载时移除该 `<style>` 元素。
  *
  * @returns 移除这个样式元素的函数。
  */

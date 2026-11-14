@@ -1,7 +1,7 @@
 /**
  * 宿主服务的契约（D1）：名字与它们读成的形状只在这里写一次。
  *
- * 出处是 `dsh-host-webserver` 的 `WebRoute` 与 `dsh-client-connection` 的
+ * 出处是 `@deepseek-ai/dsh-host-webserver` 的 `WebRoute` 与 `@deepseek-ai/dsh-client-connection` 的
  * `HostConnectionHandle` 类型声明；这些包不是本仓库的依赖，所以形状在这里按宿主实际用到的部分记
  * 一次，宿主半边只从这里读。服务可能缺席时由调用方给出可见的说法（D11）。
  */
@@ -53,7 +53,9 @@ export async function withRequestSignal<T>(request: HostRequest, response: HostR
 export interface HostRoute {
   kind: 'exact' | 'prefix'
   path: string
-  handler: (req: HostRequest, res: HostResponse) => void | Promise<void>
+  /** 路由准入策略；宿主缺省按 `required` 处理，认证通过后向 `handler` 传入 `peer`。 */
+  auth?: 'anonymous' | 'required' | 'deny'
+  handler: (req: HostRequest, res: HostResponse, peer?: unknown) => void | Promise<void>
 }
 
 /**
@@ -67,9 +69,13 @@ export interface HostWebServer {
   getOrigin?: () => string
 }
 
-/** 宿主的请求栅栏与认证：被拒绝时给出状态码，放行时是 `undefined`。 */
+/** 宿主的请求来源检查与认证：放行时给出 `peer`，拒绝时给出状态码。 */
 export interface HostConnection {
-  requestRejection(request: { headers: Record<string, string | string[] | undefined> }): 401 | 403 | undefined
+  admit(request: {
+    method?: string
+    url: string
+    headers: Record<string, string | readonly string[] | undefined>
+  }): { peer: unknown } | { rejection: 401 | 403 }
 }
 
 /**

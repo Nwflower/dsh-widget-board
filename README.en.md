@@ -47,6 +47,8 @@ Every widget runs in its own sandboxed iframe: a strict CSP, no network and no c
 
 ## Install
 
+Requires DeepSeek Harness `>= 0.2.2-rc.2` and Node.js `>= 24.9.0`.
+
 ```sh
 dsh plugin add dsh-widget-board
 ```

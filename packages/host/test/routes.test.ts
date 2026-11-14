@@ -134,7 +134,7 @@ interface Harness {
   context: RouteContext
   events: BoardEvent[]
   home: string
-  send(method: string, path: string, body?: string, remote?: string): Promise<Capture>
+  send(method: string, path: string, body?: string, remote?: string, peer?: unknown): Promise<Capture>
 }
 
 /** 这一轮起的临时目录，测试结束一并删掉。 */
@@ -250,9 +250,9 @@ async function harness(
     context,
     events,
     home,
-    async send(method, path, body, remote) {
+    async send(method, path, body, remote, peer) {
       const response = new Capture()
-      await handler(request(method, path, body, remote), response)
+      await handler(request(method, path, body, remote), response, peer)
       return response
     },
   }
@@ -299,6 +299,34 @@ describe('工作区快照', () => {
   it('不是本机来的请求被拒绝', async () => {
     const response = await (await harness()).send('GET', '/boards', undefined, '10.0.0.5')
     expect(response.status).toBe(403)
+  })
+
+  it('宿主 WebServer 已传入 peer 时直接放行请求', async () => {
+    const response = await (await harness()).send('GET', '/boards', undefined, '10.0.0.5', { id: 'p1' })
+    expect(response.status).toBe(200)
+  })
+
+  it('未传 peer 时交由 connection.admit 判定放行或拒绝', async () => {
+    const test = await harness()
+    const seen: Array<{ method?: string, url: string, headers: Record<string, string | readonly string[] | undefined> }> = []
+    let next: { peer: unknown } | { rejection: 401 | 403 } = { peer: { id: 'ok' } }
+    test.context.connection = {
+      admit(req) {
+        seen.push(req)
+        return next
+      },
+    }
+    expect((await test.send('GET', '/boards', undefined, '10.0.0.5')).status).toBe(200)
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.method).toBe('GET')
+    expect(seen[0]?.url).toBe(`http://127.0.0.1:3080${PLUGIN_ROUTE}/boards`)
+    expect(seen[0]?.headers.host).toBe('127.0.0.1:3080')
+
+    next = { rejection: 401 }
+    expect((await test.send('GET', '/boards')).status).toBe(401)
+
+    next = { rejection: 403 }
+    expect((await test.send('GET', '/boards')).status).toBe(403)
   })
 })
 

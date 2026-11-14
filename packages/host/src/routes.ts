@@ -172,11 +172,28 @@ function isLoopback(address: string | undefined): boolean {
  * 一条请求能不能进来。
  *
  * @param request - 宿主的请求。
- * @param connection - 宿主的栅栏；没有时按回环地址与同站标记判定。
+ * @param connection - 宿主的连接服务；未经过 `WebServer` 准入且存在连接服务时转交 `admit`，没有时按回环地址与同站标记判定。
+ * @param peer - 宿主 `WebServer` 完成准入后传入的对端上下文。
  * @returns 拒绝时的状态码，放行时是 `undefined`。
  */
-function rejectionOf(request: HostRequest, connection: HostConnection | undefined): 401 | 403 | undefined {
-  if (connection !== undefined) return connection.requestRejection({ headers: request.headers })
+function rejectionOf(request: HostRequest, connection: HostConnection | undefined, peer: unknown): 401 | 403 | undefined {
+  if (peer !== undefined) return undefined
+  if (connection !== undefined) {
+    const host = typeof request.headers.host === 'string' && request.headers.host !== '' ? request.headers.host : '127.0.0.1'
+    let url: string
+    try {
+      url = new URL(request.url ?? '/', `http://${host}`).href
+    } catch {
+      // Host 头无法构成合法 URL 时按来源不可信直接拒绝。
+      return 403
+    }
+    const admission = connection.admit({
+      ...(request.method === undefined ? {} : { method: request.method }),
+      url,
+      headers: request.headers,
+    })
+    return 'rejection' in admission ? admission.rejection : undefined
+  }
   if (!isLoopback(request.socket?.remoteAddress)) return 403
   return request.headers['sec-fetch-site'] === 'cross-site' ? 403 : undefined
 }
@@ -626,9 +643,9 @@ function recordOfCard(context: RouteContext, id: string): WidgetRecord {
  * @param context - 组件库、工作区、通知器与栅栏；`records` 与 `entries` 会在热重载时被替换。
  * @returns 交给宿主 web 服务的处理器。
  */
-export function createHandler(context: RouteContext): (req: HostRequest, res: HostResponse) => Promise<void> {
-  return async (request, response) => {
-    const rejection = rejectionOf(request, context.connection)
+export function createHandler(context: RouteContext): (req: HostRequest, res: HostResponse, peer?: unknown) => Promise<void> {
+  return async (request, response, peer) => {
+    const rejection = rejectionOf(request, context.connection, peer)
     if (rejection !== undefined) {
       response.writeHead(rejection)
       response.end()

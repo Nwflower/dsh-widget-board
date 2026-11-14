@@ -206,7 +206,7 @@ async function alignedGesturesPass(page, check) {
     await page.waitForFunction(async ({ id, revision }) => (await (await fetch('api/widget-board/boards')).json()).boards.find(board => board.id === id).layoutRevision > revision, { id, revision: board.layoutRevision })
     const moved = activeBoard(await workspace(page))
     check('整齐模式在自身格子内拖动保持顺序', JSON.stringify(moved.arrangement.aligned.order) === JSON.stringify(ids))
-    await page.setViewportSize({ width: 640, height: 900 })
+    await page.setViewportSize({ width: 520, height: 900 })
     await page.waitForFunction(() => document.querySelector('[data-dsh-widget-board-columns]')?.getAttribute('data-dsh-widget-board-columns') === '1')
     await card.scrollIntoViewIfNeeded()
     await settled(page)

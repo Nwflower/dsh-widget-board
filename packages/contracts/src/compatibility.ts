@@ -16,7 +16,7 @@ export interface BoardCompatibility {
   readonly serviceApiVersions: readonly number[]
   /** 服务面提供的功能；与 `WIDGET_BOARD_FEATURES` 是同一份。 */
   readonly features: readonly WidgetBoardFeature[]
-  /** 最低 DSH 版本（一条 semver 范围）；与根 `package.json` 的 `dsh.engines.dsh` 相同。 */
+  /** 最低 DSH 版本（一条 semver 范围）；与根 `package.json` 的 `engines.dsh` 相同。 */
   readonly dsh: string
 }
 
@@ -25,7 +25,7 @@ export const BOARD_COMPATIBILITY: BoardCompatibility = Object.freeze({
   boardVersion: '0.1.6',
   serviceApiVersions: WIDGET_BOARD_SUPPORTED_API_VERSIONS,
   features: WIDGET_BOARD_FEATURES,
-  dsh: '>=0.2.1-rc.1',
+  dsh: '>=0.2.2-rc.2',
 })
 
 /**

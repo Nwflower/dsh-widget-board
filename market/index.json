@@ -9,7 +9,7 @@
       "zh": "看板的组件市场原型：索引、包与浏览页都放在 GitHub Pages 的 market/ 子路径下。",
       "en": "Prototype widget market: the index, packages and browse page live under market/ on GitHub Pages."
     },
-    "updatedAt": "2026-10-30T01:02:34.894Z"
+    "updatedAt": "2026-11-14T05:16:42.299Z"
   },
   "widgets": [
     {
@@ -37,7 +37,7 @@
           "version": "1.0.0",
           "package": {
             "url": "packages/nwflower.example-basic-1.0.0.dshw",
-            "sha256": "c27b93e69fcaf31e7f35d98252bbdf10634bd31b65a78bdbfef784e8ae1aabcc",
+            "sha256": "fb281043aca24dca3663de43252f9c7e0d74bdb90a16f2b3c4201fc4a869bf9e",
             "bytes": 1120
           },
           "sizes": [
@@ -46,7 +46,7 @@
           ],
           "requires": {
             "serviceApiVersion": 3,
-            "dsh": ">=0.2.1-rc.1"
+            "dsh": ">=0.2.2-rc.2"
           },
           "declares": {}
         }
@@ -76,7 +76,7 @@
           "version": "1.0.0",
           "package": {
             "url": "packages/nwflower.clock-1.0.0.dshw",
-            "sha256": "b78dbb40cfa10e1c47702c14ca07b56f318039a7083e009eed0de7d6c0260f09",
+            "sha256": "3a5a0ed4189d8ca48d7fe98b056f5b022d273e9bc721e2416149b04a8a9e634a",
             "bytes": 5644
           },
           "sizes": [
@@ -85,7 +85,7 @@
           ],
           "requires": {
             "serviceApiVersion": 3,
-            "dsh": ">=0.2.1-rc.1"
+            "dsh": ">=0.2.2-rc.2"
           },
           "declares": {}
         }

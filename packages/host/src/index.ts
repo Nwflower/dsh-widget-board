@@ -340,13 +340,14 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   const disposeRoute = webServerOf(ctx).register({
     kind: 'prefix',
     path: PLUGIN_ROUTE,
-    handler: async (request, response) => {
+    auth: 'required',
+    handler: async (request, response, peer) => {
       if (!enabled) {
         response.writeHead(503, { 'content-type': 'application/json; charset=utf-8' })
         response.end(JSON.stringify({ error: '组件看板已经被关掉，在设置里打开它' }))
         return
       }
-      await handler(request, response)
+      await handler(request, response, peer)
     },
   })
 

@@ -14,8 +14,11 @@ import {
   HOST_SESSIONS_SERVICE,
   HOST_WORKSPACE_REGISTRY_SERVICE,
   MAIN_SLOT,
+  SETTINGS_SECTION_SLOT,
   SIDEBAR_PANELLIST_SLOT,
+  TOOL_VIEW_SLOT,
   WIDGET_BOARD_PANEL_ID,
+  connectionOf,
   onSessionEvent,
   sessionsOf,
   workspaceRegistryOf,
@@ -33,6 +36,12 @@ describe('根 manifest', () => {
 
   it('浏览器半边声明成 web 平台', () => {
     expect(manifest.dsh.client.platform).toBe('web')
+  })
+
+  it('引擎与 DSH 兼容性声明位于顶层 engines', () => {
+    expect(manifest.engines.node).toBe('>=24.9.0')
+    expect(manifest.engines.dsh).toBe('>=0.2.2-rc.2')
+    expect(manifest.dsh.engines).toBeUndefined()
   })
 
   it('补丁行的名字就是包名', () => {
@@ -53,7 +62,16 @@ describe('插槽契约', () => {
 
   it('每个插槽名在 docs/host-surfaces.md 里都有出处', () => {
     const doc = readFileSync(path.join(ROOT, 'docs', 'host-surfaces.md'), 'utf8')
-    for (const slot of [SIDEBAR_PANELLIST_SLOT, MAIN_SLOT]) expect(doc).toContain(`'${slot}'`)
+    for (const slot of [SIDEBAR_PANELLIST_SLOT, MAIN_SLOT, SETTINGS_SECTION_SLOT, TOOL_VIEW_SLOT]) expect(doc).toContain(`'${slot}'`)
+  })
+})
+
+describe('连接服务契约', () => {
+  it('服务缺席时读成 undefined，出现时原样交回', () => {
+    expect(connectionOf({})).toBeUndefined()
+    expect(connectionOf({ get: () => undefined })).toBeUndefined()
+    const connection = { admit: () => ({ peer: {} }) }
+    expect(connectionOf({ get: (name: string) => (name === 'connection' ? connection : undefined) })).toBe(connection)
   })
 })
 

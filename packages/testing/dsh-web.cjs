@@ -56,6 +56,7 @@ function ensureWorkspace(home) {
   if (fs.existsSync(file)) return
   const directory = path.join(home, 'workspace')
   fs.mkdirSync(directory, { recursive: true })
+  const workspacePath = fs.realpathSync(directory)
   fs.mkdirSync(storages, { recursive: true })
   const id = randomUUID()
   const now = new Date().toISOString()
@@ -70,7 +71,7 @@ function ensureWorkspace(home) {
     },
     tables: {
       workspaces: {
-        [id]: { path: directory, title: 'widget-board-scratch', sessionIds: [], createdAt: now, updatedAt: now },
+        [id]: { path: workspacePath, title: 'widget-board-scratch', sessionIds: [], createdAt: now, updatedAt: now },
       },
     },
   }, null, 2)}\n`)

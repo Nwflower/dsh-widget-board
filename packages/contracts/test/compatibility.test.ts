@@ -19,7 +19,7 @@ import {
 
 const PACKAGE = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as {
   version: string
-  dsh?: { engines?: { dsh?: string } }
+  engines?: { node?: string, dsh?: string }
 }
 const validateManifest = new Ajv({ allErrors: true, strict: true }).compile(WIDGET_MANIFEST_SCHEMA)
 
@@ -33,8 +33,8 @@ describe('兼容表与仓库', () => {
     expect(BOARD_COMPATIBILITY.boardVersion).toBe(PACKAGE.version)
   })
 
-  it('DSH 下限与 package.json 的 dsh.engines.dsh 相同', () => {
-    expect(BOARD_COMPATIBILITY.dsh).toBe(PACKAGE.dsh?.engines?.dsh)
+  it('DSH 下限与 package.json 的 engines.dsh 相同', () => {
+    expect(BOARD_COMPATIBILITY.dsh).toBe(PACKAGE.engines?.dsh)
   })
 
   it('服务版本集合是 [2, 3]，与服务器那份常量是同一份', () => {
